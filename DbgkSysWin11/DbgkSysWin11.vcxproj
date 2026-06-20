@@ -1,0 +1,299 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{6D281073-FCA3-45A1-935A-1604CEDBBE79}</ProjectGuid>
+    <TemplateGuid>{dd38f7fc-d7bd-488b-9242-7d8754cde80d}</TemplateGuid>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <MinimumVisualStudioVersion>12.0</MinimumVisualStudioVersion>
+    <Configuration>Debug</Configuration>
+    <Platform Condition="'$(Platform)' == ''">x64</Platform>
+    <RootNamespace>DbgkSysWin11</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <TargetVersion>
+    </TargetVersion>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
+    <ConfigurationType>Driver</ConfigurationType>
+    <DriverType>WDM</DriverType>
+    <Driver_SpectreMitigation>false</Driver_SpectreMitigation>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <TargetVersion>
+    </TargetVersion>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
+    <ConfigurationType>Driver</ConfigurationType>
+    <DriverType>WDM</DriverType>
+    <Driver_SpectreMitigation>false</Driver_SpectreMitigation>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <TargetVersion>Windows10</TargetVersion>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
+    <ConfigurationType>Driver</ConfigurationType>
+    <DriverType>WDM</DriverType>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <TargetVersion>Windows10</TargetVersion>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
+    <ConfigurationType>Driver</ConfigurationType>
+    <DriverType>WDM</DriverType>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
+    <IncludePath>$(MSBuildProjectDirectory)\..\Common;$(MSBuildProjectDirectory)\..\Common\Ring0;$(VC_IncludePath);$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
+    <IncludePath>$(MSBuildProjectDirectory)\..\Common;$(MSBuildProjectDirectory)\..\Common\Ring0;$(VC_IncludePath);$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
+    <EnableInf2cat>false</EnableInf2cat>
+    <IncludePath>$(MSBuildProjectDirectory);$(MSBuildProjectDirectory)\..\Common;$(MSBuildProjectDirectory)\..\Common\Ring0;$(VC_IncludePath);$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
+    <EnableInf2cat>false</EnableInf2cat>
+    <IncludePath>$(MSBuildProjectDirectory);$(MSBuildProjectDirectory)\..\Common;$(MSBuildProjectDirectory)\..\Common\Ring0;$(VC_IncludePath);$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <WarningLevel>Level3</WarningLevel>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <LanguageStandard_C>stdc11</LanguageStandard_C>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>$(MSBuildProjectDirectory)\..\Common\Ring0\SymbolicAccessKM.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <DriverSign>
+      <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
+    </DriverSign>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Link>
+      <AdditionalDependencies>$(MSBuildProjectDirectory)\..\Common\Ring0\SymbolicAccessKM.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <PreprocessorDefinitions>DEBUG;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <DriverSign>
+      <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
+    </DriverSign>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <FilesToPackage Include="$(TargetPath)" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\ApcInject.cpp" />
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\ApcCore.cpp" />
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\ThreadLookup.cpp" />
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\ApcQueue.cpp" />
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\ModuleResolver.cpp" />
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\UserModuleLookup.cpp" />
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\ApiSetResolver.cpp" />
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\ImagePathResolver.cpp" />
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\SxsResolver.cpp" />
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\ExportResolver.cpp" />
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\RemoteRoutineCall.cpp" />
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\ShellcodeBuilder.cpp" />
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\UtilityFunctions.cpp" />
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\StringUtilities.cpp" />
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\KernelResolver.cpp" />
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\ThreadExecution.cpp" />
+    <ClCompile Include="..\Common\Ring0\String\Basics\StringBasics.cpp" />
+    <ClCompile Include="..\Common\Ring0\String\Memory\StringMemory.cpp" />
+    <ClCompile Include="..\Common\Ring0\String\Parsing\StringParsing.cpp" />
+    <ClCompile Include="..\Common\Ring0\String\Process\StringProcess.cpp" />
+    <ClCompile Include="..\Common\Ring0\String\Search\StringSearch.cpp" />
+    <ClCompile Include="DbgkApi\Api\CreateDebugObject.cpp" />
+    <ClCompile Include="DbgkApi\Api\DebugActiveProcess.cpp" />
+    <ClCompile Include="DbgkApi\Api\DebugActiveProcessAttach.cpp" />
+    <ClCompile Include="DbgkApi\Api\DebugActiveProcessEntry.cpp" />
+    <ClCompile Include="DbgkApi\Api\WaitForDebugEvent.cpp" />
+    <ClCompile Include="DbgkApi\Api\DebugContinue.cpp" />
+    <ClCompile Include="DbgkApi\Api\RemoveProcessDebug.cpp" />
+    <ClCompile Include="DbgkApi\Api\SetInformationDebugObject.cpp" />
+    <ClCompile Include="DbgkApi\Api\DebugObjectCommon.cpp" />
+    <ClCompile Include="DbgkApi\Api\DebugObjectEvents.cpp" />
+    <ClCompile Include="DbgkApi\Api\DebugObjectLifecycle.cpp" />
+    <ClCompile Include="DbgkApi\Api\DebugProcessUnload.cpp" />
+    <ClCompile Include="DbgkApi\Api\DebugProcessRegistry.cpp" />
+    <ClCompile Include="DbgkApi\Api\DebugMessageQueue.cpp" />
+    <ClCompile Include="DbgkApi\Api\DebugExceptionForward.cpp" />
+    <ClCompile Include="DbgkApi\Api\DebugThreadCreate.cpp" />
+    <ClCompile Include="DbgkApi\Api\DebugImageEvents.cpp" />
+    <ClCompile Include="DbgkApi\Api\DebugExitEvents.cpp" />
+    <ClCompile Include="DbgkApi\Api\OpenProcessDebugPort.cpp" />
+    <ClCompile Include="DebugBreak\Core\DebugBreakCore.cpp" />
+    <ClCompile Include="DebugBreak\Hardware\HardwareBreakpoint.cpp" />
+    <ClCompile Include="DebugBreak\Software\SoftwareBreakpoint.cpp" />
+    <ClCompile Include="Encrypt\Blowfish\Blowfish.cpp" />
+    <ClCompile Include="Encrypt\Blowfish\BlowfishApi.cpp" />
+    <ClCompile Include="Encrypt\Blowfish\BlowfishCore.cpp" />
+    <ClCompile Include="Encrypt\Blowfish\BlowfishUtilities.cpp" />
+    <ClCompile Include="Globals\Globals.cpp" />
+    <ClCompile Include="Hooks\EptHook\Core\EptHookLifecycle.cpp" />
+    <ClCompile Include="Hooks\EptHook\Core\EptHookMemoryObject.cpp" />
+    <ClCompile Include="Hooks\EptHook\Core\EptHookNtosDebug.cpp" />
+    <ClCompile Include="Hooks\EptHook\Core\EptHookThreadProcess.cpp" />
+    <ClCompile Include="Hooks\EptHook\Core\EptHookWin32k.cpp" />
+    <ClCompile Include="Hvm\HypervisorGatewayApi.cpp" />
+    <ClCompile Include="Hvm\HypervisorGatewayBroadcast.cpp" />
+    <!-- Core modules -->
+    <ClCompile Include="Core\DriverMain.cpp" />
+    <ClCompile Include="Core\IoctlDispatch.cpp" />
+    <ClCompile Include="Core\IoctlDispatchClient.cpp" />
+    <ClCompile Include="Core\IoctlDispatchBreakpoints.cpp" />
+    <ClCompile Include="Core\IoctlHandlers\IoctlUserData.cpp" />
+    <ClCompile Include="Core\IoctlHandlers\ClientRequestHandlers.cpp" />
+    <ClCompile Include="Core\IoctlHandlers\ProtectListHandlers.cpp" />
+    <ClCompile Include="Core\IoctlHandlers\DebuggerInfoHandlers.cpp" />
+    <ClCompile Include="Core\HookSetup.cpp" />
+    <ClCompile Include="Core\DebugEvents\DebugRuntimeEvents.cpp" />
+    <ClCompile Include="Core\DebugEvents\ThreadCreationEvents.cpp" />
+    <ClCompile Include="Core\DebugEvents\ObjectReferenceEvents.cpp" />
+    <ClCompile Include="Core\DebugEvents\MemoryAndAttachEvents.cpp" />
+    <ClCompile Include="Init\Symbolic\InitNtoskrnl.cpp" />
+    <ClCompile Include="Init\Symbolic\InitSymbolic.cpp" />
+    <ClCompile Include="Init\Symbolic\InitWin32kbase.cpp" />
+    <ClCompile Include="Init\Symbolic\InitWin32kfull.cpp" />
+    <ClCompile Include="List\MyList.cpp" />
+    <ClCompile Include="Log\log.cpp" />
+    <ClCompile Include="Memory\ReadWrite\BreakpointList.cpp" />
+    <ClCompile Include="Memory\ReadWrite\BreakpointOperations.cpp" />
+    <ClCompile Include="Memory\ReadWrite\MdlMapping.cpp" />
+    <ClCompile Include="Memory\ReadWrite\MmCopyHook.cpp" />
+    <ClCompile Include="Memory\ReadWrite\VirtualMemoryRead.cpp" />
+    <ClCompile Include="Memory\ReadWrite\VirtualMemoryWrite.cpp" />
+    <ClCompile Include="Process\process.cpp" />
+    <ClCompile Include="Protect\Callbacks.cpp" />
+    <ClCompile Include="Protect\Process\ProtectProcess.cpp" />
+    <ClCompile Include="Protect\Thread\ProtectDrxX64.cpp" />
+    <ClCompile Include="Protect\Windows\BypassFindWnd.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\Common\Ring0\Inject\ApcInject\ApcInject.h" />
+    <ClInclude Include="..\Common\Ring0\Inject\ApcInject\Api\ApcInjectNativeApi.h" />
+    <ClInclude Include="..\Common\Ring0\Inject\ApcInject\Api\ApcInjectPublicApi.h" />
+    <ClInclude Include="..\Common\Ring0\Inject\ApcInject\Api\ApcInjectRemoteThreadApi.h" />
+    <ClInclude Include="..\Common\Ring0\Inject\ApcInject\Core\ApcCore.h" />
+    <ClInclude Include="..\Common\Ring0\Inject\ApcInject\Core\ModuleResolver.h" />
+    <ClInclude Include="..\Common\Ring0\Inject\ApcInject\Core\ShellcodeBuilder.h" />
+    <ClInclude Include="..\Common\Ring0\Inject\ApcInject\Core\UtilityFunctions.h" />
+    <ClInclude Include="..\Common\Ring0\Inject\ApcInject\Types\ApcInjectApiSetTypes.h" />
+    <ClInclude Include="..\Common\Ring0\Inject\ApcInject\Types\ApcInjectNativeSupportTypes.h" />
+    <ClInclude Include="..\Common\Ring0\Inject\ApcInject\Types\ApcInjectPebTypes.h" />
+    <ClInclude Include="..\Common\Ring0\Inject\ApcInject\Types\ApcInjectSystemTypes.h" />
+    <ClInclude Include="..\Common\Ring0\PE\PE_struct.h" />
+    <ClInclude Include="..\Common\Ring0\String\StringHandler.h" />
+    <ClInclude Include="Asm\AsmVar.h" />
+    <ClInclude Include="DbgkApi\DbgkApi.h" />
+    <ClInclude Include="DbgkApi\Api\CreateDebugObject.h" />
+    <ClInclude Include="DbgkApi\Api\DebugActiveProcess.h" />
+    <ClInclude Include="DbgkApi\Api\WaitForDebugEvent.h" />
+    <ClInclude Include="DbgkApi\Api\DebugContinue.h" />
+    <ClInclude Include="DbgkApi\Api\RemoveProcessDebug.h" />
+    <ClInclude Include="DbgkApi\Api\SetInformationDebugObject.h" />
+    <ClInclude Include="DbgkApi\Api\DebugObjectCommon.h" />
+    <ClInclude Include="DbgkApi\Api\DebugObjectCommonInternal.h" />
+    <ClInclude Include="DbgkApi\Api\DebugEventHandlers.h" />
+    <ClInclude Include="DbgkApi\Api\DebugEventHandlersInternal.h" />
+    <ClInclude Include="DbgkApi\Api\OpenProcessDebugPort.h" />
+    <ClInclude Include="DebugBreak\DebugBreak.h" />
+    <ClInclude Include="DebugBreak\Core\DebugBreakInternal.h" />
+    <ClInclude Include="Driver.h" />
+    <ClInclude Include="Core\Driver.h" />
+    <ClInclude Include="Core\DebugEvents\DebugEventsCommon.h" />
+    <ClInclude Include="Core\IoctlDispatchInternal.h" />
+    <ClInclude Include="Core\IoctlHandlers\IoctlHandlerCommon.h" />
+    <ClInclude Include="..\Common\Shared\DriverProtocol.h" />
+    <ClInclude Include="..\Common\Shared\IOCTLs.h" />
+    <ClInclude Include="..\Common\Shared\SharedStruct.h" />
+    <ClInclude Include="..\Common\Shared\VmcallReason.h" />
+    <ClInclude Include="Encrypt\Blowfish\Blowfish.h" />
+    <ClInclude Include="Encrypt\Blowfish\BlowfishInternal.h" />
+    <ClInclude Include="Globals.h" />
+    <ClInclude Include="Globals\Globals.h" />
+    <ClInclude Include="Hooks\EptHook\EptHook.h" />
+    <ClInclude Include="Hooks\EptHook\Core\EptHookCommon.h" />
+    <ClInclude Include="Hvm\AsmCallset.h" />
+    <ClInclude Include="Hvm\HypervisorGatewayInternal.h" />
+    <ClInclude Include="Hvm\hypervisor_gateway.h" />
+    <ClInclude Include="Hvm\vmcall_reason.h" />
+    <ClInclude Include="Init\Symbolic\InitSymbolic.h" />
+    <ClInclude Include="Init\Symbolic\InitWin32kbase.h" />
+    <ClInclude Include="Init\Symbolic\InitWin32kfull.h" />
+    <ClInclude Include="List\MyList.h" />
+    <ClInclude Include="Log\log.h" />
+    <ClInclude Include="Memory\ReadWrite\ReadWriteInternal.h" />
+    <ClInclude Include="Memory\ReadWrite.h" />
+    <ClInclude Include="ntos\inc\amd64.h" />
+    <ClInclude Include="ntos\inc\extypes.h" />
+    <ClInclude Include="ntos\inc\ke.h" />
+    <ClInclude Include="ntos\inc\ketypes.h" />
+    <ClInclude Include="ntos\inc\ki.h" />
+    <ClInclude Include="ntos\inc\mi.h" />
+    <ClInclude Include="ntos\inc\mmtypes.h" />
+    <ClInclude Include="ntos\inc\ntdbg.h" />
+    <ClInclude Include="ntos\inc\nti386.h" />
+    <ClInclude Include="ntos\inc\ntexapi.h" />
+    <ClInclude Include="ntos\inc\ntlpcapi.h" />
+    <ClInclude Include="ntos\inc\ntosdef.h" />
+    <ClInclude Include="ntos\inc\obtypes.h" />
+    <ClInclude Include="ntos\inc\peb_teb.h" />
+    <ClInclude Include="ntos\inc\pecoff.h" />
+    <ClInclude Include="ntos\inc\psp.h" />
+    <ClInclude Include="ntos\inc\pstypes.h" />
+    <ClInclude Include="Process\process.h" />
+    <ClInclude Include="ntapi.h" />
+    <ClInclude Include="NativeApi\ntapi.h" />
+    <ClInclude Include="Protect\Callbacks.h" />
+    <ClInclude Include="Protect\Process\ProtectProcess.h" />
+    <ClInclude Include="Protect\Thread\ProtectDrxX64.h" />
+    <ClInclude Include="Protect\Windows\BypassFindWnd.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="Asm\AsmCode.asm" />
+    <MASM Include="Hvm\ASM\AsmCallset.asm" />
+    <MASM Include="Hvm\ASM\lde64.asm" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

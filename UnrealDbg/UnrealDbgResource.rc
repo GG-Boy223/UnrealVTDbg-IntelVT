@@ -1,0 +1,3 @@
+Cursor_1 CURSOR "res\\cursor.cur"
+Empty RCDATA "res\\Empty.ico"
+Original RCDATA "res\\Original.ico"

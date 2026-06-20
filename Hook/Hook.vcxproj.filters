@@ -1,0 +1,446 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="源文件\HookCallSet">
+      <UniqueIdentifier>{521fed39-4649-4305-a805-5ea0e4dc3911}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\HookCallSet\Hooks">
+      <UniqueIdentifier>{1b230dc6-a091-4ce3-88a0-0e59197fe9f7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\HookCallSet\Hooks\HookManager">
+      <UniqueIdentifier>{9cf9ee0f-6395-48a9-97f2-754a838da776}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\HookCallSet">
+      <UniqueIdentifier>{4bfe6c01-d963-41d8-889b-b306cc507089}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\HookCallSet\Hooks">
+      <UniqueIdentifier>{ea10f60f-17a1-4b1e-86db-e2e7dcfb5fa2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Log">
+      <UniqueIdentifier>{042a7c1e-1002-4a81-b2f9-d581790bb5fc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Log">
+      <UniqueIdentifier>{3420a725-1fac-4128-8ac6-e63c752d8dc0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Inject">
+      <UniqueIdentifier>{e0bbdac4-0b98-4056-a62d-1a5dcb141298}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Inject">
+      <UniqueIdentifier>{9a21fcee-d9b0-4a0b-a481-e741ca2b4bde}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Inject\ShellCode">
+      <UniqueIdentifier>{7c5ac0a2-3078-42de-b3b0-54bcbe73ba03}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Inject\ShellCode">
+      <UniqueIdentifier>{bc151fc5-bc43-4900-850f-5b35e364baa4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Common">
+      <UniqueIdentifier>{1be9076a-1fdb-44ff-b5ec-8f891330ec70}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Common">
+      <UniqueIdentifier>{aaa9cf19-1d42-436f-b4fe-aceff96aca51}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Common\Core">
+      <UniqueIdentifier>{c986c68a-87e9-4852-8fd6-85014d64ff9f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Common\Core">
+      <UniqueIdentifier>{79b1d19e-8db9-4360-b108-e1bfd0e15348}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Common\Detours">
+      <UniqueIdentifier>{37d7fce9-ace0-463b-87b0-fae1ceae467e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Common\Detours">
+      <UniqueIdentifier>{829ed3ab-1880-45fe-bf2c-6f68a65dcfab}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\DebugEvent">
+      <UniqueIdentifier>{c3ff1c3b-41c2-4866-8dfa-07e9d92b401f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\DebugEvent\Core">
+      <UniqueIdentifier>{bf747702-551b-4ec1-924d-cf8f7b784897}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\DebugEvent">
+      <UniqueIdentifier>{3bf5875c-2a1a-4417-bdf6-ce6ea9928620}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\DebugEvent\Core">
+      <UniqueIdentifier>{79044256-39a5-4190-8286-53d9b35e9b96}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Common\Logger">
+      <UniqueIdentifier>{a349d883-31e4-420c-988f-0904eea09ebf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Common\Logger">
+      <UniqueIdentifier>{13445432-f44e-4ba6-8e3b-fcfd9adc6bbd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Common\FileSystem">
+      <UniqueIdentifier>{7e619cd8-36e3-4865-bba4-90621ca62ddb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Common\FileSystem">
+      <UniqueIdentifier>{fe6da2f2-59e3-48fb-b2d4-9555151159bf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Common\Shared">
+      <UniqueIdentifier>{9f517361-5cf8-4f55-8633-163df9040869}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Inject\ApcInject">
+      <UniqueIdentifier>{8d6c8e75-62fe-4904-95ee-04a88d4fd959}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Inject\ApcInject">
+      <UniqueIdentifier>{daa3e185-2e88-4bbe-9558-99e0cb0b8631}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Channels">
+      <UniqueIdentifier>{4af87f24-be9a-4425-a010-19683865773f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Channels">
+      <UniqueIdentifier>{81b395ed-a3dd-4f24-afee-6950e0e9ad9e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Common\Encrypt">
+      <UniqueIdentifier>{d769c4eb-420e-4e70-91aa-2b8d0d757aef}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Common\Encrypt">
+      <UniqueIdentifier>{7d68b91e-d3cf-43e6-90af-0f855ad17198}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Common\Encrypt\Blowfish">
+      <UniqueIdentifier>{c0f40014-ba1d-4525-be4b-c192c79752f2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Common\Encrypt\Blowfish">
+      <UniqueIdentifier>{3dd8c3ef-8cec-4735-abdd-968dd2a0065e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\DebugBreak">
+      <UniqueIdentifier>{b84716fd-1a87-488d-acbe-c4cd3d230643}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\DebugBreak\Core">
+      <UniqueIdentifier>{a97e0e77-8f55-4ca0-8646-1b8c9b9c31b1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\DebugBreak">
+      <UniqueIdentifier>{12b4ccd0-0ba5-4abf-96d5-66feb070ca36}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\DebugBreak\Core">
+      <UniqueIdentifier>{b1f72ee4-0d87-4971-9df2-0c144a2bc167}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Common\List">
+      <UniqueIdentifier>{e80b7c19-64f1-42eb-b5a6-7c4093326cf6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\vmx">
+      <UniqueIdentifier>{177eabae-29e6-4f32-91ba-14f2791fb742}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\vmx">
+      <UniqueIdentifier>{94f218d9-bf6e-4b9d-ae57-aca2bb873c4b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\vmx\Asm">
+      <UniqueIdentifier>{df08b136-e5a9-4039-b257-f6fd3726e49e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\NativeApi">
+      <UniqueIdentifier>{00ff0847-9d28-46a7-9efd-d35d8f5e8875}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\DllMain">
+      <UniqueIdentifier>{5b7b0f21-0734-4b0e-8d81-42d3f2c59579}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\DllMain\Core">
+      <UniqueIdentifier>{9ec91162-2ca1-4541-8c20-bdb96f90a8d7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\DllMain">
+      <UniqueIdentifier>{2ae9a61d-42ad-4209-8ef9-9b3cfa07d7f7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\DllMain\Core">
+      <UniqueIdentifier>{cc4c266a-df5a-492d-9b74-52b1204ddb9e}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="dllmain.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="HookCallSet\Hooks\DebugApiHooks.cpp">
+      <Filter>源文件\HookCallSet\Hooks</Filter>
+    </ClCompile>
+    <ClCompile Include="HookCallSet\Hooks\DebugContinueHooks.cpp">
+      <Filter>源文件\HookCallSet\Hooks</Filter>
+    </ClCompile>
+    <ClCompile Include="HookCallSet\Hooks\DebugOutputHooks.cpp">
+      <Filter>源文件\HookCallSet\Hooks</Filter>
+    </ClCompile>
+    <ClCompile Include="HookCallSet\Hooks\LdrInitializeThunkHook.cpp">
+      <Filter>源文件\HookCallSet\Hooks</Filter>
+    </ClCompile>
+    <ClCompile Include="HookCallSet\Hooks\MemoryApiHooks.cpp">
+      <Filter>源文件\HookCallSet\Hooks</Filter>
+    </ClCompile>
+    <ClCompile Include="HookCallSet\Hooks\ProcessApiHooks.cpp">
+      <Filter>源文件\HookCallSet\Hooks</Filter>
+    </ClCompile>
+    <ClCompile Include="HookCallSet\Hooks\ThreadApiHooks.cpp">
+      <Filter>源文件\HookCallSet\Hooks</Filter>
+    </ClCompile>
+    <ClCompile Include="HookCallSet\Hooks\HookManager\DebugSessionCleanup.cpp">
+      <Filter>源文件\HookCallSet\Hooks\HookManager</Filter>
+    </ClCompile>
+    <ClCompile Include="HookCallSet\Hooks\HookManager\HiddenInt3MemoryRead.cpp">
+      <Filter>源文件\HookCallSet\Hooks\HookManager</Filter>
+    </ClCompile>
+    <ClCompile Include="HookCallSet\Hooks\HookManager\HiddenInt3MemoryWrite.cpp">
+      <Filter>源文件\HookCallSet\Hooks\HookManager</Filter>
+    </ClCompile>
+    <ClCompile Include="HookCallSet\Hooks\HookManager\HiddenInt3Records.cpp">
+      <Filter>源文件\HookCallSet\Hooks\HookManager</Filter>
+    </ClCompile>
+    <ClCompile Include="HookCallSet\Hooks\HookManager\HiddenInt3WriteRemoval.cpp">
+      <Filter>源文件\HookCallSet\Hooks\HookManager</Filter>
+    </ClCompile>
+    <ClCompile Include="HookCallSet\Hooks\HookManager\HookManagerState.cpp">
+      <Filter>源文件\HookCallSet\Hooks\HookManager</Filter>
+    </ClCompile>
+    <ClCompile Include="Log\Log.cpp">
+      <Filter>源文件\Log</Filter>
+    </ClCompile>
+    <ClCompile Include="Inject\ShellCode\InjectCode.cpp">
+      <Filter>源文件\Inject\ShellCode</Filter>
+    </ClCompile>
+    <ClCompile Include="Inject\ShellCode\RemoteNtdllPatch.cpp">
+      <Filter>源文件\Inject\ShellCode</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Detours\HookCompat.cpp">
+      <Filter>源文件\Common\Detours</Filter>
+    </ClCompile>
+    <ClCompile Include="DebugEvent\Core\ContinueDebugEventHook.cpp">
+      <Filter>源文件\DebugEvent\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="DebugEvent\Core\DebugEventConfig.cpp">
+      <Filter>源文件\DebugEvent\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="DebugEvent\Core\DebugEventHitRecords.cpp">
+      <Filter>源文件\DebugEvent\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="DebugEvent\Core\WaitForDebugEventHook.cpp">
+      <Filter>源文件\DebugEvent\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Logger\Logger.cpp">
+      <Filter>源文件\Common\Logger</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Common.cpp">
+      <Filter>源文件\Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Core\CommonCpuInfo.cpp">
+      <Filter>源文件\Common\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Core\CommonProcessUtilities.cpp">
+      <Filter>源文件\Common\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Core\CommonSingleton.cpp">
+      <Filter>源文件\Common\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Core\CommonState.cpp">
+      <Filter>源文件\Common\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Core\CommonCodePageConversions.cpp">
+      <Filter>源文件\Common\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Core\CommonNumericConversions.cpp">
+      <Filter>源文件\Common\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Core\CommonStringConversions.cpp">
+      <Filter>源文件\Common\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Core\CommonStringOperations.cpp">
+      <Filter>源文件\Common\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Core\CommonSystemUtilities.cpp">
+      <Filter>源文件\Common\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\FileSystem\FileSystem.cpp">
+      <Filter>源文件\Common\FileSystem</Filter>
+    </ClCompile>
+    <ClCompile Include="Inject\ApcInject\ApcInject.cpp">
+      <Filter>源文件\Inject\ApcInject</Filter>
+    </ClCompile>
+    <ClCompile Include="Channels\DispatchData.cpp">
+      <Filter>源文件\Channels</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Encrypt\Blowfish\Blowfish.cpp">
+      <Filter>源文件\Common\Encrypt\Blowfish</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Encrypt\Blowfish\BlowfishApi.cpp">
+      <Filter>源文件\Common\Encrypt\Blowfish</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Encrypt\Blowfish\BlowfishCore.cpp">
+      <Filter>源文件\Common\Encrypt\Blowfish</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Encrypt\Blowfish\BlowfishUtilities.cpp">
+      <Filter>源文件\Common\Encrypt\Blowfish</Filter>
+    </ClCompile>
+    <ClCompile Include="DebugBreak\Core\DebugBreakConfig.cpp">
+      <Filter>源文件\DebugBreak\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="DebugBreak\Core\DebugHitRecords.cpp">
+      <Filter>源文件\DebugBreak\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="DebugBreak\Core\DebugRegisterHelpers.cpp">
+      <Filter>源文件\DebugBreak\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="DebugBreak\Core\HardwareBreakpointDriver.cpp">
+      <Filter>源文件\DebugBreak\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="DebugBreak\Core\HardwareBreakpointState.cpp">
+      <Filter>源文件\DebugBreak\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="DebugBreak\Core\HardwareBreakpointSync.cpp">
+      <Filter>源文件\DebugBreak\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="DebugBreak\Core\ThreadContextHooks.cpp">
+      <Filter>源文件\DebugBreak\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="vmx\vmx.cpp">
+      <Filter>源文件\vmx</Filter>
+    </ClCompile>
+    <ClCompile Include="vmx\VmxAffinity.cpp">
+      <Filter>源文件\vmx</Filter>
+    </ClCompile>
+    <ClCompile Include="vmx\VmxBroadcast.cpp">
+      <Filter>源文件\vmx</Filter>
+    </ClCompile>
+    <ClCompile Include="vmx\VmxBreakpointState.cpp">
+      <Filter>源文件\vmx</Filter>
+    </ClCompile>
+    <ClCompile Include="DllMain\Core\DllMainDriverConnection.cpp">
+      <Filter>源文件\DllMain\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="DllMain\Core\DllMainHookSetup.cpp">
+      <Filter>源文件\DllMain\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="DllMain\Core\DllMainInitialization.cpp">
+      <Filter>源文件\DllMain\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="DllMain\Core\DllMainLogging.cpp">
+      <Filter>源文件\DllMain\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="DllMain\Core\DllMainRuntime.cpp">
+      <Filter>源文件\DllMain\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="DllMain\Core\DllMainState.cpp">
+      <Filter>源文件\DllMain\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\State\Globals.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="dllmain.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DllMain\DllMain.h">
+      <Filter>头文件\DllMain</Filter>
+    </ClInclude>
+    <ClInclude Include="HookCallSet\functionSet.h">
+      <Filter>头文件\HookCallSet</Filter>
+    </ClInclude>
+    <ClInclude Include="HookCallSet\Hooks\HookInternal.h">
+      <Filter>头文件\HookCallSet\Hooks</Filter>
+    </ClInclude>
+    <ClInclude Include="HookCallSet\Hooks\HookInstallRoutines.h">
+      <Filter>头文件\HookCallSet\Hooks</Filter>
+    </ClInclude>
+    <ClInclude Include="Log\Log.h">
+      <Filter>头文件\Log</Filter>
+    </ClInclude>
+    <ClInclude Include="Globals.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Inject\ShellCode\InjectCode.h">
+      <Filter>头文件\Inject\ShellCode</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Detours\detours.h">
+      <Filter>头文件\Common\Detours</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Detours\Hook.h">
+      <Filter>头文件\Common\Detours</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Detours\HookCompat.h">
+      <Filter>头文件\Common\Detours</Filter>
+    </ClInclude>
+    <ClInclude Include="DebugEvent\DebugEvent.h">
+      <Filter>头文件\DebugEvent</Filter>
+    </ClInclude>
+    <ClInclude Include="DebugEvent\Core\DebugEventInternal.h">
+      <Filter>头文件\DebugEvent\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Logger\Logger.h">
+      <Filter>头文件\Common\Logger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Common.h">
+      <Filter>头文件\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Core\CommonInternal.h">
+      <Filter>头文件\Common\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\FileSystem\FileSystem.h">
+      <Filter>头文件\Common\FileSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Shared\IOCTLs.h">
+      <Filter>头文件\Common\Shared</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Shared\VmcallReason.h">
+      <Filter>头文件\Common\Shared</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Shared\SharedStruct.h">
+      <Filter>头文件\Common\Shared</Filter>
+    </ClInclude>
+    <ClInclude Include="Inject\ApcInject\ApcInject.h">
+      <Filter>头文件\Inject\ApcInject</Filter>
+    </ClInclude>
+    <ClInclude Include="Channels\DispatchData.h">
+      <Filter>头文件\Channels</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Encrypt\Blowfish\Blowfish.h">
+      <Filter>头文件\Common\Encrypt\Blowfish</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Encrypt\Blowfish\BlowfishInternal.h">
+      <Filter>头文件\Common\Encrypt\Blowfish</Filter>
+    </ClInclude>
+    <ClInclude Include="DebugBreak\DebugBreak.h">
+      <Filter>头文件\DebugBreak</Filter>
+    </ClInclude>
+    <ClInclude Include="DebugBreak\Core\DebugBreakInternal.h">
+      <Filter>头文件\DebugBreak\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\include\List\vectorExt.h">
+      <Filter>头文件\Common\List</Filter>
+    </ClInclude>
+    <ClInclude Include="vmx\vmx.h">
+      <Filter>头文件\vmx</Filter>
+    </ClInclude>
+    <ClInclude Include="vmx\VmxInternal.h">
+      <Filter>头文件\vmx</Filter>
+    </ClInclude>
+    <ClInclude Include="ntdll.h">
+      <Filter>头文件\NativeApi</Filter>
+    </ClInclude>
+    <ClInclude Include="DllMain\Core\DllMainInternal.h">
+      <Filter>头文件\DllMain\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="NativeApi\ntdll.h">
+      <Filter>头文件\NativeApi</Filter>
+    </ClInclude>
+    <ClInclude Include="NativeApi\NtdllResolver.h">
+      <Filter>头文件\NativeApi</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\State\Globals.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="vmx\Asm\AsmCallset.asm">
+      <Filter>源文件\vmx\Asm</Filter>
+    </MASM>
+    <MASM Include="vmx\Asm\AsmCallsetX86.asm">
+      <Filter>源文件</Filter>
+    </MASM>
+  </ItemGroup>
+</Project>

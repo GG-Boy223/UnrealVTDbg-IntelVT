@@ -1,0 +1,68 @@
+# Visual Studio 本地配置（全局忽略）
+.vs/
+
+# Visual Studio user/local files
+*.user
+*.suo
+*.VC.db
+*.VC.opendb
+*.local
+
+# Delphi/C++Builder local backup files
+**/__history/
+*.~*~
+
+# ===== 编译输出目录（只忽略根目录下的）=====
+/x64/
+/Debug/
+/Release/
+/bin/
+/obj/
+/ipch/
+
+# ===== 工程内编译输出目录 =====
+DbgkSysWin10/x64/
+DbgkSysWin11/x64/
+Hook/x64/
+Hook/Hook/x64/
+Hook/Release/
+Hook/Hook/Release/
+Loader/x64/
+UnrealDbgDll/x64/
+VT_Driver/x64/
+
+# 大小写兼容版本（只针对根目录）
+/[Dd]ebug/
+/[Rr]elease/
+
+# ===== MSBuild / linker intermediates（全局忽略）=====
+*.obj
+*.iobj
+*.ipdb
+*.ilk
+*.idb
+*.pch
+*.tlog
+*.lastbuildstate
+*.recipe
+*.log
+*.FileListAbsolute.txt
+*.exp
+*.map
+*.sys
+*.dll
+*.tlh
+*.tli
+
+# 保留源码依赖的预编译库/运行库
+!Common/**/*.lib
+!Common/**/*.pdb
+!UnrealDbgDll/VMProtectSDK64.dll
+
+# ===== PDB 调试符号文件（全局忽略，但不影响 Common 目录）=====
+*.pdb
+!Common/**/*.pdb
+!**/Common/**/*.pdb
+
+# ===== 生成的二进制文件（全局忽略）=====
+*.exe

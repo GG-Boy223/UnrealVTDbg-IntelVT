@@ -1,0 +1,16 @@
+#pragma once
+
+#include "../Driver.h"
+#include "../poolmanager.h"
+#include "../Globals.h"
+#include "../mtrr.h"
+#include "../EPT.h"
+#include "../hypervisor_routines.h"
+#include "../vmm.h"
+#include "../hypervisor_gateway.h"
+#include "../interrupt.h"
+#include "../Init/Symbolic/InitNtoskrnl.h"
+#include "../AsmCallset.h"
+#include "../vmexit_handler.h"
+#include "../Vmcs/VmcsApi.h"
+#include "../vmcall_reason.h"

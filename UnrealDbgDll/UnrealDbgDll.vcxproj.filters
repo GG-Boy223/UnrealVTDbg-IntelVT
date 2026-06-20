@@ -1,0 +1,407 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="源文件\Channels">
+      <UniqueIdentifier>{af22a656-e801-4403-9208-3b7f01d5f73b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Channels">
+      <UniqueIdentifier>{93eb0c08-40e5-4958-922f-3a9460b2535e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Init">
+      <UniqueIdentifier>{e7997350-8ce9-46ab-ae63-2926cb710ec8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Init">
+      <UniqueIdentifier>{20b4b62f-e882-4405-a4ca-f2902cbb8870}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Common">
+      <UniqueIdentifier>{9ada8595-44f1-48f4-92c3-a760e933ec73}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Common">
+      <UniqueIdentifier>{942e79b9-d71a-4228-b343-7e90dfd73832}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Common\Core">
+      <UniqueIdentifier>{386d18f2-8e33-4965-a495-a31fd0ded1ed}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Common\Core">
+      <UniqueIdentifier>{a5689310-6330-4c61-a326-42af4b4fe23e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Common\FileSystem">
+      <UniqueIdentifier>{6e5493aa-d210-4517-ae9a-e6aeeb7dff7e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Common\FileSystem">
+      <UniqueIdentifier>{3192dae2-b880-4062-96f2-57d10dede56e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Common\Shared">
+      <UniqueIdentifier>{f4bc19c9-dea0-41cd-b596-60e6bf021358}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Common\Shared">
+      <UniqueIdentifier>{34c4e991-ed6b-4335-a693-ce6bb68ec221}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Common\Encrypt">
+      <UniqueIdentifier>{1f01c710-362a-4982-b85f-2393e0c75e1d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Common\Encrypt">
+      <UniqueIdentifier>{5fe614fd-5f99-4560-9912-ad5dcd63f5ae}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Common\Encrypt\Blowfish">
+      <UniqueIdentifier>{55bba402-2acc-41fb-9e91-074314cef69e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Common\Encrypt\Blowfish">
+      <UniqueIdentifier>{bc0d93f2-51ca-4f13-a89b-accbd0bef650}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Common\Logger">
+      <UniqueIdentifier>{512e0810-60e3-47d6-8b58-943fc0cfd4ba}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Common\Logger">
+      <UniqueIdentifier>{93f8cb12-a458-40d0-a3e4-329db7d58e28}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Interface">
+      <UniqueIdentifier>{f6896951-c739-4881-a539-804a8670db13}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Interface">
+      <UniqueIdentifier>{283d1f01-9b24-4327-8bd4-f35764d56451}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="NetVerHelp">
+      <UniqueIdentifier>{113b0252-6ed9-43f7-8f18-e0a739768cdf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="NetVerHelp\Help_Source">
+      <UniqueIdentifier>{678f30f6-8eb7-44ea-bf99-7f688b631414}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="NetVerHelp\Help_Tou">
+      <UniqueIdentifier>{52239485-ac72-440b-b67c-e2e7fc1eaed8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="NetVerHelp\Model">
+      <UniqueIdentifier>{a47ec340-8f8b-4a59-be2c-8f5f520a38e5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Crypter">
+      <UniqueIdentifier>{069ba704-77eb-462b-9b70-04eb2f9e8bde}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Core">
+      <UniqueIdentifier>{e99222de-4c87-4b8d-8a08-81f6898dbb38}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\Core">
+      <UniqueIdentifier>{344141e8-edda-42e5-820f-d6dd8af6db0c}</UniqueIdentifier>
+    </Filter>
+  <Filter Include="源文件\Process"><UniqueIdentifier>{e27e0344-51a2-442c-bef4-13ce987c2e28}</UniqueIdentifier></Filter><Filter Include="源文件\Process\Launch"><UniqueIdentifier>{419bc744-9cff-45f3-8850-99cb9c90a7a6}</UniqueIdentifier></Filter><Filter Include="头文件\Process"><UniqueIdentifier>{952a17b5-44b7-46a5-8db8-906670f13f33}</UniqueIdentifier></Filter><Filter Include="头文件\Process\Launch"><UniqueIdentifier>{7b06a456-c7ae-40f0-9bde-3d8a923dba0d}</UniqueIdentifier></Filter></ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="dllmain.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Channels\DispatchData.cpp">
+      <Filter>源文件\Channels</Filter>
+    </ClCompile>
+    <ClCompile Include="Init\InitNTDevice.cpp">
+      <Filter>源文件\Init</Filter>
+    </ClCompile>
+    <ClCompile Include="Init\DriverImagePath.cpp">
+      <Filter>源文件\Init</Filter>
+    </ClCompile>
+    <ClCompile Include="Init\DriverService.cpp">
+      <Filter>源文件\Init</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\FileSystem\FileSystem.cpp">
+      <Filter>源文件\Common\FileSystem</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Encrypt\Blowfish\Blowfish.cpp">
+      <Filter>源文件\Common\Encrypt\Blowfish</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Encrypt\Blowfish\BlowfishApi.cpp">
+      <Filter>源文件\Common\Encrypt\Blowfish</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Encrypt\Blowfish\BlowfishCore.cpp">
+      <Filter>源文件\Common\Encrypt\Blowfish</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Encrypt\Blowfish\BlowfishUtilities.cpp">
+      <Filter>源文件\Common\Encrypt\Blowfish</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\Globals.cpp">
+      <Filter>源文件\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Process\Launch\StartProcess.cpp">
+      <Filter>源文件\Process\Launch</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Logger\Logger.cpp">
+      <Filter>源文件\Common\Logger</Filter>
+    </ClCompile>
+    <ClCompile Include="Interface\Interface.cpp">
+      <Filter>源文件\Interface</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Common.cpp">
+      <Filter>源文件\Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Core\CommonCpuInfo.cpp">
+      <Filter>源文件\Common\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Core\CommonProcessUtilities.cpp">
+      <Filter>源文件\Common\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Core\CommonSingleton.cpp">
+      <Filter>源文件\Common\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Core\CommonState.cpp">
+      <Filter>源文件\Common\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Core\CommonCodePageConversions.cpp">
+      <Filter>源文件\Common\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Core\CommonNumericConversions.cpp">
+      <Filter>源文件\Common\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Core\CommonStringConversions.cpp">
+      <Filter>源文件\Common\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Core\CommonStringOperations.cpp">
+      <Filter>源文件\Common\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Core\CommonSystemUtilities.cpp">
+      <Filter>源文件\Common\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="NetVerHelp\Help_Source\CJsonObject.cpp">
+      <Filter>NetVerHelp\Help_Source</Filter>
+    </ClCompile>
+    <ClCompile Include="NetVerHelp\Help_Source\HttpRequestToolWinInet.cpp">
+      <Filter>NetVerHelp\Help_Source</Filter>
+    </ClCompile>
+    <ClCompile Include="NetVerHelp\Help_Source\HttpRequestToolWinInetEncoding.cpp">
+      <Filter>NetVerHelp\Help_Source</Filter>
+    </ClCompile>
+    <ClCompile Include="NetVerHelp\Help_Source\HttpRequestToolWinInetHelpers.cpp">
+      <Filter>NetVerHelp\Help_Source</Filter>
+    </ClCompile>
+    <ClCompile Include="NetVerHelp\Help_Source\Md5Core.cpp">
+      <Filter>NetVerHelp\Help_Source</Filter>
+    </ClCompile>
+    <ClCompile Include="NetVerHelp\Help_Source\Md5Encoding.cpp">
+      <Filter>NetVerHelp\Help_Source</Filter>
+    </ClCompile>
+    <ClCompile Include="NetVerHelp\Help_Source\Md5Transform.cpp">
+      <Filter>NetVerHelp\Help_Source</Filter>
+    </ClCompile>
+    <ClCompile Include="NetVerHelp\Help_Source\NetworkVerHelp.cpp">
+      <Filter>NetVerHelp\Help_Source</Filter>
+    </ClCompile>
+    <ClCompile Include="NetVerHelp\Help_Source\OtherHelpToolsWinApi.cpp">
+      <Filter>NetVerHelp\Help_Source</Filter>
+    </ClCompile>
+    <ClCompile Include="NetVerHelp\Help_Source\Rc4.cpp">
+      <Filter>NetVerHelp\Help_Source</Filter>
+    </ClCompile>
+    <ClCompile Include="NetVerHelp\Help_Tou\cJSON.cpp">
+      <Filter>NetVerHelp\Help_Tou</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\FileVersion.cpp">
+      <Filter>源文件\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\LicenseSession.cpp">
+      <Filter>源文件\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\MacAddress.cpp">
+      <Filter>源文件\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\RuntimeState.cpp">
+      <Filter>源文件\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\SymbolInitialization.cpp">
+      <Filter>源文件\Core</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="dllmain.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\DllMain.h">
+      <Filter>头文件\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Channels\DispatchData.h">
+      <Filter>头文件\Channels</Filter>
+    </ClInclude>
+    <ClInclude Include="Init\InitNTDevice.h">
+      <Filter>头文件\Init</Filter>
+    </ClInclude>
+    <ClInclude Include="Init\DriverImagePath.h">
+      <Filter>头文件\Init</Filter>
+    </ClInclude>
+    <ClInclude Include="Init\DriverService.h">
+      <Filter>头文件\Init</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\FileSystem\FileSystem.h">
+      <Filter>头文件\Common\FileSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Shared\IOCTLs.h">
+      <Filter>头文件\Common\Shared</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Shared\DriverProtocol.h">
+      <Filter>头文件\Common\Shared</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Shared\SharedStruct.h">
+      <Filter>头文件\Common\Shared</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Encrypt\Blowfish\Blowfish.h">
+      <Filter>头文件\Common\Encrypt\Blowfish</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Encrypt\Blowfish\BlowfishInternal.h">
+      <Filter>头文件\Common\Encrypt\Blowfish</Filter>
+    </ClInclude>
+    <ClInclude Include="Globals.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Process\Launch\StartProcess.h">
+      <Filter>头文件\Process\Launch</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Logger\Logger.h">
+      <Filter>头文件\Common\Logger</Filter>
+    </ClInclude>
+    <ClInclude Include="Interface\Interface.h">
+      <Filter>头文件\Interface</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Common.h">
+      <Filter>头文件\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Core\CommonInternal.h">
+      <Filter>头文件\Common\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Help_Tou\cJSON.h">
+      <Filter>NetVerHelp\Help_Tou</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Help_Tou\CJsonObject.hpp">
+      <Filter>NetVerHelp\Help_Tou</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Help_Source\HttpRequestToolWinInetInternal.h">
+      <Filter>NetVerHelp\Help_Source</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Help_Tou\HttpRequestTools.h">
+      <Filter>NetVerHelp\Help_Tou</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Help_Tou\HttpRequestToolWinInet.h">
+      <Filter>NetVerHelp\Help_Tou</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Help_Tou\Md5.h">
+      <Filter>NetVerHelp\Help_Tou</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Help_Tou\NetworkVerHelp.h">
+      <Filter>NetVerHelp\Help_Tou</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Help_Tou\OtherHelpTools.h">
+      <Filter>NetVerHelp\Help_Tou</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Help_Tou\OtherHelpToolsWinApi.h">
+      <Filter>NetVerHelp\Help_Tou</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Help_Tou\Rc4.h">
+      <Filter>NetVerHelp\Help_Tou</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\ActiveState.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\ApiRequestArgs.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\BusinessType.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\DisableCardOrAccountType.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\EncryptType.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\In_cardDetailArgs.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\In_CardLoginArgs.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\In_CreateCardArgs.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\In_DataBaseArgs.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\In_DisableCardOrAccountArgs.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\In_getCalculateArgs.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\In_getRemoteVarArgs.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\In_HeartBeatArgs.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\In_IniSoftInfoArgs.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\In_LoginOutArgs.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\In_SearchOrderArgs.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\In_unbundMacArgs.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\OpenState.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\Out_cardDetail.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\Out_DataBaseArgs.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\Out_getCalculate.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\Out_getRemoteVar.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\Out_heartBeat.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\Out_iniSoftInfo.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\Out_Login.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\Out_OpenRenewAccount.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\Out_SearchOrder.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\Out_softInfo.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\Out_unbundMacArgs.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\Out_Var.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\PlatformType.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NetVerHelp\Model\Result.h">
+      <Filter>NetVerHelp\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="Crypter\xorstr.hpp">
+      <Filter>Crypter</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\DllMainInternal.h">
+      <Filter>头文件\Core</Filter>
+    </ClInclude>
+  <ClInclude Include="Core\Globals.h"><Filter>头文件\Core</Filter></ClInclude><ClInclude Include="StartProcess.h"><Filter>头文件</Filter></ClInclude></ItemGroup>
+  <ItemGroup>
+    <None Include="VMProtectSDK64.dll" />
+  </ItemGroup>
+</Project>

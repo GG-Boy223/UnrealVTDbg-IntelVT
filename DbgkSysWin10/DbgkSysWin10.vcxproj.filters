@@ -1,0 +1,695 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Driver Files">
+      <UniqueIdentifier>{8E41214B-6785-4CFE-B992-037D68949A14}</UniqueIdentifier>
+      <Extensions>inf;inv;inx;mof;mc;</Extensions>
+    </Filter>
+    <Filter Include="Source Files\DbgkApi">
+      <UniqueIdentifier>{ef989306-ec60-4f92-b682-be57c563b2a6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\DbgkApi">
+      <UniqueIdentifier>{7f544de9-af00-4a5f-9967-999c2a41d02f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Log">
+      <UniqueIdentifier>{2f5efa9e-b75c-4a8c-aac1-408f1eb9d3f1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\List">
+      <UniqueIdentifier>{4dbdba1c-3bf4-472e-ad54-7de5479cf46b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\ntos">
+      <UniqueIdentifier>{e6d395eb-3b51-4b75-8730-110cd757d6a1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\ntos\inc">
+      <UniqueIdentifier>{6b696c0b-f242-467a-8c85-b0ec4bcd579c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Protect">
+      <UniqueIdentifier>{b49122a3-40b1-44d6-86a4-90d0e3eab351}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Hooks">
+      <UniqueIdentifier>{b161145e-076d-4da7-88fa-c7b194f5148e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Hooks\EptHook">
+      <UniqueIdentifier>{1e4bddce-08a1-4ecd-b6fd-3219a55f4357}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Hooks\EptHook\Core">
+      <UniqueIdentifier>{96df8ca3-8a7b-4c88-8466-b3f922a74778}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Hvm">
+      <UniqueIdentifier>{9d1516ad-9a2c-4e83-92b3-0074279c81bd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Init">
+      <UniqueIdentifier>{7e78bb0f-5b9d-44e3-96da-9f8d2dec45a7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Init\Symbolic">
+      <UniqueIdentifier>{53eb9d22-4685-4b5a-bede-012a21ade325}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Encrypt">
+      <UniqueIdentifier>{9678f44d-f319-4b22-a7cc-b781b7fd97e9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Encrypt\Blowfish">
+      <UniqueIdentifier>{15186a38-dd62-4ba7-bbc9-e86cc9f25e74}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Encrypt">
+      <UniqueIdentifier>{6ad128d9-bc52-4479-87b6-06263fab3758}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Encrypt\Blowfish">
+      <UniqueIdentifier>{418d9df6-447b-4003-9df8-17dcc21e6494}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Hooks">
+      <UniqueIdentifier>{70dd917b-9ef6-4a31-922f-70d670330fcb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Hooks\EptHook">
+      <UniqueIdentifier>{fd7bab86-b41c-421e-9570-074f9f26d7d9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Hooks\EptHook\Core">
+      <UniqueIdentifier>{720d4a28-7d2e-4e78-8f20-49ff7651a413}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Hvm">
+      <UniqueIdentifier>{4566dbfe-c868-4be5-9e59-136da0411584}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Hvm\Asm">
+      <UniqueIdentifier>{18438b5b-a784-4d74-aa2f-635148219b65}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Init">
+      <UniqueIdentifier>{5c5f6dcd-8b55-41d6-ac91-1b5396f7e1f4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Init\Symbolic">
+      <UniqueIdentifier>{0d03d237-d49c-47e5-86f1-891c98484fb8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Log">
+      <UniqueIdentifier>{9485c557-794d-470e-9163-e59a9b4e6533}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Memory">
+      <UniqueIdentifier>{0be0b579-17b9-42ea-817c-b03cd92a8e1c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Memory\ReadWrite">
+      <UniqueIdentifier>{4b131599-2b9f-4966-adb6-2e8618ad12a8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Protect">
+      <UniqueIdentifier>{e04b85cf-0642-40bd-a70e-0df3732773a3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Protect\Process">
+      <UniqueIdentifier>{8bd2c800-4d68-4dec-bb96-1aa1e7e4014b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Protect\Thread">
+      <UniqueIdentifier>{7d230fb1-044d-4532-9ff4-aea8637ca620}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Protect\Windows">
+      <UniqueIdentifier>{e8ea10c1-f80d-441f-bdc0-ab5591f4e297}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Memory">
+      <UniqueIdentifier>{83a010a8-f365-4028-823f-8d6377913daf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Memory\ReadWrite">
+      <UniqueIdentifier>{8f5f20ac-ee09-4ddc-9a09-d42ac7a10219}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Hvm\Asm">
+      <UniqueIdentifier>{6d954167-d975-4ca2-8900-0869aeee30e5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Asm">
+      <UniqueIdentifier>{a4280f15-db8c-442e-88f2-9e91051a0348}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Asm">
+      <UniqueIdentifier>{721d14da-4d48-49c8-b574-406e6e40ad56}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\List">
+      <UniqueIdentifier>{f819d77c-441e-4acb-bebf-76b29d3584c2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Common">
+      <UniqueIdentifier>{39463eae-b8ac-44ae-a980-60264821e3fe}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Common\Shared">
+      <UniqueIdentifier>{531f7edb-3839-4ef5-b20f-3143d7c3e1d5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Common\Inject">
+      <UniqueIdentifier>{cf91f954-402b-47aa-96e7-afa39ae38bd3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Common">
+      <UniqueIdentifier>{8728534c-d0b2-40fc-b017-f5fe0ab120dc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Common\Inject">
+      <UniqueIdentifier>{5313f269-8497-4209-a3b6-8e66262e6066}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Common\Inject\ApcInject">
+      <UniqueIdentifier>{345abdfb-7e14-4ca2-a36e-6734678ac83e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Common\Inject\ApcInject">
+      <UniqueIdentifier>{2b24c433-f7c2-4b76-996a-6eb9d9e72d99}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Common\PE">
+      <UniqueIdentifier>{ef2aa4cb-55df-4386-a423-9cbfc5c73a47}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\DebugBreak">
+      <UniqueIdentifier>{07381592-5dbe-46d2-9f7a-5acc046e8bb8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\DebugBreak\Core">
+      <UniqueIdentifier>{9de6fbd3-b1ff-4c3e-89c2-38d12ed6ff2d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\DebugBreak\Hardware">
+      <UniqueIdentifier>{bb18ae94-ef2b-42f0-8c68-2f74d7bf6509}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\DebugBreak\Software">
+      <UniqueIdentifier>{e6f17d24-ec43-4c36-8870-aa29af0c4464}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\DebugBreak">
+      <UniqueIdentifier>{7d48d34d-84ab-44b2-b508-3ada897fa0d6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\DebugBreak\Core">
+      <UniqueIdentifier>{a8a5ab1f-f441-46d1-bdc5-18908e8ab870}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Common\String">
+      <UniqueIdentifier>{a6a8e5e7-75ae-4186-b691-86ebff635705}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Common\String">
+      <UniqueIdentifier>{bff246e1-3e5b-4119-be64-9e2774c55e5a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Process">
+      <UniqueIdentifier>{4f80f660-3e5a-489c-a99d-169b9e179905}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Process">
+      <UniqueIdentifier>{3a485856-d16b-499d-949d-34ccdc837226}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Core">
+      <UniqueIdentifier>{88e71f4d-9098-42f5-b6b5-8ff7fc2d5591}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Core\DebugEvents">
+      <UniqueIdentifier>{00aa1eb3-d7bf-4d62-bbb5-63020a3d857a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Core\IoctlHandlers">
+      <UniqueIdentifier>{1b8ab968-3574-4d20-a7d7-5269c563f1b1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Core">
+      <UniqueIdentifier>{b7cf8c0f-f3f9-408b-8c49-73fb6b376d47}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Core\DebugEvents">
+      <UniqueIdentifier>{2f2ef1cc-992a-42b0-a0b9-7f8cb6585d3a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Core\IoctlHandlers">
+      <UniqueIdentifier>{4588c462-4a0e-4c18-a820-f2505065d613}</UniqueIdentifier>
+    </Filter>
+<Filter Include="Source Files\DbgkApi\Api"><UniqueIdentifier>{c0252062-e8df-4aea-afb3-3a81f8ebee32}</UniqueIdentifier></Filter><Filter Include="Header Files\DbgkApi\Api"><UniqueIdentifier>{d646ca67-522d-44b2-b52d-320b1e2797bf}</UniqueIdentifier></Filter><Filter Include="Source Files\Globals"><UniqueIdentifier>{d4218484-c2a0-48dc-89ce-06282093b025}</UniqueIdentifier></Filter><Filter Include="Header Files\Globals"><UniqueIdentifier>{f1c69d17-f0c6-4f07-9318-4e45d3d9c896}</UniqueIdentifier></Filter><Filter Include="Header Files\Protect\Process"><UniqueIdentifier>{c16deb1c-720a-43a4-9d56-d704d7fc0da3}</UniqueIdentifier></Filter><Filter Include="Header Files\Protect\Thread"><UniqueIdentifier>{894f8bdc-3829-4612-8ad9-cf8c2d74b9a5}</UniqueIdentifier></Filter><Filter Include="Header Files\Protect\Windows"><UniqueIdentifier>{0df4cb3c-6fdf-46f2-ba3a-be509ba22124}</UniqueIdentifier></Filter><Filter Include="Header Files\NativeApi"><UniqueIdentifier>{a576eaf7-9c84-4fb2-900e-fba0344af60b}</UniqueIdentifier></Filter></ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Core\DebugEvents\DebugRuntimeEvents.cpp">
+      <Filter>Source Files\Core\DebugEvents</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\DebugEvents\MemoryAndAttachEvents.cpp">
+      <Filter>Source Files\Core\DebugEvents</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\DebugEvents\ObjectReferenceEvents.cpp">
+      <Filter>Source Files\Core\DebugEvents</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\DebugEvents\ThreadCreationEvents.cpp">
+      <Filter>Source Files\Core\DebugEvents</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\DriverMain.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\HookSetup.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\IoctlDispatch.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\IoctlDispatchBreakpoints.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\IoctlDispatchClient.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\IoctlHandlers\ClientRequestHandlers.cpp">
+      <Filter>Source Files\Core\IoctlHandlers</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\IoctlHandlers\DebuggerInfoHandlers.cpp">
+      <Filter>Source Files\Core\IoctlHandlers</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\IoctlHandlers\IoctlUserData.cpp">
+      <Filter>Source Files\Core\IoctlHandlers</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\IoctlHandlers\ProtectListHandlers.cpp">
+      <Filter>Source Files\Core\IoctlHandlers</Filter>
+    </ClCompile>
+
+    <ClCompile Include="Globals\Globals.cpp">
+      <Filter>Source Files\Globals</Filter>
+    </ClCompile>
+    <ClCompile Include="Encrypt\Blowfish\Blowfish.cpp">
+      <Filter>Source Files\Encrypt\Blowfish</Filter>
+    </ClCompile>
+    <ClCompile Include="Encrypt\Blowfish\BlowfishApi.cpp">
+      <Filter>Source Files\Encrypt\Blowfish</Filter>
+    </ClCompile>
+    <ClCompile Include="Encrypt\Blowfish\BlowfishCore.cpp">
+      <Filter>Source Files\Encrypt\Blowfish</Filter>
+    </ClCompile>
+    <ClCompile Include="Encrypt\Blowfish\BlowfishUtilities.cpp">
+      <Filter>Source Files\Encrypt\Blowfish</Filter>
+    </ClCompile>
+    <ClCompile Include="Hooks\EptHook\Core\EptHookLifecycle.cpp">
+      <Filter>Source Files\Hooks\EptHook\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Hooks\EptHook\Core\EptHookMemoryObject.cpp">
+      <Filter>Source Files\Hooks\EptHook\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Hooks\EptHook\Core\EptHookNtosDebug.cpp">
+      <Filter>Source Files\Hooks\EptHook\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Hooks\EptHook\Core\EptHookThreadProcess.cpp">
+      <Filter>Source Files\Hooks\EptHook\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Hooks\EptHook\Core\EptHookWin32k.cpp">
+      <Filter>Source Files\Hooks\EptHook\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Hvm\HypervisorGatewayApi.cpp">
+      <Filter>Source Files\Hvm</Filter>
+    </ClCompile>
+    <ClCompile Include="Hvm\HypervisorGatewayBroadcast.cpp">
+      <Filter>Source Files\Hvm</Filter>
+    </ClCompile>
+    <ClCompile Include="Init\Symbolic\InitSymbolic.cpp">
+      <Filter>Source Files\Init\Symbolic</Filter>
+    </ClCompile>
+    <ClCompile Include="Log\log.cpp">
+      <Filter>Source Files\Log</Filter>
+    </ClCompile>
+    <ClCompile Include="Memory\ReadWrite\BreakpointList.cpp">
+      <Filter>Source Files\Memory\ReadWrite</Filter>
+    </ClCompile>
+    <ClCompile Include="Memory\ReadWrite\BreakpointOperations.cpp">
+      <Filter>Source Files\Memory\ReadWrite</Filter>
+    </ClCompile>
+    <ClCompile Include="Memory\ReadWrite\MdlMapping.cpp">
+      <Filter>Source Files\Memory\ReadWrite</Filter>
+    </ClCompile>
+    <ClCompile Include="Memory\ReadWrite\MmCopyHook.cpp">
+      <Filter>Source Files\Memory\ReadWrite</Filter>
+    </ClCompile>
+    <ClCompile Include="Memory\ReadWrite\VirtualMemoryRead.cpp">
+      <Filter>Source Files\Memory\ReadWrite</Filter>
+    </ClCompile>
+    <ClCompile Include="Memory\ReadWrite\VirtualMemoryWrite.cpp">
+      <Filter>Source Files\Memory\ReadWrite</Filter>
+    </ClCompile>
+    <ClCompile Include="Protect\Callbacks.cpp">
+      <Filter>Source Files\Protect</Filter>
+    </ClCompile>
+    <ClCompile Include="Protect\Process\ProtectProcess.cpp">
+      <Filter>Source Files\Protect\Process</Filter>
+    </ClCompile>
+    <ClCompile Include="Protect\Thread\ProtectDrxX64.cpp">
+      <Filter>Source Files\Protect\Thread</Filter>
+    </ClCompile>
+    <ClCompile Include="Protect\Windows\BypassFindWnd.cpp">
+      <Filter>Source Files\Protect\Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="List\MyList.cpp">
+      <Filter>Source Files\List</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\ApcInject.cpp">
+      <Filter>Source Files\Common\Inject\ApcInject</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\ApcCore.cpp">
+      <Filter>Source Files\Common\Inject\ApcInject</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\ThreadLookup.cpp">
+      <Filter>Source Files\Common\Inject\ApcInject</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\ApcQueue.cpp">
+      <Filter>Source Files\Common\Inject\ApcInject</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\ModuleResolver.cpp">
+      <Filter>Source Files\Common\Inject\ApcInject</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\UserModuleLookup.cpp">
+      <Filter>Source Files\Common\Inject\ApcInject</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\ApiSetResolver.cpp">
+      <Filter>Source Files\Common\Inject\ApcInject</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\ImagePathResolver.cpp">
+      <Filter>Source Files\Common\Inject\ApcInject</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\SxsResolver.cpp">
+      <Filter>Source Files\Common\Inject\ApcInject</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\ExportResolver.cpp">
+      <Filter>Source Files\Common\Inject\ApcInject</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\RemoteRoutineCall.cpp">
+      <Filter>Source Files\Common\Inject\ApcInject</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\ShellcodeBuilder.cpp">
+      <Filter>Source Files\Common\Inject\ApcInject</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\UtilityFunctions.cpp">
+      <Filter>Source Files\Common\Inject\ApcInject</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\StringUtilities.cpp">
+      <Filter>Source Files\Common\Inject\ApcInject</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\KernelResolver.cpp">
+      <Filter>Source Files\Common\Inject\ApcInject</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Ring0\Inject\ApcInject\Core\ThreadExecution.cpp">
+      <Filter>Source Files\Common\Inject\ApcInject</Filter>
+    </ClCompile>
+    <ClCompile Include="DebugBreak\Core\DebugBreakCore.cpp">
+      <Filter>Source Files\DebugBreak\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="DebugBreak\Hardware\HardwareBreakpoint.cpp">
+      <Filter>Source Files\DebugBreak\Hardware</Filter>
+    </ClCompile>
+    <ClCompile Include="DebugBreak\Software\SoftwareBreakpoint.cpp">
+      <Filter>Source Files\DebugBreak\Software</Filter>
+    </ClCompile>
+    <ClCompile Include="Init\Symbolic\InitWin32kbase.cpp">
+      <Filter>Source Files\Init\Symbolic</Filter>
+    </ClCompile>
+    <ClCompile Include="Init\Symbolic\InitNtoskrnl.cpp">
+      <Filter>Source Files\Init\Symbolic</Filter>
+    </ClCompile>
+    <ClCompile Include="Init\Symbolic\InitWin32kfull.cpp">
+      <Filter>Source Files\Init\Symbolic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Ring0\String\Basics\StringBasics.cpp">
+      <Filter>Source Files\Common\String</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Ring0\String\Memory\StringMemory.cpp">
+      <Filter>Source Files\Common\String</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Ring0\String\Parsing\StringParsing.cpp">
+      <Filter>Source Files\Common\String</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Ring0\String\Process\StringProcess.cpp">
+      <Filter>Source Files\Common\String</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Ring0\String\Search\StringSearch.cpp">
+      <Filter>Source Files\Common\String</Filter>
+    </ClCompile>
+    <ClCompile Include="Process\Process.cpp">
+      <Filter>Source Files\Process</Filter>
+    </ClCompile>
+    <ClCompile Include="DbgkApi\Api\CreateDebugObject.cpp">
+      <Filter>Source Files\DbgkApi\Api</Filter>
+    </ClCompile>
+    <ClCompile Include="DbgkApi\Api\DebugActiveProcess.cpp">
+      <Filter>Source Files\DbgkApi\Api</Filter>
+    </ClCompile>
+    <ClCompile Include="DbgkApi\Api\DebugActiveProcessAttach.cpp">
+      <Filter>Source Files\DbgkApi\Api</Filter>
+    </ClCompile>
+    <ClCompile Include="DbgkApi\Api\DebugActiveProcessEntry.cpp">
+      <Filter>Source Files\DbgkApi\Api</Filter>
+    </ClCompile>
+    <ClCompile Include="DbgkApi\Api\WaitForDebugEvent.cpp">
+      <Filter>Source Files\DbgkApi\Api</Filter>
+    </ClCompile>
+    <ClCompile Include="DbgkApi\Api\DebugContinue.cpp">
+      <Filter>Source Files\DbgkApi\Api</Filter>
+    </ClCompile>
+    <ClCompile Include="DbgkApi\Api\RemoveProcessDebug.cpp">
+      <Filter>Source Files\DbgkApi\Api</Filter>
+    </ClCompile>
+    <ClCompile Include="DbgkApi\Api\SetInformationDebugObject.cpp">
+      <Filter>Source Files\DbgkApi\Api</Filter>
+    </ClCompile>
+    <ClCompile Include="DbgkApi\Api\DebugObjectCommon.cpp">
+      <Filter>Source Files\DbgkApi\Api</Filter>
+    </ClCompile>
+    <ClCompile Include="DbgkApi\Api\DebugObjectEvents.cpp">
+      <Filter>Source Files\DbgkApi\Api</Filter>
+    </ClCompile>
+    <ClCompile Include="DbgkApi\Api\DebugObjectLifecycle.cpp">
+      <Filter>Source Files\DbgkApi\Api</Filter>
+    </ClCompile>
+
+    <ClCompile Include="DbgkApi\Api\DebugProcessUnload.cpp">
+      <Filter>Source Files\DbgkApi\Api</Filter>
+    </ClCompile>
+    <ClCompile Include="DbgkApi\Api\DebugProcessRegistry.cpp">
+      <Filter>Source Files\DbgkApi\Api</Filter>
+    </ClCompile>
+    <ClCompile Include="DbgkApi\Api\DebugMessageQueue.cpp">
+      <Filter>Source Files\DbgkApi\Api</Filter>
+    </ClCompile>
+    <ClCompile Include="DbgkApi\Api\DebugExceptionForward.cpp">
+      <Filter>Source Files\DbgkApi\Api</Filter>
+    </ClCompile>
+    <ClCompile Include="DbgkApi\Api\DebugThreadCreate.cpp">
+      <Filter>Source Files\DbgkApi\Api</Filter>
+    </ClCompile>
+    <ClCompile Include="DbgkApi\Api\DebugImageEvents.cpp">
+      <Filter>Source Files\DbgkApi\Api</Filter>
+    </ClCompile>
+    <ClCompile Include="DbgkApi\Api\DebugExitEvents.cpp">
+      <Filter>Source Files\DbgkApi\Api</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Driver.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\Driver.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\DebugEvents\DebugEventsCommon.h">
+      <Filter>Header Files\Core\DebugEvents</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\IoctlDispatchInternal.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\IoctlHandlers\IoctlHandlerCommon.h">
+      <Filter>Header Files\Core\IoctlHandlers</Filter>
+    </ClInclude>
+    <ClInclude Include="DbgkApi\DbgkApi.h">
+      <Filter>Header Files\DbgkApi</Filter>
+    </ClInclude>
+    <ClInclude Include="Log\log.h">
+      <Filter>Header Files\Log</Filter>
+    </ClInclude>
+    <ClInclude Include="Globals.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="List\MyList.h">
+      <Filter>Header Files\List</Filter>
+    </ClInclude>
+    <ClInclude Include="Protect\Callbacks.h">
+      <Filter>Header Files\Protect</Filter>
+    </ClInclude>
+    <ClInclude Include="Hooks\EptHook\EptHook.h">
+      <Filter>Header Files\Hooks\EptHook</Filter>
+    </ClInclude>
+    <ClInclude Include="Hooks\EptHook\Core\EptHookCommon.h">
+      <Filter>Header Files\Hooks\EptHook\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Hvm\hypervisor_gateway.h">
+      <Filter>Header Files\Hvm</Filter>
+    </ClInclude>
+    <ClInclude Include="Encrypt\Blowfish\BlowfishInternal.h">
+      <Filter>Header Files\Encrypt\Blowfish</Filter>
+    </ClInclude>
+    <ClInclude Include="Hvm\AsmCallset.h">
+      <Filter>Header Files\Hvm</Filter>
+    </ClInclude>
+    <ClInclude Include="Hvm\HypervisorGatewayInternal.h">
+      <Filter>Header Files\Hvm</Filter>
+    </ClInclude>
+    <ClInclude Include="Init\Symbolic\InitSymbolic.h">
+      <Filter>Header Files\Init\Symbolic</Filter>
+    </ClInclude>
+    <ClInclude Include="Encrypt\Blowfish\Blowfish.h">
+      <Filter>Header Files\Encrypt\Blowfish</Filter>
+    </ClInclude>
+    <ClInclude Include="ntos\inc\amd64.h">
+      <Filter>Header Files\ntos\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ntos\inc\extypes.h">
+      <Filter>Header Files\ntos\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ntos\inc\ke.h">
+      <Filter>Header Files\ntos\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ntos\inc\ketypes.h">
+      <Filter>Header Files\ntos\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ntos\inc\ki.h">
+      <Filter>Header Files\ntos\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ntos\inc\mi.h">
+      <Filter>Header Files\ntos\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ntos\inc\mmtypes.h">
+      <Filter>Header Files\ntos\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ntos\inc\ntdbg.h">
+      <Filter>Header Files\ntos\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ntos\inc\nti386.h">
+      <Filter>Header Files\ntos\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ntos\inc\ntexapi.h">
+      <Filter>Header Files\ntos\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ntos\inc\ntlpcapi.h">
+      <Filter>Header Files\ntos\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ntos\inc\ntosdef.h">
+      <Filter>Header Files\ntos\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ntos\inc\obtypes.h">
+      <Filter>Header Files\ntos\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ntos\inc\peb_teb.h">
+      <Filter>Header Files\ntos\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ntos\inc\pecoff.h">
+      <Filter>Header Files\ntos\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ntos\inc\psp.h">
+      <Filter>Header Files\ntos\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ntos\inc\pstypes.h">
+      <Filter>Header Files\ntos\inc</Filter>
+    </ClInclude>
+    <ClInclude Include="Memory\ReadWrite.h">
+      <Filter>Header Files\Memory</Filter>
+    </ClInclude>
+    <ClInclude Include="Memory\ReadWrite\ReadWriteInternal.h">
+      <Filter>Header Files\Memory\ReadWrite</Filter>
+    </ClInclude>
+    <ClInclude Include="Asm\AsmVar.h">
+      <Filter>Header Files\Asm</Filter>
+    </ClInclude>
+    <ClInclude Include="Hvm\vmcall_reason.h">
+      <Filter>Header Files\Hvm</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Ring0\Inject\ApcInject\ApcInject.h">
+      <Filter>Header Files\Common\Inject\ApcInject</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Ring0\Inject\ApcInject\Api\ApcInjectNativeApi.h">
+      <Filter>Header Files\Common\Inject\ApcInject</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Ring0\Inject\ApcInject\Api\ApcInjectPublicApi.h">
+      <Filter>Header Files\Common\Inject\ApcInject</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Ring0\Inject\ApcInject\Api\ApcInjectRemoteThreadApi.h">
+      <Filter>Header Files\Common\Inject\ApcInject</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Ring0\Inject\ApcInject\Core\ApcCore.h">
+      <Filter>Header Files\Common\Inject\ApcInject</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Ring0\Inject\ApcInject\Core\ModuleResolver.h">
+      <Filter>Header Files\Common\Inject\ApcInject</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Ring0\Inject\ApcInject\Core\ShellcodeBuilder.h">
+      <Filter>Header Files\Common\Inject\ApcInject</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Ring0\Inject\ApcInject\Core\UtilityFunctions.h">
+      <Filter>Header Files\Common\Inject\ApcInject</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Ring0\Inject\ApcInject\Types\ApcInjectApiSetTypes.h">
+      <Filter>Header Files\Common\Inject\ApcInject</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Ring0\Inject\ApcInject\Types\ApcInjectNativeSupportTypes.h">
+      <Filter>Header Files\Common\Inject\ApcInject</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Ring0\Inject\ApcInject\Types\ApcInjectPebTypes.h">
+      <Filter>Header Files\Common\Inject\ApcInject</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Ring0\Inject\ApcInject\Types\ApcInjectSystemTypes.h">
+      <Filter>Header Files\Common\Inject\ApcInject</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Ring0\PE\PE_struct.h">
+      <Filter>Header Files\Common\PE</Filter>
+    </ClInclude>
+    <ClInclude Include="DebugBreak\DebugBreak.h">
+      <Filter>Header Files\DebugBreak</Filter>
+    </ClInclude>
+    <ClInclude Include="DebugBreak\Core\DebugBreakInternal.h">
+      <Filter>Header Files\DebugBreak\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Init\Symbolic\InitWin32kbase.h">
+      <Filter>Header Files\Init\Symbolic</Filter>
+    </ClInclude>
+    <ClInclude Include="Init\Symbolic\InitWin32kfull.h">
+      <Filter>Header Files\Init\Symbolic</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Ring0\String\StringHandler.h">
+      <Filter>Header Files\Common\String</Filter>
+    </ClInclude>
+    <ClInclude Include="Process\Process.h">
+      <Filter>Header Files\Process</Filter>
+    </ClInclude>
+    <ClInclude Include="ntapi.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="NativeApi\ntapi.h">
+      <Filter>Header Files\NativeApi</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Shared\IOCTLs.h">
+      <Filter>Header Files\Common\Shared</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Shared\DriverProtocol.h">
+      <Filter>Header Files\Common\Shared</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Shared\SharedStruct.h">
+      <Filter>Header Files\Common\Shared</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Shared\VmcallReason.h">
+      <Filter>Header Files\Common\Shared</Filter>
+    </ClInclude>
+    <ClInclude Include="DbgkApi\Api\CreateDebugObject.h">
+      <Filter>Header Files\DbgkApi\Api</Filter>
+    </ClInclude>
+    <ClInclude Include="DbgkApi\Api\DebugActiveProcess.h">
+      <Filter>Header Files\DbgkApi\Api</Filter>
+    </ClInclude>
+    <ClInclude Include="DbgkApi\Api\WaitForDebugEvent.h">
+      <Filter>Header Files\DbgkApi\Api</Filter>
+    </ClInclude>
+    <ClInclude Include="DbgkApi\Api\DebugContinue.h">
+      <Filter>Header Files\DbgkApi\Api</Filter>
+    </ClInclude>
+    <ClInclude Include="DbgkApi\Api\RemoveProcessDebug.h">
+      <Filter>Header Files\DbgkApi\Api</Filter>
+    </ClInclude>
+    <ClInclude Include="DbgkApi\Api\SetInformationDebugObject.h">
+      <Filter>Header Files\DbgkApi\Api</Filter>
+    </ClInclude>
+    <ClInclude Include="DbgkApi\Api\DebugObjectCommon.h">
+      <Filter>Header Files\DbgkApi\Api</Filter>
+    </ClInclude>
+    <ClInclude Include="DbgkApi\Api\DebugObjectCommonInternal.h">
+      <Filter>Header Files\DbgkApi\Api</Filter>
+    </ClInclude>
+    <ClInclude Include="DbgkApi\Api\DebugEventHandlers.h">
+      <Filter>Header Files\DbgkApi\Api</Filter>
+    </ClInclude>
+    <ClInclude Include="DbgkApi\Api\DebugEventHandlersInternal.h">
+      <Filter>Header Files\DbgkApi\Api</Filter>
+    </ClInclude>
+  <ClInclude Include="Globals\Globals.h"><Filter>Header Files\Globals</Filter></ClInclude><ClInclude Include="Protect\Process\ProtectProcess.h"><Filter>Header Files\Protect\Process</Filter></ClInclude><ClInclude Include="Protect\Thread\ProtectDrxX64.h"><Filter>Header Files\Protect\Thread</Filter></ClInclude><ClInclude Include="Protect\Windows\BypassFindWnd.h"><Filter>Header Files\Protect\Windows</Filter></ClInclude></ItemGroup>
+  <ItemGroup>
+    <MASM Include="Hvm\ASM\AsmCallset.asm">
+      <Filter>Source Files\Hvm\Asm</Filter>
+    </MASM>
+    <MASM Include="Hvm\ASM\lde64.asm">
+      <Filter>Source Files\Hvm\Asm</Filter>
+    </MASM>
+    <MASM Include="Asm\AsmCode.asm">
+      <Filter>Source Files\Asm</Filter>
+    </MASM>
+  </ItemGroup>
+</Project>

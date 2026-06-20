@@ -1,0 +1,72 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{3B731188-A57A-45C6-A9F9-5AA901908459}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="UnrealDbg.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="..\CardRegistration\卡密注册.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="..\SymbolTool\SymbolTool.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="..\D-encryption\D_encryption.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="UnrealDbg">
+        <MSBuild Projects="UnrealDbg.dproj"/>
+    </Target>
+    <Target Name="UnrealDbg:Clean">
+        <MSBuild Projects="UnrealDbg.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="UnrealDbg:Make">
+        <MSBuild Projects="UnrealDbg.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="卡密注册">
+        <MSBuild Projects="..\CardRegistration\卡密注册.dproj"/>
+    </Target>
+    <Target Name="卡密注册:Clean">
+        <MSBuild Projects="..\CardRegistration\卡密注册.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="卡密注册:Make">
+        <MSBuild Projects="..\CardRegistration\卡密注册.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="SymbolTool">
+        <MSBuild Projects="..\SymbolTool\SymbolTool.dproj"/>
+    </Target>
+    <Target Name="SymbolTool:Clean">
+        <MSBuild Projects="..\SymbolTool\SymbolTool.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="SymbolTool:Make">
+        <MSBuild Projects="..\SymbolTool\SymbolTool.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="D_encryption">
+        <MSBuild Projects="..\D-encryption\D_encryption.dproj"/>
+    </Target>
+    <Target Name="D_encryption:Clean">
+        <MSBuild Projects="..\D-encryption\D_encryption.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="D_encryption:Make">
+        <MSBuild Projects="..\D-encryption\D_encryption.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="UnrealDbg;卡密注册;SymbolTool;D_encryption"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="UnrealDbg:Clean;卡密注册:Clean;SymbolTool:Clean;D_encryption:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="UnrealDbg:Make;卡密注册:Make;SymbolTool:Make;D_encryption:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>

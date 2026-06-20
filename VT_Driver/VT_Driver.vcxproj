@@ -1,0 +1,387 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|ARM">
+      <Configuration>Debug</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|ARM64">
+      <Configuration>Debug</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|ARM">
+      <Configuration>Release</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|ARM64">
+      <Configuration>Release</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{B41C66E0-04F8-4049-B41F-5A0D15B1DAD7}</ProjectGuid>
+    <TemplateGuid>{dd38f7fc-d7bd-488b-9242-7d8754cde80d}</TemplateGuid>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <MinimumVisualStudioVersion>12.0</MinimumVisualStudioVersion>
+    <Configuration>Debug</Configuration>
+    <Platform Condition="'$(Platform)' == ''">Win32</Platform>
+    <RootNamespace>VT_Driver</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <TargetVersion>
+    </TargetVersion>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
+    <ConfigurationType>Driver</ConfigurationType>
+    <DriverType>WDM</DriverType>
+    <SpectreMitigation>false</SpectreMitigation>
+    <Driver_SpectreMitigation>false</Driver_SpectreMitigation>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <TargetVersion>
+    </TargetVersion>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
+    <ConfigurationType>Driver</ConfigurationType>
+    <DriverType>WDM</DriverType>
+    <Driver_SpectreMitigation>false</Driver_SpectreMitigation>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <TargetVersion>Windows10</TargetVersion>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
+    <ConfigurationType>Driver</ConfigurationType>
+    <DriverType>WDM</DriverType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <TargetVersion>Windows10</TargetVersion>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
+    <ConfigurationType>Driver</ConfigurationType>
+    <DriverType>WDM</DriverType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'" Label="Configuration">
+    <TargetVersion>Windows10</TargetVersion>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
+    <ConfigurationType>Driver</ConfigurationType>
+    <DriverType>WDM</DriverType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'" Label="Configuration">
+    <TargetVersion>Windows10</TargetVersion>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
+    <ConfigurationType>Driver</ConfigurationType>
+    <DriverType>WDM</DriverType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="Configuration">
+    <TargetVersion>Windows10</TargetVersion>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
+    <ConfigurationType>Driver</ConfigurationType>
+    <DriverType>WDM</DriverType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'" Label="Configuration">
+    <TargetVersion>Windows10</TargetVersion>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
+    <ConfigurationType>Driver</ConfigurationType>
+    <DriverType>WDM</DriverType>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
+    <IncludePath>$(MSBuildProjectDirectory);$(MSBuildProjectDirectory)\..\Common;$(MSBuildProjectDirectory)\..\Common\Ring0;$(VC_IncludePath);$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
+    <IncludePath>$(MSBuildProjectDirectory);$(MSBuildProjectDirectory)\..\Common;$(MSBuildProjectDirectory)\..\Common\Ring0;$(VC_IncludePath);$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
+    <EnableInf2cat>false</EnableInf2cat>
+    <IncludePath>$(MSBuildProjectDirectory);$(MSBuildProjectDirectory)\..\Common;$(MSBuildProjectDirectory)\..\Common\Ring0;$(VC_IncludePath);$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
+    <EnableInf2cat>false</EnableInf2cat>
+    <IncludePath>$(MSBuildProjectDirectory);$(MSBuildProjectDirectory)\..\Common;$(MSBuildProjectDirectory)\..\Common\Ring0;$(VC_IncludePath);$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
+    <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
+    <IncludePath>$(MSBuildProjectDirectory);$(MSBuildProjectDirectory)\..\Common;$(MSBuildProjectDirectory)\..\Common\Ring0;$(VC_IncludePath);$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
+    <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
+    <IncludePath>$(MSBuildProjectDirectory);$(MSBuildProjectDirectory)\..\Common;$(MSBuildProjectDirectory)\..\Common\Ring0;$(VC_IncludePath);$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
+    <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
+    <IncludePath>$(MSBuildProjectDirectory);$(MSBuildProjectDirectory)\..\Common;$(MSBuildProjectDirectory)\..\Common\Ring0;$(VC_IncludePath);$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
+    <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
+    <IncludePath>$(MSBuildProjectDirectory);$(MSBuildProjectDirectory)\..\Common;$(MSBuildProjectDirectory)\..\Common\Ring0;$(VC_IncludePath);$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <PreprocessorDefinitions>DEBUG;_DEBUG_LOG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <DisableSpecificWarnings>5040;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>$(MSBuildProjectDirectory)\..\Common\Ring0\SymbolicAccessKM.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <DriverSign>
+      <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
+    </DriverSign>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc11</LanguageStandard_C>
+      <DisableSpecificWarnings>5040;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <BufferSecurityCheck>true</BufferSecurityCheck>
+      <StructMemberAlignment>8Bytes</StructMemberAlignment>
+      <Optimization>Disabled</Optimization>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>$(MSBuildProjectDirectory)\..\Common\Ring0\SymbolicAccessKM.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <DriverSign>
+      <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
+    </DriverSign>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <FilesToPackage Include="$(TargetPath)" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\Common\Ring0\Comms\SerialPort.cpp" />
+    <ClCompile Include="..\Common\Ring0\Comms\SerialPortFormat.cpp" />
+    <ClCompile Include="..\Common\Ring0\Comms\SerialPortFormatNumbers.cpp" />
+    <ClCompile Include="..\Common\Ring0\Comms\SerialPortIo.cpp" />
+    <ClCompile Include="..\Common\Ring0\String\Basics\StringBasics.cpp" />
+    <ClCompile Include="..\Common\Ring0\String\Memory\StringMemory.cpp" />
+    <ClCompile Include="..\Common\Ring0\String\Parsing\StringParsing.cpp" />
+    <ClCompile Include="..\Common\Ring0\String\Process\StringProcess.cpp" />
+    <ClCompile Include="..\Common\Ring0\String\Search\StringSearch.cpp" />
+    <ClCompile Include="Driver\DriverGuestCommands.cpp" />
+    <ClCompile Include="Driver\DriverInitOffset.cpp" />
+    <ClCompile Include="Driver\DriverLifecycle.cpp" />
+    <ClCompile Include="Tables\gdt.cpp" />
+    <ClCompile Include="Globals\Globals.cpp" />
+    <ClCompile Include="Globals\GuestMemory.cpp" />
+    <ClCompile Include="Globals\GuestThreadState.cpp" />
+    <ClCompile Include="Globals\HostTables.cpp" />
+    <ClCompile Include="Globals\MtfPendingState.cpp" />
+    <ClCompile Include="Globals\MtrrMemoryTypes.cpp" />
+    <ClCompile Include="Globals\VmxState.cpp" />
+    <ClCompile Include="HypervisorGateway\hypervisor_gateway.cpp" />
+    <ClCompile Include="HypervisorRoutines\HypervisorBitmaps.cpp" />
+    <ClCompile Include="HypervisorRoutines\HypervisorContext.cpp" />
+    <ClCompile Include="HypervisorRoutines\HypervisorInterrupts.cpp" />
+    <ClCompile Include="HypervisorRoutines\HypervisorVmcsAccess.cpp" />
+    <ClCompile Include="HypervisorRoutines\HypervisorVmcsDump.cpp" />
+    <ClCompile Include="HypervisorRoutines\HypervisorVmx.cpp" />
+    <ClCompile Include="Tables\idt.cpp" />
+    <ClCompile Include="Init\Symbolic\InitNtoskrnl.cpp" />
+    <ClCompile Include="Invalidation\invalid_ept.cpp" />
+    <ClCompile Include="Invalidation\invalid_pcid.cpp" />
+    <ClCompile Include="Invalidation\invalid_vpid.cpp" />
+    <ClCompile Include="PoolManager\PoolAllocation.cpp" />
+    <ClCompile Include="PoolManager\PoolDump.cpp" />
+    <ClCompile Include="PoolManager\PoolLifecycle.cpp" />
+    <ClCompile Include="PoolManager\PoolRequests.cpp" />
+    <ClCompile Include="Sync\spinlock.cpp" />
+    <ClCompile Include="VmCall\vmcall_handler.cpp" />
+    <ClCompile Include="Vmcs\VmcsControls.cpp" />
+    <ClCompile Include="Vmcs\VmcsFill.cpp" />
+    <ClCompile Include="Vmcs\VmcsGuest.cpp" />
+    <ClCompile Include="Vmcs\VmcsHost.cpp" />
+    <ClCompile Include="Vmcs\VmcsSegments.cpp" />
+    <ClCompile Include="Vmm\VmmEntry.cpp" />
+    <ClCompile Include="Vmm\VmmContext.cpp" />
+    <ClCompile Include="Vmm\VmmHostPageTables.cpp" />
+    <ClCompile Include="Vmm\VmmProcessor.cpp" />
+    <ClCompile Include="Vmm\VmmVcpu.cpp" />
+    <!-- VmExit 模块 (9个) -->
+    <ClCompile Include="VmExit\VmExitDispatcher.cpp" />
+    <ClCompile Include="VmExit\VmExitEventInjection.cpp" />
+    <ClCompile Include="VmExit\VmExitException.cpp" />
+    <ClCompile Include="VmExit\VmExitControl.cpp" />
+    <ClCompile Include="VmExit\VmExitInstruction.cpp" />
+    <ClCompile Include="VmExit\VmExitEpt.cpp" />
+    <ClCompile Include="VmExit\VmExitMsr.cpp" />
+    <ClCompile Include="VmExit\VmExitIo.cpp" />
+    <ClCompile Include="VmExit\VmExitCommon.cpp" />
+    <!-- Ept module -->
+    <ClCompile Include="Ept\EptCommon.cpp" />
+    <ClCompile Include="Ept\EptMtrr.cpp" />
+    <ClCompile Include="Ept\Build\EptAddressing.cpp" />
+    <ClCompile Include="Ept\Build\EptPageTables.cpp" />
+    <ClCompile Include="Ept\Build\EptRuntimeSplit.cpp" />
+    <ClCompile Include="Ept\EptSync.cpp" />
+    <ClCompile Include="Ept\Watch\EptWatchActivation.cpp" />
+    <ClCompile Include="Ept\Watch\EptWatchBreakpointInstall.cpp" />
+    <ClCompile Include="Ept\Watch\EptWatchBreakpoints.cpp" />
+    <ClCompile Include="Ept\Watch\EptWatchDeactivate.cpp" />
+    <ClCompile Include="Ept\Watch\EptWatchEvents.cpp" />
+    <ClCompile Include="Ept\Watch\EptWatchQuery.cpp" />
+    <ClCompile Include="Ept\Hook\Instruction\EptHookInstruction.cpp" />
+    <ClCompile Include="Ept\Hook\Instruction\EptHookFakePageMemory.cpp" />
+    <ClCompile Include="Ept\Hook\Lifecycle\EptHookVmcall.cpp" />
+    <ClCompile Include="Ept\Hook\Lifecycle\EptHookCc.cpp" />
+    <ClCompile Include="Ept\Hook\Lifecycle\EptHookInt1.cpp" />
+    <ClCompile Include="Ept\Hook\Lifecycle\EptHookDefault.cpp" />
+    <ClCompile Include="Ept\Hook\Cleanup\EptHookCleanup.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\Common\Ring0\Comms\SerialPort.h" />
+    <ClInclude Include="..\Common\Ring0\Comms\SerialPortInternal.h" />
+    <ClInclude Include="..\Common\Ring0\String\StringHandler.h" />
+    <ClInclude Include="..\Common\Shared\DriverProtocol.h" />
+    <ClInclude Include="..\Common\Shared\IOCTLs.h" />
+    <ClInclude Include="..\Common\Shared\SharedStruct.h" />
+    <ClInclude Include="..\Common\Shared\VmcallReason.h" />
+    <ClInclude Include="ASM\AsmCallset.h" />
+    <ClInclude Include="Ept\EPT.h" />
+    <ClInclude Include="HypervisorGateway\hypervisor_gateway.h" />
+    <ClInclude Include="Interrupts\exception.h" />
+    <ClInclude Include="Interrupts\interrupt.h" />
+    <ClInclude Include="Invalidation\invalid_ept.h" />
+    <ClInclude Include="Invalidation\invalid_pcid.h" />
+    <ClInclude Include="Invalidation\invalid_vpid.h" />
+    <ClInclude Include="NativeApi\ntapi.h" />
+    <ClInclude Include="Processor\cpuid.h" />
+    <ClInclude Include="Processor\crx.h" />
+    <ClInclude Include="Processor\drx.h" />
+    <ClInclude Include="Processor\msr.h" />
+    <ClInclude Include="Processor\mtrr.h" />
+    <ClInclude Include="Processor\segment.h" />
+    <ClInclude Include="Processor\vmx.h" />
+    <ClInclude Include="Sync\spinlock.h" />
+    <ClInclude Include="Tables\gdt.h" />
+    <ClInclude Include="Tables\idt.h" />
+    <ClInclude Include="VmCall\vmcall_handler.h" />
+    <ClInclude Include="VmExit\vmexit_handler.h" />
+    <ClInclude Include="Vmm\vmm.h" />
+    <ClInclude Include="AllocateMem.h" />
+    <ClInclude Include="AsmCallset.h" />
+    <ClInclude Include="Driver\Driver.h" />
+    <ClInclude Include="Driver\DriverInternal.h" />
+    <ClInclude Include="cpuid.h" />
+    <ClInclude Include="crx.h" />
+    <ClInclude Include="Driver.h" />
+    <ClInclude Include="drx.h" />
+    <ClInclude Include="EPT.h" />
+    <ClInclude Include="exception.h" />
+    <ClInclude Include="gdt.h" />
+    <ClInclude Include="Globals.h" />
+    <ClInclude Include="Globals\GlobalsInternal.h" />
+    <ClInclude Include="HypervisorRoutines\HypervisorInternal.h" />
+    <ClInclude Include="HypervisorRoutines\hypervisor_routines.h" />
+    <ClInclude Include="hypervisor_gateway.h" />
+    <ClInclude Include="hypervisor_routines.h" />
+    <ClInclude Include="idt.h" />
+    <ClInclude Include="Init\Symbolic\InitNtoskrnl.h" />
+    <ClInclude Include="interrupt.h" />
+    <ClInclude Include="invalid_ept.h" />
+    <ClInclude Include="invalid_pcid.h" />
+    <ClInclude Include="invalid_vpid.h" />
+    <ClInclude Include="msr.h" />
+    <ClInclude Include="mtrr.h" />
+    <ClInclude Include="ntapi.h" />
+    <ClInclude Include="PoolManager\PoolManagerInternal.h" />
+    <ClInclude Include="PoolManager\AllocateMem.h" />
+    <ClInclude Include="PoolManager\poolmanager.h" />
+    <ClInclude Include="poolmanager.h" />
+    <ClInclude Include="segment.h" />
+    <ClInclude Include="spinlock.h" />
+    <ClInclude Include="vmcall_handler.h" />
+    <ClInclude Include="vmcall_reason.h" />
+    <ClInclude Include="vmcs.h" />
+    <ClInclude Include="Vmcs\VmcsApi.h" />
+    <ClInclude Include="Vmcs\VmcsControls.h" />
+    <ClInclude Include="Vmcs\VmcsFields.h" />
+    <ClInclude Include="Vmcs\VmcsInternal.h" />
+    <ClInclude Include="vmexit_handler.h" />
+    <ClInclude Include="vmm.h" />
+    <ClInclude Include="Vmm\VmmInternal.h" />
+    <ClInclude Include="vm_context.h" />
+    <ClInclude Include="vmx.h" />
+    <!-- VmExit 头文件 (8个) -->
+    <ClInclude Include="VmExit\VmExitDispatcher.h" />
+    <ClInclude Include="VmExit\VmExitException.h" />
+    <ClInclude Include="VmExit\VmExitControl.h" />
+    <ClInclude Include="VmExit\VmExitInstruction.h" />
+    <ClInclude Include="VmExit\VmExitEpt.h" />
+    <ClInclude Include="VmExit\VmExitMsr.h" />
+    <ClInclude Include="VmExit\VmExitIo.h" />
+    <ClInclude Include="VmExit\VmExitCommon.h" />
+    <!-- Ept 头文件 (6个) -->
+    <ClInclude Include="Ept\EptCommon.h" />
+    <ClInclude Include="Ept\EptMtrr.h" />
+    <ClInclude Include="Ept\EptBuild.h" />
+    <ClInclude Include="Ept\Build\EptBuildInternal.h" />
+    <ClInclude Include="Ept\EptSync.h" />
+    <ClInclude Include="Ept\EptHook.h" />
+    <ClInclude Include="Ept\EptWatch.h" />
+    <ClInclude Include="Ept\Watch\EptWatchInternal.h" />
+    <!-- Globals 头文件 -->
+    <ClInclude Include="Globals\GlobalsCommonTypes.h" />
+    <ClInclude Include="Globals\GlobalsConstants.h" />
+    <ClInclude Include="Globals\GlobalsEptHookTypes.h" />
+    <ClInclude Include="Globals\GlobalsEptPageTypes.h" />
+    <ClInclude Include="Globals\GlobalsGuestTypes.h" />
+    <ClInclude Include="Globals\GlobalsHvApi.h" />
+    <ClInclude Include="Globals\GlobalsHvRuntimeTypes.h" />
+    <ClInclude Include="Globals\GlobalsHypervisorTypes.h" />
+    <ClInclude Include="Globals\GlobalsMacros.h" />
+    <ClInclude Include="Globals\GlobalsStructures.h" />
+    <ClInclude Include="Globals\GlobalsState.h" />
+    <ClInclude Include="Globals\GlobalsVmmContextTypes.h" />
+    <ClInclude Include="Globals\GlobalsVmxMtrrTypes.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="ASM\AsmCallset.asm" />
+    <MASM Include="ASM\exception-routines.asm" />
+    <MASM Include="ASM\interrupt-handlers.asm" />
+    <MASM Include="ASM\lde64.asm" />
+    <MASM Include="ASM\vm-exit.asm" />
+    <MASM Include="ASM\vm-launch.asm" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

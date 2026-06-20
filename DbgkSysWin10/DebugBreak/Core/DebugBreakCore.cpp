@@ -1,0 +1,89 @@
+#include "DebugBreakInternal.h"
+
+bool vmcall_internal(PVOID vmcallinfo)
+{
+    unsigned long ecode = 0;
+    bool boSuccess = false;
+
+    __try
+    {
+        boSuccess = __vm_call(((PVMCALLINFO)vmcallinfo)->command, (unsigned __int64)vmcallinfo, 0, 0);
+    }
+    __except (ecode = GetExceptionCode(), 1)
+    {
+        outToFile("\xD6\xB4\xD0\xD0vmcall\xCA\xB1\xB7\xA2\xC9\xFA\xC1\xCB\xB4\xED\xCE\xF3 (error: 0x%X)", ecode);
+    }
+
+    return boSuccess;
+}
+
+bool current_vmcall(PVOID vmcallinfo)
+{
+    return vmcall_internal(vmcallinfo);
+}
+
+static VOID AttachProcessForCr3(PEPROCESS Process, KAPC_STATE* ApcState)
+{
+    if (Original_KeStackAttachProcess != NULL)
+    {
+        Original_KeStackAttachProcess((PRKPROCESS)Process, ApcState);
+        return;
+    }
+
+    KeStackAttachProcess((PRKPROCESS)Process, ApcState);
+}
+
+NTSTATUS CaptureProcessCr3(unsigned long pid, unsigned __int64 fallbackCr3, unsigned __int64* capturedCr3)
+{
+    if (capturedCr3 == NULL)
+    {
+        return STATUS_INVALID_PARAMETER;
+    }
+
+    *capturedCr3 = fallbackCr3;
+    if (pid == 0)
+    {
+        return fallbackCr3 != 0 ? STATUS_SUCCESS : STATUS_INVALID_PARAMETER;
+    }
+
+    PEPROCESS Process = NULL;
+    NTSTATUS status = PsLookupProcessByProcessId((HANDLE)(ULONG_PTR)pid, &Process);
+    if (!NT_SUCCESS(status))
+    {
+        return fallbackCr3 != 0 ? STATUS_SUCCESS : status;
+    }
+
+    BOOLEAN attached = FALSE;
+    KAPC_STATE ApcState;
+    RtlZeroMemory(&ApcState, sizeof(ApcState));
+
+    __try
+    {
+        __try
+        {
+            AttachProcessForCr3(Process, &ApcState);
+            attached = TRUE;
+            *capturedCr3 = __readcr3();
+        }
+        __finally
+        {
+            if (attached)
+            {
+                KeUnstackDetachProcess(&ApcState);
+            }
+        }
+    }
+    __except (status = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+    {
+        outToFile("\xBB\xF1\xC8\xA1\xC4\xBF\xB1\xEA" "CR3\xCA\xB1\xB7\xA2\xC9\xFA\xD2\xEC\xB3\xA3 (error: 0x%X)", status);
+    }
+
+    ObDereferenceObject(Process);
+
+    if (*capturedCr3 == 0 && fallbackCr3 != 0)
+    {
+        *capturedCr3 = fallbackCr3;
+    }
+
+    return *capturedCr3 != 0 ? STATUS_SUCCESS : status;
+}
