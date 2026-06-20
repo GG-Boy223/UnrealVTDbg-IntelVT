@@ -67,6 +67,7 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
 
     //InitializeSerialPort();
     sLog("[VT] start \n");
+    outFile("========== VT加载开始：DriverEntry ==========");
 
     DriverObject->DriverUnload = Unload;
     //KdPrint(("DriverEntry!!!\n"));
@@ -95,28 +96,41 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
 
     NTSTATUS nStatus = STATUS_SUCCESS;
 
+    outFile("---------- 阶段1：初始化内核符号 ----------");
     if (InitNtoskrnlSymbolsTable())
     {
+        outFile("[成功] 内核符号初始化完成");
+        outFile("---------- 阶段2：检查硬件虚拟化支持 ----------");
         if (!hv::virtualization_support())
         {
+            outFile("[失败] 当前处理器不支持或未开启VMX虚拟化");
             outDebug("VMX operation is not supported on this processor.\n");
             return STATUS_UNSUCCESSFUL;
         }
+        outFile("[成功] VMX虚拟化支持检查通过");
 
+        outFile("---------- 阶段3：保存Guest初始全局状态 ----------");
         hv::InitGlobalVariables();
+        outFile("[成功] Guest初始寄存器：CR0=0x%llX CR3=0x%llX CR4=0x%llX", g_guest_cr0, g_guest_cr3, g_guest_cr4);
+        outFile("---------- 阶段4：启动VMM并进入VT ----------");
         if (vmm_init() == false)
         {
+            outFile("[失败] VMM初始化失败，开始清理VT上下文");
             hv::disable_vmx_operation();
             free_vmm_context();
             outDebug("VMM 初始化失败");
+            outFile("========== VT加载失败：VMM初始化失败 ==========");
             return STATUS_UNSUCCESSFUL;
         }
+        outFile("[成功] VMM初始化完成，所有目标CPU已进入VT链路");
         outDebug("驱动加载成功!!!\n");
+        outFile("========== VT加载成功：DriverEntry完成 ==========");
     }
     else
     {
         nStatus = STATUS_UNSUCCESSFUL;
         outDebug("驱动加载失败!!!\n");
+        outFile("========== VT加载失败：内核符号初始化失败 ==========");
     }
     return nStatus;
 }

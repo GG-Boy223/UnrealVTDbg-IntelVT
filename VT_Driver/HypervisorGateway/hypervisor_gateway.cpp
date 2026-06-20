@@ -180,9 +180,9 @@ namespace hvgt // Hypervisor Gateway：普通内核线程调用 Hypervisor 的�
 		}
 
 		unsigned int safe_processor_count = processor_count;
-		if (safe_processor_count > 64)
+		if (g_vmm_context.processor_count < safe_processor_count)
 		{
-			safe_processor_count = 64;
+			safe_processor_count = g_vmm_context.processor_count;
 		}
 
 		// 逐个 CPU 切换亲和力并执行 VMCALL_VMXOFF
@@ -193,7 +193,8 @@ namespace hvgt // Hypervisor Gateway：普通内核线程调用 Hypervisor 的�
 				continue;
 			}
 
-			auto const orig_affinity = KeSetSystemAffinityThreadEx(1ull << iter); // 绑定当前线程到指定 CPU
+			GROUP_AFFINITY orig_affinity = {};
+			KeSetSystemGroupAffinityThread(&g_vmm_context.vcpu[iter].processor_affinity, &orig_affinity); // 绑定当前线程到指定 CPU
 			bool vmoff_completed = false;
 			__try {
 				__vm_call(VMCALL_VMXOFF, 0, 0, 0); // 在该 CPU 执行 VMXOFF
@@ -203,7 +204,7 @@ namespace hvgt // Hypervisor Gateway：普通内核线程调用 Hypervisor 的�
 			{
 				// 捕获异常，避免单个 CPU 出错导致系统崩溃
 			}
-			KeRevertToUserAffinityThreadEx(orig_affinity); // 恢复原始亲和力
+			KeRevertToUserGroupAffinityThread(&orig_affinity); // 恢复原始亲和力
 
 			if (vmoff_completed)
 			{

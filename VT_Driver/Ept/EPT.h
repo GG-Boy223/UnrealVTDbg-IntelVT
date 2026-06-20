@@ -20,6 +20,8 @@ namespace ept
 	/// <returns></returns>
 	bool initialize(__ept_state& ept_state);
 
+	void cleanup_page_table(__ept_state& ept_state);
+
 	/// <summary>
 	/// 交换物理页面并刷新tlb
 	/// </summary>

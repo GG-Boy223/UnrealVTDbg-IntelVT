@@ -2,6 +2,138 @@
 
 namespace ept
 {
+	static constexpr unsigned __int64 ept_pdpt_coverage = 0x40000000ull; // 1GB
+	static constexpr unsigned __int32 ept_default_pdpt_count = EPT_PD_COUNT;
+	static constexpr unsigned __int32 ept_max_pdpt_count = 512u * 512u;
+
+	static unsigned __int32 round_up_pdpt_count(unsigned __int64 highest_physical_end)
+	{
+		if (highest_physical_end == 0)
+		{
+			outFile("[信息][EPT覆盖范围] 未获取到物理内存范围，使用默认PDPT数量=%u", ept_default_pdpt_count);
+			return ept_default_pdpt_count;
+		}
+
+		if (highest_physical_end > MAXULONG64 - (ept_pdpt_coverage - 1))
+		{
+			LogError("EPT identity map size overflow: highest_end=0x%llX", highest_physical_end);
+			outFile("[失败][EPT覆盖范围] 物理地址上界计算溢出：HighestEnd=0x%llX", highest_physical_end);
+			return 0;
+		}
+
+		unsigned __int64 required = (highest_physical_end + ept_pdpt_coverage - 1) >> 30;
+		if (required < ept_default_pdpt_count)
+		{
+			required = ept_default_pdpt_count;
+		}
+
+		if (required > ept_max_pdpt_count)
+		{
+			LogError("EPT identity map exceeds 4-level EPT limit: %llu PDPT entries", required);
+			outFile("[失败][EPT覆盖范围] 所需PDPT数量超过4级EPT上限：Required=%llu Max=%u", required, ept_max_pdpt_count);
+			return 0;
+		}
+
+		outFile("[信息][EPT覆盖范围] 物理地址上界=0x%llX 所需PDPT数量=%llu", highest_physical_end, required);
+		return static_cast<unsigned __int32>(required);
+	}
+
+	static unsigned __int32 query_required_pdpt_count()
+	{
+		unsigned __int64 highest_physical_end = 0;
+		PPHYSICAL_MEMORY_RANGE ranges = MmGetPhysicalMemoryRanges();
+		if (ranges == nullptr)
+		{
+			LogError("MmGetPhysicalMemoryRanges failed, using default 512GB EPT map");
+			outFile("[信息][EPT覆盖范围] MmGetPhysicalMemoryRanges失败，使用默认PDPT数量=%u", ept_default_pdpt_count);
+			return ept_default_pdpt_count;
+		}
+
+		for (unsigned __int32 i = 0; ranges[i].NumberOfBytes.QuadPart != 0; ++i)
+		{
+			unsigned __int64 base = ranges[i].BaseAddress.QuadPart;
+			unsigned __int64 size = ranges[i].NumberOfBytes.QuadPart;
+			unsigned __int64 end = base + size;
+			if (end < base)
+			{
+				end = MAXULONG64;
+			}
+
+			if (end > highest_physical_end)
+			{
+				highest_physical_end = end;
+			}
+		}
+
+		ExFreePool(ranges);
+		return round_up_pdpt_count(highest_physical_end);
+	}
+
+	static __ept_pdpte* get_pdpte_entry(__ept_state& ept_state, unsigned __int32 flat_pdpt_index)
+	{
+		if (ept_state.ept_page_table == nullptr || flat_pdpt_index >= ept_state.mapped_pdpte_count)
+		{
+			return nullptr;
+		}
+
+		if (flat_pdpt_index < 512)
+		{
+			return &ept_state.ept_page_table->pml3[flat_pdpt_index];
+		}
+
+		unsigned __int32 pml4_index = flat_pdpt_index >> 9;
+		unsigned __int32 pml3_index = flat_pdpt_index & 0x1ff;
+		if (ept_state.extended_pml3_pages == nullptr || pml4_index == 0 || pml4_index >= ept_state.mapped_pml4_count)
+		{
+			return nullptr;
+		}
+
+		__ept_pdpte_page* pdpt_page = ept_state.extended_pml3_pages[pml4_index - 1];
+		if (pdpt_page == nullptr)
+		{
+			return nullptr;
+		}
+
+		return &pdpt_page->entries[pml3_index];
+	}
+
+	void cleanup_page_table(__ept_state& ept_state)
+	{
+		if (ept_state.pml2_pages != nullptr)
+		{
+			for (unsigned __int32 i = ept_default_pdpt_count; i < ept_state.mapped_pdpte_count; ++i)
+			{
+				if (ept_state.pml2_pages[i] != nullptr)
+				{
+					free_pool(ept_state.pml2_pages[i]);
+					ept_state.pml2_pages[i] = nullptr;
+				}
+			}
+
+			free_pool(ept_state.pml2_pages);
+			ept_state.pml2_pages = nullptr;
+		}
+
+		if (ept_state.extended_pml3_pages != nullptr)
+		{
+			unsigned __int32 ext_count = ept_state.mapped_pml4_count > 1 ? ept_state.mapped_pml4_count - 1 : 0;
+			for (unsigned __int32 i = 0; i < ext_count; ++i)
+			{
+				if (ept_state.extended_pml3_pages[i] != nullptr)
+				{
+					free_pool(ept_state.extended_pml3_pages[i]);
+					ept_state.extended_pml3_pages[i] = nullptr;
+				}
+			}
+
+			free_pool(ept_state.extended_pml3_pages);
+			ept_state.extended_pml3_pages = nullptr;
+		}
+
+		ept_state.mapped_pml4_count = 0;
+		ept_state.mapped_pdpte_count = 0;
+	}
+
 	/// <summary>
 	/// Setup page memory type
 	/// 设置页内存类型
@@ -42,29 +174,103 @@ namespace ept
 	/// <returns> status </returns>
 	bool create_ept_page_table(__ept_state& ept_state)
 	{
-		PHYSICAL_ADDRESS max_size;
-		max_size.QuadPart = MAXULONG64;
-
+		outFile("---------- EPT页表构建开始 ----------");
 		ept_state.ept_page_table = allocate_pool<__vmm_ept_page_table>();
 		if (ept_state.ept_page_table == NULL)
 		{
 			outDebug("PageTable 内存分配失败。\n");
+			outFile("[失败][EPT页表] EPT页表主结构分配失败");
 			return false;
 		}
+		outFile("[成功][EPT页表] EPT页表主结构分配完成：VA=0x%p Size=%llu",
+			ept_state.ept_page_table,
+			static_cast<unsigned __int64>(sizeof(__vmm_ept_page_table)));
 
 		__vmm_ept_page_table* page_table = ept_state.ept_page_table;
 		RtlSecureZeroMemory(page_table, sizeof(__vmm_ept_page_table));
+
+		unsigned __int32 required_pdpt_count = query_required_pdpt_count();
+		if (required_pdpt_count == 0)
+		{
+			outFile("[失败][EPT页表] 所需PDPT数量为0，停止EPT构建");
+			free_pool(ept_state.ept_page_table);
+			ept_state.ept_page_table = nullptr;
+			return false;
+		}
+
+		unsigned __int32 required_pml4_count = (required_pdpt_count + 511) >> 9;
+		ept_state.mapped_pdpte_count = required_pdpt_count;
+		ept_state.mapped_pml4_count = required_pml4_count;
+		outFile("[信息][EPT页表] 映射规模：PDPT=%u PML4=%u CoverageGB=%u",
+			required_pdpt_count,
+			required_pml4_count,
+			required_pdpt_count);
+
+		ept_state.pml2_pages = allocate_pool<__ept_pde**>(sizeof(__ept_pde*) * required_pdpt_count);
+		if (ept_state.pml2_pages == nullptr)
+		{
+			LogError("Failed to allocate EPT PD page pointer table");
+			outFile("[失败][EPT页表] PML2页指针表分配失败：Bytes=%llu",
+				static_cast<unsigned __int64>(sizeof(__ept_pde*) * required_pdpt_count));
+			cleanup_page_table(ept_state);
+			free_pool(ept_state.ept_page_table);
+			ept_state.ept_page_table = nullptr;
+			return false;
+		}
+		RtlSecureZeroMemory(ept_state.pml2_pages, sizeof(__ept_pde*) * required_pdpt_count);
+
+		if (required_pml4_count > 1)
+		{
+			ept_state.extended_pml3_pages = allocate_pool<__ept_pdpte_page**>(sizeof(__ept_pdpte_page*) * (required_pml4_count - 1));
+			if (ept_state.extended_pml3_pages == nullptr)
+			{
+				LogError("Failed to allocate EPT extended PDPT pointer table");
+				outFile("[失败][EPT页表] 扩展PDPT指针表分配失败：ExtCount=%u", required_pml4_count - 1);
+				cleanup_page_table(ept_state);
+				free_pool(ept_state.ept_page_table);
+				ept_state.ept_page_table = nullptr;
+				return false;
+			}
+			RtlSecureZeroMemory(ept_state.extended_pml3_pages, sizeof(__ept_pdpte_page*) * (required_pml4_count - 1));
+			outFile("[成功][EPT页表] 扩展PDPT指针表分配完成：ExtCount=%u", required_pml4_count - 1);
+		}
 
 		//
 		// Set all pages as rwx to prevent unwanted ept violation
 		// 将所有页面设置为 rwx，以防止不必要的 ept 违规
 		// 设置第一个 PML4E，使其指向我们的 PDPT
 		//
-		page_table->pml4[0].page_frame_number = GET_PFN(MmGetPhysicalAddress(&page_table->pml3[0]).QuadPart);
-		page_table->pml4[0].read = 1;
-		page_table->pml4[0].write = 1;
-		page_table->pml4[0].execute = 1;
-		page_table->pml4[0].execute_for_usermode = 0;
+		for (unsigned __int32 pml4_index = 0; pml4_index < required_pml4_count; ++pml4_index)
+		{
+			__ept_pdpte* pdpt_entries = nullptr;
+			if (pml4_index == 0)
+			{
+				pdpt_entries = &page_table->pml3[0];
+			}
+			else
+			{
+				__ept_pdpte_page* pdpt_page = allocate_pool<__ept_pdpte_page*>(sizeof(__ept_pdpte_page));
+				if (pdpt_page == nullptr)
+				{
+					LogError("Failed to allocate EPT extended PDPT page %u", pml4_index);
+					outFile("[失败][EPT页表] 扩展PDPT页分配失败：PML4Index=%u", pml4_index);
+					cleanup_page_table(ept_state);
+					free_pool(ept_state.ept_page_table);
+					ept_state.ept_page_table = nullptr;
+					return false;
+				}
+
+				RtlSecureZeroMemory(pdpt_page, sizeof(__ept_pdpte_page));
+				ept_state.extended_pml3_pages[pml4_index - 1] = pdpt_page;
+				pdpt_entries = &pdpt_page->entries[0];
+			}
+
+			page_table->pml4[pml4_index].page_frame_number = GET_PFN(MmGetPhysicalAddress(pdpt_entries).QuadPart);
+			page_table->pml4[pml4_index].read = 1;
+			page_table->pml4[pml4_index].write = 1;
+			page_table->pml4[pml4_index].execute = 1;
+			page_table->pml4[pml4_index].execute_for_usermode = 0;
+		}
 
 		__ept_pdpte pdpte_template = { 0 };
 
@@ -73,11 +279,45 @@ namespace ept
 		pdpte_template.execute = 1;
 		pdpte_template.execute_for_usermode = 0;
 
-		__stosq((unsigned __int64*)&page_table->pml3[0], pdpte_template.all, 512);
-
-		for (int i = 0; i < 512; i++)
+		for (unsigned __int32 i = 0; i < required_pdpt_count; ++i)
 		{
-			page_table->pml3[i].page_frame_number = GET_PFN(MmGetPhysicalAddress(&page_table->pml2[i][0]).QuadPart);
+			__ept_pde* pde_page = nullptr;
+			if (i < ept_default_pdpt_count)
+			{
+				pde_page = &page_table->pml2[i][0];
+			}
+			else
+			{
+				__ept_pde_page* dynamic_pde_page = allocate_pool<__ept_pde_page*>(sizeof(__ept_pde_page));
+				if (dynamic_pde_page == nullptr)
+				{
+					LogError("Failed to allocate EPT dynamic PD page %u", i);
+					outFile("[失败][EPT页表] 动态PD页分配失败：FlatPDPT=%u", i);
+					cleanup_page_table(ept_state);
+					free_pool(ept_state.ept_page_table);
+					ept_state.ept_page_table = nullptr;
+					return false;
+				}
+
+				RtlSecureZeroMemory(dynamic_pde_page, sizeof(__ept_pde_page));
+				pde_page = &dynamic_pde_page->entries[0];
+			}
+
+			ept_state.pml2_pages[i] = pde_page;
+
+			__ept_pdpte* pdpte = get_pdpte_entry(ept_state, i);
+			if (pdpte == nullptr)
+			{
+				LogError("EPT PDPTE lookup failed for index %u", i);
+				outFile("[失败][EPT页表] PDPTE查找失败：FlatPDPT=%u", i);
+				cleanup_page_table(ept_state);
+				free_pool(ept_state.ept_page_table);
+				ept_state.ept_page_table = nullptr;
+				return false;
+			}
+
+			pdpte->all = pdpte_template.all;
+			pdpte->page_frame_number = GET_PFN(MmGetPhysicalAddress(pde_page).QuadPart);
 		}
 
 		__ept_pde pde_template = { 0 };
@@ -89,24 +329,33 @@ namespace ept
 		pde_template.page_directory_entry.large_page = 1;  //使用大页面 2mb
 		pde_template.page_directory_entry.execute_for_usermode = 0;
 
-		__stosq((unsigned __int64*)&page_table->pml2[0], pde_template.all, 512 * 512);
+		for (unsigned __int32 i = 0; i < required_pdpt_count; ++i)
+		{
+			__stosq((unsigned __int64*)ept_state.pml2_pages[i], pde_template.all, 512);
+		}
 
 		// MTRR data for setting memory types
 		// 用于设置内存类型的 MTRR 数据
 		auto const mtrrs = hv::read_mtrr_data();
 		g_vmm_context.mtrr_info.mtrrs = mtrrs;
-		for (int i = 0; i < 512; i++)
+		for (unsigned __int32 i = 0; i < required_pdpt_count; i++)
 		{
 			for (int j = 0; j < 512; j++)
 			{
-				if (setup_pml2_entry(mtrrs, ept_state, page_table->pml2[i][j], (i * 512) + j) == false)
+				unsigned __int64 pde_pfn = (static_cast<unsigned __int64>(i) * 512) + j;
+				if (setup_pml2_entry(mtrrs, ept_state, ept_state.pml2_pages[i][j], pde_pfn) == false)
 				{
 					outDebug("setup_pml2_entry 失败\n");
+					outFile("[失败][EPT页表] PML2条目设置失败：FlatPDPT=%u PDE=%d PFN=%llu", i, j, pde_pfn);
+					cleanup_page_table(ept_state);
+					free_pool(ept_state.ept_page_table);
+					ept_state.ept_page_table = nullptr;
 					return false;
 				}
 			}
 		}
 
+		outFile("---------- EPT页表构建完成：MappedPDPT=%u MappedPML4=%u ----------", ept_state.mapped_pdpte_count, ept_state.mapped_pml4_count);
 		return true;
 	}
 
@@ -134,7 +383,7 @@ namespace ept
 		page_table->pml4[0].read = 1;
 		page_table->pml4[0].write = 1;
 		page_table->pml4[0].execute = 1;
-		page_table->pml4[0].execute_for_usermode = 1;
+		page_table->pml4[0].execute_for_usermode = 0;
 
 		auto const mtrrs = hv::read_mtrr_data();
 
@@ -152,7 +401,7 @@ namespace ept
 			pdpte.write = 1;
 			pdpte.execute = 1;
 			pdpte.accessed = 0;
-			pdpte.execute_for_usermode = 1;
+			pdpte.execute_for_usermode = 0;
 			pdpte.page_frame_number = GET_PFN(MmGetPhysicalAddress(&page_table->pml2[i][0]).QuadPart);
 
 			for (size_t j = 0; j < 512; ++j)
@@ -166,7 +415,7 @@ namespace ept
 				pde.page_directory_entry.large_page = 1;  //表示pde未分割
 				pde.page_directory_entry.accessed = 0;
 				pde.page_directory_entry.dirty = 0;
-				pde.page_directory_entry.execute_for_usermode = 1;
+				pde.page_directory_entry.execute_for_usermode = 0;
 				pde.page_directory_entry.page_frame_number = (i << 9) + j;
 				pde.page_directory_entry.memory_type = hv::calc_mtrr_mem_type(mtrrs, pde.page_directory_entry.page_frame_number << 21/*2mb对齐*/, 0x1000 << 9/*2mb大小*/);
 			}
@@ -181,18 +430,24 @@ namespace ept
 	/// <returns></returns>
 	bool initialize(__ept_state& ept_state)
 	{
+		outFile("---------- EPT初始化开始 ----------");
 		__eptp* ept_pointer = allocate_pool<__eptp*>(PAGE_SIZE);
 		if (ept_pointer == NULL)
 		{
 			outDebug("ept_pointer 空指针\n");
+			outFile("[失败][EPT初始化] EPTP结构分配失败");
 			return false;
 		}
+		outFile("[成功][EPT初始化] EPTP结构分配完成：VA=0x%p", ept_pointer);
 
 		RtlSecureZeroMemory(ept_pointer, PAGE_SIZE);
 
 		if (create_ept_page_table(ept_state) == false)
 		{
 			outDebug("create_ept_page_table失败\n");
+			free_pool(ept_pointer);
+			ept_state.ept_pointer = nullptr;
+			outFile("[失败][EPT初始化] EPT页表构建失败");
 			return false;
 		}
 
@@ -209,6 +464,11 @@ namespace ept
 		ept_pointer->pml4_address = GET_PFN(MmGetPhysicalAddress(&ept_state.ept_page_table->pml4).QuadPart);
 
 		ept_state.ept_pointer = ept_pointer;
+		outFile("---------- EPT初始化完成：EPTP=0x%llX PML4_PA=0x%llX MappedPDPT=%u MappedPML4=%u ----------",
+			ept_pointer->all,
+			ept_pointer->pml4_address << PAGE_SHIFT,
+			ept_state.mapped_pdpte_count,
+			ept_state.mapped_pml4_count);
 
 		return true;
 	}

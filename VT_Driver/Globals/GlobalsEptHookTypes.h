@@ -227,6 +227,10 @@ struct __ept_state // EPT 状态（每 VCPU 一份）
     LIST_ENTRY hooked_page_list;  //hook页列表   被hook的页面会被加入到该列表
     __eptp* ept_pointer; // EPTP 指针
     __vmm_ept_page_table* ept_page_table;  //ept页表
+    __ept_pde** pml2_pages; // flat PDPT 索引到 PD 页的映射，支持超过 512GB 的 GPA
+    __ept_pdpte_page** extended_pml3_pages; // PML4[1..] 对应的动态 PDPT 页
+    unsigned __int32 mapped_pml4_count; // 已填充的 PML4 条目数
+    unsigned __int32 mapped_pdpte_count; // 已填充的 flat PDPTE/PD 页数量
     __ept_hooked_page_info* page_to_change; // 当前需要切换的页（用于 MTF）
     bool mtf_pending; // page_to_change 是否属于当前活跃 MTF 窗口
     bool mtf_restore_interruptibility; // MTF 收尾时是否需要恢复 guest interruptibility

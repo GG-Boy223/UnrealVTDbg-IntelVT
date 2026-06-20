@@ -83,6 +83,15 @@ struct __vcpu // 每逻辑 CPU 的 VMM 状态
         unsigned __int64 vmm_launched;  //vm虚拟机的运行状态
     }vcpu_status; // VCPU 状态
 
+    struct __vmcs_effective_controls
+    {
+        unsigned __int64 pinbased; // 硬件调整后的 Pin-Based 控制位
+        unsigned __int64 primary; // 硬件调整后的 Primary Processor-Based 控制位
+        unsigned __int64 secondary; // 硬件调整后的 Secondary Processor-Based 控制位
+        unsigned __int64 exit; // 硬件调整后的 VM-Exit 控制位
+        unsigned __int64 entry; // 硬件调整后的 VM-Entry 控制位
+    }vmcs_effective_controls; // 后续条件 VMCS 写入必须使用该真实生效值
+
     struct __vmx_off_state
     {
         unsigned __int64  vmx_off_executed;  //关闭虚拟化
@@ -100,6 +109,10 @@ struct __vcpu // 每逻辑 CPU 的 VMM 状态
     }vcpu_bitmaps; // 位图集合
 
     __ept_state* ept_state; // EPT 状态指针
+
+    unsigned __int32 logical_processor_index; // KeQueryActiveProcessorCountEx 的全局处理器索引
+    PROCESSOR_NUMBER processor_number; // 处理器组内编号
+    GROUP_AFFINITY processor_affinity; // 可跨 processor group 的线程亲和性
 
     CLIENT_ID Cid; //记录触发监视断点的guest的线程id
     unsigned __int64 breakpoint_detected; //记录触发的地址

@@ -12,17 +12,19 @@ namespace ept
 		unsigned __int64 pml4_index = MASK_EPT_PML4_INDEX(physical_address);
 		unsigned __int64 pml3_index = MASK_EPT_PML3_INDEX(physical_address);
 		unsigned __int64 pml2_index = MASK_EPT_PML2_INDEX(physical_address);
+		unsigned __int64 flat_pdpt_index = (pml4_index << 9) + pml3_index;
 
-		//pml4_index必须为0，因为我们映射的是ept pml4[0],所以pml4_index大于0的条目都是无效条目
-		//因为ept目前只支持映射一项pml4e，一个pml4e条目512GB大小
-		if (pml4_index > 0)
+		if (ept_state.pml2_pages == nullptr || flat_pdpt_index >= ept_state.mapped_pdpte_count)
 		{
-			LogError("512GB 以上的地址无效");
+			LogError("EPT address is outside identity map: pa=0x%llX flat_pdpt=%llu mapped=%u",
+				physical_address,
+				flat_pdpt_index,
+				ept_state.mapped_pdpte_count);
 			return nullptr;
 		}
 
 		//从ept页表中取pde
-		return &ept_state.ept_page_table->pml2[pml3_index][pml2_index];
+		return &ept_state.pml2_pages[flat_pdpt_index][pml2_index];
 	}
 
 	/// <summary>
@@ -32,17 +34,12 @@ namespace ept
 	/// <returns></returns>
 	__ept_pte* get_pml1_entry(__ept_state& ept_state, unsigned __int64 physical_address)
 	{
-		unsigned __int64 pml4_index = MASK_EPT_PML4_INDEX(physical_address);
-		unsigned __int64 pml3_index = MASK_EPT_PML3_INDEX(physical_address);
-		unsigned __int64 pml2_index = MASK_EPT_PML2_INDEX(physical_address);
-
-		if (pml4_index > 0)
+		__ept_pde* pml2 = get_pml2_entry(ept_state, physical_address);
+		if (pml2 == nullptr)
 		{
-			LogError("Address above 512GB is invalid");
 			return nullptr;
 		}
 
-		__ept_pde* pml2 = &ept_state.ept_page_table->pml2[pml3_index][pml2_index];
 		if (pml2->page_directory_entry.large_page == 1)
 		{
 			return nullptr;
@@ -96,6 +93,7 @@ namespace ept
 		entry_template.execute = 1;
 		entry_template.ept_memory_type = pde->page_directory_entry.memory_type;
 		entry_template.ignore_pat = pde->page_directory_entry.ignore_pat;
+		entry_template.execute_for_usermode = pde->large_page.execute_for_usermode;
 		entry_template.suppress_ve = pde->page_directory_entry.suppressve;
 
 		__stosq((unsigned __int64*)&new_split->pml1[0], entry_template.all, 512);
@@ -112,6 +110,7 @@ namespace ept
 		new_entry.large_page.read = 1;
 		new_entry.large_page.write = 1;
 		new_entry.large_page.execute = 1;
+		new_entry.large_page.execute_for_usermode = pde->large_page.execute_for_usermode;
 
 		new_entry.large_page.page_frame_number = MmGetPhysicalAddress(&new_split->pml1[0]).QuadPart >> PAGE_SHIFT;
 
@@ -124,6 +123,11 @@ namespace ept
 	bool is_page_splitted(__ept_state& ept_state, unsigned __int64 physical_address)
 	{
 		__ept_pde* entry = get_pml2_entry(ept_state, physical_address);
+		if (entry == nullptr)
+		{
+			return false;
+		}
+
 		return !entry->page_directory_entry.large_page;
 	}
 }

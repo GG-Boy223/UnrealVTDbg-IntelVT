@@ -19,5 +19,5 @@ bool allocate_vmm_context();
 bool create_host_page_tables();
 bool init_vcpu(__vcpu* vcpu);
 void adjust_control_registers();
-void init_logical_processor2(unsigned int iter);
+bool init_logical_processor2(unsigned int iter);
 bool initalize_vcpu(unsigned int iter);

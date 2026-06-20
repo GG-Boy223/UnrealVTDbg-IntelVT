@@ -36,39 +36,78 @@ void adjust_control_registers() // 按IA32_VMX_CRx_FIXED限制设置CR0/CR4以�
 }
 
 //初始化逻辑处理器并启动当前vmcs管理的虚拟机
-void init_logical_processor2(unsigned int iter) // 在指定CPU上完成VMXON/VMCS配置并启动来宾，保证每核一致
+bool init_logical_processor2(unsigned int iter) // 在指定CPU上完成VMXON/VMCS配置并启动来宾，保证每核一致
 {
 	unsigned __int64 processor_number = iter;
 
 	__vcpu* vcpu = &g_vmm_context.vcpu[processor_number]; // 获取该CPU对应的VCPU结构作为操作对象
+	int cpu_info[4] = {};
+	__cpuid(cpu_info, 1);
+	unsigned int stepping = cpu_info[0] & 0xf;
+	unsigned int model = (cpu_info[0] >> 4) & 0xf;
+	unsigned int family = (cpu_info[0] >> 8) & 0xf;
+	unsigned int extended_model = (cpu_info[0] >> 16) & 0xf;
+	unsigned int extended_family = (cpu_info[0] >> 20) & 0xff;
+	unsigned int display_family = family == 0xf ? family + extended_family : family;
+	unsigned int display_model = (family == 0x6 || family == 0xf) ? model + (extended_model << 4) : model;
+
+	LogInfo("Initializing VMX: index=%u group=%u number=%u family=0x%X model=0x%X stepping=0x%X",
+		iter,
+		vcpu->processor_number.Group,
+		vcpu->processor_number.Number,
+		display_family,
+		display_model,
+		stepping);
+	outFile("========== CPU[%u] VT进入链路开始：Group=%u Number=%u Family=0x%X Model=0x%X Stepping=0x%X ==========",
+		iter,
+		vcpu->processor_number.Group,
+		vcpu->processor_number.Number,
+		display_family,
+		display_model,
+		stepping);
 
 	//调节控制寄存器 cr4 cr0来启用vmx模式
+	outFile("[进行中][CPU%u] 调整CR0/CR4与IA32_FEATURE_CONTROL，准备满足VMXON硬件条件", iter);
 	adjust_control_registers(); // 满足VMX进入条件，否则VMXON可能失败
+	outFile("[成功][CPU%u] VMX控制寄存器调整完成：CR0=0x%llX CR4=0x%llX", iter, __readcr0(), __readcr4());
 
+	outFile("[进行中][CPU%u] 开始执行VMXON：VMXON_VA=0x%p", iter, &vcpu->vmxon);
 	if (!hv::enter_vmx_operation(vcpu->vmxon))  //进入vmx模式
 	{
 		LogError("Failed to put vcpu %d into VMX operation.\n", processor_number); // VMXON失败
-	 // 无法进入VMX根模式，后续VMCS操作无效
+		outFile("[失败][CPU%u] VMXON失败，停止后续VMCS操作", iter);
+		return false; // 无法进入VMX根模式，后续VMCS操作无效
 	}
 
+	vcpu->vcpu_status.vmx_on = true; // 标记该VCPU已进入VMX根模式，供状态判断
+	outFile("[成功][CPU%u] VMXON成功，当前CPU已进入VMX Root", iter);
 
+	outFile("[进行中][CPU%u] 开始加载VMCS：VMCS_VA=0x%p", iter, &vcpu->vmcs);
 	if (!hv::load_vmcs_pointer(vcpu->vmcs)) // 让VMCS成为当前活动VMCS，后续vmwrite/vmread生效
 	{
 		LogError("load_vmcs_pointer失败.\n", processor_number); // VMCS加载失败
-		//return false; // 无法继续配置VMCS
+		vcpu->vcpu_status.vmx_on = false;
+		__vmx_off();
+		outFile("[失败][CPU%u] VMCLEAR/VMPTRLD失败，已执行VMXOFF回滚", iter);
+		return false; // 无法继续配置VMCS
 	}
+	outFile("[成功][CPU%u] VMCS加载完成", iter);
 
 	//创建host的idt和gdt
+	outFile("[进行中][CPU%u] 开始准备Host GDT/IDT/TSS结构", iter);
 	hv::prepare_external_structures(vcpu); // 构造宿主GDT/IDT/TSS等必需结构，确保VM-Exit能正确返回宿主
-	vcpu->vcpu_status.vmx_on = true; // 标记该VCPU已进入VMX根模式，供状态判断
 	LogInfo("vcpu %d is now in VMX operation.\n", processor_number); // 输出调试信息
+	outFile("[成功][CPU%u] Host GDT/IDT/TSS结构准备完成", iter);
 
 	//配置vmcs区域
+	outFile("[进行中][CPU%u] 开始填充VMCS控制域、Guest状态和Host状态", iter);
 	fill_vmcs(vcpu, 0); // 填充VMCS控制字段/来宾与宿主状态，决定VM-Entry/Exit行为
+	outFile("[成功][CPU%u] VMCS填充完成", iter);
 	vcpu->vcpu_status.vmm_launched = true; // 标记已准备启动来宾，用于卸载流程判断
 
 	//从GUEST_RIP指定的位置继续执行
 	//运行vm虚拟机
+	outFile("[进行中][CPU%u] 开始执行VMLAUNCH", iter);
 	if (!hv::vm_launch())
 	{
 		vcpu->vmexit_info.instruction_error = hv::vmread(VM_INSTRUCTION_ERROR); // 读取VM指令错误码，定位失败原因
@@ -76,14 +115,17 @@ void init_logical_processor2(unsigned int iter) // 在指定CPU上完成VMXON/VM
 		vcpu->vcpu_status.vmm_launched = false; // 回滚启动标记，防止卸载误判
 		vcpu->vcpu_status.vmx_on = false; // 回滚VMX状态
 		__vmx_off();  //退出vmx模式，避免处于不一致状态
-		//return false; // 启动失败
+		outFile("[失败][CPU%u] VMLAUNCH失败：VM_INSTRUCTION_ERROR=%llu，已执行VMXOFF回滚",
+			iter,
+			vcpu->vmexit_info.instruction_error);
+		return false; // 启动失败
 	}
-	//return true; // VM成功启动
+
+	outFile("========== CPU[%u] VT进入链路完成：VMLAUNCH返回成功 ==========", iter);
+	return true; // VM成功启动
 }
 
 bool initalize_vcpu(unsigned int iter) // 按CPU索引初始化并启动对应VCPU，集中处理每核初始化流程
 {
-	init_logical_processor2(iter); // 将初始化工作委托给逻辑处理器初始化流程
-
-	return true;
+	return init_logical_processor2(iter); // 将初始化工作委托给逻辑处理器初始化流程
 }

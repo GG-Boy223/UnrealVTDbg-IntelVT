@@ -35,6 +35,12 @@ namespace ept
 	bool initialize(__ept_state& ept_state);
 
 	/// <summary>
+	/// Release dynamic EPT paging structures allocated beyond the embedded 512GB map.
+	/// 释放超过内嵌 512GB 映射之外的动态 EPT 分页结构。
+	/// </summary>
+	void cleanup_page_table(__ept_state& ept_state);
+
+	/// <summary>
 	/// Get pml2 entry
 	/// 获取 PML2 条目
 	/// </summary>

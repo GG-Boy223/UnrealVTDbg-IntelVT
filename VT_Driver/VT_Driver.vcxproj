@@ -199,6 +199,7 @@
     <ClCompile Include="Driver\DriverGuestCommands.cpp" />
     <ClCompile Include="Driver\DriverInitOffset.cpp" />
     <ClCompile Include="Driver\DriverLifecycle.cpp" />
+    <ClCompile Include="Driver\VtLoadLog.cpp" />
     <ClCompile Include="Tables\gdt.cpp" />
     <ClCompile Include="Globals\Globals.cpp" />
     <ClCompile Include="Globals\GuestMemory.cpp" />

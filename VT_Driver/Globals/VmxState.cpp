@@ -1,4 +1,4 @@
-#include "GlobalsInternal.h"
+﻿#include "GlobalsInternal.h"
 
 namespace hv
 {
@@ -12,16 +12,24 @@ namespace hv
 
         auto vmcs_phys = MmGetPhysicalAddress(&vmcs_region).QuadPart;
         NT_ASSERT(vmcs_phys % 0x1000 == 0);
+        outFile("[信息][VMCS] 准备加载VMCS指针：VA=0x%p PA=0x%llX Revision=0x%X",
+            &vmcs_region,
+            vmcs_phys,
+            vmx_basic.vmcs_revision_id);
 
         if (!hv::vmx_vmclear(vmcs_phys))
         {
+            outFile("[失败][VMCS] VMCLEAR执行失败：VMCS_PA=0x%llX", vmcs_phys);
             return false;
         }
+        outFile("[成功][VMCS] VMCLEAR执行完成：VMCS_PA=0x%llX", vmcs_phys);
 
         if (!hv::vmx_vmptrld(vmcs_phys))
         {
+            outFile("[失败][VMCS] VMPTRLD执行失败：VMCS_PA=0x%llX", vmcs_phys);
             return false;
         }
+        outFile("[成功][VMCS] VMPTRLD执行完成：VMCS_PA=0x%llX", vmcs_phys);
 
         return true;
     }
@@ -70,14 +78,21 @@ namespace hv
 
         auto vmxon_phys = MmGetPhysicalAddress(&vmxon_region).QuadPart;
         NT_ASSERT(vmxon_phys % 0x1000 == 0);
+        outFile("[信息][VMXON] 准备执行VMXON：VA=0x%p PA=0x%llX Revision=0x%X IA32_VMX_BASIC=0x%llX",
+            &vmxon_region,
+            vmxon_phys,
+            vmx_basic.vmcs_revision_id,
+            vmx_basic.flags);
 
         if (!vmx_on(vmxon_phys))
         {
+            outFile("[失败][VMXON] VMXON执行失败：VMXON_PA=0x%llX", vmxon_phys);
             return false;
         }
 
         _mm_mfence();
         invept_all_contexts_func();
+        outFile("[成功][VMXON] VMXON执行完成，已执行全局INVEPT：VMXON_PA=0x%llX", vmxon_phys);
 
         return true;
     }

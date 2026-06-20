@@ -136,6 +136,17 @@ struct __ept_dynamic_split // 将 2MB PDE 拆分为 512 个 PTE
     bool reclaimable_runtime_split; // true=这是运行期为 hook/watch 临时拆出来的 split，可回收
     // false=初始化阶段因 MTRR 边界拆出的 split，不做自动合并回收
 };
+
+struct __ept_pdpte_page // 单个 PDPT 页，覆盖 512GB 的 GPA 空间
+{
+    DECLSPEC_ALIGN(PAGE_SIZE) __ept_pdpte entries[512];
+};
+
+struct __ept_pde_page // 单个 PD 页，覆盖 1GB 的 GPA 空间
+{
+    DECLSPEC_ALIGN(PAGE_SIZE) __ept_pde entries[512];
+};
+
 //数组最大为512即2^9次方
 struct __vmm_ept_page_table // EPT 页表（PML4/PDPTE/PDE）
 {

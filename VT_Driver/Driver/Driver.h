@@ -31,6 +31,11 @@
 
 #endif // _DEBUG_LOG
 
+void VtLoadWriteLog(_In_z_ _Printf_format_string_ const char* format, ...);
+
+#define outFile(...) \
+	VtLoadWriteLog(__VA_ARGS__)
+
 
 NTSTATUS Dispatcher_Create_Close(_In_ PDEVICE_OBJECT device_object, _In_ PIRP irp);
 NTSTATUS Dispatcher_IOCTL_Function(_In_ PDEVICE_OBJECT device_object, _In_ PIRP irp);

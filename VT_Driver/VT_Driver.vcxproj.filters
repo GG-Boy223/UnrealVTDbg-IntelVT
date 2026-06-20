@@ -238,6 +238,9 @@
     <ClCompile Include="Driver\DriverLifecycle.cpp">
       <Filter>Source Files\Driver</Filter>
     </ClCompile>
+    <ClCompile Include="Driver\VtLoadLog.cpp">
+      <Filter>Source Files\Driver</Filter>
+    </ClCompile>
     <ClCompile Include="HypervisorGateway\hypervisor_gateway.cpp">
       <Filter>Source Files\HypervisorGateway</Filter>
     </ClCompile>

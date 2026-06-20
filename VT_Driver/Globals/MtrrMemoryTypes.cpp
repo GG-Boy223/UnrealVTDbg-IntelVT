@@ -105,11 +105,16 @@ namespace hv
     void set_ept_memory_type(__ept_state& ept_state, uint8_t const memory_type)
     {
         sLog("\n");
-        for (size_t i = 0; i < EPT_PD_COUNT; ++i)
+        if (ept_state.pml2_pages == nullptr)
+        {
+            return;
+        }
+
+        for (size_t i = 0; i < ept_state.mapped_pdpte_count; ++i)
         {
             for (size_t j = 0; j < 512; ++j)
             {
-                auto& pde = ept_state.ept_page_table->pml2[i][j];
+                auto& pde = ept_state.pml2_pages[i][j];
 
                 if (pde.page_directory_entry.large_page)
                 {
@@ -131,13 +136,18 @@ namespace hv
     void update_ept_memory_type(__ept_state& ept_state)
     {
         sLog("\n");
+        if (ept_state.pml2_pages == nullptr)
+        {
+            return;
+        }
+
         auto const mtrrs = read_mtrr_data();
 
-        for (size_t i = 0; i < EPT_PD_COUNT; ++i)
+        for (size_t i = 0; i < ept_state.mapped_pdpte_count; ++i)
         {
             for (size_t j = 0; j < 512; ++j)
             {
-                auto& pde = ept_state.ept_page_table->pml2[i][j];
+                auto& pde = ept_state.pml2_pages[i][j];
 
                 if (pde.page_directory_entry.large_page)
                 {
