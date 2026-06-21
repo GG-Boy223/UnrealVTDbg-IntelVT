@@ -27,12 +27,6 @@
     <Filter Include="头文件\Common">
       <UniqueIdentifier>{942e79b9-d71a-4228-b343-7e90dfd73832}</UniqueIdentifier>
     </Filter>
-    <Filter Include="源文件\Common\Core">
-      <UniqueIdentifier>{386d18f2-8e33-4965-a495-a31fd0ded1ed}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="头文件\Common\Core">
-      <UniqueIdentifier>{a5689310-6330-4c61-a326-42af4b4fe23e}</UniqueIdentifier>
-    </Filter>
     <Filter Include="头文件\Common\FileSystem">
       <UniqueIdentifier>{6e5493aa-d210-4517-ae9a-e6aeeb7dff7e}</UniqueIdentifier>
     </Filter>
@@ -84,13 +78,10 @@
     <Filter Include="Crypter">
       <UniqueIdentifier>{069ba704-77eb-462b-9b70-04eb2f9e8bde}</UniqueIdentifier>
     </Filter>
-    <Filter Include="源文件\Core">
-      <UniqueIdentifier>{e99222de-4c87-4b8d-8a08-81f6898dbb38}</UniqueIdentifier>
+    <Filter Include="源文件\Common\Core">
+      <UniqueIdentifier>{D2A37D8A-725D-4A9C-9366-3B9EDDE3A072}</UniqueIdentifier>
     </Filter>
-    <Filter Include="头文件\Core">
-      <UniqueIdentifier>{344141e8-edda-42e5-820f-d6dd8af6db0c}</UniqueIdentifier>
-    </Filter>
-  <Filter Include="源文件\Process"><UniqueIdentifier>{e27e0344-51a2-442c-bef4-13ce987c2e28}</UniqueIdentifier></Filter><Filter Include="源文件\Process\Launch"><UniqueIdentifier>{419bc744-9cff-45f3-8850-99cb9c90a7a6}</UniqueIdentifier></Filter><Filter Include="头文件\Process"><UniqueIdentifier>{952a17b5-44b7-46a5-8db8-906670f13f33}</UniqueIdentifier></Filter><Filter Include="头文件\Process\Launch"><UniqueIdentifier>{7b06a456-c7ae-40f0-9bde-3d8a923dba0d}</UniqueIdentifier></Filter></ItemGroup>
+  </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
       <Filter>源文件</Filter>
@@ -101,32 +92,17 @@
     <ClCompile Include="Init\InitNTDevice.cpp">
       <Filter>源文件\Init</Filter>
     </ClCompile>
-    <ClCompile Include="Init\DriverImagePath.cpp">
-      <Filter>源文件\Init</Filter>
-    </ClCompile>
-    <ClCompile Include="Init\DriverService.cpp">
-      <Filter>源文件\Init</Filter>
-    </ClCompile>
     <ClCompile Include="..\Common\FileSystem\FileSystem.cpp">
       <Filter>源文件\Common\FileSystem</Filter>
     </ClCompile>
     <ClCompile Include="..\Common\Encrypt\Blowfish\Blowfish.cpp">
       <Filter>源文件\Common\Encrypt\Blowfish</Filter>
     </ClCompile>
-    <ClCompile Include="..\Common\Encrypt\Blowfish\BlowfishApi.cpp">
-      <Filter>源文件\Common\Encrypt\Blowfish</Filter>
+    <ClCompile Include="Globals.cpp">
+      <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="..\Common\Encrypt\Blowfish\BlowfishCore.cpp">
-      <Filter>源文件\Common\Encrypt\Blowfish</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Common\Encrypt\Blowfish\BlowfishUtilities.cpp">
-      <Filter>源文件\Common\Encrypt\Blowfish</Filter>
-    </ClCompile>
-    <ClCompile Include="Core\Globals.cpp">
-      <Filter>源文件\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="Process\Launch\StartProcess.cpp">
-      <Filter>源文件\Process\Launch</Filter>
+    <ClCompile Include="StartProcess.cpp">
+      <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="..\Common\Logger\Logger.cpp">
       <Filter>源文件\Common\Logger</Filter>
@@ -137,58 +113,19 @@
     <ClCompile Include="..\Common\Common.cpp">
       <Filter>源文件\Common</Filter>
     </ClCompile>
-    <ClCompile Include="..\Common\Core\CommonCpuInfo.cpp">
-      <Filter>源文件\Common\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Common\Core\CommonProcessUtilities.cpp">
-      <Filter>源文件\Common\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Common\Core\CommonSingleton.cpp">
-      <Filter>源文件\Common\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Common\Core\CommonState.cpp">
-      <Filter>源文件\Common\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Common\Core\CommonCodePageConversions.cpp">
-      <Filter>源文件\Common\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Common\Core\CommonNumericConversions.cpp">
-      <Filter>源文件\Common\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Common\Core\CommonStringConversions.cpp">
-      <Filter>源文件\Common\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Common\Core\CommonStringOperations.cpp">
-      <Filter>源文件\Common\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Common\Core\CommonSystemUtilities.cpp">
-      <Filter>源文件\Common\Core</Filter>
-    </ClCompile>
     <ClCompile Include="NetVerHelp\Help_Source\CJsonObject.cpp">
       <Filter>NetVerHelp\Help_Source</Filter>
     </ClCompile>
-    <ClCompile Include="NetVerHelp\Help_Source\HttpRequestToolWinInet.cpp">
+    <ClCompile Include="NetVerHelp\Help_Source\HttpRequestTool.cpp">
       <Filter>NetVerHelp\Help_Source</Filter>
     </ClCompile>
-    <ClCompile Include="NetVerHelp\Help_Source\HttpRequestToolWinInetEncoding.cpp">
-      <Filter>NetVerHelp\Help_Source</Filter>
-    </ClCompile>
-    <ClCompile Include="NetVerHelp\Help_Source\HttpRequestToolWinInetHelpers.cpp">
-      <Filter>NetVerHelp\Help_Source</Filter>
-    </ClCompile>
-    <ClCompile Include="NetVerHelp\Help_Source\Md5Core.cpp">
-      <Filter>NetVerHelp\Help_Source</Filter>
-    </ClCompile>
-    <ClCompile Include="NetVerHelp\Help_Source\Md5Encoding.cpp">
-      <Filter>NetVerHelp\Help_Source</Filter>
-    </ClCompile>
-    <ClCompile Include="NetVerHelp\Help_Source\Md5Transform.cpp">
+    <ClCompile Include="NetVerHelp\Help_Source\Md5.cpp">
       <Filter>NetVerHelp\Help_Source</Filter>
     </ClCompile>
     <ClCompile Include="NetVerHelp\Help_Source\NetworkVerHelp.cpp">
       <Filter>NetVerHelp\Help_Source</Filter>
     </ClCompile>
-    <ClCompile Include="NetVerHelp\Help_Source\OtherHelpToolsWinApi.cpp">
+    <ClCompile Include="NetVerHelp\Help_Source\OtherHelpTools.cpp">
       <Filter>NetVerHelp\Help_Source</Filter>
     </ClCompile>
     <ClCompile Include="NetVerHelp\Help_Source\Rc4.cpp">
@@ -197,39 +134,36 @@
     <ClCompile Include="NetVerHelp\Help_Tou\cJSON.cpp">
       <Filter>NetVerHelp\Help_Tou</Filter>
     </ClCompile>
-    <ClCompile Include="Core\FileVersion.cpp">
-      <Filter>源文件\Core</Filter>
+    <ClCompile Include="..\Common\Encrypt\Blowfish\BlowfishApi.cpp">
+      <Filter>源文件\Common\Encrypt\Blowfish</Filter>
     </ClCompile>
-    <ClCompile Include="Core\LicenseSession.cpp">
-      <Filter>源文件\Core</Filter>
+    <ClCompile Include="..\Common\Encrypt\Blowfish\BlowfishCore.cpp">
+      <Filter>源文件\Common\Encrypt\Blowfish</Filter>
     </ClCompile>
-    <ClCompile Include="Core\MacAddress.cpp">
-      <Filter>源文件\Core</Filter>
+    <ClCompile Include="..\Common\Encrypt\Blowfish\BlowfishUtilities.cpp">
+      <Filter>源文件\Common\Encrypt\Blowfish</Filter>
     </ClCompile>
-    <ClCompile Include="Core\RuntimeState.cpp">
-      <Filter>源文件\Core</Filter>
+    <ClCompile Include="..\Common\Core\CommonCodePageConversions.cpp">
+      <Filter>源文件\Common\Core</Filter>
     </ClCompile>
-    <ClCompile Include="Core\SymbolInitialization.cpp">
-      <Filter>源文件\Core</Filter>
+    <ClCompile Include="..\Common\Core\CommonStringConversions.cpp">
+      <Filter>源文件\Common\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Core\CommonSystemUtilities.cpp">
+      <Filter>源文件\Common\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Core\CommonState.cpp">
+      <Filter>源文件\Common\Core</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="dllmain.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="Core\DllMain.h">
-      <Filter>头文件\Core</Filter>
-    </ClInclude>
     <ClInclude Include="Channels\DispatchData.h">
       <Filter>头文件\Channels</Filter>
     </ClInclude>
     <ClInclude Include="Init\InitNTDevice.h">
-      <Filter>头文件\Init</Filter>
-    </ClInclude>
-    <ClInclude Include="Init\DriverImagePath.h">
-      <Filter>头文件\Init</Filter>
-    </ClInclude>
-    <ClInclude Include="Init\DriverService.h">
       <Filter>头文件\Init</Filter>
     </ClInclude>
     <ClInclude Include="..\Common\FileSystem\FileSystem.h">
@@ -238,23 +172,17 @@
     <ClInclude Include="..\Common\Shared\IOCTLs.h">
       <Filter>头文件\Common\Shared</Filter>
     </ClInclude>
-    <ClInclude Include="..\Common\Shared\DriverProtocol.h">
-      <Filter>头文件\Common\Shared</Filter>
-    </ClInclude>
     <ClInclude Include="..\Common\Shared\SharedStruct.h">
       <Filter>头文件\Common\Shared</Filter>
     </ClInclude>
     <ClInclude Include="..\Common\Encrypt\Blowfish\Blowfish.h">
       <Filter>头文件\Common\Encrypt\Blowfish</Filter>
     </ClInclude>
-    <ClInclude Include="..\Common\Encrypt\Blowfish\BlowfishInternal.h">
-      <Filter>头文件\Common\Encrypt\Blowfish</Filter>
-    </ClInclude>
     <ClInclude Include="Globals.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="Process\Launch\StartProcess.h">
-      <Filter>头文件\Process\Launch</Filter>
+    <ClInclude Include="StartProcess.h">
+      <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="..\Common\Logger\Logger.h">
       <Filter>头文件\Common\Logger</Filter>
@@ -265,22 +193,13 @@
     <ClInclude Include="..\Common\Common.h">
       <Filter>头文件\Common</Filter>
     </ClInclude>
-    <ClInclude Include="..\Common\Core\CommonInternal.h">
-      <Filter>头文件\Common\Core</Filter>
-    </ClInclude>
     <ClInclude Include="NetVerHelp\Help_Tou\cJSON.h">
       <Filter>NetVerHelp\Help_Tou</Filter>
     </ClInclude>
     <ClInclude Include="NetVerHelp\Help_Tou\CJsonObject.hpp">
       <Filter>NetVerHelp\Help_Tou</Filter>
     </ClInclude>
-    <ClInclude Include="NetVerHelp\Help_Source\HttpRequestToolWinInetInternal.h">
-      <Filter>NetVerHelp\Help_Source</Filter>
-    </ClInclude>
     <ClInclude Include="NetVerHelp\Help_Tou\HttpRequestTools.h">
-      <Filter>NetVerHelp\Help_Tou</Filter>
-    </ClInclude>
-    <ClInclude Include="NetVerHelp\Help_Tou\HttpRequestToolWinInet.h">
       <Filter>NetVerHelp\Help_Tou</Filter>
     </ClInclude>
     <ClInclude Include="NetVerHelp\Help_Tou\Md5.h">
@@ -290,9 +209,6 @@
       <Filter>NetVerHelp\Help_Tou</Filter>
     </ClInclude>
     <ClInclude Include="NetVerHelp\Help_Tou\OtherHelpTools.h">
-      <Filter>NetVerHelp\Help_Tou</Filter>
-    </ClInclude>
-    <ClInclude Include="NetVerHelp\Help_Tou\OtherHelpToolsWinApi.h">
       <Filter>NetVerHelp\Help_Tou</Filter>
     </ClInclude>
     <ClInclude Include="NetVerHelp\Help_Tou\Rc4.h">
@@ -397,11 +313,11 @@
     <ClInclude Include="Crypter\xorstr.hpp">
       <Filter>Crypter</Filter>
     </ClInclude>
-    <ClInclude Include="Core\DllMainInternal.h">
-      <Filter>头文件\Core</Filter>
-    </ClInclude>
-  <ClInclude Include="Core\Globals.h"><Filter>头文件\Core</Filter></ClInclude><ClInclude Include="StartProcess.h"><Filter>头文件</Filter></ClInclude></ItemGroup>
+  </ItemGroup>
   <ItemGroup>
     <None Include="VMProtectSDK64.dll" />
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="VMProtectSDK64.lib" />
   </ItemGroup>
 </Project>

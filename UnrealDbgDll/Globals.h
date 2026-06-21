@@ -1,3 +1,9 @@
-#pragma once
+﻿#pragma once
 
-#include "Core/Globals.h"
+
+#ifndef _GLOBALS_H
+#define _GLOBALS_H
+
+extern SYMBOL_TABLE g_SymbolTable;
+
+#endif // !_GLOBALS_H

@@ -5,13 +5,13 @@
       <Configuration>Debug</Configuration>
       <Platform>Win32</Platform>
     </ProjectConfiguration>
-    <ProjectConfiguration Include="Debug|x64">
-      <Configuration>Debug</Configuration>
-      <Platform>x64</Platform>
-    </ProjectConfiguration>
     <ProjectConfiguration Include="Release|Win32">
       <Configuration>Release</Configuration>
       <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
     </ProjectConfiguration>
     <ProjectConfiguration Include="Release|x64">
       <Configuration>Release</Configuration>
@@ -26,12 +26,24 @@
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
-    <UseOfMfc>false</UseOfMfc>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -39,28 +51,11 @@
     <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
-    <UseOfMfc>false</UseOfMfc>
-  </PropertyGroup>
-  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
-    <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
-    <CharacterSet>Unicode</CharacterSet>
-    <UseOfMfc>false</UseOfMfc>
-  </PropertyGroup>
-  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
-    <CharacterSet>Unicode</CharacterSet>
-    <UseOfMfc>false</UseOfMfc>
+    <UseOfMfc>Dynamic</UseOfMfc>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-  <ImportGroup Label="ExtensionSettings">
-  </ImportGroup>
-  <ImportGroup Label="Shared">
-  </ImportGroup>
+  <ImportGroup Label="ExtensionSettings"></ImportGroup>
+  <ImportGroup Label="Shared"></ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
@@ -76,38 +71,26 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(MSBuildProjectDirectory);$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(MSBuildProjectDirectory);$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(MSBuildProjectDirectory);$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(MSBuildProjectDirectory);$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING;_WIN32_WINNT=0x0A00;WINVER=0x0A00;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <ExceptionHandling>Async</ExceptionHandling>
-      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
-      <LanguageStandard>stdcpp17</LanguageStandard>
-      <LanguageStandard_C>stdc11</LanguageStandard_C>
     </ClCompile>
     <Link>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>../Common/VMProtect/VMProtectSDK32.lib;Shlwapi.lib;Version.lib;Iphlpapi.lib;Wininet.lib;Advapi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>../Common/VMProtect;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <ModuleDefinitionFile>dllexport.def</ModuleDefinitionFile>
-      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -116,24 +99,14 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING;_WIN32_WINNT=0x0A00;WINVER=0x0A00;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <ExceptionHandling>Async</ExceptionHandling>
-      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
-      <LanguageStandard>stdcpp17</LanguageStandard>
-      <LanguageStandard_C>stdc11</LanguageStandard_C>
-      <DebugInformationFormat>None</DebugInformationFormat>
     </ClCompile>
     <Link>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <GenerateDebugInformation>false</GenerateDebugInformation>
-      <AdditionalDependencies>../Common/VMProtect/VMProtectSDK32.lib;Shlwapi.lib;Version.lib;Iphlpapi.lib;Wininet.lib;Advapi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>../Common/VMProtect;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <ModuleDefinitionFile>dllexport.def</ModuleDefinitionFile>
-      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <ProgramDatabaseFile />
+      <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -142,16 +115,13 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING;_WIN32_WINNT=0x0A00;WINVER=0x0A00;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <ExceptionHandling>Async</ExceptionHandling>
-      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <LanguageStandard_C>stdc11</LanguageStandard_C>
     </ClCompile>
     <Link>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>../Common/VMProtect/VMProtectSDK64.lib;Shlwapi.lib;Version.lib;Iphlpapi.lib;Wininet.lib;Advapi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>../Common/VMProtect;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>../Common/VMProtect/VMProtectSDK64.lib;Shlwapi.lib;Version.lib;Iphlpapi.lib;Wininet.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>dllexport.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
@@ -174,88 +144,56 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>false</GenerateDebugInformation>
-      <AdditionalDependencies>../Common/VMProtect/VMProtectSDK64.lib;Shlwapi.lib;Version.lib;Iphlpapi.lib;Wininet.lib;Advapi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>../Common/VMProtect;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>../Common/VMProtect/VMProtectSDK64.lib;Shlwapi.lib;Version.lib;Iphlpapi.lib;Wininet.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>dllexport.def</ModuleDefinitionFile>
       <ProgramDatabaseFile />
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\Common\Common.cpp" />
-    <ClCompile Include="..\Common\Core\CommonCodePageConversions.cpp" />
-    <ClCompile Include="..\Common\Core\CommonCpuInfo.cpp" />
-    <ClCompile Include="..\Common\Core\CommonNumericConversions.cpp" />
-    <ClCompile Include="..\Common\Core\CommonProcessUtilities.cpp" />
-    <ClCompile Include="..\Common\Core\CommonSingleton.cpp" />
-    <ClCompile Include="..\Common\Core\CommonState.cpp" />
-    <ClCompile Include="..\Common\Core\CommonStringConversions.cpp" />
-    <ClCompile Include="..\Common\Core\CommonStringOperations.cpp" />
-    <ClCompile Include="..\Common\Core\CommonSystemUtilities.cpp" />
     <ClCompile Include="..\Common\Encrypt\Blowfish\Blowfish.cpp" />
     <ClCompile Include="..\Common\Encrypt\Blowfish\BlowfishApi.cpp" />
     <ClCompile Include="..\Common\Encrypt\Blowfish\BlowfishCore.cpp" />
     <ClCompile Include="..\Common\Encrypt\Blowfish\BlowfishUtilities.cpp" />
+    <ClCompile Include="..\Common\Core\CommonCodePageConversions.cpp" />
+    <ClCompile Include="..\Common\Core\CommonStringConversions.cpp" />
+    <ClCompile Include="..\Common\Core\CommonSystemUtilities.cpp" />
+    <ClCompile Include="..\Common\Core\CommonState.cpp" />
     <ClCompile Include="..\Common\FileSystem\FileSystem.cpp" />
     <ClCompile Include="..\Common\Logger\Logger.cpp" />
     <ClCompile Include="Channels\DispatchData.cpp" />
-    <ClCompile Include="Core\FileVersion.cpp" />
-    <ClCompile Include="Core\LicenseSession.cpp" />
-    <ClCompile Include="Core\MacAddress.cpp" />
-    <ClCompile Include="Core\RuntimeState.cpp" />
-    <ClCompile Include="Core\SymbolInitialization.cpp" />
     <ClCompile Include="dllmain.cpp" />
-    <ClCompile Include="Core\Globals.cpp" />
-    <ClCompile Include="Init\DriverImagePath.cpp" />
-    <ClCompile Include="Init\DriverService.cpp" />
+    <ClCompile Include="Globals.cpp" />
     <ClCompile Include="Init\InitNTDevice.cpp" />
     <ClCompile Include="Interface\Interface.cpp" />
     <ClCompile Include="NetVerHelp\Help_Source\CJsonObject.cpp" />
-    <ClCompile Include="NetVerHelp\Help_Source\HttpRequestToolWinInet.cpp" />
-    <ClCompile Include="NetVerHelp\Help_Source\HttpRequestToolWinInetEncoding.cpp" />
-    <ClCompile Include="NetVerHelp\Help_Source\HttpRequestToolWinInetHelpers.cpp" />
-    <ClCompile Include="NetVerHelp\Help_Source\Md5Core.cpp" />
-    <ClCompile Include="NetVerHelp\Help_Source\Md5Encoding.cpp" />
-    <ClCompile Include="NetVerHelp\Help_Source\Md5Transform.cpp" />
+    <ClCompile Include="NetVerHelp\Help_Source\HttpRequestTool.cpp" />
+    <ClCompile Include="NetVerHelp\Help_Source\Md5.cpp" />
     <ClCompile Include="NetVerHelp\Help_Source\NetworkVerHelp.cpp" />
-    <ClCompile Include="NetVerHelp\Help_Source\OtherHelpToolsWinApi.cpp" />
-    <ClCompile Include="NetVerHelp\Help_Source\Rc4.cpp">
-      <DisableSpecificWarnings>4267;%(DisableSpecificWarnings)</DisableSpecificWarnings>
-    </ClCompile>
-    <ClCompile Include="NetVerHelp\Help_Tou\cJSON.cpp">
-      <DisableSpecificWarnings>4267;%(DisableSpecificWarnings)</DisableSpecificWarnings>
-    </ClCompile>
-    <ClCompile Include="Process\Launch\StartProcess.cpp" />
+    <ClCompile Include="NetVerHelp\Help_Source\OtherHelpTools.cpp" />
+    <ClCompile Include="NetVerHelp\Help_Source\Rc4.cpp" />
+    <ClCompile Include="NetVerHelp\Help_Tou\cJSON.cpp" />
+    <ClCompile Include="StartProcess.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Common\Common.h" />
-    <ClInclude Include="..\Common\Core\CommonInternal.h" />
     <ClInclude Include="..\Common\Encrypt\Blowfish\Blowfish.h" />
-    <ClInclude Include="..\Common\Encrypt\Blowfish\BlowfishInternal.h" />
     <ClInclude Include="..\Common\FileSystem\FileSystem.h" />
     <ClInclude Include="..\Common\Logger\Logger.h" />
-    <ClInclude Include="..\Common\Shared\DriverProtocol.h" />
     <ClInclude Include="..\Common\Shared\IOCTLs.h" />
     <ClInclude Include="..\Common\Shared\SharedStruct.h" />
     <ClInclude Include="Channels\DispatchData.h" />
-    <ClInclude Include="Core\DllMain.h" />
-    <ClInclude Include="Core\DllMainInternal.h" />
     <ClInclude Include="Crypter\xorstr.hpp" />
     <ClInclude Include="dllmain.h" />
     <ClInclude Include="Globals.h" />
-    <ClInclude Include="Core\Globals.h" />
-    <ClInclude Include="Init\DriverImagePath.h" />
-    <ClInclude Include="Init\DriverService.h" />
     <ClInclude Include="Init\InitNTDevice.h" />
     <ClInclude Include="Interface\Interface.h" />
     <ClInclude Include="NetVerHelp\Help_Tou\cJSON.h" />
     <ClInclude Include="NetVerHelp\Help_Tou\CJsonObject.hpp" />
-    <ClInclude Include="NetVerHelp\Help_Source\HttpRequestToolWinInetInternal.h" />
     <ClInclude Include="NetVerHelp\Help_Tou\HttpRequestTools.h" />
-    <ClInclude Include="NetVerHelp\Help_Tou\HttpRequestToolWinInet.h" />
     <ClInclude Include="NetVerHelp\Help_Tou\Md5.h" />
     <ClInclude Include="NetVerHelp\Help_Tou\NetworkVerHelp.h" />
     <ClInclude Include="NetVerHelp\Help_Tou\OtherHelpTools.h" />
-    <ClInclude Include="NetVerHelp\Help_Tou\OtherHelpToolsWinApi.h" />
     <ClInclude Include="NetVerHelp\Help_Tou\Rc4.h" />
     <ClInclude Include="NetVerHelp\Model\ActiveState.h" />
     <ClInclude Include="NetVerHelp\Model\ApiRequestArgs.h" />
@@ -290,12 +228,13 @@
     <ClInclude Include="NetVerHelp\Model\PlatformType.h" />
     <ClInclude Include="NetVerHelp\Model\Result.h" />
     <ClInclude Include="StartProcess.h" />
-    <ClInclude Include="Process\Launch\StartProcess.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="VMProtectSDK64.dll" />
   </ItemGroup>
+  <ItemGroup>
+    <Library Include="VMProtectSDK64.lib" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <ImportGroup Label="ExtensionTargets">
-  </ImportGroup>
+  <ImportGroup Label="ExtensionTargets"></ImportGroup>
 </Project>

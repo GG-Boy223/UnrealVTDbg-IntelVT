@@ -1,0 +1,4 @@
+2024/6/8 16:01:50 [INFORMATION]: [UnrealDbgDll.dll] E:\Projects\Delphi\UnrealDbg\Win64\Debug\Hook.dll
+2024/6/8 16:03:56 [INFORMATION]: [UnrealDbgDll.dll] E:\Projects\Delphi\UnrealDbg\Win64\Debug\Hook.dll
+2024/6/8 16:04:09 [INFORMATION]: [AIHelper.dll] 启动远程线程成功！
+2024/6/8 16:04:09 [INFORMATION]: [UnrealDbgDll.dll] 调试器启动成功！

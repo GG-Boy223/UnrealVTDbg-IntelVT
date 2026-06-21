@@ -1,8 +1,8 @@
-ï»¿#pragma once
+#pragma once
 #ifndef NetworkVerHelp_H
 #define NetworkVerHelp_H
 //#define _CRT_SECURE_NO_WARNINGS
-#include "../Help_Tou/HttpRequestToolWinInet.h"
+#include "../Help_Tou/HttpRequestTools.h"
 #include <windows.h>
 #include <ctime>
 #include <string>
@@ -38,17 +38,17 @@
 #include "Md5.h"
 
 
-#define USE_VMP        1   // 0 = å…³é—­ï¼Œ1 = å¼€å¯
+#define USE_VMP        1   // 0 = ¹Ø±Õ£¬1 = ¿ªÆô
 
 #if  USE_VMP
 	#include "../../../Common/VMProtect/VMProtectSDK.h"
-	#ifdef _WIN64
-	#pragma comment(lib,"VMProtectSDK64.lib")
+	#ifdef _WIN64 
+	#pragma comment(lib,"VMProtectSDK64.lib")   //VMProtectSDK64.lib   //vmprotectsdk64.lib
 	#else
 	#pragma comment(lib,"VMProtectSDK32.lib")
 	#endif
 
-#endif // ! å¼€å¯vmp
+#endif // ! ¿ªÆôvmp
 
 
 
@@ -57,25 +57,25 @@ namespace Help
 {
 
 	/// <summary>
-	/// //è½¯ä»¶åˆå§‹åŒ–çš„ç»“æœå¯¹è±¡
+	/// //Èí¼ş³õÊ¼»¯µÄ½á¹û¶ÔÏó
 	/// </summary>
 	extern  Model::Out_iniSoftInfo iniSoftInfoData;
 
 	/// <summary>
-	/// è·å–æœºå™¨ç çš„å®ä½“ç±»
+	/// »ñÈ¡»úÆ÷ÂëµÄÊµÌåÀà
 	/// </summary>
 	class NetworkVerHelp
 	{
 	public:
 
 		/// <summary>
-		/// //è·å–æ—¶é—´æˆ³
+		/// //»ñÈ¡Ê±¼ä´Á
 		/// </summary>
 		/// <returns></returns>
 		static	__int64 GetTimeStamp();
 
 		/// <summary>
-		/// //è·å–æœºå™¨ç 
+		/// //»ñÈ¡»úÆ÷Âë
 		/// </summary>
 		/// <returns></returns>
 		static string GetMac();
@@ -83,69 +83,69 @@ namespace Help
 
 
 		/// <summary>
-		/// //jsonå­—ç¬¦ä¸²è½¬åŸºç¡€è¿”å›ç±»å‹
+		/// //json×Ö·û´®×ª»ù´¡·µ»ØÀàĞÍ
 		/// </summary>
 		/// <param name="data"></param>
 		/// <returns></returns>
 		static Model::Out_DataBaseArgs ConvertOutDataBaseArgs(string data);
 
-		//åˆå§‹åŒ–è½¯ä»¶è¿”çš„jsonDataæ•°æ®è½¬åŒ–æˆå¯¹è±¡
+		//³õÊ¼»¯Èí¼ş·µµÄjsonDataÊı¾İ×ª»¯³É¶ÔÏó
 		static Model::Out_iniSoftInfo ConvertIniSoftInfoData(string data);
 
-		//ç™»å½•çš„jsonDataæ•°æ®è½¬åŒ–æˆå¯¹è±¡
+		//µÇÂ¼µÄjsonDataÊı¾İ×ª»¯³É¶ÔÏó
 		static Model::Out_Login ConvertLoginData(string data);
 
 
 
-		//å°†å¿ƒè·³æ•°æ®è½¬åŒ–æˆå¯¹è±¡
+		//½«ĞÄÌøÊı¾İ×ª»¯³É¶ÔÏó
 		static Model::Out_heartBeat ConvertHeartBeat(string data);
 
-		//æ¢ç»‘dagaç»“æœè½¬åŒ–æˆå¯¹è±¡
+		//»»°ódaga½á¹û×ª»¯³É¶ÔÏó
 		static Model::Out_unbundMacArgs ConvertUnbundMac(string data);
 
-		//å¡å¯†è¯¦æƒ…ç»“æœè½¬å¯¹è±¡
+		//¿¨ÃÜÏêÇé½á¹û×ª¶ÔÏó
 		static Model::Out_cardDetail ConvertCardDetail(string data);
 
 
 
 
 
-		//åˆå§‹åŒ–è½¯ä»¶
+		//³õÊ¼»¯Èí¼ş
 		static Model::Result GetIniSoftInfo(Model::In_IniSoftInfoArgs dataArgs, Model::PlatformType _platformtypeid, string _encryptKey,
 			string _signSalt, Model::EncryptType _encrypttypeid, string _softcode, string _platformUserCode);
 
-		//ç™»å½•æˆåŠŸåï¼Œå¼€å§‹å¿ƒè·³(å¿ƒè·³é—´éš”æ—¶é—´ä¸èƒ½å°äº5åˆ†é’Ÿ)
+		//µÇÂ¼³É¹¦ºó£¬¿ªÊ¼ĞÄÌø(ĞÄÌø¼ä¸ôÊ±¼ä²»ÄÜĞ¡ÓÚ5·ÖÖÓ)
 		static Model::Result GetHeartBeat(Model::In_HeartBeatArgs dataArgs);
 
 
 
 		/// <summary>
-		/// å¡å¯†ç™»å½•
+		/// ¿¨ÃÜµÇÂ¼
 		/// </summary>
 		/// <param name="dataArgs"></param>
 		/// <returns></returns>
 		static Model::Result GetLoginByCard(Model::In_CardLoginArgs dataArgs);
 
 		/// <summary>
-		/// //å¡å¯†è¯¦æƒ…
+		/// //¿¨ÃÜÏêÇé
 		/// </summary>
 		/// <param name="dataArgs"></param>
 		/// <returns></returns>
 		static Model::Result GeCardDetail(Model::In_cardDetailArgs dataArgs);
 
-		//é€€å‡ºç™»å½•
+		//ÍË³öµÇÂ¼
 		static Model::Result GeLoginOut(Model::In_LoginOutArgs dataArgs);
 
-		//è§£ç»‘æœºå™¨ç (å¦‚æœè½¯ä»¶è®¾ç½®è§£ç»‘æ‰£é™¤ç›¸åº”çš„æ—¶é—´æˆ–ç‚¹æ•°ï¼Œé‚£ä¹ˆè§£ç»‘æˆåŠŸåä¼šè‡ªåŠ¨æ‰£é™¤)
+		//½â°ó»úÆ÷Âë(Èç¹ûÈí¼şÉèÖÃ½â°ó¿Û³ıÏàÓ¦µÄÊ±¼ä»òµãÊı£¬ÄÇÃ´½â°ó³É¹¦ºó»á×Ô¶¯¿Û³ı)
 		static Model::Result unbundMac(Model::In_unbundMacArgs dataArgs);
 
-		//ç¦ç”¨è¿˜æ˜¯åˆ é™¤ï¼šå•ç æˆ–è´¦å·
+		//½ûÓÃ»¹ÊÇÉ¾³ı£ºµ¥Âë»òÕËºÅ
 		static Model::Result DisableCardOrAccount(Model::In_DisableCardOrAccountArgs dataArgs);
 
 
 	private:
 		static Model::Result getReqResult(string address, string PostJsonData, CJsonObject oJson);
-		//è¯·æ±‚æ¥å£è·å–æ•°æ®
+		//ÇëÇó½Ó¿Ú»ñÈ¡Êı¾İ
 		static Model::Result GetRequestResult(Model::BusinessType businessType, string data);
 
 		static string GBKToUTF8(const char* strGBK);

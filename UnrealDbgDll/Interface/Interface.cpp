@@ -6,7 +6,6 @@
 typedef void(__stdcall* PFN_INJECTDLL)(DWORD dwPid, TCHAR* DLLPathName, BOOL is64Process);
 
 PFN_INJECTDLL AI_InjectDll;
-HMODULE g_AIHelperMod;
 
 BOOL TL_BlockGameResumeThread_internal(DWORD dwProcessId)
 {
@@ -18,43 +17,16 @@ BOOL TL_BlockGameResumeThread_internal(DWORD dwProcessId)
 	return bRet;
 }
 
-BOOL InitFunctionPtr()
+void InitFunctionPtr()
 {
-	if (AI_InjectDll != nullptr)
-	{
-		return TRUE;
-	}
-
-	if (g_AIHelperMod == nullptr)
-	{
-		g_AIHelperMod = LoadLibrary(L"AIHelper.dll");
-	}
-
-	if (g_AIHelperMod == nullptr)
-	{
-		logger.outDebug(L"AIHelper.dll 加载失败，InjectDll 不可用。(error:%lu)", GetLastError());
-		return FALSE;
-	}
-
-	AI_InjectDll = (PFN_INJECTDLL)GetProcAddress(g_AIHelperMod, "InjectDll");
-	if (AI_InjectDll == nullptr)
-	{
-		logger.outDebug(L"AIHelper.dll 缺少 InjectDll 导出。(error:%lu)", GetLastError());
-		return FALSE;
-	}
-
-	return TRUE;
+	HMODULE hMod = LoadLibrary(L"AIHelper.dll");
+	AI_InjectDll = (PFN_INJECTDLL)GetProcAddress(hMod, "InjectDll");
 }
 
 void InjectDll_0(DWORD dwPid, TCHAR* DLLPathName, BOOL is64Process)
 {
 	try
 	{
-		if (!InitFunctionPtr())
-		{
-			return;
-		}
-
 		AI_InjectDll(dwPid, DLLPathName, is64Process);
 	}
 	catch (const std::exception&)

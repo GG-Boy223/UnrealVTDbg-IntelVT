@@ -3,7 +3,7 @@
 #ifndef _INTERFACE_H
 #define _INTERFACE_H
 
-BOOL InitFunctionPtr();
+void InitFunctionPtr();
 void InjectDll_0(DWORD dwPid, TCHAR* DLLPathName, BOOL is64Process);
 
 

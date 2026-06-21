@@ -1,11 +1,6 @@
 #pragma warning(disable: 4996)
-
-#include "../Help_Tou/OtherHelpToolsWinApi.h"
+#include "../Help_Tou/OtherHelpTools.h"
 #include "../../Crypter/xorstr.hpp"
-
-#include <cstdlib>
-#include <cstring>
-
 namespace OtherHelp
 {
 	std::wstring OtherHelpTools::StoWs(const std::string& s)
@@ -20,17 +15,22 @@ namespace OtherHelp
 		return r;
 	}
 
+
+	//强行结束程序
 	void OtherHelpTools::TerminateApp()
 	{
 		HANDLE hself = GetCurrentProcess();
 		TerminateProcess(hself, 0);
 	}
 
+	// LPVOID转CString
 	string OtherHelpTools::PVOIDToString(LPVOID lp)
 	{
 		return (char * &)lp;
 	}
 
+
+	//wstring=>string
 	std::string OtherHelpTools::WString2String(const std::wstring& ws)
 	{
 		std::string strLocale = setlocale(LC_ALL, (const char*)_xor_(""));
@@ -44,7 +44,7 @@ namespace OtherHelp
 		setlocale(LC_ALL, strLocale.c_str());
 		return strResult;
 	}
-
+	// string => wstring
 	std::wstring OtherHelpTools::String2WString(const std::string& s)
 	{
 		std::string strLocale = setlocale(LC_ALL, (const char*)_xor_(""));
@@ -58,4 +58,6 @@ namespace OtherHelp
 		setlocale(LC_ALL, strLocale.c_str());
 		return wstrResult;
 	}
+
+
 }

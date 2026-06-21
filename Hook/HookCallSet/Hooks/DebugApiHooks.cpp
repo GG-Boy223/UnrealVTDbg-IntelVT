@@ -71,7 +71,7 @@ NewDbgUiIssueRemoteBreakin(IN HANDLE Process)
     // 放开坏处：需要恢复 hThread/ClientId/Status 等上下文和 ntdll 原型，且不同位数目标的调用约定更敏感。
     // 项目影响：继续注释不影响当前附加；放开必须同步验证 x86 Hook.dll 和 x64 Hook64.dll 两套路径。
     // 当前建议：继续注释。
-    //Status = RtlCreateUserThread(Process,
+    // Status = RtlCreateUserThread(Process,
     //    NULL,
     //    FALSE,
     //    0,

@@ -11,35 +11,17 @@ BOOL DispatchDataToDriver(DWORD dwIoControlCode,
     LPDWORD lpBytesReturned)
 {
     BOOL bRet = FALSE;
-    if (g_hGeneralDriverDevice == INVALID_HANDLE_VALUE)
+    if (g_hGeneralDriverDevice != INVALID_HANDLE_VALUE)
     {
-        logger.outDebug(L"DeviceIoControl skipped: driver handle invalid, ioctl=0x%08lX", dwIoControlCode);
-        SetLastError(ERROR_INVALID_HANDLE);
-        return FALSE;
-    }
-
-    DWORD localBytesReturned = 0;
-    LPDWORD bytesReturned = lpBytesReturned != nullptr ? lpBytesReturned : &localBytesReturned;
-    bRet = DeviceIoControl(
-        g_hGeneralDriverDevice,
-        dwIoControlCode,
-        inputBuffer,
-        inputBufferSize,
-        lpOutBuffer,
-        nOutBufferSize,
-        bytesReturned,
-        NULL);
-    if (!bRet)
-    {
-        DWORD error = GetLastError();
-        logger.outDebug(
-            L"DeviceIoControl failed: ioctl=0x%08lX, input=%lu, output=%lu, bytes=%lu, error=%lu",
+        bRet = DeviceIoControl(g_hGeneralDriverDevice,
             dwIoControlCode,
+            inputBuffer,
             inputBufferSize,
+            lpOutBuffer,
             nOutBufferSize,
-            *bytesReturned,
-            error);
-        SetLastError(error);
+            lpBytesReturned,
+            NULL);
+        DWORD dwError = GetLastError();
     }
     return bRet;
 }
@@ -91,12 +73,7 @@ BOOL SendUserDataToDriver(DWORD dwIoControlCode,
     return bRet;
 }
 
-// 旧项目保留代码：GetDriverData 直接把 ring3 指针塞进 USER_DATA 后交给驱动回写。
-// 注释原因：重构后统一走 SendUserDataToDriver/DispatchDataToDriver，入参会先加密并按 inline packet 传输；旧写法依赖驱动直接信任用户态指针，边界和 WOW64 兼容风险更高。
-// 放开好处：少一次输出缓冲封装，旧调用点如果仍按 USER_DATA.pUserData 回填会更直接。
-// 放开坏处：破坏当前 IOCTL 输入规范，驱动侧 ResolveInputUserData 无法统一校验，错误指针会扩大内核异常面。
-// 项目影响：继续注释不影响当前调试器启动、符号下发、进程信息查询；放开需要同步恢复旧驱动分发协议。
-// 当前建议：继续注释，仅作为旧协议参考。
+//获取驱动层数据
 //ULONG GetDriverData(DWORD dwIoControlCode, PVOID pBuf)
 //{
 //    USER_DATA userData = { 0 };

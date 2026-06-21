@@ -1,172 +1,196 @@
 ﻿#include "../dllmain.h"
 #include "InitNTDevice.h"
-#include "DriverService.h"
 #include "../Crypter/xorstr.hpp"
+
 
 //加载NT驱动
 typedef BOOL(__stdcall* PFN_LOADNT)(const std::wstring DriveImagePath, const std::wstring ServiceName);
 //卸载NT驱动
 typedef BOOL(__stdcall* PFN_UNLOADNT)(const std::wstring ServiceName);
+
 typedef int(__stdcall* PFN_OUTDEBUG)(const TCHAR* _Format, ...);
 
-namespace
+PFN_LOADNT pfnLoadNT;
+PFN_UNLOADNT pfnUnloadNT;
+PFN_OUTDEBUG outDebug;
+
+HANDLE g_hGeneralDriverDevice = INVALID_HANDLE_VALUE;
+
+
+//连接驱动
+HANDLE CreateDeviceHandle(const std::wstring DriveImagePath, const std::wstring ServiceName)
 {
-    PFN_LOADNT pfnLoadNT;
-    PFN_UNLOADNT pfnUnloadNT;
-    PFN_OUTDEBUG outDebug;
-
-    HANDLE CreateDeviceHandle(const std::wstring& driveImagePath, const std::wstring& serviceName)
+    DWORD error = 0;
+    //创建符号连接
+    HANDLE hDevice = CreateFile(SYMBOLICLINK, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hDevice != INVALID_HANDLE_VALUE)
     {
-        HANDLE device = CreateFile(
-            SYMBOLICLINK,
-            GENERIC_READ,
-            0,
-            nullptr,
-            OPEN_EXISTING,
-            FILE_ATTRIBUTE_NORMAL,
-            nullptr);
-        if (device != INVALID_HANDLE_VALUE)
-        {
-            return device;
-        }
-
-        if (!DriverService::EnsureImagePath(serviceName, driveImagePath))
-        {
-            return INVALID_HANDLE_VALUE;
-        }
-
-        if (!pfnLoadNT(driveImagePath, serviceName))
-        {
-            DWORD loadError = GetLastError();
-            DriverService::LogLoadFailure(L"AIHelper LoadNT", serviceName, driveImagePath, loadError);
-            if (!DriverService::Start(serviceName))
-            {
-                return INVALID_HANDLE_VALUE;
-            }
-        }
+        return hDevice;
+    }
+    else
+    {
+        pfnLoadNT(DriveImagePath, ServiceName);
 
         logger.outDebug(_xor_(L"正在连接符号..."));
-        device = CreateFile(
-            SYMBOLICLINK,
-            GENERIC_READ,
-            0,
-            nullptr,
-            OPEN_EXISTING,
-            FILE_ATTRIBUTE_NORMAL,
-            nullptr);
-        if (device != INVALID_HANDLE_VALUE)
+        hDevice = CreateFile(SYMBOLICLINK, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        if (hDevice != INVALID_HANDLE_VALUE)
         {
             logger.outDebug(_xor_(L"连接驱动成功！"));
-            return device;
+            return hDevice;
         }
-
-        DWORD error = GetLastError();
-        logger.outDebug(L"连接驱动失败，设备符号链接不存在或调试驱动未运行! (error:%d)", error);
-        return INVALID_HANDLE_VALUE;
+        else
+        {
+            error = GetLastError();
+            logger.outDebug(L"连接驱动失败，可能是驱动服务尚未安装! (error:%d)", error);
+        }
     }
 
-    BOOL LoadVT(const std::wstring& driveImagePath, const std::wstring& serviceName)
+    return INVALID_HANDLE_VALUE;
+}
+
+//加载VT驱动
+BOOL LoadVT(const std::wstring DriveImagePath, const std::wstring ServiceName)
+{
+    if (!pfnLoadNT(DriveImagePath, ServiceName))
     {
-        if (!DriverService::EnsureImagePath(serviceName, driveImagePath))
-        {
-            return FALSE;
-        }
-
-        if (!pfnLoadNT(driveImagePath, serviceName))
-        {
-            DWORD loadError = GetLastError();
-            DriverService::LogLoadFailure(L"AIHelper LoadNT", serviceName, driveImagePath, loadError);
-            if (!DriverService::Start(serviceName))
-            {
-                return FALSE;
-            }
-        }
-
-        return TRUE;
+        return FALSE;
     }
-
-    BOOL LoadGeneralDriver(const std::wstring& driveImagePath, const std::wstring& serviceName)
+    else
     {
-        g_hGeneralDriverDevice = CreateDeviceHandle(driveImagePath, serviceName);
-        return g_hGeneralDriverDevice != INVALID_HANDLE_VALUE ? TRUE : FALSE;
-    }
-
-    BOOL InitInterface()
-    {
-        HMODULE helperModule = LoadLibrary(_xor_(L"AIHelper.dll"));
-        if (!helperModule)
-        {
-            ::MessageBox(nullptr, L"没有找到 AIHelper.dll", L"错误信息:", MB_ICONWARNING);
-            return FALSE;
-        }
-
-        pfnLoadNT = reinterpret_cast<PFN_LOADNT>(GetProcAddress(helperModule, _xor_("LoadNT")));
-        pfnUnloadNT = reinterpret_cast<PFN_UNLOADNT>(GetProcAddress(helperModule, _xor_("UnloadNT")));
-        outDebug = reinterpret_cast<PFN_OUTDEBUG>(GetProcAddress(helperModule, _xor_("outDebug")));
-        if (pfnLoadNT == nullptr || pfnUnloadNT == nullptr || outDebug == nullptr)
-        {
-            ::MessageBox(nullptr, L"AIHelper.dll 接口不完整", _xor_(L"错误信息:"), MB_ICONWARNING);
-            return FALSE;
-        }
-
         return TRUE;
     }
 }
 
-HANDLE g_hGeneralDriverDevice = INVALID_HANDLE_VALUE;
+//常规驱动加载
+BOOL LoadGeneralDriver(const std::wstring DriveImagePath, const std::wstring ServiceName)
+{
+    g_hGeneralDriverDevice = CreateDeviceHandle(DriveImagePath, ServiceName);
+    if (g_hGeneralDriverDevice == INVALID_HANDLE_VALUE)
+    {
+        return FALSE;
+    }
+    else
+    {
+        return TRUE;
+    }
+}
 
 //初始化驱动设备
 BOOL InitializeDevice(const std::wstring DriveImagePath)
 {
+    BOOL bRet = TRUE;
+
+    //if (!UnInitialize_END) {
+    //    return FALSE;
+    //}
+
     if (!LoadVT(DriveImagePath + _xor_(L"VT_Driver.sys"), _xor_(L"VT_Driver")))
     {
         return FALSE;
     }
 
-    DWORD majorVersion = 0;
-    DWORD minorVersion = 0;
-    DWORD buildNumber = 0;
-    if (!Common::GetNtVersionNumbers(majorVersion, minorVersion, buildNumber))
+    DWORD dwMajorVer, dwMinorVer, dwBuildNumber, error;
+    if (Common::GetNtVersionNumbers(dwMajorVer, dwMinorVer, dwBuildNumber))
     {
-        DWORD error = GetLastError();
+        if (dwBuildNumber >= 22000)
+        {
+            //Win11
+            if (!LoadGeneralDriver(DriveImagePath + _xor_(L"DbgkSysWin11.sys"), _xor_(L"UnrealDevice")))
+            {
+                bRet = FALSE;
+            }
+        }
+        else
+        {
+            //Win10
+            if (!LoadGeneralDriver(DriveImagePath + _xor_(L"DbgkSysWin10.sys"), _xor_(L"UnrealDevice")))
+            {
+                bRet = FALSE;
+            }
+        }
+    }
+    else
+    {
+        error = GetLastError();
         logger.outDebug(_xor_(L"无法获取系统版本信息! (error:%d)"), error);
+        bRet = FALSE;
+    }
+    return bRet;
+}
+
+//初始化接口
+BOOL InitInterface()
+{
+    HMODULE AIHelperMod = LoadLibrary(_xor_(L"AIHelper.dll"));
+    if (!AIHelperMod)
+    {
+        ::MessageBox(NULL, (L"没有找到 AIHelper.dll"), (L"错误信息:"), MB_ICONWARNING);
+        return FALSE;
+    }
+    pfnLoadNT = (PFN_LOADNT)GetProcAddress(AIHelperMod,     _xor_("LoadNT"));
+    pfnUnloadNT = (PFN_UNLOADNT)GetProcAddress(AIHelperMod, _xor_("UnloadNT"));
+    outDebug = (PFN_OUTDEBUG)GetProcAddress(AIHelperMod,    _xor_("outDebug"));
+
+    if (pfnLoadNT == nullptr || pfnUnloadNT == nullptr || outDebug == nullptr)
+    {
+        ::MessageBox(NULL, (L"AIHelper.dll 接口不完整"), _xor_(L"错误信息:"), MB_ICONWARNING);
         return FALSE;
     }
 
-    if (buildNumber >= 22000)
-    {
-        return LoadGeneralDriver(DriveImagePath + _xor_(L"DbgkSysWin11.sys"), _xor_(L"UnrealDevice"));
-    }
-
-    return LoadGeneralDriver(DriveImagePath + _xor_(L"DbgkSysWin10.sys"), _xor_(L"UnrealDevice"));
+    return TRUE;
 }
 
 BOOL _Initialize(const TCHAR* sPath)
 {
-    if (sPath == nullptr)
+    BOOL boInit = FALSE;
+    std::wstring sDrivePath(sPath);
+    if (!sDrivePath.empty())
     {
-        logger.outDebug(L"_Initialize path is null");
-        return FALSE;
+        if (InitInterface())
+        {
+            boInit = InitializeDevice(sDrivePath);
+        }
     }
-
-    std::wstring drivePath(sPath);
-    logger.outDebug(L"_Initialize path: %s", drivePath.c_str());
-    if (drivePath.empty())
-    {
-        return FALSE;
-    }
-
-    if (!InitInterface())
-    {
-        return FALSE;
-    }
-
-    return InitializeDevice(drivePath);
+    return boInit;
 }
+
+//结束时的扫尾工作
+//BOOL UnInitialize()
+//{
+//    BOOL boUnInit = FALSE;
+//    if (g_hGeneralDriverDevice != INVALID_HANDLE_VALUE)
+//    {
+//        CloseHandle(g_hGeneralDriverDevice);
+//        g_hGeneralDriverDevice = INVALID_HANDLE_VALUE;
+//    }
+//
+//    if (pfnUnloadNT(L"BACDevice"))
+//    {
+//        outDebug(L"停止虚幻引擎服务成功..");
+//        boUnInit = TRUE;
+//    }
+//    else
+//    {
+//        outDebug(L"停止虚幻引擎服务失败!");
+//        boUnInit = FALSE;
+//    }
+//
+//    if (pfnUnloadNT(L"VT_Driver"))
+//    {
+//        outDebug(L"停止VT服务成功..");
+//        boUnInit = TRUE;
+//    }
+//    else
+//    {
+//        outDebug(L"停止VT服务失败!");
+//        boUnInit = FALSE;
+//    }
+//    return boUnInit;
+//}
 
 BOOL UnInitialize()
 {
-    BOOL uninitialized = TRUE;
+    BOOL boUnInit = TRUE;
 
     if (g_hGeneralDriverDevice != INVALID_HANDLE_VALUE)
     {
@@ -180,14 +204,14 @@ BOOL UnInitialize()
         return FALSE;
     }
 
-    if (pfnUnloadNT(L"UnrealDevice"))
+    if (pfnUnloadNT((L"UnrealDevice")))
     {
         outDebug(_xor_(L"Win10/Win11 调试服务停止成功。"));
     }
     else
     {
         outDebug(_xor_(L"Win10/Win11 调试服务停止失败或未运行。"));
-        uninitialized = FALSE;
+        boUnInit = FALSE;
     }
 
     if (pfnUnloadNT(_xor_(L"VT_Driver")))
@@ -196,14 +220,15 @@ BOOL UnInitialize()
     }
     else
     {
-        outDebug(L"VT 服务停止失败或未运行。");
-        uninitialized = FALSE;
+        outDebug((L"VT 服务停止失败或未运行。"));
+        boUnInit = FALSE;
     }
 
-    if (pfnUnloadNT(L"BACDevice"))
+    // 兼容旧版本残留服务名。此服务不是当前加载链路的必需依赖，放到最后清理。
+    if (pfnUnloadNT((L"BACDevice")))
     {
         outDebug(_xor_(L"旧版 BACDevice 服务停止成功。"));
     }
 
-    return uninitialized;
+    return boUnInit;
 }
