@@ -92,7 +92,6 @@ bool allocate_vmm_context() // 初始化全局VMM资源，包含每核VCPU与EPT
 		KeQueryActiveGroupCount());
 	if (g_vmm_context.processor_count == 0)
 	{
-		outDebug("不支持当前逻辑处理器数量。\n");
 		outFile("[失败][VMM上下文] 系统报告的逻辑处理器数量为0，停止VT加载");
 		return false;
 	}
@@ -102,7 +101,6 @@ bool allocate_vmm_context() // 初始化全局VMM资源，包含每核VCPU与EPT
 	g_vmm_context.vcpu = allocate_pool<__vcpu*>(arr_size); // 为每个逻辑核分配VCPU结构数组，作为每核状态容器
 	if (g_vmm_context.vcpu == nullptr)
 	{
-		outDebug("vcpu_table could not be allocated分配失败"); // 分配失败，无法继续初始化后续VMX结构
 		outFile("[失败][VMM上下文] VCPU数组分配失败");
 		return false; // 返回失败，防止使用空指针
 	}
@@ -121,7 +119,6 @@ bool allocate_vmm_context() // 初始化全局VMM资源，包含每核VCPU与EPT
 	outFile("[进行中][VMM上下文] 开始初始化预分配内存池");
 	if (pool_manager::initialize() == false) // 预分配内存池，减少VMX路径中的动态分配
 	{
-		outDebug("预分配内存失败!\n"); // 预分配失败会影响后续VMX/EPT结构
 		//free_vmm_context();
 		outFile("[失败][VMM上下文] 预分配内存池初始化失败");
 		return false; // 直接返回失败，避免不完整初始化
@@ -133,7 +130,6 @@ bool allocate_vmm_context() // 初始化全局VMM资源，包含每核VCPU与EPT
 		outFile("---------- VCPU[%u] 上下文初始化开始 ----------", iter);
 		if (init_vcpu(&g_vmm_context.vcpu[iter]) == false) // 初始化每个VCPU的位图与EPT状态，保证每核可进入VMX
 		{
-			outDebug("init_vcpu失败!\n"); // 其中任一失败即整体失败，避免部分核进入VMX
 			//free_vmm_context();
 			outFile("[失败][VMM上下文] VCPU[%u] 初始化失败，停止VT加载", iter);
 			return false;
@@ -168,18 +164,14 @@ bool allocate_vmm_context() // 初始化全局VMM资源，包含每核VCPU与EPT
 	g_vmm_context.highest_basic_leaf = cpuid_reg.eax; // 缓存最高叶，避免反复执行CPUID
 	outFile("[信息][VMM上下文] CPUID最高基础叶：0x%X", g_vmm_context.highest_basic_leaf);
 
-	//创建host页表
-	//将所有物理内存映射到我们的地址空间
+	//创建host页表,将所有物理内存映射到我们的地址空间
 	outFile("[进行中][VMM上下文] 开始创建Host页表");
-	create_host_page_tables();// 构建宿主页表与物理内存映射，便于VMX根模式访问和地址转换
-	outFile("[完成][VMM上下文] Host页表创建流程结束");
-
-	//if (!create_host_page_tables())
-	//{
-	//	outDebug("create_host_page_tables 失败!\n");
-	//	//free_vmm_context();
-	//	return false;
-	//}
+	if (!create_host_page_tables()) // Host CR3 是所有 VM-exit 的根模式执行环境，失败后不能继续 VMLAUNCH。
+	{
+		outFile("[失败][VMM上下文] Host页表创建失败，停止VT加载，避免进入不可用的VM-Exit宿主环境");
+		return false;
+	}
+	outFile("[成功][VMM上下文] Host页表创建完成");
 
 	outFile("========== VMM全局上下文分配完成 ==========");
 	return true;

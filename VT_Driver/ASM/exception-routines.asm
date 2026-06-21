@@ -77,11 +77,13 @@ rdmsr_safe proc
 
   ; return value
   shl rdx, 32
-  and rax, rdx
+  ; RDMSR returns EDX:EAX. The old AND lost most legal MSR values and could make
+  ; VM-exit handlers consume corrupted MSR data on newer Intel CPUs.
+  ; and rax, rdx
+  or rax, rdx
 
 ehandler:
   ret
 rdmsr_safe endp
 
 end
-

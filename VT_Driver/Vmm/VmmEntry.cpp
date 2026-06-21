@@ -8,7 +8,6 @@ bool vmm_init() // 启动全局VMM，并在每个逻辑处理器上进入VMX，�
 	//分配vmm上下文
 	if (allocate_vmm_context() == false) // 先分配并初始化全局/每核所需资源，避免半初始化状态
 	{
-		outDebug("分配vmm上下文失败.\n"); // 资源不足或初始化失败
 		outFile("[失败][VMM] 全局上下文/每CPU资源分配失败");
 		return false; // 无法继续进入VMX流程
 	}
@@ -34,7 +33,6 @@ bool vmm_init() // 启动全局VMM，并在每个逻辑处理器上进入VMX，�
 		if (!initalize_vcpu(iter)) // 在该CPU上完成VMXON/VMCS初始化与VMM启动
 		{
 			KeRevertToUserGroupAffinityThread(&orig_affinity); // 失败时先恢复线程亲和力，避免影响系统调度
-			outDebug("initalize_vcpu失败.\n"); // 输出具体失败位置
 			outFile("[失败][CPU%u] VMX初始化链路失败，开始回滚已进入VT的CPU", iter);
 			if (iter > 0)
 			{

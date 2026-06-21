@@ -106,7 +106,8 @@ void vmexit_xsetbv_handler(__vcpu* vcpu) // 模拟 XSETBV，严格验证 XCR0 �
 		return; // 非法写入不推进 RIP。
 	}
 
-	hv::host_exception_info e; // 捕获 host 执行 XSETBV 时可能产生的异常。
+	// hv::host_exception_info e; // 旧逻辑：未清零会让safe异常路径读取到旧栈值，导致误判exception_occurred。
+	hv::host_exception_info e = { 0 }; // 捕获host执行XSETBV时可能产生的异常，清零后再交给Host IDT写回。
 	hv::xsetbv_safe(e, xcr_number, new_xcr0.all); // 通过安全封装写 XCR，防止 host 异常直接 BugCheck。
 
 	if (e.exception_occurred)

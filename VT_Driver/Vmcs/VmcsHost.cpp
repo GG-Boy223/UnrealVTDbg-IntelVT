@@ -1,4 +1,4 @@
-#include "VmcsInternal.h"
+﻿#include "VmcsInternal.h"
 
 void fill_vmcs_host_fields(__vcpu* vcpu)
 {
@@ -24,6 +24,7 @@ void fill_vmcs_host_fields(__vcpu* vcpu)
     host_cr3.page_level_write_through = 0;
     host_cr3.address_of_page_directory = MmGetPhysicalAddress(&hv::ghv.host_page_tables.pml4).QuadPart >> 12;
     hv::vmwrite<unsigned __int64>(HOST_CR3, host_cr3.flags);
+    outFile("[信息][VMCS Host] HOST_CR3=0x%llX HostPML4_PA=0x%llX", host_cr3.flags, host_cr3.address_of_page_directory << 12);
 
     cr4 host_cr4;
     host_cr4.flags = __readcr4();
@@ -36,6 +37,11 @@ void fill_vmcs_host_fields(__vcpu* vcpu)
     auto const rsp = ((reinterpret_cast<size_t>(vcpu->host_stack) + VMM_STACK_SIZE) & ~0b1111ull) - 8;
     hv::vmwrite<unsigned __int64>(HOST_RSP, rsp);
     hv::vmwrite<void*>(HOST_RIP, hv::vm_exit);
+    outFile("[信息][VMCS Host] HOST_RSP=0x%llX HOST_RIP=0x%llX HOST_GDTR=0x%llX HOST_IDTR=0x%llX",
+        rsp,
+        reinterpret_cast<unsigned __int64>(hv::vm_exit),
+        reinterpret_cast<unsigned __int64>(&vcpu->host_gdt),
+        reinterpret_cast<unsigned __int64>(&vcpu->host_idt));
 
     hv::vmwrite<unsigned __int64>(HOST_IA32_SYSENTER_CS, 0);
     hv::vmwrite<unsigned __int64>(HOST_IA32_SYSENTER_ESP, 0);

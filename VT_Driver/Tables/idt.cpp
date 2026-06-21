@@ -59,6 +59,10 @@ namespace hv
 	// called for every host interrupt
 	EXTERN_C
 	void handle_host_interrupt(trap_frame* const frame) {
+		if (frame == nullptr) {
+			return; // 理论上汇编入口不会传空；保留防御，避免异常路径再次解引用空指针。
+		}
+
 		switch (frame->vector) 
 		{			
 		case nmi:  // host NMIs
@@ -76,6 +80,18 @@ namespace hv
 		default: {  // host exceptions
 			// no registered exception handler
 			if (!frame->r10 || !frame->r11) {
+				// 没有r10/r11安全恢复点时，说明异常发生在未受保护的VMX root路径。
+				// 这里不能随意跳过指令或伪造返回地址，否则会破坏VMCS/栈/寄存器状态并造成更隐蔽的数据损坏。
+				// 因此保留原来的强制失败策略，但先写入每CPU快照，下一次VTLoad.log/调试器可定位Host异常来源。
+				auto const cpu = reinterpret_cast<__vcpu*>(_readfsbase_u64());
+				if (cpu != nullptr) {
+					++cpu->host_exception_snapshot.count;
+					cpu->host_exception_snapshot.vector = frame->vector;
+					cpu->host_exception_snapshot.error = frame->error;
+					cpu->host_exception_snapshot.rip = frame->rip;
+					cpu->host_exception_snapshot.rsp = frame->rsp;
+				}
+
 				//HV_LOG_ERROR("Unhandled exception. RIP=hv.sys+%p. Vector=%u.",
 				//	frame->rip - reinterpret_cast<UINT64>(&__ImageBase), frame->vector);
 
@@ -99,6 +115,17 @@ namespace hv
 			e->exception_occurred = true;
 			e->vector = frame->vector;
 			e->error = frame->error;
+
+			// 已注册恢复点的异常属于rdmsr/wrmsr/xsetbv/memcpy等可预期探测失败。
+			// 同步记录快照，便于区分“可恢复指令异常”和真正未处理Host异常。
+			auto const cpu = reinterpret_cast<__vcpu*>(_readfsbase_u64());
+			if (cpu != nullptr) {
+				++cpu->host_exception_snapshot.count;
+				cpu->host_exception_snapshot.vector = frame->vector;
+				cpu->host_exception_snapshot.error = frame->error;
+				cpu->host_exception_snapshot.rip = frame->rip;
+				cpu->host_exception_snapshot.rsp = frame->rsp;
+			}
 
 			// slightly helps prevent infinite exceptions
 			frame->r10 = 0;

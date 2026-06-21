@@ -114,6 +114,25 @@ void skip_instruction()
 	}
 }
 
+//void adjust_rip(__vcpu* vcpu) // 根据已解析的指令长度推进来宾 RIP，并处理单步相关状态
+//{
+//	//skip_instruction(); // 更完整的跳过逻辑（含中断屏蔽/单步注入），此处未启用
+//	hv::vmwrite(GUEST_RIP, vcpu->vmexit_info.guest_rip + vcpu->vmexit_info.instruction_length); // 直接把 RIP 前移到下一条指令
+//	if (vcpu->vmexit_info.guest_rflags.trap_flag)  // 判断 guest 是否开启单步（TF=1）
+//	{
+//		__vmx_pending_debug_exceptions pending_debug = { hv::vmread(GUEST_PENDING_DEBUG_EXCEPTION) }; // 读取 VMCS 中待注入调试异常状态
+//		__vmx_interruptibility_state interruptibility = { hv::vmread(GUEST_INTERRUPTIBILITY_STATE) }; // 读取来宾中断阻塞状态
+//
+//		pending_debug.bs = true;  // 置位 BS，要求 VM-entry 后注入 #DB 以模拟单步
+//		hv::vmwrite(GUEST_PENDING_DEBUG_EXCEPTION, pending_debug.all); // 写回待注入调试异常字段
+//
+//		//如果 guest 里开启单步，则必须取消因 STI/MOV SS 导致的阻塞，否则 #DB 可能被延迟
+//		interruptibility.blocking_by_sti = false; // 清除 STI 引起的中断阻塞
+//		interruptibility.blocking_by_mov_ss = false; // 清除 MOV SS 引起的中断阻塞
+//		hv::vmwrite(GUEST_INTERRUPTIBILITY_STATE, interruptibility.all); // 写回中断阻塞状态，确保 #DB 及时注入
+//	}
+//}
+
 void adjust_rip(__vcpu* vcpu)
 {
 	UNREFERENCED_PARAMETER(vcpu);

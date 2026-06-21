@@ -14,13 +14,14 @@ namespace hv
         __try
         {
             __cr4 cr4 = { 0 };
-            __ia32_feature_control_msr feature_msr = { 0 };
+            // __ia32_feature_control_msr feature_msr = { 0 };
             cr4.all = __readcr4();
             cr4.vmx_enable = 0;
             __writecr4(cr4.all);
         }
         __except (1)
         {
+            // VMXE disable is a rollback path; keep cleanup moving without changing VT entry conditions.
         }
     }
 

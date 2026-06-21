@@ -19,6 +19,10 @@ bool vmexit_handler(guest_context* guest_registers, PFXSAVE64 fxsave) // VM-exit
 	//从 fs_base 获取到 vcpu 的指针，因为 Host 已经将每个 CPU 的 vCPU 指针到 FS 基址
 	//硬件原理：FS Base 是每个 CPU 可独立维护的寄存器，适合用于快速访问 CPU 相关数据（类似 TLS）结构
 	__vcpu* vcpu = reinterpret_cast<__vcpu*>(_readfsbase_u64()); // 当前 CPU 的 vCPU 上下文必须来自 FS Base，避免调用内核 API 查询处理器号。
+	if (vcpu == nullptr)
+	{
+		return true; // FS Base丢失代表Host状态已不可恢复，请求汇编走VMXOFF路径，避免继续VMRESUME。
+	}
 
 	guest_registers->rsp = hv::vmread(GUEST_RSP); // 汇编入口保存通用寄存器后，这里补齐 VMCS 中的 guest RSP。
 
@@ -76,6 +80,12 @@ void dispatch_vm_exit(__vcpu* vcpu) // 按 VM-exit 原因码分发，保持所�
 	case VMX_EXIT_REASON_MONITOR_TRAP_FLAG:            vmexit_monitor_trap_flag_handler(vcpu);    break; // MTF 退出：恢复一次性 EPT 权限和 watch 状态。
 	case VMX_EXIT_REASON_EPT_MISCONFIGURATION:         vmexit_ept_misconfiguration_handler(vcpu); break; // EPT misconfig：记录/处理非法 EPT 项配置。
 	case VMX_EXIT_REASON_MOV_DR:                       vmexit_mov_dr_handler(vcpu);               break; // MOV DR 退出：同步调试寄存器并处理非法 DR 编号。
+	case EXIT_REASON_TRIPLE_FAULT:                     vmexit_triple_fault_handler(vcpu);         break; // Guest triple fault必须显式处理，避免落入默认#GP造成语义混乱。
+	case EXIT_REASON_VM_ENTRY_FAILURE_INVALID_GUEST_STATE:
+	case EXIT_REASON_VM_ENTRY_FAILURE_MSR_LODAING:
+	case EXIT_REASON_VM_ENTRY_FAILURE_MACHINE_CHECK_EVENT:
+		vmexit_failed(vcpu); // VM-entry failure是VMX硬件报告的失败路径，只记录/反馈，不改变VT进入条件。
+		break;
 
 	case VMX_EXIT_REASON_EXECUTE_VMCLEAR: // 以下 VMX 指令不允许 guest 直接执行，统一按非法指令语义处理。
 	case VMX_EXIT_REASON_EXECUTE_VMLAUNCH:

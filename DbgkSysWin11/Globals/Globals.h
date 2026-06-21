@@ -47,7 +47,7 @@ typedef enum _SYSTEM_DLL_TYPE
     PsSystemDllTotalTypes = 7,
 } SYSTEM_DLL_TYPE, * PSYSTEM_DLL_TYPE;
 
-//�����ʱ��һ��  //�汾 25H2 26200.8037  ������������
+    //25H2 26200.8037  
 //typedef enum _SYSTEM_DLL_TYPE
 //{
 //    PsNativeSystemDll = 0,

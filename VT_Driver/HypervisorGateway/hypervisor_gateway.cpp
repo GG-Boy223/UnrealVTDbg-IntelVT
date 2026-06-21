@@ -203,6 +203,8 @@ namespace hvgt // Hypervisor Gateway：普通内核线程调用 Hypervisor 的�
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
 				// 捕获异常，避免单个 CPU 出错导致系统崩溃
+				// VMCALL_VMXOFF可能在目标CPU已经退出/状态不一致时触发异常；记录后继续处理其他CPU，避免卸载路径放大为全局崩溃。
+				outDebug("VMCALL_VMXOFF 异常：CPU=%u Code=0x%X\n", iter, GetExceptionCode());
 			}
 			KeRevertToUserGroupAffinityThread(&orig_affinity); // 恢复原始亲和力
 

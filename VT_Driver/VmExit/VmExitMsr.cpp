@@ -32,7 +32,8 @@ void vmexit_msr_read_handler(__vcpu* vcpu)
 	}
 	default:
 	{
-		hv::host_exception_info e;
+		// hv::host_exception_info e; // 旧逻辑：未清零会让safe RDMSR异常状态受旧栈内容影响。
+		hv::host_exception_info e = { 0 }; // safe RDMSR通过Host IDT写回异常状态，必须先清零避免读取旧栈值。
 		msr.all = hv::rdmsr_safe(e, msr_index);
 
 		if (e.exception_occurred)
@@ -63,7 +64,8 @@ void vmexit_msr_write_handler(__vcpu* vcpu)
 	msr.low = vcpu->vmexit_info.guest_registers->eax;
 
 	{
-		hv::host_exception_info e;
+		// hv::host_exception_info e; // 旧逻辑：未清零会让safe WRMSR异常状态受旧栈内容影响。
+		hv::host_exception_info e = { 0 }; // safe WRMSR失败时向guest注入#GP，不让Host异常扩散到未处理路径。
 		hv::wrmsr_safe(e, msr_index, msr.all);
 
 		if (e.exception_occurred)

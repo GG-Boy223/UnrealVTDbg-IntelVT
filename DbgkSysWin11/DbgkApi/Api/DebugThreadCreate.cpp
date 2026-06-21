@@ -26,40 +26,14 @@ namespace
     }
 
     // 旧项目保留的禁用路径：Win11 26100/26200 固定把 SystemDll 查询上限限制为 6，否则直接返回 PsSystemDllTotalTypes。
-    // 为什么注释：当前实现保留 26100/26200 的兼容限制，同时增加负数和超过 PsSystemDllTotalTypes 的边界夹取。
-    // 放开的好处：与旧版行为完全一致，便于对照特定 Win11 build 的 SystemDll 枚举问题。
-    // 放开的坏处：缺少边界保护，PsSystemDllTotalTypes 异常时可能导致越界查询。
-    // 项目影响：SystemDll 查询发生在创建进程调试消息构造期间，越界会影响 DbgkCreateThread 稳定性。
-    // 结论：继续注释，保留当前带边界保护的实现。
-    //int QuerySystemDllLimitForBuild(ULONG BuildNumber)
-    //{
-    //    if (BuildNumber == 26100 || BuildNumber == 26200)
-    //    {
-    //        return 6;
-    //    }
-    //
-    //    return PsSystemDllTotalTypes;
-    //}
     int QuerySystemDllLimitForBuild(ULONG BuildNumber)
     {
-        int Limit = PsSystemDllTotalTypes;
-
         if (BuildNumber == 26100 || BuildNumber == 26200)
         {
-            Limit = 6;
+            return 6;
         }
-
-        if (Limit < 0)
-        {
-            Limit = 0;
-        }
-
-        if (Limit > PsSystemDllTotalTypes)
-        {
-            Limit = PsSystemDllTotalTypes;
-        }
-
-        return Limit;
+    
+        return PsSystemDllTotalTypes;
     }
 
     const LONG kDbgkSystemDllLogLimit = 64;

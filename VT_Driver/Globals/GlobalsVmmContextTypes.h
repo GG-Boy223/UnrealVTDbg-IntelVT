@@ -77,6 +77,15 @@ struct __vcpu // 每逻辑 CPU 的 VMM 状态
 
     }vmexit_info; // VM-Exit 信息
 
+    struct __host_exception_snapshot
+    {
+        volatile unsigned __int64 count; // Host异常累计次数：只做诊断，不参与VT进入条件判断
+        unsigned __int64 vector; // 最近一次Host异常向量，例如#PF=14、#GP=13
+        unsigned __int64 error; // 最近一次Host异常错误码，便于判断页表/权限/段错误
+        unsigned __int64 rip; // 最近一次Host异常RIP，用于定位VM-exit宿主路径
+        unsigned __int64 rsp; // 最近一次Host异常RSP，用于判断是否宿主栈异常
+    }host_exception_snapshot; // VMX root宿主异常快照，避免未处理异常没有任何线索
+
     struct __vcpu_status
     {
         unsigned __int64 vmx_on; // 是否已 VMXON
