@@ -2,12 +2,64 @@
 
 namespace
 {
+	constexpr unsigned __int64 rflags_carry_flag = 1ull << 0;
+	constexpr unsigned __int64 rflags_zero_flag = 1ull << 6;
+
+	enum vmresume_vmread_failure_bits : unsigned __int64
+	{
+		vmresume_vmread_failed_instruction_error = 1ull << 0,
+		vmresume_vmread_failed_exit_reason = 1ull << 1,
+		vmresume_vmread_failed_exit_qualification = 1ull << 2,
+		vmresume_vmread_failed_guest_rip = 1ull << 3,
+		vmresume_vmread_failed_guest_rsp = 1ull << 4,
+		vmresume_vmread_failed_guest_cr3 = 1ull << 5,
+	};
+
+	unsigned __int64 read_vmresume_snapshot_field(unsigned __int64 const field, unsigned __int64 const failure_bit, unsigned __int64* const failure_mask)
+	{
+		unsigned __int64 value = 0;
+		if (__vmx_vmread(field, &value) != 0)
+		{
+			*failure_mask |= failure_bit; // VMfailInvalid时当前VMCS可能不可读，记录失败位而不是使用未初始化值。
+			return 0;
+		}
+
+		return value;
+	}
+
 	void clear_vm_entry_event_fields() // 清空 VM-entry 注入字段，保证每次 VM-exit 重新决定是否投递事件。
 	{
 		hv::vmwrite<unsigned __int64>(VM_ENTRY_INTERRUPTION_INFO_FIELD, 0); // 清除 pending event 标志，避免沿用上一次注入请求。
 		hv::vmwrite<unsigned __int64>(VM_ENTRY_EXCEPTION_ERROR_CODE, 0); // 清除异常错误码，避免无错误码异常继承旧值。
 		hv::vmwrite<unsigned __int64>(VM_ENTRY_INSTRUCTION_LENGTH, 0); // 清除软件中断指令长度，后续注入路径按需重新写入。
 	}
+}
+
+EXTERN_C
+void record_vmresume_failure(unsigned __int64 const rflags) // 只写内存快照，禁止在VM-exit路径内做文件IO或调用复杂内核API。
+{
+	__vcpu* const vcpu = reinterpret_cast<__vcpu*>(_readfsbase_u64()); // HOST_FS_BASE保存当前CPU的VCPU指针，避免在VMX root路径查询处理器号。
+	if (vcpu == nullptr)
+	{
+		return; // FS Base异常时不能安全写诊断结构，直接走后续VMXOFF路径。
+	}
+
+	auto& snapshot = vcpu->vmresume_failure_snapshot;
+	unsigned __int64 vmread_failure_mask = 0;
+
+	++snapshot.count; // 失败路径单CPU写入，不做锁；卸载/回滚阶段再读取输出。
+	snapshot.rflags = rflags;
+	snapshot.vmfail_valid = ((rflags & rflags_zero_flag) != 0 && (rflags & rflags_carry_flag) == 0) ? 1 : 0;
+	snapshot.vmfail_invalid = ((rflags & rflags_carry_flag) != 0) ? 1 : 0;
+	snapshot.vm_instruction_error = snapshot.vmfail_valid
+		? read_vmresume_snapshot_field(VM_INSTRUCTION_ERROR, vmresume_vmread_failed_instruction_error, &vmread_failure_mask)
+		: 0; // 旧逻辑：VMRESUME失败后直接落入VMXOFF，没有保存VM_INSTRUCTION_ERROR。
+	snapshot.vm_exit_reason = read_vmresume_snapshot_field(VM_EXIT_REASON, vmresume_vmread_failed_exit_reason, &vmread_failure_mask);
+	snapshot.exit_qualification = read_vmresume_snapshot_field(EXIT_QUALIFICATION, vmresume_vmread_failed_exit_qualification, &vmread_failure_mask);
+	snapshot.guest_rip = read_vmresume_snapshot_field(GUEST_RIP, vmresume_vmread_failed_guest_rip, &vmread_failure_mask);
+	snapshot.guest_rsp = read_vmresume_snapshot_field(GUEST_RSP, vmresume_vmread_failed_guest_rsp, &vmread_failure_mask);
+	snapshot.guest_cr3 = read_vmresume_snapshot_field(GUEST_CR3, vmresume_vmread_failed_guest_cr3, &vmread_failure_mask);
+	snapshot.vmread_failure_mask = vmread_failure_mask;
 }
 
 //注意：在 Host 上永远禁止直接调用 Windows API，因为 Host 处于 VMX 非根路径上，任何段检查都可能导致不稳定

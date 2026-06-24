@@ -102,7 +102,8 @@ namespace ept
 			//等价pte.page_frame_number = (pde_2mb->page_frame_number << 9) + i;
 			unsigned __int64 pfn = ((pde->page_directory_entry.page_frame_number * LARGE_PAGE_SIZE) >> PAGE_SHIFT) + i;
 			new_split->pml1[i].page_frame_number = pfn;
-			new_split->pml1[i].ept_memory_type = get_memory_type(pfn, false);
+			// new_split->pml1[i].ept_memory_type = get_memory_type(pfn, false); // 旧逻辑：4KB split后仍可能把非RAM/MMIO页按默认WB映射。
+			new_split->pml1[i].ept_memory_type = get_ept_memory_type_for_range(mtrrs, ept_state, pfn << PAGE_SHIFT, PAGE_SIZE);
 			//new_split->pml1[i].ept_memory_type = hv::calc_mtrr_mem_type(mtrrs, pfn << 21, 0x1000 << 9);
 		}
 

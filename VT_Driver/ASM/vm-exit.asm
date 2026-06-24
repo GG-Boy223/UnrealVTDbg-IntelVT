@@ -51,6 +51,7 @@ guest_context struct
 guest_context ends
 
 extern vmexit_handler : proc
+extern record_vmresume_failure : proc
 
 ; execution starts here after a vm-exit
 vm_exit proc
@@ -191,6 +192,27 @@ vm_exit proc
 
   ; if handle_exit returned false, perform a vm-enter as usual
   vmresume
+  ; 旧逻辑：VMRESUME失败后直接落入stop_virtualization，没有保存VMfail类型和关键VMCS字段。
+  ; 新逻辑：仅在VMRESUME返回时写内存快照，不做文件IO，然后继续原来的VMXOFF/iret路径。
+  push rax
+  push rcx
+  push rdx
+  push r8
+  push r9
+  push r10
+  push r11
+  pushfq
+  pop rcx
+  sub rsp, 28h
+  call record_vmresume_failure
+  add rsp, 28h
+  pop r11
+  pop r10
+  pop r9
+  pop r8
+  pop rdx
+  pop rcx
+  pop rax
 
 stop_virtualization:
   ; we'll be dirtying these registers in order to setup the
@@ -269,4 +291,3 @@ stop_virtualization:
 vm_exit endp
 
 end
-

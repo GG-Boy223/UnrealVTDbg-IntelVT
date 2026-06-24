@@ -86,6 +86,21 @@ struct __vcpu // 每逻辑 CPU 的 VMM 状态
         unsigned __int64 rsp; // 最近一次Host异常RSP，用于判断是否宿主栈异常
     }host_exception_snapshot; // VMX root宿主异常快照，避免未处理异常没有任何线索
 
+    struct __vmresume_failure_snapshot
+    {
+        volatile unsigned __int64 count; // VMRESUME返回次数：正常成功不会返回，只记录失败诊断，不参与VT进入条件判断
+        unsigned __int64 rflags; // VMRESUME失败后的RFLAGS，用于区分VMfailValid(ZF)和VMfailInvalid(CF)
+        unsigned __int64 vmfail_valid; // ZF=1且CF=0时置位，VM_INSTRUCTION_ERROR字段有效
+        unsigned __int64 vmfail_invalid; // CF=1时置位，当前VMCS可能不可用，VMREAD字段只能作为尽力快照
+        unsigned __int64 vmread_failure_mask; // 每一位代表对应VMREAD失败，避免把0值误认为真实VMCS字段
+        unsigned __int64 vm_instruction_error; // VMRESUME失败原因，只有VMfailValid时硬件保证有效
+        unsigned __int64 vm_exit_reason; // 最近VM-exit原因，辅助定位是entry failure、EPT还是异常路径
+        unsigned __int64 exit_qualification; // 最近exit qualification
+        unsigned __int64 guest_rip; // 失败时Guest RIP
+        unsigned __int64 guest_rsp; // 失败时Guest RSP
+        unsigned __int64 guest_cr3; // 失败时Guest CR3
+    }vmresume_failure_snapshot; // VMRESUME失败快照：只写内存，后续在安全上下文统一输出
+
     struct __vcpu_status
     {
         unsigned __int64 vmx_on; // 是否已 VMXON

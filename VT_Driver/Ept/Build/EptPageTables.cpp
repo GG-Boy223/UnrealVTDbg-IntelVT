@@ -6,6 +6,12 @@ namespace ept
 	static constexpr unsigned __int32 ept_default_pdpt_count = EPT_PD_COUNT;
 	static constexpr unsigned __int32 ept_max_pdpt_count = 512u * 512u;
 
+	static bool add_overflow_u64(unsigned __int64 left, unsigned __int64 right, unsigned __int64& result)
+	{
+		result = left + right;
+		return result < left;
+	}
+
 	static unsigned __int32 round_up_pdpt_count(unsigned __int64 highest_physical_end)
 	{
 		if (highest_physical_end == 0)
@@ -38,34 +44,76 @@ namespace ept
 		return static_cast<unsigned __int32>(required);
 	}
 
-	static unsigned __int32 query_required_pdpt_count()
+	static bool cache_physical_memory_ranges(__ept_state& ept_state, unsigned __int64& highest_physical_end)
 	{
-		unsigned __int64 highest_physical_end = 0;
+		highest_physical_end = 0;
 		PPHYSICAL_MEMORY_RANGE ranges = MmGetPhysicalMemoryRanges();
 		if (ranges == nullptr)
 		{
 			LogError("MmGetPhysicalMemoryRanges failed, using default 512GB EPT map");
 			outFile("[信息][EPT覆盖范围] MmGetPhysicalMemoryRanges失败，使用默认PDPT数量=%u", ept_default_pdpt_count);
-			return ept_default_pdpt_count;
+			return false;
 		}
 
-		for (unsigned __int32 i = 0; ranges[i].NumberOfBytes.QuadPart != 0; ++i)
+		unsigned __int32 range_count = 0;
+		for (; ranges[range_count].NumberOfBytes.QuadPart != 0; ++range_count)
+		{
+		}
+
+		if (range_count == 0)
+		{
+			ExFreePool(ranges);
+			outFile("[信息][EPT覆盖范围] 物理内存范围为空，使用默认PDPT数量=%u", ept_default_pdpt_count);
+			return false;
+		}
+
+		ept_state.physical_memory_ranges =
+			allocate_pool<__ept_state::__ept_physical_memory_range*>(sizeof(__ept_state::__ept_physical_memory_range) * range_count);
+		if (ept_state.physical_memory_ranges == nullptr)
+		{
+			ExFreePool(ranges);
+			LogError("Failed to cache physical memory ranges");
+			outFile("[信息][EPT覆盖范围] RAM范围缓存分配失败，保留旧MTRR-only内存类型策略");
+			return false;
+		}
+
+		RtlSecureZeroMemory(ept_state.physical_memory_ranges, sizeof(__ept_state::__ept_physical_memory_range) * range_count);
+
+		for (unsigned __int32 i = 0; i < range_count; ++i)
 		{
 			unsigned __int64 base = ranges[i].BaseAddress.QuadPart;
 			unsigned __int64 size = ranges[i].NumberOfBytes.QuadPart;
-			unsigned __int64 end = base + size;
-			if (end < base)
+			unsigned __int64 end = 0;
+			if (add_overflow_u64(base, size, end))
 			{
 				end = MAXULONG64;
 			}
 
+			ept_state.physical_memory_ranges[i].base = base;
+			ept_state.physical_memory_ranges[i].end = end;
 			if (end > highest_physical_end)
 			{
 				highest_physical_end = end;
 			}
 		}
 
+		ept_state.physical_memory_range_count = range_count;
 		ExFreePool(ranges);
+		outFile("[信息][EPT覆盖范围] RAM范围缓存完成：RangeCount=%u HighestRAMEnd=0x%llX",
+			range_count,
+			highest_physical_end);
+		return true;
+	}
+
+	static unsigned __int32 query_required_pdpt_count(__ept_state& ept_state)
+	{
+		unsigned __int64 highest_physical_end = 0;
+		// PPHYSICAL_MEMORY_RANGE ranges = MmGetPhysicalMemoryRanges(); // 旧逻辑：只临时读取最高RAM地址，后续EPT类型无法区分MMIO空洞。
+		if (!cache_physical_memory_ranges(ept_state, highest_physical_end))
+		{
+			return ept_default_pdpt_count;
+		}
+
 		return round_up_pdpt_count(highest_physical_end);
 	}
 
@@ -99,6 +147,13 @@ namespace ept
 
 	void cleanup_page_table(__ept_state& ept_state)
 	{
+		if (ept_state.physical_memory_ranges != nullptr)
+		{
+			free_pool(ept_state.physical_memory_ranges);
+			ept_state.physical_memory_ranges = nullptr;
+		}
+		ept_state.physical_memory_range_count = 0;
+
 		if (ept_state.pml2_pages != nullptr)
 		{
 			for (unsigned __int32 i = ept_default_pdpt_count; i < ept_state.mapped_pdpte_count; ++i)
@@ -134,6 +189,83 @@ namespace ept
 		ept_state.mapped_pdpte_count = 0;
 	}
 
+	static bool physical_range_overlaps_ram(__ept_state const& ept_state, unsigned __int64 physical_address, unsigned __int64 size)
+	{
+		if (size == 0 || ept_state.physical_memory_ranges == nullptr || ept_state.physical_memory_range_count == 0)
+		{
+			return false;
+		}
+
+		unsigned __int64 end = 0;
+		if (add_overflow_u64(physical_address, size, end))
+		{
+			end = MAXULONG64;
+		}
+
+		for (unsigned __int32 i = 0; i < ept_state.physical_memory_range_count; ++i)
+		{
+			auto const& range = ept_state.physical_memory_ranges[i];
+			if (physical_address < range.end && end > range.base)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	bool is_physical_range_ram(__ept_state const& ept_state, unsigned __int64 physical_address, unsigned __int64 size)
+	{
+		if (size == 0)
+		{
+			return false;
+		}
+
+		if (ept_state.physical_memory_ranges == nullptr || ept_state.physical_memory_range_count == 0)
+		{
+			return true; // 没有RAM缓存时保持旧行为：只按MTRR判断，不新增拒绝条件。
+		}
+
+		unsigned __int64 end = 0;
+		if (add_overflow_u64(physical_address, size, end))
+		{
+			return false;
+		}
+
+		unsigned __int64 cursor = physical_address;
+		while (cursor < end)
+		{
+			bool advanced = false;
+			for (unsigned __int32 i = 0; i < ept_state.physical_memory_range_count; ++i)
+			{
+				auto const& range = ept_state.physical_memory_ranges[i];
+				if (cursor >= range.base && cursor < range.end)
+				{
+					cursor = range.end < end ? range.end : end;
+					advanced = true;
+					break;
+				}
+			}
+
+			if (!advanced)
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	unsigned __int8 get_ept_memory_type_for_range(mtrr_data const& mtrrs, __ept_state const& ept_state, unsigned __int64 physical_address, unsigned __int64 size)
+	{
+		if (!is_physical_range_ram(ept_state, physical_address, size))
+		{
+			return MEMORY_TYPE_UNCACHEABLE; // 非RAM/MMIO必须保守映射为UC，避免设备空间被WB缓存造成整机卡死。
+		}
+
+		return hv::calc_mtrr_mem_type(mtrrs, physical_address, size);
+	}
+
 	/// <summary>
 	/// Setup page memory type
 	/// 设置页内存类型
@@ -143,11 +275,15 @@ namespace ept
 	bool setup_pml2_entry(mtrr_data const& mtrrs, __ept_state& ept_state, __ept_pde& entry, unsigned __int64 pfn)
 	{
 		entry.page_directory_entry.page_frame_number = pfn;
+		unsigned __int64 physical_address = pfn * LARGE_PAGE_SIZE;
+		bool const fully_ram = is_physical_range_ram(ept_state, physical_address, LARGE_PAGE_SIZE);
+		bool const overlaps_ram = physical_range_overlaps_ram(ept_state, physical_address, LARGE_PAGE_SIZE);
 
 		//判断是否是大页面
-		if (is_valid_for_large_page(pfn) == true)
+		if (is_valid_for_large_page(pfn) == true && (fully_ram || !overlaps_ram))
 		{
-			entry.page_directory_entry.memory_type = get_memory_type(pfn, true);
+			// entry.page_directory_entry.memory_type = get_memory_type(pfn, true); // 旧逻辑：只看MTRR，RAM上界内的MMIO空洞可能被默认WB覆盖。
+			entry.page_directory_entry.memory_type = get_ept_memory_type_for_range(mtrrs, ept_state, physical_address, LARGE_PAGE_SIZE);
 			//entry.page_directory_entry.memory_type = hv::calc_mtrr_mem_type(mtrrs, pfn << 21, 0x1000 << 9);
 			return true;
 		}
@@ -163,7 +299,7 @@ namespace ept
 			}
 
 			//将2MB页面分割为512个4KB页面
-			return split_pml2(mtrrs, ept_state, split_buffer, pfn * LARGE_PAGE_SIZE);
+			return split_pml2(mtrrs, ept_state, split_buffer, physical_address);
 		}
 	}
 
@@ -189,10 +325,11 @@ namespace ept
 		__vmm_ept_page_table* page_table = ept_state.ept_page_table;
 		RtlSecureZeroMemory(page_table, sizeof(__vmm_ept_page_table));
 
-		unsigned __int32 required_pdpt_count = query_required_pdpt_count();
+		unsigned __int32 required_pdpt_count = query_required_pdpt_count(ept_state);
 		if (required_pdpt_count == 0)
 		{
 			outFile("[失败][EPT页表] 所需PDPT数量为0，停止EPT构建");
+			cleanup_page_table(ept_state); // 清理已缓存的RAM范围，避免极端物理地址上界失败时泄漏。
 			free_pool(ept_state.ept_page_table);
 			ept_state.ept_page_table = nullptr;
 			return false;

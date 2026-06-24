@@ -22,6 +22,9 @@ namespace ept
 
 	void cleanup_page_table(__ept_state& ept_state);
 
+	bool is_physical_range_ram(__ept_state const& ept_state, unsigned __int64 physical_address, unsigned __int64 size);
+	unsigned __int8 get_ept_memory_type_for_range(mtrr_data const& mtrrs, __ept_state const& ept_state, unsigned __int64 physical_address, unsigned __int64 size);
+
 	/// <summary>
 	/// 交换物理页面并刷新tlb
 	/// </summary>

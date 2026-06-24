@@ -62,6 +62,9 @@ namespace hv // Hypervisor 命名空间
 
     void prepare_external_structures(__vcpu* const vcpu); // 初始化宿主外部结构（GDT/IDT/TSS）
     bool prepare_host_page_tables(); // 初始化宿主页表
+    bool ensure_host_page_tables_for_vcpu(__vcpu const* vcpu); // 扩大Host页表覆盖，确保VM-exit关键代码/数据页可翻译
+    bool validate_host_page_tables_for_vcpu(__vcpu const* vcpu); // 验证VM-exit宿主路径必需地址在HOST_CR3下可翻译
+    void cleanup_host_page_tables(); // 释放Host页表动态补映射页
 
     void inject_nmi(); // 注入 NMI 到 guest
 

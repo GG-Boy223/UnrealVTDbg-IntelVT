@@ -229,6 +229,12 @@ struct __ept_state // EPT 状态（每 VCPU 一份）
     __vmm_ept_page_table* ept_page_table;  //ept页表
     __ept_pde** pml2_pages; // flat PDPT 索引到 PD 页的映射，支持超过 512GB 的 GPA
     __ept_pdpte_page** extended_pml3_pages; // PML4[1..] 对应的动态 PDPT 页
+    struct __ept_physical_memory_range
+    {
+        unsigned __int64 base; // RAM 起始物理地址，来自 MmGetPhysicalMemoryRanges。
+        unsigned __int64 end; // RAM 结束物理地址（开区间），用于区分 RAM 与 MMIO 空洞。
+    }*physical_memory_ranges; // 缓存 RAM 范围，VM-exit 路径不能再调用 Windows API 查询。
+    unsigned __int32 physical_memory_range_count; // RAM 范围数量，0 表示保留旧 MTRR-only 行为。
     unsigned __int32 mapped_pml4_count; // 已填充的 PML4 条目数
     unsigned __int32 mapped_pdpte_count; // 已填充的 flat PDPTE/PD 页数量
     __ept_hooked_page_info* page_to_change; // 当前需要切换的页（用于 MTF）

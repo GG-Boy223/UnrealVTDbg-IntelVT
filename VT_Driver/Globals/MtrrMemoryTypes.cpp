@@ -1,4 +1,4 @@
-#include "GlobalsInternal.h"
+﻿#include "GlobalsInternal.h"
 
 namespace hv
 {
@@ -151,8 +151,14 @@ namespace hv
 
                 if (pde.page_directory_entry.large_page)
                 {
-                    pde.page_directory_entry.memory_type = calc_mtrr_mem_type(mtrrs,
-                        pde.page_directory_entry.page_frame_number << 21, 0x1000 << 9);
+                    // pde.page_directory_entry.memory_type = calc_mtrr_mem_type(mtrrs,
+                    //     pde.page_directory_entry.page_frame_number << 21, 0x1000 << 9); // 旧逻辑：运行期MTRR刷新不区分RAM与MMIO空洞。
+                    uint64_t const pde_physical_address =
+                        static_cast<uint64_t>(pde.page_directory_entry.page_frame_number) << 21; // 位域先转成64位，避免MSVC在多行实参里解析异常。
+                    pde.page_directory_entry.memory_type = ept::get_ept_memory_type_for_range(mtrrs,
+                        ept_state,
+                        pde_physical_address,
+                        0x1000ull << 9);
                 }
                 else
                 {
@@ -160,7 +166,10 @@ namespace hv
 
                     for (size_t k = 0; k < 512; ++k)
                     {
-                        pt[k].memory_type = calc_mtrr_mem_type(mtrrs, pt[k].page_frame_number << 12, 0x1000);
+                        // pt[k].memory_type = calc_mtrr_mem_type(mtrrs, pt[k].page_frame_number << 12, 0x1000); // 旧逻辑：split页刷新后仍可能把MMIO设为WB。
+                        uint64_t const pte_physical_address =
+                            static_cast<uint64_t>(pt[k].page_frame_number) << 12; // 4KB页同样按64位物理地址计算，避免高物理地址截断。
+                        pt[k].memory_type = ept::get_ept_memory_type_for_range(mtrrs, ept_state, pte_physical_address, 0x1000);
                     }
                 }
             }

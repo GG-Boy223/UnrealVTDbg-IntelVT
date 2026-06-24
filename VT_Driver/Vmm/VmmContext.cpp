@@ -1,7 +1,55 @@
 ﻿#include "VmmInternal.h"
 
+namespace
+{
+	void log_vmx_runtime_snapshots() // 在安全清理上下文输出VMX运行期快照，避免VM-exit路径内做文件IO。
+	{
+		if (g_vmm_context.vcpu == nullptr || g_vmm_context.processor_count == 0)
+		{
+			return;
+		}
+
+		for (unsigned int i = 0; i < g_vmm_context.processor_count; ++i)
+		{
+			auto const& resume_snapshot = g_vmm_context.vcpu[i].vmresume_failure_snapshot;
+			if (resume_snapshot.count != 0)
+			{
+				outFile("[警告][VMRESUME失败快照] CPU[%u] Count=%llu RFLAGS=0x%llX VMfailValid=%llu VMfailInvalid=%llu VMREAD失败掩码=0x%llX VM_INSTRUCTION_ERROR=%llu EXIT_REASON=0x%llX EXIT_QUALIFICATION=0x%llX GUEST_RIP=0x%llX GUEST_RSP=0x%llX GUEST_CR3=0x%llX",
+					i,
+					resume_snapshot.count,
+					resume_snapshot.rflags,
+					resume_snapshot.vmfail_valid,
+					resume_snapshot.vmfail_invalid,
+					resume_snapshot.vmread_failure_mask,
+					resume_snapshot.vm_instruction_error,
+					resume_snapshot.vm_exit_reason,
+					resume_snapshot.exit_qualification,
+					resume_snapshot.guest_rip,
+					resume_snapshot.guest_rsp,
+					resume_snapshot.guest_cr3);
+			}
+
+			auto const& host_snapshot = g_vmm_context.vcpu[i].host_exception_snapshot;
+			if (host_snapshot.count != 0)
+			{
+				outFile("[警告][Host异常快照] CPU[%u] Count=%llu Vector=%llu Error=0x%llX RIP=0x%llX RSP=0x%llX",
+					i,
+					host_snapshot.count,
+					host_snapshot.vector,
+					host_snapshot.error,
+					host_snapshot.rip,
+					host_snapshot.rsp);
+			}
+		}
+	}
+}
+
 void free_vmm_context() // 释放VMM全局资源与每核VCPU相关内存，避免驱动卸载后内存泄漏
 {
+	// 旧逻辑：free_vmm_context直接释放VCPU，VMRESUME失败/Host异常快照会随内存释放丢失。
+	log_vmx_runtime_snapshots(); // 先输出运行期诊断快照；该日志不改变进入VT条件，也不在VM-exit路径执行。
+	hv::cleanup_host_page_tables(); // 释放Host关键页补映射动态页表页；此时VMX已回滚/关闭，不影响VT功能链路。
+
 	//if (g_vmm_context != nullptr)
 	{
 		// POOL MANAGER
@@ -43,6 +91,7 @@ void free_vmm_context() // 释放VMM全局资源与每核VCPU相关内存，避�
 					// EPT_STATE
 					if (g_vmm_context.vcpu[i].ept_state != nullptr)
 					{
+						ept::cleanup_page_table(*g_vmm_context.vcpu[i].ept_state); // 先统一释放EPT动态页和RAM范围缓存，避免部分初始化失败时遗留。
 						// EPT POINTER
 						if (g_vmm_context.vcpu[i].ept_state->ept_pointer != nullptr)
 						{
@@ -52,7 +101,7 @@ void free_vmm_context() // 释放VMM全局资源与每核VCPU相关内存，避�
 						// EPT PAGE TABLE
 						if (g_vmm_context.vcpu[i].ept_state->ept_page_table != nullptr)
 						{
-							ept::cleanup_page_table(*g_vmm_context.vcpu[i].ept_state); // 释放动态扩展的 PDPT/PDE 页
+							// ept::cleanup_page_table(*g_vmm_context.vcpu[i].ept_state); // 旧逻辑：只在ept_page_table非空时清理，部分失败路径会漏掉RAM范围缓存。
 							free_pool(g_vmm_context.vcpu[i].ept_state->ept_page_table); // 释放EPT页表，避免大量物理页泄漏
 							g_vmm_context.vcpu[i].ept_state->ept_page_table = nullptr;
 						}

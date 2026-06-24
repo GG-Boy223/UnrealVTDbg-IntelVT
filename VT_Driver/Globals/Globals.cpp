@@ -5,6 +5,8 @@ __pseudo_descriptor64 g_idtr = { 0 };
 unsigned __int64 g_guest_cr0;
 unsigned __int64 g_guest_cr3;
 unsigned __int64 g_guest_cr4;
+void* g_vt_driver_image_base;
+unsigned __int64 g_vt_driver_image_size;
 __vmm_context g_vmm_context;
 uint16_t guest_vpid = 1;
 int eptWatchListSize;

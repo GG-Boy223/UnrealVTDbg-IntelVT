@@ -69,6 +69,12 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
     sLog("[VT] start \n");
     outFile("========== VT加载开始：DriverEntry ==========");
 
+    g_vt_driver_image_base = DriverObject->DriverStart; // 记录驱动镜像范围，后续补映射Host关键代码页，不作为VT进入条件。
+    g_vt_driver_image_size = DriverObject->DriverSize;
+    outFile("[信息][DriverEntry] VT驱动镜像：Base=0x%p Size=0x%llX",
+        g_vt_driver_image_base,
+        g_vt_driver_image_size);
+
     DriverObject->DriverUnload = Unload;
     //KdPrint(("DriverEntry!!!\n"));
     outDebug(("进入 DriverEntry!!!\n"));

@@ -14,6 +14,16 @@ namespace ept
 	bool setup_pml2_entry(mtrr_data const& mtrrs, __ept_state& ept_state, __ept_pde& entry, unsigned __int64 pfn);
 
 	/// <summary>
+	/// 判断物理范围是否完全属于 RAM，避免把 MMIO 空洞按 WB 映射。
+	/// </summary>
+	bool is_physical_range_ram(__ept_state const& ept_state, unsigned __int64 physical_address, unsigned __int64 size);
+
+	/// <summary>
+	/// 根据 RAM/MMIO 边界和 MTRR 计算 EPT 内存类型。
+	/// </summary>
+	unsigned __int8 get_ept_memory_type_for_range(mtrr_data const& mtrrs, __ept_state const& ept_state, unsigned __int64 physical_address, unsigned __int64 size);
+
+	/// <summary>
 	/// Create ept page table
 	/// 创建ept页表
 	/// </summary>

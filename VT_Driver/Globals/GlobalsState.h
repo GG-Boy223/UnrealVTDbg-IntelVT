@@ -13,6 +13,8 @@ extern __pseudo_descriptor64 g_idtr; // 保存的 IDTR
 extern unsigned __int64 g_guest_cr0; // 保存的 guest CR0
 extern unsigned __int64 g_guest_cr3; // 保存的 guest CR3
 extern unsigned __int64 g_guest_cr4; // 保存的 guest CR4
+extern void* g_vt_driver_image_base; // VT驱动镜像基址，用于Host页表覆盖驱动代码页
+extern unsigned __int64 g_vt_driver_image_size; // VT驱动镜像大小，用于Host页表覆盖驱动代码页
 extern __vmm_context g_vmm_context; // 全局 VMM 上下文
 extern uint16_t guest_vpid; // guest VPID
 extern volatile long eptWatchList_lock; // 监视表自旋锁
