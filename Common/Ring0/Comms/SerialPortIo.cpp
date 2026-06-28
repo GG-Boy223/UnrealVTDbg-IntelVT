@@ -1,4 +1,4 @@
-#include "SerialPortInternal.h"
+﻿#include "SerialPortInternal.h"
 
 namespace SerialPortInternal
 {
@@ -13,6 +13,13 @@ namespace SerialPortInternal
     }
 }
 
+// 1. VMware 的“串行端口 -> 输出文件”本质上是在模拟标准串口设备；
+// 2. 当前工程之前只有直接写 0x3F8 的发送逻辑，没有看到显式初始化；
+// 3. 如果串口参数没有初始化，宿主机文件可能一直为空，即使驱动已经在调用 Log()；
+// 4. 这里使用经典 UART 初始化顺序，固定为 115200 8N1，足够用于调试验证。
+// 初始化标准 COM1（0x3F8）。
+//
+// 设计说明：
 void InitializeSerialPort()
 {
     constexpr USHORT Com1Base = 0x3F8;
@@ -40,14 +47,15 @@ namespace SerialPortInternal
         }
 
         x = InPortByte(0x3f8 + 5);
-        while ((x & 0x40) != 0x40)
+        //while ((x & 0x20) != 0x20)
+        while ((x & 0x40) != 0x40) //bit6 为1表示发送数据完全移出，发送器完全空闲。
         {
             x = InPortByte(0x3f8 + 5);
         }
 
         OutPortByte(0x3f8, c);
 
-        if (c == '\n')
+        if (c == '\n') //检查字符是否是换行符
         {
             x = InPortByte(0x3f8 + 5);
             while ((x & 0x20) != 0x20)

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "../Driver.h"
 #include "../Globals.h"
@@ -15,6 +15,8 @@ namespace hvgt
 		volatile SHORT statuses;
 	};
 
+	// 专用于普通 vmcall 广播的参数结构。
+	// 这一步把“额外参数”从调用方封装到 DPC 广播里，避免与 HookFunctionArgs 字段复用导致语义混乱。
 	struct VmcallBroadcastArgs
 	{
 		PVOID vmcallinfo;

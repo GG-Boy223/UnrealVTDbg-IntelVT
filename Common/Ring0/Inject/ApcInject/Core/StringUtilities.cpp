@@ -1,19 +1,26 @@
-#include <ntifs.h>
+﻿#include <ntifs.h>
 #include "../../../SymbolicAccess/Utils/Log.h"
 #include "UtilityFunctions.h"
 
 #pragma warning(disable: 4996) // Preserve legacy pool API for down-level kernel compatibility.
 
+/// </summary>
+/// <param name="path">Path.</param>
+/// <param name="name">Resulting name</param>
+/// <returns>Status code</returns>
+/// <summary>
+/// Get file name from full path
 NTSTATUS BBStripPath(IN PUNICODE_STRING path, OUT PUNICODE_STRING name)
 {
     ASSERT(path != NULL && name);
     if (path == NULL || name == NULL)
-        return STATUS_INVALID_PARAMETER;
+        return STATUS_INVALID_PARAMETER; // 参数不合法时直接拒绝。
 
     // Empty string
     if (path->Length < 2)
     {
         *name = *path;
+        // *name = *path;
         return STATUS_NOT_FOUND;
     }
 
@@ -28,14 +35,22 @@ NTSTATUS BBStripPath(IN PUNICODE_STRING path, OUT PUNICODE_STRING name)
     }
 
     *name = *path;
+    // *name = *path;
     return STATUS_NOT_FOUND;
 }
 
+/// <param name="source">Source string</param>
+/// <param name="target">Target string</param>
+/// <param name="CaseInSensitive">Case insensitive search</param>
+/// <returns>Found position or -1 if not found</returns>
+/// <summary>
+/// Search for substring
+/// </summary>
 LONG BBSafeSearchString(IN PUNICODE_STRING source, IN PUNICODE_STRING target, IN BOOLEAN CaseInSensitive)
 {
     ASSERT(source != NULL && target != NULL);
     if (source == NULL || target == NULL || source->Buffer == NULL || target->Buffer == NULL)
-        return STATUS_INVALID_PARAMETER;
+        return STATUS_INVALID_PARAMETER; // 参数不合法时直接拒绝。
 
     // Size mismatch
     if (source->Length < target->Length)
@@ -59,11 +74,17 @@ LONG BBSafeSearchString(IN PUNICODE_STRING source, IN PUNICODE_STRING target, IN
     return -1;
 }
 
+/// </summary>
+/// <param name="result">Resulting string</param>
+/// <param name="source">Source string</param>
+/// <returns>Status code</returns>
+/// <summary>
+/// Allocate and copy string
 NTSTATUS BBSafeInitString(OUT PUNICODE_STRING result, IN PUNICODE_STRING source)
 {
     ASSERT(result != NULL && source != NULL);
     if (result == NULL || source == NULL || source->Buffer == NULL)
-        return STATUS_INVALID_PARAMETER;
+        return STATUS_INVALID_PARAMETER; // 参数不合法时直接拒绝。
 
     // No data to copy
     if (source->Length == 0)
@@ -82,11 +103,17 @@ NTSTATUS BBSafeInitString(OUT PUNICODE_STRING result, IN PUNICODE_STRING source)
     return STATUS_SUCCESS;
 }
 
+/// </summary>
+/// <param name="result">Resulting string</param>
+/// <param name="size">Buffer size in bytes to alloacate</param>
+/// <returns>Status code</returns>
+/// <summary>
+/// Allocate new Unicode string from Paged pool
 NTSTATUS BBSafeAllocateString(OUT PUNICODE_STRING result, IN USHORT size)
 {
     ASSERT(result != NULL);
     if (result == NULL || size == 0)
-        return STATUS_INVALID_PARAMETER;
+        return STATUS_INVALID_PARAMETER; // 参数不合法时直接拒绝。
 
     result->Buffer = (PWCH)ExAllocatePoolWithTag(PagedPool, size, BB_POOL_TAG);
     result->Length = 0;
@@ -100,16 +127,23 @@ NTSTATUS BBSafeAllocateString(OUT PUNICODE_STRING result, IN USHORT size)
     return STATUS_SUCCESS;
 }
 
+/// </summary>
+/// <param name="path">Path</param>
+/// <param name="name">Resulting directory path</param>
+/// <returns>Status code</returns>
+/// <summary>
+/// Get directory path name from full path
 NTSTATUS BBStripFilename(IN PUNICODE_STRING path, OUT PUNICODE_STRING dir)
 {
     ASSERT(path != NULL && dir);
     if (path == NULL || dir == NULL)
-        return STATUS_INVALID_PARAMETER;
+        return STATUS_INVALID_PARAMETER; // 参数不合法时直接拒绝。
 
     // Empty string
     if (path->Length < 2)
     {
         *dir = *path;
+        // *dir = *path;
         return STATUS_NOT_FOUND;
     }
 
@@ -124,9 +158,15 @@ NTSTATUS BBStripFilename(IN PUNICODE_STRING path, OUT PUNICODE_STRING dir)
     }
 
     *dir = *path;
+    // *dir = *path;
     return STATUS_NOT_FOUND;
 }
 
+/// Check if file exists
+/// </summary>
+/// <param name="path">Fully qualifid path to a file</param>
+/// <returns>Status code</returns>
+/// <summary>
 NTSTATUS BBFileExists(IN PUNICODE_STRING path)
 {
     HANDLE hFile = NULL;
@@ -138,6 +178,7 @@ NTSTATUS BBFileExists(IN PUNICODE_STRING path)
         &hFile, FILE_READ_DATA | SYNCHRONIZE, &obAttr,
         &statusBlock, NULL, FILE_ATTRIBUTE_NORMAL,
         FILE_SHARE_READ, FILE_OPEN, FILE_SYNCHRONOUS_IO_NONALERT, NULL, 0
+    // __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
     );
 
     if (NT_SUCCESS(status))

@@ -14,6 +14,7 @@ extern const unsigned int scm_auiInitP[MAX_PBLOCK_SIZE] = {
 /*Four 32-bit S-boxes with 256 entries each*/
 extern const unsigned int scm_auiInitS[MAX_SBLOCK_XSIZE][MAX_SBLOCK_YSIZE] = {
 	/*0*/
+	// /*0*/
 	{0xd1310ba6, 0x98dfb5ac, 0x2ffd72db, 0xd01adfb7,
 	 0xb8e1afed, 0x6a267e96, 0xba7c9045, 0xf12c7f99,
 	 0x24a19947, 0xb3916cf7, 0x0801f2e2, 0x858efc16,
@@ -79,6 +80,7 @@ extern const unsigned int scm_auiInitS[MAX_SBLOCK_XSIZE][MAX_SBLOCK_YSIZE] = {
 	 0xb6636521, 0xe7b9f9b6, 0xff34052e, 0xc5855664,
 	 0x53b02d5d, 0xa99f8fa1, 0x08ba4799, 0x6e85076a},
 	 /*1*/
+	 // /*1*/
 	 {0x4b7a70e9, 0xb5b32944, 0xdb75092e, 0xc4192623,
 	  0xad6ea6b0, 0x49a7df7d, 0x9cee60b8, 0x8fedb266,
 	  0xecaa8c71, 0x699a17ff, 0x5664526c, 0xc2b19ee1,
@@ -144,6 +146,7 @@ extern const unsigned int scm_auiInitS[MAX_SBLOCK_XSIZE][MAX_SBLOCK_YSIZE] = {
 	  0xc5c43465, 0x713e38d8, 0x3d28f89e, 0xf16dff20,
 	  0x153e21e7, 0x8fb03d4a, 0xe6e39f2b, 0xdb83adf7},
 	  /*2*/
+	  // /*2*/
 	  {0xe93d5a68, 0x948140f7, 0xf64c261c, 0x94692934,
 	   0x411520f7, 0x7602d4f7, 0xbcf46b2e, 0xd4a20068,
 	   0xd4082471, 0x3320f46a, 0x43b7d4b7, 0x500061af,
@@ -209,6 +212,7 @@ extern const unsigned int scm_auiInitS[MAX_SBLOCK_XSIZE][MAX_SBLOCK_YSIZE] = {
 	   0x6fd5c7e7, 0x56e14ec4, 0x362abfce, 0xddc6c837,
 	   0xd79a3234, 0x92638212, 0x670efa8e, 0x406000e0},
 	   /*3*/
+	   // /*3*/
 	   {0x3a39ce37, 0xd3faf5cf, 0xabc27737, 0x5ac52d1b,
 		0x5cb0679e, 0x4fa33742, 0xd3822740, 0x99bc9bbe,
 		0xd5118e9d, 0xbf0f7315, 0xd62d1c7e, 0xc700c47b,

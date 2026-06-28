@@ -17,6 +17,7 @@ namespace Common
             // 关闭互斥体句柄并退出程序
             CloseHandle(hMutex);
         }
+        // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
         else
         {
             boRet = TRUE;
@@ -30,6 +31,7 @@ namespace Common
         // 关闭互斥体句柄
         if (hMutex)
         {
+            // 关闭互斥体句柄并退出程序
             CloseHandle(hMutex);
         }
     }

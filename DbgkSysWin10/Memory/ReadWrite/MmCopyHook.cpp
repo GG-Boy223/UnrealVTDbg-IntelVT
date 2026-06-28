@@ -15,6 +15,7 @@ NTSTATUS NewMmCopyVirtualMemory(
         return Original_MmCopyVirtualMemory(FromProcess, FromAddress, ToProcess, ToAddress, BufferSize, PreviousMode, NumberOfBytesCopied);
     }
 
+    //DbgBreakPoint();
     if (IsDebugger(PsGetCurrentProcess()))
     {
         PreviousMode = KernelMode;

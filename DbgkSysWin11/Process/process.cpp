@@ -61,6 +61,7 @@ NTSTATUS PspInsertProcess(IN PEPROCESS TargetProcess,
     if (SeAuditingWithTokenForSubcategory(0x85, NULL))
     {
         /*审核进程的创建。调用者有责任确定进程审核是否正在进行中。*/
+        // /*审核进程的创建。调用者有责任确定进程审核是否正在进行中。*/
         SeAuditProcessCreation(TargetProcess, a7);
     }        
 
@@ -78,6 +79,7 @@ NTSTATUS PspInsertProcess(IN PEPROCESS TargetProcess,
         //描述TargetProcess->SequenceNumber = ++PspProcessSequenceNumber;
         size_t ptr_SequenceNumber = (size_t)TargetProcess + eprocess_offset::SequenceNumber;        
         *(size_t*)ptr_SequenceNumber = ++(*PspProcessSequenceNumber);
+        // *(size_t*)ptr_SequenceNumber = ++(*PspProcessSequenceNumber);
         PspUnlockProcessListExclusive(CurrentThread);
 
         size_t ptr_ParentFlags = (size_t)Parent + eprocess_offset::Flags;
@@ -153,6 +155,7 @@ NTSTATUS PspInsertProcess(IN PEPROCESS TargetProcess,
                         Job = *(PEJOB*)ptr_TargetJob;                        
                         if (!Job)
                         {
+                            //不继承调试端口
                             size_t ptr_TargetFlags = (size_t)TargetProcess + eprocess_offset::Flags;
                             InterlockedOr((volatile LONG*)ptr_TargetFlags, 0x4000000u);// set ProcessInserted
                         LABEL_21:
@@ -178,5 +181,6 @@ NTSTATUS PspInsertProcess(IN PEPROCESS TargetProcess,
     {
         PspUnlockProcessExclusive(TargetProcess, CurrentThread);
     }
+    // /* Return status */
     return Status;
 }

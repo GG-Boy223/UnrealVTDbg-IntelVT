@@ -17,6 +17,9 @@ namespace Common
         *reinterpret_cast<int*>(vendor) = cpui[ebx];
         *reinterpret_cast<int*>(vendor + 4) = cpui[edx];
         *reinterpret_cast<int*>(vendor + 8) = cpui[ecx];
+        // *reinterpret_cast<int*>(vendor) = cpui[ebx];
+        // *reinterpret_cast<int*>(vendor + 4) = cpui[edx];
+        // *reinterpret_cast<int*>(vendor + 8) = cpui[ecx];
         std::string vendor_ = vendor;
         if (vendor_ == "GenuineIntel")
         {

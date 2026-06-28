@@ -41,6 +41,7 @@ namespace
                 zeroSamples++;
                 if (zeroSamples >= 2)
                 {
+                    //是我们自己的调试器要创建线程，则直接返回不走线程回调
                     return;
                 }
             }
@@ -95,6 +96,7 @@ NTSTATUS DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING Registry
     // 项目影响：继续注释时“保护进程函数”不真正生效；放开会改变全局进程句柄访问行为。
     // 当前建议：继续注释，等保护链路和回归测试补齐后再放开。
     //InitProtect(DriverObject);
+    //InitProtect(DriverObject);  //初始化保护？
     NTSTATUS ntStatus = CreateDevice(DriverObject);
     if (!NT_SUCCESS(ntStatus))
     {
@@ -110,16 +112,20 @@ NTSTATUS DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING Registry
     DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = HandlerDispatchRoutin;
     /* Initialize the User-Mode Debugging Subsystem */
     //TestVMM();
+    // /* Initialize the User-Mode Debugging Subsystem */
+    //DbgBreakPoint();
     DriverObject->DriverUnload = Unload;
     return STATUS_SUCCESS;
 }
 
+//创建设备 符号链接等
 NTSTATUS CreateDevice(IN PDRIVER_OBJECT pDriver_Object)
 {
     NTSTATUS ntStatus;
     PDEVICE_OBJECT pDevObj;
     PDEVICE_EXTENSION pDevExt;
 
+    //创建设备名称
     UNICODE_STRING devName;
     RtlInitUnicodeString(&devName, L"\\Device\\DbgkSysDevice");
 
@@ -130,23 +136,26 @@ NTSTATUS CreateDevice(IN PDRIVER_OBJECT pDriver_Object)
         return ntStatus;
     }
 
+    //创建直接读写设备
     pDevObj->Flags |= DO_BUFFERED_IO;
     pDevExt = (PDEVICE_EXTENSION)pDevObj->DeviceExtension;
     pDevExt->pDevice = pDevObj;
     pDevExt->ustrDeviceName = devName;
 
+    //创建符号链接
     UNICODE_STRING symLinkName;
     RtlInitUnicodeString(&symLinkName, L"\\??\\UnrealDbg");
     pDevExt->ustrSymLinkName = symLinkName;
     ntStatus = IoCreateSymbolicLink(&symLinkName, &devName);
     if (!NT_SUCCESS(ntStatus))
     {
-        IoDeleteDevice(pDevObj);
+        IoDeleteDevice(pDevObj); //创建失败删除设备
         return ntStatus;
     }
     return STATUS_SUCCESS;
 }
 
+//删除设备
 VOID _RemoveDevice(IN PDRIVER_OBJECT pDriver_Object)
 {
     PDEVICE_OBJECT pNextObj;
@@ -155,6 +164,7 @@ VOID _RemoveDevice(IN PDRIVER_OBJECT pDriver_Object)
     {
         PDEVICE_EXTENSION pDevExt = (PDEVICE_EXTENSION)pNextObj->DeviceExtension;
 
+        //删除符号链接
         UNICODE_STRING pLinkName = pDevExt->ustrSymLinkName;
         IoDeleteSymbolicLink(&pLinkName);
         pNextObj = pNextObj->NextDevice;
@@ -164,9 +174,10 @@ VOID _RemoveDevice(IN PDRIVER_OBJECT pDriver_Object)
 
 NTSTATUS InitDispatchRoutin(IN PDEVICE_OBJECT pDevObj, IN PIRP pIrp)
 {
-    UNREFERENCED_PARAMETER(pDevObj);
+    UNREFERENCED_PARAMETER(pDevObj); // 设备对象在该分发路径未使用，避免编译告警。
 
-    NTSTATUS ntStatus = STATUS_SUCCESS;
+    NTSTATUS ntStatus = STATUS_SUCCESS; // 统一返回状态。
+    //得到当前堆栈
     PIO_STACK_LOCATION stack = IoGetCurrentIrpStackLocation(pIrp);
     ULONG cbin = stack->Parameters.DeviceIoControl.InputBufferLength;
 
@@ -176,6 +187,15 @@ NTSTATUS InitDispatchRoutin(IN PDEVICE_OBJECT pDevObj, IN PIRP pIrp)
     return ntStatus;
 }
 
+////初始化保护
+//VOID InitProtect(IN PDRIVER_OBJECT DriverObject)
+//{
+//    RegisterCallbacks(DriverObject);
+//}
+//
+////卸载保护
+//VOID UnloadProtect()
+//    UnCallbacks();
 EXTERN_C
 VOID RemoveHooks()
 {

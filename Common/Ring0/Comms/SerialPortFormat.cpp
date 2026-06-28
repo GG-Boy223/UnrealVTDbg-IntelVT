@@ -1,4 +1,4 @@
-#include "SerialPortInternal.h"
+﻿#include "SerialPortInternal.h"
 
 namespace SerialPortInternal
 {
@@ -7,6 +7,7 @@ namespace SerialPortInternal
         FormatParam p;
 #ifdef PRINTF_LONG_SUPPORT
         char bf[23];
+// char bf[23];  /* long = 64b on some architectures */
 #else
         char bf[12];
 #endif
@@ -23,7 +24,9 @@ namespace SerialPortInternal
             {
 #ifdef PRINTF_LONG_SUPPORT
                 char lng = 0;
+// char lng = 0;  /* 1 for long, 2 for long long */
 #endif
+                // /* Init parameter struct */
                 p.lz = 0;
                 p.alt = 0;
                 p.width = 0;
@@ -99,7 +102,7 @@ namespace SerialPortInternal
 #endif
                 switch (ch)
                 {
-                case 0:
+                case 0: // 目标 CR0
                     goto abort;
                 case 'u':
                     p.base = 10;

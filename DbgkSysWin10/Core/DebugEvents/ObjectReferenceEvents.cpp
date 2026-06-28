@@ -1,4 +1,4 @@
-#include "DebugEventsCommon.h"
+﻿#include "DebugEventsCommon.h"
 #include "../../Driver.h"
 #include "../../Globals.h"
 #include "../../DbgkApi/DbgkApi.h"
@@ -17,7 +17,7 @@ VOID InsertVirtualHandleList(PVIRTUAL_HANDLE_TABLE_ENTRY entry)
 VOID CreateVirtualHandleTable(PCLIENT_ID ClientId, _EPROCESS* Process)
 {
     PVIRTUAL_HANDLE_TABLE_ENTRY entry = allocate_pool<VIRTUAL_HANDLE_TABLE_ENTRY>();
-    entry->id = 0x8bf13889f4bc9949;
+    entry->id = 0x8bf13889f4bc9949; //VIRTUAL_HANDLE_TABLE md5哈希摘要
     entry->handle = ClientId->UniqueProcess;
     entry->UniqueProcessId = ClientId->UniqueProcess;
     entry->Object = Process;
@@ -48,11 +48,13 @@ NTSTATUS GetVirtualHandleTableByHandle(HANDLE Handle, PVIRTUAL_HANDLE_TABLE_ENTR
             if (entry->handle == Handle)
             {
                 *handle_table = *entry;
+                // *handle_table = *entry;
                 status = STATUS_SUCCESS;
                 break;
             }
         }
 
+        // /* Move to the next entry */
         NextEntry = NextEntry->Flink;
     }
 
@@ -61,6 +63,7 @@ NTSTATUS GetVirtualHandleTableByHandle(HANDLE Handle, PVIRTUAL_HANDLE_TABLE_ENTR
         ExReleaseFastMutex(&g_VirtualHandleList.Mutex);
     }
 
+    //ExReleaseFastMutex(&LongFlagsMutex);
     return status;
 }
 
@@ -84,11 +87,13 @@ NTSTATUS GetVirtualHandleTableByObject(PVOID Object, PVIRTUAL_HANDLE_TABLE_ENTRY
             if (entry->Object == Object)
             {
                 *handle_table = *entry;
+                // *handle_table = *entry;
                 status = STATUS_SUCCESS;
                 break;
             }
         }
 
+        // /* Move to the next entry */
         NextEntry = NextEntry->Flink;
     }
     ExReleaseFastMutex(&g_VirtualHandleList.Mutex);
@@ -108,6 +113,7 @@ NTSTATUS NewObReferenceObjectByHandle(HANDLE Handle,
         return Original_ObReferenceObjectByHandle(Handle, DesiredAccess, ObjectType, AccessMode, Object, HandleInformation);
     }
 
+    //DbgBreakPoint();
     if (IsDebugger(PsGetCurrentProcess()))
     {
         AccessMode = KernelMode;
@@ -130,6 +136,7 @@ NTSTATUS NewObReferenceObjectByHandleWithTag(HANDLE Handle,
         return Original_ObReferenceObjectByHandleWithTag(Handle, DesiredAccess, ObjectType, AccessMode, a5, Object, a7);
     }
 
+    //DbgBreakPoint();
     if (IsDebugger(PsGetCurrentProcess()))
     {
         AccessMode = KernelMode;
@@ -138,6 +145,8 @@ NTSTATUS NewObReferenceObjectByHandleWithTag(HANDLE Handle,
     return Original_ObReferenceObjectByHandleWithTag(Handle, DesiredAccess, ObjectType, AccessMode, a5, Object, a7);
 }
 
+//ObReferenceObjectByHandle与ObReferenceObjectByHandleWithTag函数内部
+//都调用的ObpReferenceObjectByHandleWithTag
 NTSTATUS NewObpReferenceObjectByHandleWithTag(HANDLE Handle,
     ACCESS_MASK DesiredAccess,
     POBJECT_TYPE ObjectType,
@@ -153,6 +162,7 @@ NTSTATUS NewObpReferenceObjectByHandleWithTag(HANDLE Handle,
         return Original_ObpReferenceObjectByHandleWithTag(Handle, DesiredAccess, ObjectType, AccessMode, Tag, Object, HandleInformation, a8);
     }
 
+    //DbgBreakPoint();
     if (IsDebugger(PsGetCurrentProcess()))
     {
         AccessMode = KernelMode;
@@ -163,8 +173,10 @@ NTSTATUS NewObpReferenceObjectByHandleWithTag(HANDLE Handle,
     {
         if (!IsDebugger(PsGetCurrentProcess()))
         {
+            //判断访问的对象是否是我们的调试器
             if (IsDebugger(*(PEPROCESS*)Object))
             {
+                //获取当前调用进程
                 WCHAR SubStr[256] = { 0 };
                 UNICODE_STRING ImageFileName, PassImage;
                 NTSTATUS Status = GetProcessName(PsGetCurrentProcess(), &SubStr[0]);
@@ -176,11 +188,13 @@ NTSTATUS NewObpReferenceObjectByHandleWithTag(HANDLE Handle,
                         RtlInitUnicodeString(&PassImage, PassProcessList[i]);
                         if (RtlEqualUnicodeString(&ImageFileName, &PassImage, TRUE))
                         {
+                            //发现是白名单进程就放行
                             goto pass;
                         }
                     }
 
                     *(PEPROCESS*)Object = NULL;
+                    // *(PEPROCESS*)Object = NULL;
                     ntStatus = STATUS_UNSUCCESSFUL;
                 }
             }
@@ -198,12 +212,18 @@ LONG_PTR NewObfDereferenceObject(_In_ PVOID Object)
         return Original_ObfDereferenceObject(Object);
     }
 
+    //DbgBreakPoint();
     if (IsDebugger(PsGetCurrentProcess()))
     {
+        //POBJECT_HEADER ObjectHeader;
+        //ObjectHeader = OBJECT_TO_OBJECT_HEADER(Object);
+        //outLog("指针计数: %d", ObjectHeader->PointerCount);
+        //outLog("句柄计数: %d", ObjectHeader->HandleCount);
         VIRTUAL_HANDLE_TABLE_ENTRY handle_table = { 0 };
         NTSTATUS status = GetVirtualHandleTableByObject(Object, &handle_table);
         if (NT_SUCCESS(status))
         {
+            //DbgBreakPoint();
             return 0;
         }
     }
@@ -218,12 +238,18 @@ LONG_PTR NewObfDereferenceObjectWithTag(_In_ PVOID Object, _In_ ULONG Tag)
         return Original_ObfDereferenceObjectWithTag(Object, Tag);
     }
 
+    //DbgBreakPoint();
     if (IsDebugger(PsGetCurrentProcess()))
     {
+        //POBJECT_HEADER ObjectHeader;
+        //ObjectHeader = OBJECT_TO_OBJECT_HEADER(Object);
+        //outLog("指针计数: %d", ObjectHeader->PointerCount);
+        //outLog("句柄计数: %d", ObjectHeader->HandleCount);
         VIRTUAL_HANDLE_TABLE_ENTRY handle_table = { 0 };
         NTSTATUS status = GetVirtualHandleTableByObject(Object, &handle_table);
         if (NT_SUCCESS(status))
         {
+            //DbgBreakPoint();
             return 0;
         }
     }
@@ -238,6 +264,7 @@ NTSTATUS NewNtOpenProcess(PHANDLE ProcessHandle, ACCESS_MASK DesiredAccess, POBJ
         return Original_NtOpenProcess(ProcessHandle, DesiredAccess, ObjectAttributes, ClientId);
     }
 
+    //DbgBreakPoint();
     if (IsDebugger(PsGetCurrentProcess()))
     {
     }

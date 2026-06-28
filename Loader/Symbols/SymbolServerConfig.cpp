@@ -8,6 +8,7 @@ namespace
         const size_t first = value.find_first_not_of(whitespace);
         if (first == std::wstring::npos)
         {
+            // 转换失败，可以根据实际情况处理错误
             return L"";
         }
 
@@ -24,7 +25,7 @@ std::string BuildSymbolServerBaseUrl(const std::wstring& configPath)
         selectedServer = Trim(FileSystem::ReadIniValue(configPath, L"Symbol", L"Server"));
     }
 
-    int selectSvr = 100;
+    int selectSvr = 100; //默认选择镜像服务器
     if (!selectedServer.empty())
     {
         try

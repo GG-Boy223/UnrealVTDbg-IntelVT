@@ -38,6 +38,7 @@ namespace hv
         }
 
         restore_pending_mtf_guest_interruptibility(vcpu);
+        //clear_pending_mtf_metadata(vcpu->ept_state);
         clear_pending_mtf_metadata(vcpu->ept_state);
     }
 

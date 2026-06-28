@@ -1,9 +1,10 @@
-#include "DebugObjectCommonInternal.h"
+﻿#include "DebugObjectCommonInternal.h"
 
 VOID WakeDebugObjectEvents(PDEBUG_OBJECT DebugObject)
 {
     if (DebugObject == NULL)
     {
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
@@ -18,6 +19,8 @@ VOID WakeDebugObjectEvents(PDEBUG_OBJECT DebugObject)
         ExAcquireFastMutex(&DebugObject->Mutex);
         lockHeld = TRUE;
 
+        // Mark this object as going away and wake up any processes that are waiting.
+        //
         DebugObject->Flags |= DEBUG_OBJECT_DELETE_PENDING;
         while (!IsListEmpty(&DebugObject->EventList))
         {
@@ -34,9 +37,12 @@ VOID WakeDebugObjectEvents(PDEBUG_OBJECT DebugObject)
         {
             ExReleaseFastMutex(&DebugObject->Mutex);
         }
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
+    // Wake anyone waiting. They need to leave this object alone now as its deleting
+    //
     KeSetEvent(&DebugObject->EventsPresent, 0, FALSE);
 
     while (!IsListEmpty(&tempList))

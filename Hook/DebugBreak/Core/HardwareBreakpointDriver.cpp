@@ -21,11 +21,14 @@ namespace DebugBreakInternal
 
         if (output != 1998)
         {
+            //logger.Log("移除硬件断点失败: dr%d watchid=%d", breakpoint.debugRegister, breakpoint.watchid);
             logger.Log("移除硬件断点失败");
             clear_vt_breakpoint_state(0, breakpoint.Address, breakpoint.cr3, breakpoint.watchid);
             return false;
         }
 
+        // 删除断点后不要继续复用旧的 #DB/EPT 命中缓存；CE 多次步过再删除时，
+        // 过期 DR6 或命中地址会让调试器误以为断点仍处于暂停状态。
         ClearAllDebugHitRecords();
         clear_vt_breakpoint_state(0, breakpoint.Address, breakpoint.cr3, breakpoint.watchid);
         return true;
@@ -73,6 +76,8 @@ bool SetBreakpoint(PVOID lpBaseAddress, unsigned __int64 command, int length, in
         sizeof(BREAKPOINT_RECORD),
         &BytesReturned))
     {
+        // 旧日志包含 watchid，避免在日志文件暴露内部断点编号。
+        // logger.Log("返回的监视id: %d", output.watchid);
         if (output.watchid != -1)
         {
             boSuccess = true;
@@ -83,11 +88,13 @@ bool SetBreakpoint(PVOID lpBaseAddress, unsigned __int64 command, int length, in
             DebugBreakInternal::UpdateActiveHardwareBreakpointCountLocked();
             BreakpointList.UnLock();
         }
+        // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
         else
         {
             logger.Log("设置断点 失败!");
         }
     }
+    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
     else
     {
         logger.Log("通信 请求失败!");
@@ -133,5 +140,24 @@ bool SetBreakpoint(PVOID lpBaseAddress, unsigned __int64 command, int length, in
     //    logger.Log("current_vmcall 失败!  errorCode:%d", vmcallinfo.errorCode);
     //}
 
+    //SYSTEM_INFO SysInfo = { 0 };
+    //GetSystemInfo(&SysInfo);
+    //vmcallinfo.CPUCount = SysInfo.dwNumberOfProcessors;
+    //boSuccess = current_vmcall(&vmcallinfo);
+    //if (boSuccess)
+    //{
+    //    logger.Log("返回的监视id: %d", vmcallinfo.watchid);
+    //    // Add the breakpoint
+    //    BREAKPOINT_RECORD Breakpoint = { 0 };
+    //    Breakpoint.Address = vmcallinfo.VirtualAddress;
+    //    Breakpoint.length = vmcallinfo.Size;
+    //    Breakpoint.cr3 = vmcallinfo.cr3;
+    //    Breakpoint.watchid = vmcallinfo.watchid;
+    //    BreakpointList.Lock();
+    //    BreakpointList.push_back(Breakpoint);
+    //    BreakpointList.UnLock();
+    //}
+    //else
+    //    logger.Log("current_vmcall 失败!  errorCode:%d", vmcallinfo.errorCode);
     return boSuccess;
 }

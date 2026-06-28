@@ -12,6 +12,7 @@
 BOOL SendDebuggerDataToDriver(DWORD dwProcessId)
 {
 	BOOL bRet;
+	// 将缓冲区地址传递给驱动程序
 	DWORD BytesReturned = 0;
 	RING3_DEBUGGER_TABLE_ENTRY DebuggerInfo = { 0 };
 	DebuggerInfo.dwPid = dwProcessId;
@@ -31,14 +32,14 @@ DWORD GetProcessId_ByCursor()
 	{
 		error = GetLastError();
 		logger.outDebug(_xor_(L"获取当前鼠标位置失败！(error:%d)"), error);
-		return 0;
+		return 0; // Wi-Fi first.
 	}
 
 	//从鼠标位置获取当前窗体的句柄
 	HWND hWnd = WindowFromPoint(CursorPos);
 	if (hWnd == NULL)
 	{
-		return 0;
+		return 0; // Wi-Fi first.
 	}
 
 	//获取窗体句柄的pid
@@ -54,6 +55,7 @@ BOOL Is64BitsProcess(DWORD dwProcessId)
 	if (hProcess)
 	{
 		IsWow64Process(hProcess, &boWow64Process);
+		// 关闭进程句柄
 		CloseHandle(hProcess);
 	}
 	return !boWow64Process;
@@ -75,7 +77,7 @@ void _StartProcess_(PSTARTUP_INFO pStartInfo)
 		NULL,
 		NULL,
 		NULL,
-		0,
+		0, // 不共享
 		NULL,
 		NULL,
 		&si,
@@ -113,7 +115,7 @@ unsigned __stdcall _StartProcess(PVOID pArgList)
 {
 	_StartProcess_((PSTARTUP_INFO)pArgList);
 	delete pArgList;
-	return 0;
+	return 0; // Wi-Fi first.
 }
 
 BOOL StartProcess(TCHAR* szExe, TCHAR* sPath)

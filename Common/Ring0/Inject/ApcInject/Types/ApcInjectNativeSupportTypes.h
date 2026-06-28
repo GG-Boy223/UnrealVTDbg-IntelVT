@@ -1,10 +1,10 @@
-#pragma once
+﻿#pragma once
 
 #include "ApcInjectSystemTypes.h"
 
 typedef struct _NT_PROC_THREAD_ATTRIBUTE_ENTRY
 {
-    ULONG Attribute;
+    ULONG Attribute; // PROC_THREAD_ATTRIBUTE_XXX
     SIZE_T Size;
     ULONG_PTR Value;
     ULONG Unknown;
@@ -26,7 +26,7 @@ typedef struct _SYSTEM_SERVICE_DESCRIPTOR_TABLE
 
 typedef struct _RTL_PROCESS_MODULE_INFORMATION
 {
-    HANDLE Section;
+    HANDLE Section; // Not filled in
     PVOID MappedBase;
     PVOID ImageBase;
     ULONG ImageSize;
@@ -51,37 +51,40 @@ typedef enum _WinVer
     WINVER_8 = 0x0620,
     WINVER_81 = 0x0630,
     WINVER_10 = 0x0A00,
-    WINVER_10_RS1 = 0x0A01,
-    WINVER_10_RS2 = 0x0A02,
-    WINVER_10_RS3 = 0x0A03,
-    WINVER_10_RS4 = 0x0A04,
-    WINVER_10_RS5 = 0x0A05,
-    WINVER_10_19H1 = 0x0A06,
-    WINVER_10_19H2 = 0x0A07,
-    WINVER_10_20H1 = 0x0A08,
+    WINVER_10_RS1 = 0x0A01, // Anniversary update
+    WINVER_10_RS2 = 0x0A02, // Creators update
+    WINVER_10_RS3 = 0x0A03, // Fall creators update
+    WINVER_10_RS4 = 0x0A04, // Spring creators update
+    WINVER_10_RS5 = 0x0A05, // October 2018 update
+    WINVER_10_19H1 = 0x0A06, // May 2019 update 19H1
+    WINVER_10_19H2 = 0x0A07, // November 2019 update 19H2
+    WINVER_10_20H1 = 0x0A08, // April 2020 update 20H1
 } WinVer;
 
+/// <summary>
+/// OS-dependent stuff
+/// </summary>
 typedef struct _DYNAMIC_DATA
 {
-    WinVer ver;
-    ULONG buildNo;
-    BOOLEAN correctBuild;
+    WinVer ver; // OS version
+    ULONG buildNo; // OS build revision
+    BOOLEAN correctBuild; // OS kernel build number is correct and supported
 
-    ULONG KExecOpt;
-    ULONG Protection;
-    ULONG EProcessFlags2;
-    ULONG ObjTable;
-    ULONG VadRoot;
-    ULONG NtProtectIndex;
-    ULONG NtCreateThdExIndex;
-    ULONG NtTermThdIndex;
-    ULONG PrevMode;
-    ULONG ExitStatus;
-    ULONG MiAllocPage;
-    ULONG ExRemoveTable;
+    ULONG KExecOpt; // KPROCESS::ExecuteOptions
+    ULONG Protection; // EPROCESS::Protection
+    ULONG EProcessFlags2; // EPROCESS::Flags2
+    ULONG ObjTable; // EPROCESS::ObjectTable
+    ULONG VadRoot; // EPROCESS::VadRoot
+    ULONG NtProtectIndex; // NtProtectVirtualMemory SSDT index
+    ULONG NtCreateThdExIndex; // NtCreateThreadEx SSDT index
+    ULONG NtTermThdIndex; // NtTerminateThread SSDT index
+    ULONG PrevMode; // KTHREAD::PreviousMode
+    ULONG ExitStatus; // ETHREAD::ExitStatus
+    ULONG MiAllocPage; // MiAllocateDriverPage offset
+    ULONG ExRemoveTable; // Ex(p)RemoveHandleTable offset
 
-    ULONG_PTR DYN_PDE_BASE;
-    ULONG_PTR DYN_PTE_BASE;
+    ULONG_PTR DYN_PDE_BASE; // Win10 AU+ relocated PDE base VA
+    ULONG_PTR DYN_PTE_BASE; // Win10 AU+ relocated PTE base VA
 } DYNAMIC_DATA, *PDYNAMIC_DATA;
 
 typedef struct _THREAD_BASIC_INFORMATION
@@ -107,12 +110,14 @@ typedef NTSTATUS(NTAPI* fnNtCreateThreadEx)
     IN SIZE_T SizeOfStackCommit,
     IN SIZE_T SizeOfStackReserve,
     OUT PVOID lpBytesBuffer
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 typedef VOID(NTAPI* PKNORMAL_ROUTINE)(
     PVOID NormalContext,
     PVOID SystemArgument1,
     PVOID SystemArgument2
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 typedef VOID(NTAPI* PKKERNEL_ROUTINE)(
@@ -121,6 +126,7 @@ typedef VOID(NTAPI* PKKERNEL_ROUTINE)(
     PVOID* NormalContext,
     PVOID* SystemArgument1,
     PVOID* SystemArgument2
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 typedef VOID(NTAPI* PKRUNDOWN_ROUTINE)(PRKAPC Apc);

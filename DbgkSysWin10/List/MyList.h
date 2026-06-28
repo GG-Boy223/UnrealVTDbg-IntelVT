@@ -65,6 +65,18 @@ public:
 	{
 		if (dwIndex >= m_FCount)
 		{
+			////判断当前调用者是否是调试器进程
+			//if (!IsDebugger(PsGetCurrentProcess()))
+			//{
+			//    //根据窗口句柄获得窗口对象
+			//    PWND pwnd = Sys_ValidateHwnd(hwnd);
+			//    if (pwnd)
+			//    {
+			//        //根据线程对象获得进程对象
+			//        PsGetThreadProcess((PETHREAD)pwnd->head.pti->pEThread);
+			//    }
+			//}
+			//NtUserQueryWindow(hwnd, WindowInfo);
 			return NULL;
 		}
 		else

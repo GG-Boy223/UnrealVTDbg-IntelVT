@@ -4,23 +4,30 @@ namespace hv
 {
     PKPCR current_guest_kpcr()
     {
+        // GS base holds the KPCR when in ring-0
         if (current_guest_cpl() == 0)
         {
-            return reinterpret_cast<PKPCR>(vmread(GUEST_GS_BASE));
+            return reinterpret_cast<PKPCR>(vmread(GUEST_GS_BASE)); // 内核态直接取 GS_BASE
         }
 
-        return reinterpret_cast<PKPCR>(__readmsr(IA32_KERNEL_GS_BASE));
+        // when in ring-3, the GS_SWAP contains the KPCR
+        // 在 ring-3 中，GS_SWAP 包含 内核KPCR
+        return reinterpret_cast<PKPCR>(__readmsr(IA32_KERNEL_GS_BASE)); // 用户态取 KERNEL_GS_BASE
     }
 
+    // get the ETHREAD of the current guest
+    // 获取guest里的当前线程对象
     size_t current_guest_ethread()
     {
-        auto const kpcr = current_guest_kpcr();
+        // KPCR
+        auto const kpcr = current_guest_kpcr(); // 获取 KPCR
 
         if (!kpcr)
         {
-            return NULL;
+            return NULL; // CR3 无效时无法转换
         }
 
+        // KPCR::CurrentPrcb
         size_t kprcb = NULL;
         read_guest_virtual_memory(ghv.system_cr3,
             reinterpret_cast<uint8_t*>(kpcr) + ghv.kpcr_pcrb_offset,
@@ -29,16 +36,17 @@ namespace hv
 
         if (!kprcb)
         {
-            return NULL;
+            return NULL; // CR3 无效时无法转换
         }
 
+        // KPRCB::CurrentThread
         size_t current_thread = NULL;
         read_guest_virtual_memory(ghv.system_cr3,
             reinterpret_cast<uint8_t*>(kprcb) + ghv.kprcb_current_thread_offset,
             &current_thread,
             sizeof(current_thread));
 
-        return current_thread;
+        return current_thread; // 返回 ETHREAD 地址
     }
 
     struct BREAKPOINT_CLEAR_STATE
@@ -206,9 +214,10 @@ namespace hv
         return true;
     }
 
+    //返回触发的断点给guest调试器
     bool get_breakpoint_detected(__vcpu* vcpu, PBREAKPOINT_DETECTED vmcallinfo)
     {
-        BREAKPOINT_DETECTED tmp_vmcallinfo = { 0 };
+        BREAKPOINT_DETECTED tmp_vmcallinfo = { 0 }; // 临时结构，用于读取来宾传入的请求
 
         if (sizeof(BREAKPOINT_DETECTED) != hv::read_guest_virtual_memory(vmcallinfo, &tmp_vmcallinfo, sizeof(BREAKPOINT_DETECTED)))
         {
@@ -235,6 +244,7 @@ namespace hv
             }
         }
 
+        // 兼容旧路径：如果全局 vcpu 数组尚未就绪，仍检查当前逻辑处理器。
         if (detected_vcpu == nullptr &&
             vcpu != nullptr &&
             vcpu->Cid.UniqueThread == (HANDLE)tmp_vmcallinfo.Cid.UniqueThread &&
@@ -245,36 +255,41 @@ namespace hv
 
         if (detected_vcpu != nullptr)
         {
-            tmp_vmcallinfo.breakpoint_detected = detected_vcpu->breakpoint_detected;
+            tmp_vmcallinfo.breakpoint_detected = detected_vcpu->breakpoint_detected; // 回填触发地址
 
             if (sizeof(BREAKPOINT_DETECTED) != hv::write_guest_virtual_memory(vmcallinfo, &tmp_vmcallinfo, sizeof(BREAKPOINT_DETECTED)))
             {
                 return false;
             }
 
-            detected_vcpu->breakpoint_detected = NULL;
-            detected_vcpu->Cid = { 0 };
-            return true;
+            //这说明该断点事件即将被调试器处理，是时候将它移除了
+            detected_vcpu->breakpoint_detected = NULL; // 清空触发地址，避免重复上报
+            detected_vcpu->Cid = { 0 }; // 清空线程 ID 记录
+            return true; // 成功返回
         }
         return false;
     }
 
+    //向guest注入#DB事件
     void inject_single_step(__vcpu* vcpu)
     {
-        int kernelmode = hv::get_guest_cpl() == 0;
+        //guest的模式如果是内核就不注入#DB
+        int kernelmode = hv::get_guest_cpl() == 0; // 判断 CPL，内核态不注入以避免内核断点风险
         if (!kernelmode)
         {
-            PCLIENT_ID Cid = GuestCurrentThreadCid();
+            PCLIENT_ID Cid = GuestCurrentThreadCid(); // 获取当前线程 ID
             if (Cid == nullptr)
             {
+                // 方案 2：Cid 还没从 Win10 sys 下发过来时，不继续记录线程 ID，
+                // 也不继续走后续依赖该字段的逻辑，避免把 ETHREAD 地址误当成 CLIENT_ID。
                 outDebug("跳过 inject_single_step：ETHREAD.Cid 尚未就绪。\n");
                 vcpu->Cid = { 0 };
                 vcpu->breakpoint_detected = NULL;
                 return;
             }
 
-            vcpu->Cid.UniqueThread = Cid->UniqueThread;
-            hv::inject_interruption(EXCEPTION_VECTOR_SINGLE_STEP, INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, false);
+            vcpu->Cid.UniqueThread = Cid->UniqueThread; //记录当前guest的线程id
+            hv::inject_interruption(EXCEPTION_VECTOR_SINGLE_STEP, INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, false); // 注入单步异常到来宾
         }
         else
         {
@@ -283,16 +298,17 @@ namespace hv
         }
     }
 
+    //获取空闲的id
     int getIdleWatchID()
     {
-        int i;
+        int i; // 循环索引
         for (i = 0; i < EPTWATCHLISTSIZE; i++)
         {
-            if (eptWatchList[i].inuse == 0)
+            if (eptWatchList[i].inuse == 0) //查找未使用条目
             {
-                return i;
+                return i; //返回空闲 ID
             }
         }
-        return -1;
+        return -1; // 没有空闲项
     }
 }

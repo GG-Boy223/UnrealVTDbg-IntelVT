@@ -69,6 +69,7 @@ namespace Help
 		}
 
 		*out_len = data_len;
+		// *out_len = data_len;
 		delete[] mBox;
 		return -1;
 	}

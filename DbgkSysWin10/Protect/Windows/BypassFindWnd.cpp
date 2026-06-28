@@ -39,8 +39,10 @@ BOOLEAN IsProtectWnd(PUNICODE_STRING WindowName)
                     return TRUE;
                 }
                 /* Move to the next entry */
+                // /* Move to the next entry */
                 NextEntry = NextEntry->Flink;
             }
+            // /* Fail */
             return FALSE;
         }
         __finally

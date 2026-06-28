@@ -35,6 +35,7 @@ inline NTSTATUS ResolveInputUserData(PIOCTL_DISPATCH_CONTEXT Context)
     {
         Context->SafeUserDataReady = TRUE;
     }
+    //ExReleaseFastMutex(&LongFlagsMutex);
     return status;
 }
 

@@ -1,10 +1,12 @@
-#include "SymbolsInternal.h"
+﻿#include "SymbolsInternal.h"
 
+// 验证已存在的PDB文件
 bool VerifyExistingPdb(const GUID& guid)
 {
     std::ifstream f(g_szPdbPath.c_str(), std::ios::binary | std::ios::ate);
     if (f.bad())
     {
+        // 处理打开进程失败的情况
         return false;
     }
 
@@ -88,11 +90,12 @@ bool VerifyExistingPdb(const GUID& guid)
     return (guid_eq == 0);
 }
 
-bool VerifyExistingPdb2(const GUID& guid, DWORD age)
+bool VerifyExistingPdb2(const GUID& guid, DWORD age) // 仅加 age 参数
 {
     std::ifstream f(g_szPdbPath.c_str(), std::ios::binary | std::ios::ate);
     if (f.bad())
     {
+        // 处理打开进程失败的情况
         return false;
     }
 
@@ -100,12 +103,14 @@ bool VerifyExistingPdb2(const GUID& guid, DWORD age)
     f.close();
     if (!size_on_disk)
     {
+        // 处理打开进程失败的情况
         return false;
     }
 
     std::unique_ptr<char[]> pdb_raw(new(std::nothrow) char[size_on_disk]);
     if (!pdb_raw)
     {
+        // 处理打开进程失败的情况
         return false;
     }
 
@@ -115,6 +120,7 @@ bool VerifyExistingPdb2(const GUID& guid, DWORD age)
 
     if (size_on_disk < sizeof(PDBHeader7))
     {
+        // 处理打开进程失败的情况
         return false;
     }
 
@@ -123,12 +129,14 @@ bool VerifyExistingPdb2(const GUID& guid, DWORD age)
         "Microsoft C/C++ MSF 7.00\r\n\x1A""DS\0\0\0",
         sizeof(pPDBHeader->signature)) != 0)
     {
+        // 处理打开进程失败的情况
         return false;
     }
 
     if (size_on_disk < static_cast<size_t>(pPDBHeader->page_size) *
         pPDBHeader->file_page_count)
     {
+        // 处理打开进程失败的情况
         return false;
     }
 
@@ -161,12 +169,14 @@ bool VerifyExistingPdb2(const GUID& guid, DWORD age)
 
     if (streams.size() < 2 || streams[1].empty())
     {
+        // 处理打开进程失败的情况
         return false;
     }
     auto* stram_data = reinterpret_cast<GUID_StreamData*>(
         pdb_raw.get() +
         static_cast<size_t>(streams[1][0]) * pPDBHeader->page_size);
 
+    // 同时比较 GUID 和 Age
     bool guidOk = (memcmp(&stram_data->guid, &guid, sizeof(GUID)) == 0);
     bool ageOk = (stram_data->age == age);
 

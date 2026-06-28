@@ -1,4 +1,4 @@
-#include "DebugBreakInternal.h"
+﻿#include "DebugBreakInternal.h"
 
 bool vmcall_internal(PVOID vmcallinfo)
 {
@@ -7,6 +7,7 @@ bool vmcall_internal(PVOID vmcallinfo)
 
     __try
     {
+        //若非vmx模式则该指令会触发#UD异常
         boSuccess = __vm_call(((PVMCALLINFO)vmcallinfo)->command, (unsigned __int64)vmcallinfo, 0, 0);
     }
     __except (ecode = GetExceptionCode(), 1)
@@ -17,16 +18,20 @@ bool vmcall_internal(PVOID vmcallinfo)
     return boSuccess;
 }
 
+//只会向当前逻辑处理器发送请求
 bool current_vmcall(PVOID vmcallinfo)
 {
     return vmcall_internal(vmcallinfo);
 }
 
+// 捕获目标进程 CR3 的公共 helper。
+// 调整原因：CE 查找地址访问会频繁设置/删除监视点，旧路径在 attach 状态内探测目标地址并关中断，异常时容易留下 APC/attach 状态不平衡。
 static VOID AttachProcessForCr3(PEPROCESS Process, KAPC_STATE* ApcState)
 {
     if (Original_KeStackAttachProcess != NULL)
     {
         Original_KeStackAttachProcess((PRKPROCESS)Process, ApcState);
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
@@ -41,6 +46,7 @@ NTSTATUS CaptureProcessCr3(unsigned long pid, unsigned __int64 fallbackCr3, unsi
     }
 
     *capturedCr3 = fallbackCr3;
+    // *capturedCr3 = fallbackCr3;
     if (pid == 0)
     {
         return fallbackCr3 != 0 ? STATUS_SUCCESS : STATUS_INVALID_PARAMETER;
@@ -78,7 +84,7 @@ NTSTATUS CaptureProcessCr3(unsigned long pid, unsigned __int64 fallbackCr3, unsi
         outToFile("\xBB\xF1\xC8\xA1\xC4\xBF\xB1\xEA" "CR3\xCA\xB1\xB7\xA2\xC9\xFA\xD2\xEC\xB3\xA3 (error: 0x%X)", status);
     }
 
-    ObDereferenceObject(Process);
+    ObDereferenceObject(Process); //释放进程对象
 
     if (*capturedCr3 == 0 && fallbackCr3 != 0)
     {

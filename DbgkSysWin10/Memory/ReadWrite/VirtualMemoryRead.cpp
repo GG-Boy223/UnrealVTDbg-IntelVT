@@ -1,13 +1,13 @@
-#include "ReadWriteInternal.h"
+﻿#include "ReadWriteInternal.h"
 
 NTSTATUS MyReadVirtualMemory(
     _In_ HANDLE ProcessHandle,
     _In_opt_ PVOID BaseAddress,
-    _Out_opt_ PVOID Buffer,
+    _Out_opt_ PVOID Buffer, //输出缓冲区
     _In_ SIZE_T BufferSize,
     _Out_opt_ PSIZE_T NumberOfBytesRead)
 {
-    NTSTATUS Status;
+    NTSTATUS Status; // eax
     _EPROCESS* Process = NULL;
 
     KAPC_STATE ApcState;
@@ -23,18 +23,21 @@ NTSTATUS MyReadVirtualMemory(
     }
 
     Status = ObReferenceObjectByHandle(ProcessHandle, PROCESS_ALL_ACCESS, *PsProcessType, KernelMode, (PVOID*)&Process, NULL);
+    // /* Check if we failed */
     if (!NT_SUCCESS(Status))
     {
+        // /* Return status */
         return Status;
     }
 
     tmpBuffer = allocate_pool<BYTE*>(BufferSize);
     if (tmpBuffer == NULL)
     {
-        ObDereferenceObject(Process);
-        return STATUS_INSUFFICIENT_RESOURCES;
+        ObDereferenceObject(Process); //释放进程对象
+        return STATUS_INSUFFICIENT_RESOURCES; // 显式返回内存不足，避免隐式成功。
     }
 
+    //DbgBreakPoint();
     size_t ptr_Pcb = (size_t)Process + eprocess_offset::Pcb;
     KiStackAttachProcess((_KPROCESS*)ptr_Pcb, FALSE, &ApcState);
     attached = TRUE;
@@ -45,6 +48,7 @@ NTSTATUS MyReadVirtualMemory(
         MappedAddress = MDLMapVirtualAddress(BaseAddress, BufferSize, map_table);
         if (MappedAddress)
         {
+            //先拷贝到系统的临时缓冲区,降低直接回写风险。
             RtlCopyMemory(tmpBuffer, MappedAddress, BufferSize);
             UnMDLMapVirtualAddress(map_table);
         }
@@ -59,6 +63,7 @@ NTSTATUS MyReadVirtualMemory(
         KiUnstackDetachProcess(&ApcState, 0);
     }
 
+    // /* Now check what status we have here */
     if (NT_SUCCESS(Status))
     {
         RtlCopyMemory(Buffer, tmpBuffer, BufferSize);
@@ -69,18 +74,20 @@ NTSTATUS MyReadVirtualMemory(
     }
 
     free_pool(tmpBuffer);
-    ObDereferenceObject(Process);
+    ObDereferenceObject(Process); //释放进程对象
+    /* Return status */
+    // /* Return status */
     return Status;
 }
 
 NTSTATUS EptReadVirtualMemory(
     _In_ HANDLE ProcessHandle,
     _In_opt_ PVOID BaseAddress,
-    _Out_opt_ PVOID Buffer,
+    _Out_opt_ PVOID Buffer, //输出缓冲区
     _In_ SIZE_T BufferSize,
     _Out_opt_ PSIZE_T NumberOfBytesRead)
 {
-    NTSTATUS Status;
+    NTSTATUS Status; // eax
     _EPROCESS* Process = NULL;
 
     BYTE* tmpBuffer = NULL;
@@ -94,18 +101,21 @@ NTSTATUS EptReadVirtualMemory(
     }
 
     Status = ObReferenceObjectByHandle(ProcessHandle, PROCESS_ALL_ACCESS, *PsProcessType, KernelMode, (PVOID*)&Process, NULL);
+    // /* Check if we failed */
     if (!NT_SUCCESS(Status))
     {
+        // /* Return status */
         return Status;
     }
 
     tmpBuffer = allocate_contignous_memory<BYTE*>(BufferSize);
     if (tmpBuffer == NULL)
     {
-        ObDereferenceObject(Process);
-        return STATUS_INSUFFICIENT_RESOURCES;
+        ObDereferenceObject(Process); //释放进程对象
+        return STATUS_INSUFFICIENT_RESOURCES; // 显式返回内存不足，避免隐式成功。
     }
 
+    //DbgBreakPoint();
     size_t ptr_Pcb = (size_t)Process + eprocess_offset::Pcb;
     KiStackAttachProcess((_KPROCESS*)ptr_Pcb, FALSE, &ApcState);
     attached = TRUE;
@@ -113,9 +123,10 @@ NTSTATUS EptReadVirtualMemory(
     Status = STATUS_SUCCESS;
     __try
     {
+        //读取EPT内存
         if (hvgt::read_ept_fake_page_memory(BaseAddress, tmpBuffer, BufferSize))
         {
-            boFound = TRUE;
+            boFound = TRUE; // 仅标记命中，回写在统一出口执行。
         }
     }
     __except (EXCEPTION_EXECUTE_HANDLER)
@@ -136,22 +147,25 @@ NTSTATUS EptReadVirtualMemory(
             *NumberOfBytesRead = BufferSize;
         }
 
+        // /* Set success */
         Status = STATUS_SUCCESS;
     }
     else if (NT_SUCCESS(Status))
     {
-        Status = STATUS_UNSUCCESSFUL;
+        Status = STATUS_UNSUCCESSFUL; // 无异常但未读到数据，返回业务失败。
     }
 
     free_contignous_memory(tmpBuffer);
-    ObDereferenceObject(Process);
+    ObDereferenceObject(Process); //释放进程对象
+    /* Return status */
+    // /* Return status */
     return Status;
 }
 
 NTSTATUS NtReadVirtualMemory(
     _In_ HANDLE ProcessHandle,
     _In_opt_ PVOID BaseAddress,
-    _Out_opt_ PVOID Buffer,
+    _Out_opt_ PVOID Buffer, //输出缓冲区
     _In_ SIZE_T BufferSize,
     _Out_opt_ PSIZE_T NumberOfBytesRead)
 {
@@ -162,7 +176,7 @@ NTSTATUS NtReadVirtualMemory(
     }
 
     NTSTATUS Status = STATUS_SUCCESS;
-    _EPROCESS* Process;
+    _EPROCESS* Process; //进程对象
     BOOLEAN boFound = FALSE;
 
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
@@ -180,8 +194,10 @@ NTSTATUS NtReadVirtualMemory(
     }
 
     {
+        //DbgBreakPoint();
         if (IsDebugger(PsGetCurrentProcess()))
         {
+            //移除int3断点
             if (Buffer)
             {
             }
@@ -191,5 +207,6 @@ NTSTATUS NtReadVirtualMemory(
         Status = Original_NtReadVirtualMemory(ProcessHandle, BaseAddress, Buffer, BufferSize, NumberOfBytesRead);
     }
 
+    // /* Return status */
     return Status;
 }

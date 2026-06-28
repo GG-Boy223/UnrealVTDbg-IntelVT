@@ -2221,7 +2221,7 @@ __pragma(clang diagnostic pop)
 
     typedef struct _KEY_OPEN_SUBKEYS_INFORMATION
     {
-        ULONG Count;
+        ULONG Count; //用户队列的最大计数
         KEY_PID_ARRAY KeyArray[1];
     } KEY_OPEN_SUBKEYS_INFORMATION, * PKEY_OPEN_SUBKEYS_INFORMATION;
 
@@ -2786,6 +2786,7 @@ __pragma(clang diagnostic pop)
         LCID CurrentLocale;
         ULONG FpSoftwareStatusRegister;
         PVOID ReservedForDebuggerInstrumentation[16];
+//若非vmx模式则该指令会触发#UD异常
 #ifdef _WIN64
         PVOID SystemReserved1[30];
 #else
@@ -2803,6 +2804,7 @@ __pragma(clang diagnostic pop)
         ULONG_PTR InstrumentationCallbackSp;
         ULONG_PTR InstrumentationCallbackPreviousPc;
         ULONG_PTR InstrumentationCallbackPreviousSp;
+//若非vmx模式则该指令会触发#UD异常
 #ifdef _WIN64
         ULONG TxFsContext;
 #endif
@@ -2840,6 +2842,7 @@ __pragma(clang diagnostic pop)
         PVOID DbgSsReserved[2];
 
         ULONG HardErrorMode;
+//若非vmx模式则该指令会触发#UD异常
 #ifdef _WIN64
         PVOID Instrumentation[11];
 #else
@@ -2874,6 +2877,7 @@ __pragma(clang diagnostic pop)
         ULONG_PTR ReservedForCodeCoverage;
         PVOID ThreadPoolData;
         PVOID* TlsExpansionSlots;
+//若非vmx模式则该指令会触发#UD异常
 #ifdef _WIN64
         PVOID DeallocationBStore;
         PVOID BStoreLimit;
@@ -8167,6 +8171,7 @@ __pragma(clang diagnostic pop)
             _Inout_ PRTL_DEBUG_INFORMATION Buffer
         );
 
+//若非vmx模式则该指令会触发#UD异常
 #ifdef _WIN64
     NTSYSAPI
         VOID

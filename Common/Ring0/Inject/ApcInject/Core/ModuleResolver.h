@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <ntifs.h>
 #include "../Types/ApcInjectPebTypes.h"
 
@@ -23,6 +23,7 @@ NTSTATUS BBResolveApiSet(
     IN PUNICODE_STRING name,
     IN PUNICODE_STRING baseImage,
     OUT PUNICODE_STRING resolved
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 /// <summary>
@@ -42,6 +43,7 @@ NTSTATUS BBResolveImagePath(
     IN PUNICODE_STRING path,
     IN PUNICODE_STRING baseImage,
     OUT PUNICODE_STRING resolved
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 /// <summary>
@@ -51,10 +53,12 @@ NTSTATUS BBResolveImagePath(
 /// <param name="name">Name to resolve</param>
 /// <param name="resolved">Resolved name if any</param>
 /// <returns>Status code</returns>
+///Try to resolve image via SxS isolation
 NTSTATUS BBResolveSxS(
     IN PMMAP_CONTEXT pContext,
     IN PUNICODE_STRING name,
     OUT PUNICODE_STRING resolved
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 /// <summary>

@@ -1,5 +1,5 @@
 ﻿#include "Driver.h"
-#include "spinlock.h"
+#include "spinlock.h" // 引入自旋锁封装：清理 watch 状态时读取监视表
 
 
 namespace spinlock

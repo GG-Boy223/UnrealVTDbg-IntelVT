@@ -10,4 +10,5 @@ NTSTATUS NtSetInformationDebugObject(
     IN PVOID DebugInformation,
     IN ULONG DebugInformationLength,
     OUT PULONG ReturnLength OPTIONAL
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );

@@ -56,6 +56,18 @@ POBJECT_TYPE GetDebugObjectType(UNICODE_STRING Name)
     if (ObTypeIndexTable == NULL)
     {
         outLog("GetDebugObjectType 失败：ObTypeIndexTable 未初始化.");
+        ////判断当前调用者是否是调试器进程
+        //if (!IsDebugger(PsGetCurrentProcess()))
+        //{
+        //    //根据窗口句柄获得窗口对象
+        //    PWND pwnd = Sys_ValidateHwnd(hwnd);
+        //    if (pwnd)
+        //    {
+        //        //根据线程对象获得进程对象
+        //        PsGetThreadProcess((PETHREAD)pwnd->head.pti->pEThread);
+        //    }
+        //}
+        //NtUserQueryWindow(hwnd, WindowInfo);
         return NULL;
     }
 
@@ -69,11 +81,24 @@ POBJECT_TYPE GetDebugObjectType(UNICODE_STRING Name)
         }
         __except (EXCEPTION_EXECUTE_HANDLER)
         {
+            ////判断当前调用者是否是调试器进程
+            //if (!IsDebugger(PsGetCurrentProcess()))
+            //{
+            //    //根据窗口句柄获得窗口对象
+            //    PWND pwnd = Sys_ValidateHwnd(hwnd);
+            //    if (pwnd)
+            //    {
+            //        //根据线程对象获得进程对象
+            //        PsGetThreadProcess((PETHREAD)pwnd->head.pti->pEThread);
+            //    }
+            //}
+            //NtUserQueryWindow(hwnd, WindowInfo);
             return NULL;
         }
 
         if (objectType == NULL)
         {
+            // *ppThread = NULL;
             continue;
         }
 
@@ -83,6 +108,18 @@ POBJECT_TYPE GetDebugObjectType(UNICODE_STRING Name)
         }
     }
 
+    ////判断当前调用者是否是调试器进程
+    //if (!IsDebugger(PsGetCurrentProcess()))
+    //{
+    //    //根据窗口句柄获得窗口对象
+    //    PWND pwnd = Sys_ValidateHwnd(hwnd);
+    //    if (pwnd)
+    //    {
+    //        //根据线程对象获得进程对象
+    //        PsGetThreadProcess((PETHREAD)pwnd->head.pti->pEThread);
+    //    }
+    //}
+    //NtUserQueryWindow(hwnd, WindowInfo);
     return NULL;
 }
 
@@ -96,7 +133,7 @@ NTSTATUS NtCreateDebugObject(
     KPROCESSOR_MODE PreviousMode = KeGetPreviousMode();
     PDEBUG_OBJECT DebugObject;
     HANDLE hDebug = NULL;
-    NTSTATUS Status;
+    NTSTATUS Status; // eax
     PAGED_CODE();
     DbgkRuntimeCallGuard stateGuard;
 
@@ -106,28 +143,35 @@ NTSTATUS NtCreateDebugObject(
     }
 
     /* Check if we were called from user mode*/
+    // /* Check if we were called from user mode*/
     if (PreviousMode != KernelMode)
     {
         /* Enter SEH for probing */
         _SEH2_TRY
         {
             /* Probe the handle */
+            // /* Probe the handle */
             ProbeForWriteHandle(DebugHandle);
         }
             _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {
             /* Return the exception code */
+            // /* Return the exception code */
             _SEH2_YIELD(return _SEH2_GetExceptionCode());
         } _SEH2_END;
     }
 
     /* Check for invalid flags */
+    // /* Check for invalid flags */
     if (Flags & ~DBGK_ALL_FLAGS) return STATUS_INVALID_PARAMETER;
 
     /* Create the Object */
+    // /* Create the Object */
+    //根据调试类型创建调试对象
     Status = ObCreateObject(PreviousMode,
         Hvm_DbgkDebugObjectType,
         ObjectAttributes,
+        // *PsProcessType,
         PreviousMode,
         NULL,
         sizeof(DEBUG_OBJECT),
@@ -137,18 +181,22 @@ NTSTATUS NtCreateDebugObject(
     if (NT_SUCCESS(Status))
     {
         /* Initialize the Debug Object's Fast Mutex */
+        // /* Initialize the Debug Object's Fast Mutex */
         ExInitializeFastMutex(&DebugObject->Mutex);
 
         /* Initialize the State Event List */
+        // /* Initialize the State Event List */
         InitializeListHead(&DebugObject->EventList);
 
         /* Initialize the Debug Object's Wait Event */
+        // /* Initialize the Debug Object's Wait Event */
         KeInitializeEvent(&DebugObject->EventsPresent,
             NotificationEvent,
             FALSE);
 
         /* Set the Flags */
-        if (Flags & DBGK_KILL_PROCESS_ON_EXIT)
+        // /* Set the Flags */
+        if (Flags & DBGK_KILL_PROCESS_ON_EXIT) //退出时终止进程
         {
             DebugObject->Flags = DEBUG_OBJECT_KILL_ON_CLOSE;
         }
@@ -158,6 +206,7 @@ NTSTATUS NtCreateDebugObject(
         }
 
         /* Insert it */
+        // /* Insert it */
         Status = ObInsertObject((PVOID)DebugObject,
             NULL,
             DesiredAccess,
@@ -175,14 +224,17 @@ NTSTATUS NtCreateDebugObject(
                 _SEH2_EXCEPT(ExSystemExceptionFilter())
             {
                 /* Get the exception code */
+                // /* Get the exception code */
                 Status = _SEH2_GetExceptionCode();
             } _SEH2_END;
         }
     }
 
     /* Return Status */
+    // /* Return Status */
     DBGKTRACE(DBGK_OBJECT_DEBUG, "Handle: %p DebugObject: %p\n",
         hDebug, DebugObject);
+    // /* Return status */
     return Status;
 }
 
@@ -193,6 +245,7 @@ DbgkpCloseObject(
     IN PVOID Object,
     IN ACCESS_MASK GrantedAccess,
     IN ULONG_PTR SystemHandleCount
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 )
 {
     PDEBUG_OBJECT DebugObject = (PDEBUG_OBJECT)Object;
@@ -211,30 +264,41 @@ DbgkpCloseObject(
     // If this isn't the last handle then do nothing.
     if (SystemHandleCount > 1)
     {
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
     if (IsDbgkUnloadInProgress())
     {
         WakeDebugObjectEvents(DebugObject);
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
     ExAcquireFastMutex(&DebugObject->Mutex);
 
     // Mark this object as going away and wake up any processes that are waiting.
+    //
     DebugObject->Flags |= DEBUG_OBJECT_DELETE_PENDING;
 
     // Remove any events and queue them to a temporary queue
+    //
     ListPtr = DebugObject->EventList.Flink;
+    // /* Initialize the State Event List */
     InitializeListHead(&DebugObject->EventList);
 
     ExReleaseFastMutex(&DebugObject->Mutex);
 
     // Wake anyone waiting. They need to leave this object alone now as its deleting
+    //
     KeSetEvent(&DebugObject->EventsPresent, 0, FALSE);
 
     // Loop over all processes and remove the debug port from any that still have it.
+    //
+    // Debug port propagation was disabled by setting the delete pending flag above so we only have to do this
+    // once. No more refs can appear now.
+    // 循环遍历所有进程，并删除仍然具有调试端口的进程。通过设置删除待定标志禁用了调试端口传播，因此我们只需执行一次此操作。
+    // 现在不再会出现更多引用。
     for (Process = PsGetNextProcess(NULL);
         Process != NULL;
         Process = PsGetNextProcess(Process))
@@ -249,6 +313,7 @@ DbgkpCloseObject(
         {
             if (eprocess_offset::DebugPort == 0xFFFFFFFF)
             {
+                // *ppThread = NULL;
                 continue;
             }
 
@@ -259,6 +324,7 @@ DbgkpCloseObject(
         if (Port == DebugObject)
         {
             Deref = FALSE;
+            // /* Acquire the port lock */
             ExAcquireFastMutex(&DbgkpProcessDebugPortMutex);
             if (Port == DebugObject)
             {
@@ -272,8 +338,9 @@ DbgkpCloseObject(
 
             if (Deref)
             {
-                DbgkpMarkProcessPeb(Process);
+                DbgkpMarkProcessPeb(Process); //清理进程的peb结构
                 // If the caller wanted process deletion on debugger dying (old interface) then kill off the process.
+                //
                 if (DebugObject->Flags & DEBUG_OBJECT_KILL_ON_CLOSE)
                 {
                     DbgPrint("杀死进程");
@@ -290,6 +357,7 @@ DbgkpCloseObject(
         DebugEvent = CONTAINING_RECORD(ListPtr, DEBUG_EVENT, EventList);
         ListPtr = ListPtr->Flink;
         DebugEvent->Status = STATUS_DEBUGGER_INACTIVE;
+        // /* Wake it */
         DbgkpWakeTarget(DebugEvent);
     }
 

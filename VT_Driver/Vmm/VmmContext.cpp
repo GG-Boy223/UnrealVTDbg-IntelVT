@@ -161,11 +161,15 @@ bool allocate_vmm_context() // 初始化全局VMM资源，包含每核VCPU与EPT
 	// 构建 mtrr 映射来存储物理内存缓存信息
 	//
 	outFile("[进行中][VMM上下文] 开始构建MTRR内存类型映射");
+	//
+	// Build mtrr map for physcial memory caching informations
+	// 构建 mtrr 映射来存储物理内存缓存信息
 	ept::build_mtrr_map(); // 读取MTRR并构建缓存类型映射，确保EPT内存类型与CPU一致
 	outFile("[成功][VMM上下文] MTRR内存类型映射构建完成");
 
 	//提前在guest里分配了内存
 	outFile("[进行中][VMM上下文] 开始初始化预分配内存池");
+	//提前在guest里分配了内存
 	if (pool_manager::initialize() == false) // 预分配内存池，减少VMX路径中的动态分配
 	{
 		//free_vmm_context();
@@ -174,6 +178,7 @@ bool allocate_vmm_context() // 初始化全局VMM资源，包含每核VCPU与EPT
 	}
 	outFile("[成功][VMM上下文] 预分配内存池初始化完成");
 
+	// virtualize every cpu
 	for (unsigned int iter = 0; iter < g_vmm_context.processor_count; iter++)
 	{
 		outFile("---------- VCPU[%u] 上下文初始化开始 ----------", iter);

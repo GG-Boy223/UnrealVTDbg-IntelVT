@@ -1,4 +1,4 @@
-#include "DebugObjectCommonInternal.h"
+﻿#include "DebugObjectCommonInternal.h"
 #include "DebugObjectCommon.h"
 
 BOOLEAN IsDbgkUnloadInProgress()
@@ -31,10 +31,12 @@ BOOLEAN LookupDebugTargetProcessObject(_EPROCESS* Process, PDEBUG_OBJECT* DebugO
         if (entry && entry->Process == Process)
         {
             *DebugObject = entry->DebugObject;
+            // *DebugObject = entry->DebugObject;
             result = (*DebugObject != NULL);
             break;
         }
 
+        // /* Move to the next entry */
         NextEntry = NextEntry->Flink;
     }
     ExReleaseFastMutex(&g_DebugProcessList.Mutex);
@@ -79,6 +81,7 @@ BOOLEAN InsertDebugProcessList(PDEBUG_PROCESS debug_process)
     return TRUE;
 }
 
+//移除元素
 VOID DeleteDebugProcess(PDEBUG_OBJECT DebugObject)
 {
     PLIST_ENTRY ListHead, NextEntry;
@@ -86,6 +89,7 @@ VOID DeleteDebugProcess(PDEBUG_OBJECT DebugObject)
 
     if (DebugObject == NULL || IsDbgkUnloadInProgress() || KeGetCurrentIrql() > APC_LEVEL)
     {
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
@@ -112,11 +116,13 @@ VOID DeleteDebugProcess(PDEBUG_OBJECT DebugObject)
             }
         }
 
+        // /* Move to the next entry */
         NextEntry = NextEntry->Flink;
     }
     ExReleaseFastMutex(&g_DebugProcessList.Mutex);
 }
 
+//设置调试对象
 BOOLEAN SetDebugTargetProcess(_EPROCESS* Process, PDEBUG_OBJECT DebugObject)
 {
     BOOLEAN result = FALSE;
@@ -126,6 +132,7 @@ BOOLEAN SetDebugTargetProcess(_EPROCESS* Process, PDEBUG_OBJECT DebugObject)
         return FALSE;
     }
 
+    //DbgBreakPoint();
     if (IsDebugger(PsGetCurrentProcess()))
     {
         PDEBUG_PROCESS entry = allocate_pool<DEBUG_PROCESS>();
@@ -140,6 +147,7 @@ BOOLEAN SetDebugTargetProcess(_EPROCESS* Process, PDEBUG_OBJECT DebugObject)
         ExInitializeFastMutex(&entry->Mutex);
         if (InsertDebugProcessList(entry))
         {
+            // *DebugProcess = entry;
             result = TRUE;
         }
         else
@@ -185,11 +193,13 @@ BOOLEAN IsDebugTargetProcess(
             if (entry->Process == Process)
             {
                 *DebugProcess = entry;
+                // *DebugProcess = entry;
                 result = TRUE;
                 break;
             }
         }
 
+        // /* Move to the next entry */
         NextEntry = NextEntry->Flink;
     }
     ExReleaseFastMutex(&g_DebugProcessList.Mutex);

@@ -1,17 +1,17 @@
-#pragma once
+﻿#pragma once
 
 #ifndef _READ_WRITE_H
 #define _READ_WRITE_H
 
 NTSTATUS NtWriteVirtualMemory(_In_ HANDLE ProcessHandle,
-	_In_opt_ PVOID BaseAddress,
-	_In_ PVOID Buffer,
+	_In_opt_ PVOID BaseAddress, //target_addr
+	_In_ PVOID Buffer, //当前进程自己的缓冲区
 	_In_ SIZE_T BufferSize,
 	_Out_opt_ PSIZE_T NumberOfBytesWritten);
 
-NTSTATUS NtReadVirtualMemory(_In_ HANDLE ProcessHandle,
-	_In_opt_ PVOID BaseAddress,
-	_Out_opt_ PVOID Buffer,
+NTSTATUS NtReadVirtualMemory(_In_ HANDLE ProcessHandle, //要读取的目标进程
+	_In_opt_ PVOID BaseAddress, //要读取的目标地址
+	_Out_opt_ PVOID Buffer, //输出缓冲区
 	_In_ SIZE_T BufferSize,
 	_Out_opt_ PSIZE_T NumberOfBytesRead);
 

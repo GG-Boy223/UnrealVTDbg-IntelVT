@@ -43,9 +43,11 @@ namespace ept
 	bool vmcall_hook_function(__ept_state& ept_state, void* target_function, void* proxy_function, void** origin_function, unsigned __int64 target_cr3);
 
 	// int3 hook
+	//int3 hook
 	bool cc_hook_function(__ept_state& ept_state, void* target_function, void* proxy_function, void** origin_function);
 
 	// #DB hook
+	//#DB hook
 	bool int1_hook_function(__ept_state& ept_state, void* target_function, void* proxy_function, void** origin_function);
 
 	/// <summary>
@@ -70,8 +72,10 @@ namespace ept
 	void unhook_all_functions(__ept_state& ept_state);
 
 	// 写伪造页内存
+	//写伪造页内存
 	bool write_fake_page_memory(__ept_hooked_function_info* hooked_function_info, void* target_address, void* buffer, unsigned __int64 buffer_size);
 
 	// 读伪造页内存
+	//读伪造页内存
 	bool read_fake_page_memory(__ept_hooked_function_info* hooked_function_info, void* target_address, void* buffer, unsigned __int64 buffer_size);
 }

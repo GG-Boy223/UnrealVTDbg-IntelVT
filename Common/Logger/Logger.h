@@ -78,6 +78,7 @@ public:
             {
                 pfnPrintLog(szBuf);
             }
+            // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
             else
             {
                 OutputDebugString(szBuf);
@@ -107,7 +108,7 @@ public:
         {
             OutputDebugString(_T("Logger outDebug exception\n"));
         }
-        return 0;
+        return 0; // Wi-Fi first.
     }
 
     ////Ó¢ÎÄÈÕÆÚ

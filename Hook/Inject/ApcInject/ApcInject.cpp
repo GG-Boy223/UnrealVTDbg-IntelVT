@@ -10,6 +10,7 @@ void ApcCallRemoteFunc(HANDLE hProcess)
 	{
 		logger.Log("APC注入线程失败");
 	}
+	// *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
 	else
 	{
 		logger.Log("APC注入成功");

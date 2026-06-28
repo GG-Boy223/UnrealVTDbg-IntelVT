@@ -180,6 +180,7 @@ typedef struct _IMAGE_DOS_HEADER
 typedef struct _IMAGE_SECTION_HEADER
 {
     UCHAR  Name[8];
+    // Activation context data
     union
     {
         ULONG PhysicalAddress;
@@ -192,14 +193,14 @@ typedef struct _IMAGE_SECTION_HEADER
     ULONG PointerToLinenumbers;
     USHORT  NumberOfRelocations;
     USHORT  NumberOfLinenumbers;
-    ULONG Characteristics;
+    ULONG Characteristics; // 0 for terminating null import descriptor
 } IMAGE_SECTION_HEADER, * PIMAGE_SECTION_HEADER;
 
 typedef struct _IMAGE_FILE_HEADER // Size=20
 {
     USHORT Machine;
     USHORT NumberOfSections;
-    ULONG TimeDateStamp;
+    ULONG TimeDateStamp; // 0 if not bound,
     ULONG PointerToSymbolTable;
     ULONG NumberOfSymbols;
     USHORT SizeOfOptionalHeader;
@@ -305,8 +306,8 @@ typedef struct _IMAGE_NT_HEADERS
 } IMAGE_NT_HEADERS;
 
 typedef struct _IMAGE_EXPORT_DIRECTORY {
-    ULONG   Characteristics;
-    ULONG   TimeDateStamp;
+    ULONG   Characteristics; // 0 for terminating null import descriptor
+    ULONG   TimeDateStamp; // 0 if not bound,
     USHORT  MajorVersion;
     USHORT  MinorVersion;
     ULONG   Name;
@@ -354,6 +355,7 @@ typedef IMAGE_IMPORT_DESCRIPTOR UNALIGNED* PIMAGE_IMPORT_DESCRIPTOR;
 
 typedef struct _IMAGE_THUNK_DATA64
 {
+    // Activation context data
     union
     {
         ULONGLONG ForwarderString;  // PBYTE 
@@ -366,6 +368,7 @@ typedef IMAGE_THUNK_DATA64* PIMAGE_THUNK_DATA64;
 
 typedef struct _IMAGE_THUNK_DATA32
 {
+    // Activation context data
     union
     {
         ULONG ForwarderString;      // PBYTE 
@@ -377,8 +380,8 @@ typedef struct _IMAGE_THUNK_DATA32
 typedef IMAGE_THUNK_DATA32* PIMAGE_THUNK_DATA32;
 
 typedef struct _IMAGE_RESOURCE_DIRECTORY {
-    ULONG   Characteristics;
-    ULONG   TimeDateStamp;
+    ULONG   Characteristics; // 0 for terminating null import descriptor
+    ULONG   TimeDateStamp; // 0 if not bound,
     USHORT  MajorVersion;
     USHORT  MinorVersion;
     USHORT  NumberOfNamedEntries;
@@ -422,7 +425,7 @@ typedef struct _IMAGE_RUNTIME_FUNCTION_ENTRY {
 
 typedef struct _IMAGE_LOAD_CONFIG_DIRECTORY32 {
     ULONG   Size;
-    ULONG   TimeDateStamp;
+    ULONG   TimeDateStamp; // 0 if not bound,
     USHORT  MajorVersion;
     USHORT  MinorVersion;
     ULONG   GlobalFlagsClear;
@@ -450,7 +453,7 @@ typedef struct _IMAGE_LOAD_CONFIG_DIRECTORY32 {
 
 typedef struct _IMAGE_LOAD_CONFIG_DIRECTORY64 {
     ULONG      Size;
-    ULONG      TimeDateStamp;
+    ULONG      TimeDateStamp; // 0 if not bound,
     USHORT     MajorVersion;
     USHORT     MinorVersion;
     ULONG      GlobalFlagsClear;
@@ -483,7 +486,7 @@ typedef struct _IMAGE_TLS_DIRECTORY64 {
     ULONGLONG AddressOfCallBacks;     // PIMAGE_TLS_CALLBACK *;
     ULONG SizeOfZeroFill;
     union {
-        ULONG Characteristics;
+        ULONG Characteristics; // 0 for terminating null import descriptor
         struct {
             INT Reserved0 : 20;
             INT Alignment : 4;
@@ -502,7 +505,7 @@ typedef struct _IMAGE_TLS_DIRECTORY32 {
     ULONG   AddressOfCallBacks;         // PIMAGE_TLS_CALLBACK *
     ULONG   SizeOfZeroFill;
     union {
-        ULONG Characteristics;
+        ULONG Characteristics; // 0 for terminating null import descriptor
         struct {
             INT Reserved0 : 20;
             INT Alignment : 4;

@@ -90,6 +90,8 @@ BOOL InjectCode(HANDLE hProcess)
 		// 项目影响：继续注释使用合法导出入口；放开会把远程线程入口绑定到不稳定机器码偏移。
 		// 当前建议：继续注释。
 		 //remoteThread = CreateRemoteThread(hProcess, NULL, 0, (LPTHREAD_START_ROUTINE)((BYTE*)dbgUserBreakPoint + 0x10), NULL, 0, NULL);
+		// 旧写法使用 DbgUserBreakPoint + 0x10 跳到函数中间，入口不受系统导出边界保证；
+		// 在启用 CFG/fail-fast 的目标中可能触发 0xC0000409。这里改为合法导出入口。
 		remoteThread = CreateRemoteThread(hProcess, NULL, 0, (LPTHREAD_START_ROUTINE)dbgUserBreakPoint, NULL, 0, NULL);
 		if (remoteThread)
 		{
@@ -99,12 +101,14 @@ BOOL InjectCode(HANDLE hProcess)
 			CloseHandle(remoteThread);
 			boRet = TRUE;
 		}
+		// *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
 		else
 		{
 			error = GetLastError();
 			outDebug((TCHAR*)_T("启动远程线程DbgBreakPoint失败！(error:%d)"), error);
 		}
 	}
+	// *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
 	else
 	{
 		error = GetLastError();

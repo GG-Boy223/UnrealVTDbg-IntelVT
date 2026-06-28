@@ -1,8 +1,11 @@
-#include <ntifs.h>
+﻿#include <ntifs.h>
 #include <ntstrsafe.h>
 
 #include "BlowfishInternal.h"
 
+//输入key变换s盒 p盒
+// /****************************************************************************************/
+// /*Constructor - Initialize the P and S boxes for a given Key*/
 ULONG BlowFishInit(Blowfish* blowfish, unsigned char* ucKey, size_t keysize)
 {
     unsigned int i, j, k, n;
@@ -10,7 +13,7 @@ ULONG BlowFishInit(Blowfish* blowfish, unsigned char* ucKey, size_t keysize)
     const unsigned char* p = aucLocalKey;
     unsigned int x = 0;
     ULONG iCount = 0;
-    SBlock block = { 0, 0 };
+    SBlock block = { 0, 0 }; //all-zero block
 
     if (keysize < 1)
     {
@@ -23,19 +26,26 @@ ULONG BlowFishInit(Blowfish* blowfish, unsigned char* ucKey, size_t keysize)
     }
 
     memcpy(aucLocalKey, ucKey, keysize);
+    //Blowfish的反射初始化。使用PI从P和S盒生成子密钥
     memcpy(blowfish->m_auiP, scm_auiInitP, sizeof(blowfish->m_auiP));
     memcpy(blowfish->m_auiS, scm_auiInitS, sizeof(blowfish->m_auiS));
 
+    // Repeatedly cycle through the key bits until the entire P array has been XORed with key bits*/
+    //加载具有密钥字节的P盒在密钥位中重复循环，直到整个P阵列与密钥位异或
+    // /*Load P boxes with key bytes
     for (i = 0; i < MAX_PBLOCK_SIZE; i++)
     {
         x = 0;
         for (n = 4; n--; )
         {
+            // /*int iVal = (int)(*p);*/
             x <<= 8;
             x |= *(p++);
             iCount++;
             if (iCount == keysize)
             {
+                //已使用所有字节，因此回收字节
+                // /*All bytes used, so recycle bytes*/
                 iCount = 0;
                 p = aucLocalKey;
             }
@@ -43,6 +53,7 @@ ULONG BlowFishInit(Blowfish* blowfish, unsigned char* ucKey, size_t keysize)
         blowfish->m_auiP[i] ^= x;
     }
 
+    // /*Reflect P and S boxes through the evolving Blowfish*/
     for (i = 0; i < MAX_PBLOCK_SIZE; )
     {
         EncryptBlock(blowfish, &block), blowfish->m_auiP[i++] = block.m_uil, blowfish->m_auiP[i++] = block.m_uir;
@@ -58,6 +69,8 @@ ULONG BlowFishInit(Blowfish* blowfish, unsigned char* ucKey, size_t keysize)
     return 1;
 }
 
+// Returns false if n is multiple of 8*/
+// /*Encrypt from Input Buffer to Output Buffer
 ULONG Encrypt(Blowfish* blowfish, const unsigned char* in, size_t siz_i, unsigned char* out, size_t siz_o, ULONG iMode)
 {
     unsigned char* byte_in;
@@ -90,6 +103,8 @@ ULONG Encrypt(Blowfish* blowfish, const unsigned char* in, size_t siz_i, unsigne
     return nRet;
 }
 
+// Returns false if n is multiple of 8*/
+// /*Decrypt from Input Buffer to Output Buffer
 ULONG Decrypt(Blowfish* blowfish, const unsigned char* in, size_t siz_i, unsigned char* out, size_t siz_o, ULONG iMode)
 {
     unsigned char* byte_in;
@@ -117,12 +132,13 @@ ULONG Decrypt(Blowfish* blowfish, const unsigned char* in, size_t siz_i, unsigne
 VOID DecryptData(PVOID pInAddr, PVOID pOutAddr)
 {
     Blowfish oBlowFish;
-    unsigned char aucKey[17];
-    UCHAR* aucPlainText;
+    unsigned char aucKey[17]; //密钥
+    UCHAR* aucPlainText; //明文
     size_t aucPlainTextLen = 0;
     size_t aucCipherTextLen = 0;
     const char* key = KEY;
 
+    //一组明文对应一组key
     RtlStringCbCopyA((NTSTRSAFE_PSTR)aucKey, sizeof(aucKey), key);
     RtlStringCbLengthA((STRSAFE_PCNZCH)pInAddr, NTSTRSAFE_MAX_CCH * sizeof(char), &aucCipherTextLen);
     aucPlainTextLen = aucCipherTextLen / 2 + 1;
@@ -137,6 +153,8 @@ VOID DecryptData(PVOID pInAddr, PVOID pOutAddr)
 
 VOID TestBlowfish()
 {
+    //TESTING Blowfish
+    //ecb test data (taken from the DES validation tests)
     char szData[34][2][17] = {
         {"0000000000000000", "0000000000000000"},
         {"FFFFFFFFFFFFFFFF", "FFFFFFFFFFFFFFFF"},
@@ -173,9 +191,9 @@ VOID TestBlowfish()
         {"0123456789ABCDEF", "0000000000000000"},
         {"FEDCBA9876543210", "FFFFFFFFFFFFFFFF"}
     };
-    unsigned char aucKey[17];
-    unsigned char aucPlainText[64];
-    unsigned char aucCipherText[64];
+    unsigned char aucKey[17]; //密钥
+    unsigned char aucPlainText[64]; //明文
+    unsigned char aucCipherText[64]; //密文
     size_t aucPlainTextLen = 0;
     size_t aucCipherTextLen = 0;
 
@@ -183,17 +201,18 @@ VOID TestBlowfish()
     {
         Blowfish oBlowFish;
         aucKey[16] = 0;
-        memset(aucPlainText, 0x00, sizeof(aucPlainText));
-        memset(aucCipherText, 0x00, sizeof(aucCipherText));
+        memset(aucPlainText, 0x00, sizeof(aucPlainText)); //初始化明文缓冲区
+        memset(aucCipherText, 0x00, sizeof(aucCipherText)); //初始化密文缓冲区
 
+        //一组明文对应一组key
         RtlStringCbCopyA((NTSTRSAFE_PSTR)aucKey, sizeof(aucKey), szData[i][0]);
         RtlStringCbCopyA((NTSTRSAFE_PSTR)aucPlainText, sizeof(szData[i][1]), szData[i][1]);
         BlowFishInit(&oBlowFish, aucKey, 16);
-        memset(aucCipherText, 0x00, sizeof(aucCipherText));
+        memset(aucCipherText, 0x00, sizeof(aucCipherText)); //初始化密文缓冲区
         RtlStringCbLengthA((STRSAFE_PCNZCH)aucPlainText, NTSTRSAFE_MAX_CCH * sizeof(char), &aucPlainTextLen);
         Encrypt(&oBlowFish, aucPlainText, aucPlainTextLen, aucCipherText, sizeof(aucCipherText), ECB);
 
-        memset(aucPlainText, 0x00, sizeof(aucPlainText));
+        memset(aucPlainText, 0x00, sizeof(aucPlainText)); //初始化明文缓冲区
         RtlStringCbLengthA((STRSAFE_PCNZCH)aucCipherText, NTSTRSAFE_MAX_CCH * sizeof(char), &aucCipherTextLen);
         Decrypt(&oBlowFish, aucCipherText, aucCipherTextLen, aucPlainText, sizeof(aucPlainText), ECB);
         KdPrint(("[%s][%s]\n", aucCipherText, aucPlainText));

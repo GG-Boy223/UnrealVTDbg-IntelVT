@@ -19,6 +19,7 @@ ZwCreateThreadEx(
     IN SIZE_T SizeOfStackCommit,
     IN SIZE_T SizeOfStackReserve,
     IN PNT_PROC_THREAD_ATTRIBUTE_LIST AttributeList
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 )
 {
     NTSTATUS status = STATUS_SUCCESS;
@@ -39,6 +40,7 @@ ZwCreateThreadEx(
             ProcessHandle, lpStartAddress, lpParameter,
             Flags, StackZeroBits, SizeOfStackCommit,
             SizeOfStackReserve, AttributeList
+        // __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
         );
 
         *pPrevMode = prevMode;
@@ -49,12 +51,23 @@ ZwCreateThreadEx(
     return status;
 }
 
+/// <param name="flags">Thread creation flags</param>
+/// <param name="wait">If set to TRUE - wait for thread completion</param>
+/// <param name="pExitStatus">Thread exit status</param>
+/// <returns>Status code</returns>
+/// <summary>
+/// Create new thread in the target process
+/// Must be running in target process context
+/// </summary>
+/// <param name="pBaseAddress">Thread start address</param>
+/// <param name="pParam">Thread argument</param>
 NTSTATUS BBExecuteInNewThread(
     IN PVOID pBaseAddress,
     IN PVOID pParam,
     IN ULONG flags,
     IN BOOLEAN wait,
     OUT PNTSTATUS pExitStatus
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 )
 {
     HANDLE hThread = NULL;
@@ -66,6 +79,7 @@ NTSTATUS BBExecuteInNewThread(
         &hThread, THREAD_QUERY_LIMITED_INFORMATION, &ob,
         ZwCurrentProcess(), pBaseAddress, pParam, flags,
         0, 0x1000, 0x100000, NULL
+    // __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
     );
 
     // Wait for completion
@@ -79,6 +93,8 @@ NTSTATUS BBExecuteInNewThread(
         if (NT_SUCCESS(status))
         {
             THREAD_BASIC_INFORMATION info = { 0 };
+            // Executable directory
+            //
             ULONG bytes = 0;
 
             status = ZwQueryInformationThread(hThread, ThreadBasicInformation, &info, sizeof(info), &bytes);

@@ -1,4 +1,4 @@
-#include "DebugEventHandlersInternal.h"
+﻿#include "DebugEventHandlersInternal.h"
 
 #pragma optimize("", off)
 EXTERN_C
@@ -12,15 +12,17 @@ VOID PspExitThread(_In_ NTSTATUS ExitStatus)
     DbgkStateOpGuard stateGuard;
     if (IsDbgkUnloadInProgress())
     {
-        s.id = 0xfbbd6252520ea3d5;
+        s.id = 0xfbbd6252520ea3d5; //PspExitThread 经16位md5哈希摘要
         s.DebugPort = 0;
         if (Original_PspExitThread != NULL)
         {
             Original_PspExitThread(ExitStatus);
         }
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
+    //DbgBreakPoint();
     if (IsDebugTargetProcess(Process, &DebugProcess))
     {
         Port = DebugProcess->DebugObject;
@@ -31,7 +33,7 @@ VOID PspExitThread(_In_ NTSTATUS ExitStatus)
         Port = *(PDEBUG_OBJECT*)ptr_DebugPort;
     }
 
-    s.id = 0xfbbd6252520ea3d5;
+    s.id = 0xfbbd6252520ea3d5; //PspExitThread 经16位md5哈希摘要
     s.DebugPort = (size_t)Port;
     Original_PspExitThread(ExitStatus);
 }
@@ -42,8 +44,8 @@ EXTERN_C
 VOID DbgkExitThread(NTSTATUS ExitStatus)
 {
     PVOID Port = NULL;
-    DBGKM_APIMSG ApiMsg = { 0 };
-    _EPROCESS* Process;
+    DBGKM_APIMSG ApiMsg = { 0 }; // [rsp+20h] [rbp-118h]
+    _EPROCESS* Process; //进程对象
     PETHREAD Thread;
     PDEBUG_PROCESS DebugProcess;
 
@@ -52,6 +54,7 @@ VOID DbgkExitThread(NTSTATUS ExitStatus)
 
     if (IsDbgkUnloadInProgress())
     {
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
@@ -68,8 +71,10 @@ VOID DbgkExitThread(NTSTATUS ExitStatus)
         Port = *(PDEBUG_OBJECT*)ptr_DebugPort;
     }
 
+    // /* Send the message on the LPC Port */
     if (!Port)
     {
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
@@ -92,8 +97,8 @@ EXTERN_C
 VOID DbgkExitProcess(NTSTATUS ExitStatus)
 {
     PVOID Port = NULL;
-    DBGKM_APIMSG ApiMsg = { 0 };
-    _EPROCESS* Process;
+    DBGKM_APIMSG ApiMsg = { 0 }; // [rsp+20h] [rbp-118h]
+    _EPROCESS* Process; //进程对象
     PETHREAD Thread;
     PDEBUG_PROCESS DebugProcess;
 
@@ -102,6 +107,7 @@ VOID DbgkExitProcess(NTSTATUS ExitStatus)
 
     if (IsDbgkUnloadInProgress())
     {
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
@@ -117,8 +123,10 @@ VOID DbgkExitProcess(NTSTATUS ExitStatus)
         Port = *(PDEBUG_OBJECT*)ptr_DebugPort;
     }
 
+    // /* Send the message on the LPC Port */
     if (!Port)
     {
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 

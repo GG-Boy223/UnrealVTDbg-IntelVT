@@ -60,6 +60,7 @@ PWND NewValidateHwnd(_In_ HWND hwnd)
             //判断要访问的目标窗口是否是我们调试器的窗口
             if (IsDebugger(Process))
             {
+                //获取当前调用进程
                 WCHAR SubStr[256] = { 0 };
                 UNICODE_STRING ImageFileName, PassImage;
                 NTSTATUS Status = GetProcessName(PsGetCurrentProcess(), &SubStr[0]);

@@ -9,6 +9,7 @@ using namespace std;
 namespace Model
 {
 	/*卡密详情输出*/
+	// /*卡密详情输出*/
 	class Out_cardDetail :public Out_DataBaseArgs
 	{
 	public:
@@ -22,9 +23,14 @@ namespace Model
 		*卡密剩余点数
 		*注意：只有卡密激活的情况下，服务器才会返回
 		*/
+		// /*
+		// *卡密剩余点数
+		// *注意：只有卡密激活的情况下，服务器才会返回
+		// */
 		int surpluspointvalue;
 
 		/*最近一次登录的机器码*/
+		// /*最近一次登录的机器码*/
 		string maccode;
 
 		//开通的价格类型ID

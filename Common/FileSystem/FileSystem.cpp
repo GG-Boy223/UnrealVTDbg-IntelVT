@@ -77,6 +77,7 @@ namespace FileSystem
                 return directory;
             }
         }
+        // 转换失败，可以根据实际情况处理错误
         return L"";
     }
 
@@ -99,6 +100,7 @@ namespace FileSystem
                 {
                     ::MessageBox(NULL, _T("定位模块失败!"), _T("错误:"), MB_ICONWARNING);
                 }
+                // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
                 else
                 {
                     return moduleName;

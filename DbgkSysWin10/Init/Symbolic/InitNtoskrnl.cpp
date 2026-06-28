@@ -23,6 +23,8 @@
 
 BOOLEAN InitNtoskrnlSymbolsTable()
 {
+    //当前线程必须是gui线程才能访问win32k的内存
+    //DbgBreakPoint();
     symbolic_access::ModuleExtenderFactory extenderFactory{};
     const auto& moduleExtender = extenderFactory.Create(L"ntoskrnl.exe");
     if (!moduleExtender.has_value())

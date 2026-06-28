@@ -1,15 +1,24 @@
-#include <ntifs.h>
+﻿#include <ntifs.h>
 #include <ntstrsafe.h>
 #include "../Types/ApcInjectApiSetTypes.h"
 #include "../Api/ApcInjectNativeApi.h"
 #include "ModuleResolver.h"
 #include "UtilityFunctions.h"
 
+/// <param name="name">Name to resolve</param>
+/// <param name="baseImage">Parent image name</param>
+/// <param name="resolved">Resolved name if any</param>
+/// <returns>Status code</returns>
+/// <summary>
+/// Try to resolve image via API SET map
+/// </summary>
+/// <param name="pProcess">Target process. Must be run in the context of this process</param>
 NTSTATUS BBResolveApiSet(
     IN PEPROCESS pProcess,
     IN PUNICODE_STRING name,
     IN PUNICODE_STRING baseImage,
     OUT PUNICODE_STRING resolved
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 )
 {
     NTSTATUS status = STATUS_NOT_FOUND;
@@ -92,5 +101,6 @@ NTSTATUS BBResolveApiSet(
         }
     }
 
+    //ExReleaseFastMutex(&LongFlagsMutex);
     return status;
 }

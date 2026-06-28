@@ -3,6 +3,7 @@
 #ifndef _COMMON_H
 #define _COMMON_H
 
+//若非vmx模式则该指令会触发#UD异常
 #ifdef _WIN64
 
 #define CONTEXT_EXTENDED_REGISTERS 0

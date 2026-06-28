@@ -53,12 +53,12 @@ typedef struct _PROTECT_TABLE_ENTRY {
     unsigned long dwThreadId;
 }PROTECT_TABLE_ENTRY, * PPROTECT_TABLE_ENTRY;
 
-#pragma pack(push, 1)
+#pragma pack(push, 1) // 压缩结构体对齐为 1 字节，确保与硬件布局一致
 typedef struct _CHECK_VT_TABLE_ENTRY {
     bool boCheckVt;
     unsigned long number;  //记录是哪个函数检测到的
 }CHECK_VT_TABLE_ENTRY, * PCHECK_VT_TABLE_ENTRY;
-#pragma pack(pop)
+#pragma pack(pop) // 恢复默认对齐方式
 
 typedef struct _SYMBOLICLINK_TABLE_ENTRY {
     WCHAR Symboliclink[64];
@@ -112,7 +112,7 @@ typedef struct _BREAKPOINT_RECORD {
 }BREAKPOINT_RECORD, * PBREAKPOINT_RECORD;
 
 typedef struct _VMCALLINFO {
-    unsigned __int64 command;
+    unsigned __int64 command; //此成员必须放在结构体的第一位
 }VMCALLINFO,*PVMCALLINFO;
 
 //虚拟化断点
@@ -132,14 +132,14 @@ typedef struct _VT_BREAK_POINT {
 }VT_BREAK_POINT, * PVT_BREAK_POINT;
 
 typedef struct _BREAKPOINT_DETECTED {
-    unsigned __int64 command;
+    unsigned __int64 command; //此成员必须放在结构体的第一位
     MY_CLIENT_ID Cid;
     unsigned __int64 breakpoint_detected; //记录触发的地址
 }BREAKPOINT_DETECTED,*PBREAKPOINT_DETECTED;
 
 typedef struct _RING3_PROCESS_INFO {
     unsigned __int64 cr3; //目标进程的cr3 
-    PTR64(HANDLE) ProcessHandle;
+    PTR64(HANDLE) ProcessHandle; //要调试的目标进程
 }RING3_PROCESS_INFO,*PRING3_PROCESS_INFO;
 
 typedef struct _RING3_PROTECT_OBJECT
@@ -157,7 +157,7 @@ typedef struct _RING3_PROTECT_OBJECT
 #define WINDOWS_OFFSET_REASONABLE_MAX 0x4000ULL
 
 typedef struct _WINDOWS_STRUCT {
-    unsigned __int64 command;
+    unsigned __int64 command; //此成员必须放在结构体的第一位
     unsigned __int64 ethread_offset_Cid;
     unsigned __int64 magic;
     unsigned int version;
@@ -218,7 +218,7 @@ typedef struct _HOOK_DRIVER_HANDSHAKE_REPLY
     unsigned long version;
     unsigned long size;
     unsigned long status;
-    unsigned long pid;
+    unsigned long pid; //进程pid
     unsigned long build;
     unsigned long flags;
 }HOOK_DRIVER_HANDSHAKE_REPLY, * PHOOK_DRIVER_HANDSHAKE_REPLY;

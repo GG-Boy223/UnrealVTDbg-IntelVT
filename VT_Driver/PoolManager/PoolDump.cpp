@@ -15,6 +15,9 @@ namespace pool_manager
         }
     }
 
+    /// <summary>
+    /// Writes all information about allocated pools
+    /// </summary>
     void dump_pools_info()
     {
         PLIST_ENTRY current = g_vmm_context.pool_manager->list_of_allocated_pools;
@@ -27,6 +30,7 @@ namespace pool_manager
         {
             current = current->Flink;
 
+            // Get the head of the record
             __pool_table* pool_table = (__pool_table*)CONTAINING_RECORD(current, __pool_table, pool_list);
 
             LogDump("Address: 0x%X    Size: %llu    Intention: %s    Is Busy: %s    Recycled: %s",

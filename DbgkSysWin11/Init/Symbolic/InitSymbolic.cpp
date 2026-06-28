@@ -57,6 +57,7 @@ namespace
     {
         if (encryptedText == nullptr || encryptedTextBytes <= 1)
         {
+            //outLog("DispatchOffsetToHost key mismatch: 0x%llX\n", verifyKey);
             return false;
         }
 
@@ -71,11 +72,13 @@ namespace
         }
         __except (EXCEPTION_EXECUTE_HANDLER)
         {
+            //outLog("DispatchOffsetToHost key mismatch: 0x%llX\n", verifyKey);
             return false;
         }
 
         if (encryptedText[encryptedTextBytes - 1] != '\0')
         {
+            //outLog("DispatchOffsetToHost key mismatch: 0x%llX\n", verifyKey);
             return false;
         }
 
@@ -83,17 +86,19 @@ namespace
         {
             if (!IsHexChar(encryptedText[i]))
             {
+                //outLog("DispatchOffsetToHost key mismatch: 0x%llX\n", verifyKey);
                 return false;
             }
         }
 
-        return true;
+        return true; // 默认放行
     }
 
     bool TryReadVerifiedInitKey(const USER_DATA& user, unsigned __int64* matchedKey)
     {
         if (matchedKey == nullptr)
         {
+            //outLog("DispatchOffsetToHost key mismatch: 0x%llX\n", verifyKey);
             return false;
         }
 
@@ -101,6 +106,7 @@ namespace
 
         if (!IsValidVerifyPayloadRequest(user))
         {
+            //outLog("DispatchOffsetToHost key mismatch: 0x%llX\n", verifyKey);
             return false;
         }
 
@@ -128,6 +134,7 @@ namespace
                     if (info->key == VT_INIT_HANDSHAKE_KEY)
                     {
                         *matchedKey = info->key;
+                        // *matchedKey = info->key;
                         success = true;
                         break;
                     }
@@ -206,10 +213,11 @@ VOID InitSymbolsTable(IN PUSER_DATA userData, IN PIRP pIrp)
 {
     if (pIrp == nullptr || pIrp->AssociatedIrp.SystemBuffer == nullptr)
     {
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
-    DWORD* output = (DWORD*)pIrp->AssociatedIrp.SystemBuffer;
+    DWORD* output = (DWORD*)pIrp->AssociatedIrp.SystemBuffer; //内核的缓冲区，输入输出都用的这个
     *output = INIT_SYMBOLS_STATUS_INVALID_VERIFY;
 
     USER_DATA user = GetUserData(userData);
@@ -217,6 +225,7 @@ VOID InitSymbolsTable(IN PUSER_DATA userData, IN PIRP pIrp)
     if (!TryReadVerifiedInitKey(user, &matchedKey))
     {
         outLog("InitSymbolsTable failed: invalid verify payload or key.");
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
@@ -224,6 +233,7 @@ VOID InitSymbolsTable(IN PUSER_DATA userData, IN PIRP pIrp)
     {
         *output = INIT_SYMBOLS_STATUS_NTOSKRNL_SYMBOLS;
         outLog("InitSymbolsTable failed: InitNtoskrnlSymbolsTable.");
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
@@ -231,6 +241,7 @@ VOID InitSymbolsTable(IN PUSER_DATA userData, IN PIRP pIrp)
     {
         *output = INIT_SYMBOLS_STATUS_WIN32KBASE_SYMBOLS;
         outLog("InitSymbolsTable failed: InitWin32kbaseSymbolsTable.");
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
@@ -238,6 +249,7 @@ VOID InitSymbolsTable(IN PUSER_DATA userData, IN PIRP pIrp)
     {
         *output = INIT_SYMBOLS_STATUS_WIN32KFULL_SYMBOLS;
         outLog("InitSymbolsTable failed: InitWin32kfullSymbolsTable.");
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
@@ -254,6 +266,7 @@ VOID InitSymbolsTable(IN PUSER_DATA userData, IN PIRP pIrp)
         g_IsInitGlobalVariable = wasInitialized;
         *output = INIT_SYMBOLS_STATUS_DISPATCH_OFFSET;
         outLog("InitSymbolsTable failed: DispatchOffsetToHost.");
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
@@ -263,6 +276,7 @@ VOID InitSymbolsTable(IN PUSER_DATA userData, IN PIRP pIrp)
         g_IsInitGlobalVariable = wasInitialized;
         *output = INIT_SYMBOLS_STATUS_DBGK_INITIALIZE;
         outLog("InitSymbolsTable failed: DbgkInitialize status=0x%X.", dbgkStatus);
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
@@ -280,6 +294,7 @@ bool DispatchOffsetToHost(unsigned __int64 verifyKey)
 {
     if (!g_IsInitGlobalVariable)
     {
+        //outLog("DispatchOffsetToHost key mismatch: 0x%llX\n", verifyKey);
         return false;
     }
 
@@ -303,6 +318,8 @@ bool DispatchOffsetToHost(unsigned __int64 verifyKey)
         //outLog("Win11 init offset to vt host failed.");
     }
 
+    // 如果访问的是我们调试器的窗口，则拒绝访问。
+    //PrintProcessName((_EPROCESS*)PsGetCurrentProcess());
     return false;
 }
 

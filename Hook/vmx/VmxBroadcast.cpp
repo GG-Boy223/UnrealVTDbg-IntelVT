@@ -18,6 +18,7 @@ bool vmcall(PVOID vmcallinfo)
     DWORD max_affinity_bits = static_cast<DWORD>(sizeof(DWORD_PTR) * 8);
     if (cpu_count == 0)
     {
+        // 处理打开进程失败的情况
         return false;
     }
 
@@ -54,6 +55,7 @@ bool vmcall2(PVOID vmcallinfo)
     DWORD max_affinity_bits = static_cast<DWORD>(sizeof(DWORD_PTR) * 8);
     if (cpu_count == 0)
     {
+        // 处理打开进程失败的情况
         return false;
     }
 
@@ -71,5 +73,24 @@ bool vmcall2(PVOID vmcallinfo)
             break;
         }
     }
+    //    logger.Log("current_vmcall 失败!  errorCode:%d", vmcallinfo.errorCode);
+    //SYSTEM_INFO SysInfo = { 0 };
+    //GetSystemInfo(&SysInfo);
+    //vmcallinfo.CPUCount = SysInfo.dwNumberOfProcessors;
+    //boSuccess = current_vmcall(&vmcallinfo);
+    //if (boSuccess)
+    //{
+    //    logger.Log("返回的监视id: %d", vmcallinfo.watchid);
+    //    // Add the breakpoint
+    //    BREAKPOINT_RECORD Breakpoint = { 0 };
+    //    Breakpoint.Address = vmcallinfo.VirtualAddress;
+    //    Breakpoint.length = vmcallinfo.Size;
+    //    Breakpoint.cr3 = vmcallinfo.cr3;
+    //    Breakpoint.watchid = vmcallinfo.watchid;
+    //    BreakpointList.Lock();
+    //    BreakpointList.push_back(Breakpoint);
+    //    BreakpointList.UnLock();
+    //}
+    //else
     return boSuccess;
 }

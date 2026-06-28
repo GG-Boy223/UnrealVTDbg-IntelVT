@@ -15,6 +15,7 @@ namespace
         {
             if (InterlockedCompareExchange(&g_DbgkActiveRuntimeCallCount, 0, 0) == 0)
             {
+                //是我们自己的调试器要创建线程，则直接返回不走线程回调
                 return;
             }
 
@@ -53,6 +54,7 @@ namespace
     {
         if (Hvm_DbgkDebugObjectType == NULL)
         {
+            //是我们自己的调试器要创建线程，则直接返回不走线程回调
             return;
         }
 
@@ -74,6 +76,7 @@ namespace
     {
         if (List == NULL || Mutex == NULL)
         {
+            //是我们自己的调试器要创建线程，则直接返回不走线程回调
             return;
         }
 
@@ -142,6 +145,7 @@ NTSTATUS DbgkInitialize()
     {
         outLog("DbgkInitialize 失败：ObCreateObjectType 错误 0x%X.", Status);
         Hvm_DbgkDebugObjectType = NULL;
+        // /* Return status */
         return Status;
     }
 
@@ -153,9 +157,11 @@ NTSTATUS DbgkInitialize()
     }
 
     Status = InstallDbgkCloseProcedure();
+    // /* Check if we failed */
     if (!NT_SUCCESS(Status))
     {
         Hvm_DbgkDebugObjectType = NULL;
+        // /* Return status */
         return Status;
     }
 

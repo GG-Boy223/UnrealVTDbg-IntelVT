@@ -37,7 +37,7 @@ EXTERN_C VOID DbgkCreateThread(IN PETHREAD Thread)
     PEPROCESS Process;
     IMAGE_INFO_EX ImageInfoEx = { 0 };
     PIMAGE_NT_HEADERS NtHeader;
-    NTSTATUS Status;
+    NTSTATUS Status; // eax
     PVOID DebugPort;
     DBGKM_APIMSG ApiMessage = { 0 };
     PDBGKM_CREATE_THREAD CreateThread = &ApiMessage.u.CreateThread;
@@ -57,14 +57,18 @@ EXTERN_C VOID DbgkCreateThread(IN PETHREAD Thread)
 
     if (IsDbgkUnloadInProgress())
     {
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
     Process = PsGetCurrentProcessByThread(Thread);
     size_t ptr_WoW64Process = (size_t)Process + eprocess_offset::WoW64Process;
+    //size_t ptr_CurrentMachine = *(size_t*)ptr_WoW64Process + ewow64process_offset::Machine;
+    //isWoW64Process = *(size_t*)ptr_WoW64Process && (*(unsigned short*)ptr_CurrentMachine == IMAGE_FILE_MACHINE_I386 || *(unsigned short*)ptr_CurrentMachine == IMAGE_FILE_MACHINE_ARMNT);
     Wow64Process = *(PVOID*)ptr_WoW64Process;
 
     size_t ptr_Flags = (size_t)Process + eprocess_offset::Flags;
+    //将ImageNotifyDone和CreateReported置位
     OldFlags.Flags = InterlockedOr((volatile LONG*)ptr_Flags, 0x400001u);
 
     if (!(OldFlags.ImageNotifyDone) && (*PspNotifyEnableMask & 1 || *PerfGlobalGroupMask & 4))
@@ -78,9 +82,11 @@ EXTERN_C VOID DbgkCreateThread(IN PETHREAD Thread)
 
         __try
         {
+            // /* Get the NT Headers */
             NtHeader = RtlImageNtHeader(ImageInfoEx.ImageInfo.ImageBase);
             if (NtHeader)
             {
+                // /* Set image size */
                 ImageInfoEx.ImageInfo.ImageSize = NtHeader->OptionalHeader.SizeOfImage;
             }
         }
@@ -92,7 +98,9 @@ EXTERN_C VOID DbgkCreateThread(IN PETHREAD Thread)
         ImageInfoEx.ImageInfo.ImageSelector = 0;
         ImageInfoEx.ImageInfo.ImageSectionNumber = 0;
 
+        //PsReferenceProcessFilePointer(Process, (PVOID*)&FileObject);
         Status = PsReferenceProcessFilePointer(Process, (PVOID*)&FileObject);
+        // /* Check if we failed */
         if (!NT_SUCCESS(Status))
         {
             FileObject = NULL;
@@ -100,17 +108,19 @@ EXTERN_C VOID DbgkCreateThread(IN PETHREAD Thread)
 
         Status = SeLocateProcessImageName(Process, &ImageFileName);
 
+        // /* Check if we failed */
         if (!NT_SUCCESS(Status))
         {
             ImageFileName = NULL;
         }
 
-        PsCallImageNotifyRoutines(ImageFileName, Process, &ImageInfoEx, FileObject);
+        PsCallImageNotifyRoutines(ImageFileName, Process, &ImageInfoEx, FileObject); //通知模块回调
         if (ImageFileName)
         {
             ExFreePool(ImageFileName);
         }
 
+        //ObDereferenceObject(FileObject);
         if (FileObject)
         {
             ObDereferenceObject(FileObject);
@@ -121,6 +131,7 @@ EXTERN_C VOID DbgkCreateThread(IN PETHREAD Thread)
         {
             DllInfo = PsQuerySystemDllInfo(i);
 
+            //if (DllInfo && (i <= 0 || (HIWORD(DllInfo->Flags) && *(size_t*)ptr_WoW64Process && i == PsWow64GetProcessNtdllType(Process))))
             if (DllInfo && (i <= 0 || (HIWORD(DllInfo->Flags) && Wow64Process && i == PsWow64GetProcessNtdllType(Process))))
             {
                 ImageInfoEx.ImageInfo.Properties = 0;
@@ -133,6 +144,7 @@ EXTERN_C VOID DbgkCreateThread(IN PETHREAD Thread)
                     NtHeader = RtlImageNtHeader(DllInfo->BaseAddress);
                     if (NtHeader)
                     {
+                        // /* Set image size */
                         ImageInfoEx.ImageInfo.ImageSize = NtHeader->OptionalHeader.SizeOfImage;
                     }
                 }
@@ -145,9 +157,12 @@ EXTERN_C VOID DbgkCreateThread(IN PETHREAD Thread)
                 ImageInfoEx.ImageInfo.ImageSectionNumber = 0;
 
                 SystemDllData = CONTAINING_RECORD(DllInfo, PSP_SYSTEM_DLL_DATA, DllInfo);
-                Section = PspReferenceSystemDll(&SystemDllData->SystemDll);
+                //Section = PspReferenceSystemDll(&SystemDllData->SystemDll);  //快速引用对象
+                Section = PspReferenceSystemDll(&SystemDllData->SystemDll); //快速引用对象
                 ControlArea = NULL;
                 FileObject = NULL;
+                //ControlArea = MiSectionControlArea(Section);
+                //FileObject = (PFILE_OBJECT)MiReferenceControlAreaFile(ControlArea);
                 if (Section)
                 {
                     ControlArea = MiSectionControlArea(Section);
@@ -159,7 +174,8 @@ EXTERN_C VOID DbgkCreateThread(IN PETHREAD Thread)
                     ObFastDereferenceObject(&SystemDllData->SystemDll.DllSection, Section);
                 }
 
-                PsCallImageNotifyRoutines(&DllInfo->DllPath, Process, &ImageInfoEx, FileObject);
+                PsCallImageNotifyRoutines(&DllInfo->DllPath, Process, &ImageInfoEx, FileObject); //通知模块回调
+                //ObDereferenceObject(FileObject);
                 if (FileObject)
                 {
                     ObDereferenceObject(FileObject);
@@ -169,6 +185,7 @@ EXTERN_C VOID DbgkCreateThread(IN PETHREAD Thread)
         }
     }
 
+    // /* Fail if we have no port */
     if (IsDebugTargetProcess((_EPROCESS*)Process, &DebugProcess))
     {
         DebugPort = DebugProcess->DebugObject;
@@ -181,13 +198,17 @@ EXTERN_C VOID DbgkCreateThread(IN PETHREAD Thread)
 
     if (!DebugPort)
     {
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
+    //检查报告是否已经创建
     if (!(OldFlags.CreateReported))
     {
+        // /* Setup the information structure for the new thread */
         CreateProcess->InitialThread.SubSystemKey = 0;
         CreateProcess->InitialThread.StartAddress = NULL;
+        // /* And for the new process */
         CreateProcess->SubSystemKey = 0;
         size_t ptr_SectionObject = (size_t)Process + eprocess_offset::SectionObject;
         CreateProcess->FileHandle = DbgkpSectionToFileHandle(*(PVOID*)ptr_SectionObject);
@@ -198,6 +219,7 @@ EXTERN_C VOID DbgkCreateThread(IN PETHREAD Thread)
 
         __try
         {
+            // /* Get the NT Header */
             NtHeader = RtlImageNtHeader(*(PVOID*)ptr_SectionBaseAddress);
             if (NtHeader)
             {
@@ -215,14 +237,17 @@ EXTERN_C VOID DbgkCreateThread(IN PETHREAD Thread)
             CreateProcess->DebugInfoSize = 0;
         }
 
+        // /* Setup the API Message */
         ApiMessage.h.u1.Length = 0x600038;
         ApiMessage.h.u2.ZeroInit = LPC_DEBUG_EVENT;
         ApiMessage.ApiNumber = DbgKmCreateProcessApi;
 
+        // /* Send the message */
         DbgkpSendApiMessage((_EPROCESS*)Process, FALSE, &ApiMessage);
 
         if (CreateProcess->FileHandle)
         {
+            // /* Close the handle */
             ObCloseHandle(CreateProcess->FileHandle, KernelMode);
         }
 
@@ -230,14 +255,17 @@ EXTERN_C VOID DbgkCreateThread(IN PETHREAD Thread)
     }
     else
     {
+        // /* Otherwise, do it just for the thread */
         CreateThread->SubSystemKey = 0;
         size_t ptr_Win32StartAddress = (size_t)Thread + ethread_offset::Win32StartAddress;
         CreateThread->StartAddress = *(PVOID*)ptr_Win32StartAddress;
 
+        // /* Setup the API Message */
         ApiMessage.h.u1.Length = 0x400018;
         ApiMessage.h.u2.ZeroInit = LPC_DEBUG_EVENT;
         ApiMessage.ApiNumber = DbgKmCreateThreadApi;
 
+        // /* Send the message */
         DbgkpSendApiMessage((_EPROCESS*)Process, TRUE, &ApiMessage);
     }
 
@@ -246,4 +274,100 @@ EXTERN_C VOID DbgkCreateThread(IN PETHREAD Thread)
     {
         DbgkpPostModuleMessages(Process, Thread, NULL);
     }
+}
+
+
+
+
+
+NTSTATUS
+DbgkClearProcessDebugObject(
+    IN _EPROCESS* Process,
+    IN PDEBUG_OBJECT SourceDebugObject
+)
+/*++
+
+Routine Description:
+
+    Remove a debug object from a process.
+
+Arguments:
+
+    Process           - Process to be debugged
+    sourceDebugObject - Debug object to detach
+
+Return Value:
+
+    NTSTATUS - Status of call.
+
+--*/
+{
+    NTSTATUS Status;
+    PDEBUG_OBJECT DebugObject;
+    PDEBUG_EVENT DebugEvent;
+    LIST_ENTRY TempList;
+    PLIST_ENTRY Entry;
+
+    PAGED_CODE();
+
+    ExAcquireFastMutex(&DbgkpProcessDebugPortMutex);
+
+    DebugObject = (PDEBUG_OBJECT)Process->DebugPort;
+    if (DebugObject == NULL || (DebugObject != SourceDebugObject && SourceDebugObject != NULL))
+    {
+        DebugObject = NULL;
+        Status = STATUS_PORT_NOT_SET;
+    }
+    else
+    {
+        Process->DebugPort = NULL;
+        Status = STATUS_SUCCESS;
+    }
+    ExReleaseFastMutex(&DbgkpProcessDebugPortMutex);
+
+    if (NT_SUCCESS(Status))
+    {
+        DbgkpMarkProcessPeb(Process);
+    }
+
+    //
+    // Remove any events for this process and wake up the threads.
+    //
+    if (DebugObject)
+    {
+        //
+        // Remove any events and queue them to a temporary queue
+        //
+        InitializeListHead(&TempList);
+
+        ExAcquireFastMutex(&DebugObject->Mutex);
+
+        for (Entry = DebugObject->EventList.Flink;
+            Entry != &DebugObject->EventList;
+            Entry = Entry->Flink)
+        {
+            DebugEvent = CONTAINING_RECORD(Entry, DEBUG_EVENT, EventList);
+            if (DebugEvent->Process == Process)
+            {
+                RemoveEntryList(&DebugEvent->EventList);
+                InsertTailList(&TempList, &DebugEvent->EventList);
+            }
+        }
+        ExReleaseFastMutex(&DebugObject->Mutex);
+
+        ObDereferenceObject(DebugObject);
+
+        //
+        // Wake up all the removed threads.
+        //
+        while (!IsListEmpty(&TempList))
+        {
+            Entry = RemoveHeadList(&TempList);
+            DebugEvent = CONTAINING_RECORD(Entry, DEBUG_EVENT, EventList);
+            DebugEvent->Status = STATUS_DEBUGGER_INACTIVE;
+            DbgkpWakeTarget(DebugEvent);
+        }
+    }
+
+    return Status;
 }

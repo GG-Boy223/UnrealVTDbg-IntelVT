@@ -25,12 +25,25 @@ PVOID DbgkCreateThread_CMP_Debugport_01() // EPT hook 代理：替换 DbgkCreate
     {
         if (eprocess_offset::DebugPort == 0xFFFFFFFF)
         {
+            ////判断当前调用者是否是调试器进程
+            //if (!IsDebugger(PsGetCurrentProcess()))
+            //{
+            //    //根据窗口句柄获得窗口对象
+            //    PWND pwnd = Sys_ValidateHwnd(hwnd);
+            //    if (pwnd)
+            //    {
+            //        //根据线程对象获得进程对象
+            //        PsGetThreadProcess((PETHREAD)pwnd->head.pti->pEThread);
+            //    }
+            //}
+            //NtUserQueryWindow(hwnd, WindowInfo);
             return NULL; // 卸载阶段偏移无效时保守返回空，避免解引用错误 EPROCESS 偏移。
         }
 
         return *(PDEBUG_OBJECT*)((size_t)Process + eprocess_offset::DebugPort); // 卸载期间不走自定义表，直接回退系统 DebugPort。
     }
 
+    //DbgBreakPoint();
     if (IsDebugTargetProcess(Process, &DebugProcess))
     {
         Port = DebugProcess->DebugObject; // 目标进程命中自定义调试对象时返回受控 DebugObject。
@@ -43,6 +56,34 @@ PVOID DbgkCreateThread_CMP_Debugport_01() // EPT hook 代理：替换 DbgkCreate
     return Port; // 返回给汇编 hook，继续原始 cmp/test 路径。
 }
 
+//VOID SetupHook_DbgkCreateThread_CMP_Debugport()
+//{
+//    BYTE code[] = { 0x48, 0x83,'?','?','?','?' };  //cmp指令
+//
+//    BYTE* startaddr = (BYTE*)Sys_DbgkCreateThread;
+//    for (;;)
+//    {
+//        BYTE* hookAddr = (BYTE*)SearchCode(code, sizeof(code), startaddr, 0x100);
+//        //判断指令是否是cmp
+//        if ((hookAddr[0] == 0x48) &&
+//            (hookAddr[1] == 0x83) &&
+//            (*(WORD*)&hookAddr[3] == eprocess_offset::DebugPort))
+//        {
+//            //得到cmp的下一条指令
+//            DbgkCreateThread_jcc_instruction = (unsigned __int64)((unsigned __int64)hookAddr + (unsigned __int64)(LDE((unsigned __int8*)hookAddr, 64)));
+//            if (hvgt::hook_function(hookAddr, Asm_DbgkCreateThread_CMP_Debugport_01, NULL))
+//            {
+//                outLog("hook DbgkCreateThread_CMP_Debugport_01成功.");
+//            }
+//            else
+//                outLog("hook DbgkCreateThread_CMP_Debugport_01失败.");
+//            break;
+//        }
+//        else
+//            //outLog("没有匹配到 cmp qword ptr [rdi+578h]");
+//            startaddr = (BYTE*)((unsigned __int64)hookAddr + (unsigned __int64)(LDE((unsigned __int8*)hookAddr, 64)));
+//    }
+//}
 VOID SetupHook_DbgkCreateThread_CMP_Debugport() // 在 DbgkCreateThread 内查找 cmp [Process+DebugPort] 并安装 EPT hook。
 {
     BYTE code[] = { 0x48, 0x83,'?','?','?','?' }; // Win10 目标指令模板，? 表示通配立即数/位移字节。
@@ -57,12 +98,14 @@ VOID SetupHook_DbgkCreateThread_CMP_Debugport() // 在 DbgkCreateThread 内查�
         if (hookAddr == NULL)
         {
             outLog("hook DbgkCreateThread_CMP_Debugport_01 target cmp not found.");
+            //是我们自己的调试器要创建线程，则直接返回不走线程回调
             return; // 未找到目标指令，不安装 hook，避免错误 patch。
         }
 
         if (!MmIsAddressValid(hookAddr) || !MmIsAddressValid(hookAddr + sizeof(code) - 1))
         {
             outLog("hook DbgkCreateThread_CMP_Debugport_01 target cmp address invalid.");
+            //是我们自己的调试器要创建线程，则直接返回不走线程回调
             return; // 候选地址不可读时停止，避免内核页错误。
         }
 
@@ -70,13 +113,16 @@ VOID SetupHook_DbgkCreateThread_CMP_Debugport() // 在 DbgkCreateThread 内查�
         if (instructionLength == 0)
         {
             outLog("hook DbgkCreateThread_CMP_Debugport_01 scan stopped on invalid instruction length.");
+            //是我们自己的调试器要创建线程，则直接返回不走线程回调
             return; // LDE 失败说明无法安全推进扫描，必须停止防死循环。
         }
 
+        //判断指令是否是cmp
         if ((hookAddr[0] == 0x48) &&
             (hookAddr[1] == 0x83) &&
             (*(WORD*)&hookAddr[3] == eprocess_offset::DebugPort))
         {
+            //得到cmp的下一条指令
             DbgkCreateThread_jcc_instruction = (unsigned __int64)((unsigned __int64)hookAddr + (unsigned __int64)instructionLength); // 保存原 cmp 后继地址，汇编代理执行完后跳回这里。
             if (hvgt::hook_function(hookAddr, Asm_DbgkCreateThread_CMP_Debugport_01, NULL))
             {
@@ -86,6 +132,7 @@ VOID SetupHook_DbgkCreateThread_CMP_Debugport() // 在 DbgkCreateThread 内查�
             {
                 outLog("\x68\x6F\x6F\x6B\x20\x44\x62\x67\x6B\x43\x72\x65\x61\x74\x65\x54\x68\x72\x65\x61\x64\x5F\x43\x4D\x50\x5F\x44\x65\x62\x75\x67\x70\x6F\x72\x74\x5F\x30\x31\xCA\xA7\xB0\xDC\x2E");
             }
+            //是我们自己的调试器要创建线程，则直接返回不走线程回调
             return; // 成功匹配目标 DebugPort cmp 后不再继续扫描。
         }
 
@@ -93,6 +140,7 @@ VOID SetupHook_DbgkCreateThread_CMP_Debugport() // 在 DbgkCreateThread 内查�
         if (nextStart <= startaddr)
         {
             outLog("hook DbgkCreateThread_CMP_Debugport_01 scan cannot advance.");
+            //是我们自己的调试器要创建线程，则直接返回不走线程回调
             return; // 防御异常 LDE 结果导致扫描指针不前进。
         }
 
@@ -110,19 +158,23 @@ VOID SetupHook_PspExitThread_CMP_Debugport() // 在 PspExitThread 内查找 Debu
     if (hookAddr == NULL)
     {
         outLog("hook PspExitThread_CMP_Debugport_01 target cmp not found.");
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return; // 未找到候选指令时不安装 hook。
     }
 
     if (!MmIsAddressValid(hookAddr) || !MmIsAddressValid(hookAddr + sizeof(code) - 1))
     {
         outLog("hook PspExitThread_CMP_Debugport_01 target cmp address invalid.");
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return; // 候选地址不可读时退出，避免内核异常。
     }
 
+    //判断指令是否是cmp
     if ((hookAddr[0] == 0x49) &&
         (hookAddr[1] == 0x39) &&
         (*(WORD*)&hookAddr[3] == eprocess_offset::DebugPort))
     {
+        //得到cmp的下一条指令
         PspExitThread_jcc_instruction = (unsigned __int64)((unsigned __int64)hookAddr + (unsigned __int64)(LDE((unsigned __int8*)hookAddr, 64))); // 保存 cmp 后继地址，供汇编代理返回。
         if (hvgt::hook_function(hookAddr, Asm_PspExitThread_CMP_Debugport_01, NULL))
         {
@@ -144,6 +196,7 @@ ULONG_PTR SearchCode(unsigned char* code, ULONG_PTR codeLenth, unsigned char* st
     BOOLEAN Isfind = 0; // 当前候选位置是否匹配。
     if (!code || codeLenth == 0 || !startaddr || addrlenth == 0 || addrlenth < codeLenth)
     {
+        //DbgBreakPoint();
         return 0; // 参数非法或扫描范围短于模板时直接失败，避免无符号下溢。
     }
 
@@ -151,7 +204,9 @@ ULONG_PTR SearchCode(unsigned char* code, ULONG_PTR codeLenth, unsigned char* st
     {
         if (!MmIsAddressValid((PVOID)&startaddr[Index]))
         {
+            //if (!MmIsAddressValid((PVOID)&startaddr[Index]))continue;
             Index++; // 无效地址也必须推进，否则会在同一地址死循环。
+            // *ppThread = NULL;
             continue; // 当前字节不可读，跳过该候选位置。
         }
 
@@ -178,6 +233,7 @@ ULONG_PTR SearchCode(unsigned char* code, ULONG_PTR codeLenth, unsigned char* st
                 break; // 找到第一处匹配即可返回。
             }
         }
+        //if (!MmIsAddressValid((PVOID)&startaddr[Index]))continue;
         Index++; // 扫描下一个候选字节。
     }
     return Ret; // 返回匹配地址或 0。

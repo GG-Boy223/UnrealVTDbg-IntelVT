@@ -5,15 +5,16 @@ namespace
 {
     struct BREAKPOINT_CLEAR_STATE
     {
-        unsigned __int64 command;
+        unsigned __int64 command; //此成员必须放在结构体的第一位
         unsigned __int64 ThreadId;
-        unsigned __int64 VirtualAddress;
+        unsigned __int64 VirtualAddress; //断点地址
         unsigned __int64 Cr3;
         int WatchId;
         int Reserved;
     };
 }
 
+//清理 VT 侧断点残留状态，不改变 watch 表和现有结构体布局
 bool clear_vt_breakpoint_state(
     unsigned __int64 threadId,
     unsigned __int64 virtualAddress,

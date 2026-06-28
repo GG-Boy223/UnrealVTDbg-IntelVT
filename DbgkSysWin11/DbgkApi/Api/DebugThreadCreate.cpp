@@ -9,6 +9,7 @@ namespace
 
         if (!NT_SUCCESS(RtlGetVersion(&VersionInfo)))
         {
+            //DbgBreakPoint();
             return 0;
         }
 
@@ -36,6 +37,15 @@ namespace
         return PsSystemDllTotalTypes;
     }
 
+    //    int QuerySystemDllLimitForBuild(ULONG BuildNumber)
+    //    {
+    //        if (BuildNumber == 26100 || BuildNumber == 26200)
+    //        {
+    //            return 6;
+    //        }
+    //
+    //        return PsSystemDllTotalTypes;
+    //    }
     const LONG kDbgkSystemDllLogLimit = 64;
     volatile LONG g_DbgkSystemDllLogCount = 0;
 
@@ -84,7 +94,7 @@ VOID DbgkCreateThread(IN PETHREAD Thread)
     PEPROCESS Process;
     IMAGE_INFO_EX ImageInfoEx = { 0 };
     PIMAGE_NT_HEADERS NtHeader;
-    NTSTATUS Status;
+    NTSTATUS Status; // eax
     PVOID DebugPort;
     DBGKM_APIMSG ApiMessage = { 0 };
     PDBGKM_CREATE_THREAD CreateThread = &ApiMessage.u.CreateThread;
@@ -111,6 +121,7 @@ VOID DbgkCreateThread(IN PETHREAD Thread)
 
     if (IsDbgkUnloadInProgress())
     {
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
@@ -123,6 +134,7 @@ VOID DbgkCreateThread(IN PETHREAD Thread)
     isWoW64Process = Wow64Process && (CurrentMachine == IMAGE_FILE_MACHINE_I386 || CurrentMachine == IMAGE_FILE_MACHINE_ARMNT);
 
     size_t ptr_Flags = (size_t)Process + eprocess_offset::Flags;
+    //将ImageNotifyDone和CreateReported置位
     OldFlags.Flags = InterlockedOr((volatile LONG*)ptr_Flags, 0x400001u);
 
     if (!(OldFlags.ImageNotifyDone) && (*PspNotifyEnableMask & 1 || *PerfGlobalGroupMask & 4))
@@ -133,6 +145,15 @@ VOID DbgkCreateThread(IN PETHREAD Thread)
         ProcessId = PsGetProcessId(Process);
         LogSystemDllDiag = ShouldLogSystemDllDiag();
 
+        //    ProcessId,
+        //    isWoW64Process ? 1 : 0,
+        //    Wow64Process,
+        //outLog("DbgkCreateThread SystemDllDiag build:%lu enumTotal:%d queryLimit:%d process:%s pid:%p wow64:%d wow64Process:%p machine:0x%X",
+        //    BuildNumber,
+        //    PsSystemDllTotalTypes,
+        //    SystemDllQueryLimit,
+        //    ProcessImageName,
+        //    CurrentMachine);
         if (LogSystemDllDiag)
         {
             outLog("DbgkCreateThread SystemDllDiag build:%lu enumTotal:%d queryLimit:%d process:%s pid:%p wow64:%d wow64Process:%p machine:0x%X",
@@ -155,9 +176,11 @@ VOID DbgkCreateThread(IN PETHREAD Thread)
 
         __try
         {
+            // /* Get the NT Headers */
             NtHeader = RtlImageNtHeader(ImageInfoEx.ImageInfo.ImageBase);
             if (NtHeader)
             {
+                // /* Set image size */
                 ImageInfoEx.ImageInfo.ImageSize = NtHeader->OptionalHeader.SizeOfImage;
             }
         }
@@ -169,7 +192,9 @@ VOID DbgkCreateThread(IN PETHREAD Thread)
         ImageInfoEx.ImageInfo.ImageSelector = 0;
         ImageInfoEx.ImageInfo.ImageSectionNumber = 0;
 
+        //PsReferenceProcessFilePointer(Process, (PVOID*)&FileObject);
         Status = PsReferenceProcessFilePointer(Process, (PVOID*)&FileObject);
+        // /* Check if we failed */
         if (!NT_SUCCESS(Status))
         {
             FileObject = NULL;
@@ -177,22 +202,25 @@ VOID DbgkCreateThread(IN PETHREAD Thread)
 
         Status = SeLocateProcessImageName(Process, &ImageFileName);
 
+        // /* Check if we failed */
         if (!NT_SUCCESS(Status))
         {
             ImageFileName = NULL;
         }
-        PsCallImageNotifyRoutines(ImageFileName, Process, &ImageInfoEx, FileObject);
+        PsCallImageNotifyRoutines(ImageFileName, Process, &ImageInfoEx, FileObject); //通知模块回调
         if (ImageFileName)
         {
             ExFreePool(ImageFileName);
         }
 
+        //ObDereferenceObject(FileObject);
         if (FileObject)
         {
             ObDereferenceObject(FileObject);
             FileObject = NULL;
         }
 
+        // Win11 25H2 26100/26200 symbols use i < 6; keep other Win11 builds on the bounded enum total.
         if (PsQuerySystemDllInfo == NULL && LogSystemDllDiag)
         {
             outLog("DbgkCreateThread SystemDllQuery skipped: PsQuerySystemDllInfo is NULL build:%lu process:%s pid:%p",
@@ -203,6 +231,14 @@ VOID DbgkCreateThread(IN PETHREAD Thread)
 
         for (int i = 0; PsQuerySystemDllInfo != NULL && i < SystemDllQueryLimit; i++)
         {
+            //    SystemDllQueryLimit,
+            //    ProcessImageName,
+            //    ProcessId,
+            //outLog("DbgkCreateThread SystemDllQuery begin build:%lu enumTotal:%d queryLimit:%d i:%d process:%s pid:%p wow64:%d",
+            //    BuildNumber,
+            //    PsSystemDllTotalTypes,
+            //    i,
+            //    isWoW64Process ? 1 : 0);
             if (LogSystemDllDiag)
             {
                 outLog("DbgkCreateThread SystemDllQuery begin build:%lu enumTotal:%d queryLimit:%d i:%d process:%s pid:%p wow64:%d",
@@ -217,6 +253,15 @@ VOID DbgkCreateThread(IN PETHREAD Thread)
 
             DllInfo = PsQuerySystemDllInfo(i);
 
+            //    DllInfo,
+            //    ProcessImageName,
+            //    ProcessId,
+            //outLog("DbgkCreateThread SystemDllQuery end build:%lu enumTotal:%d queryLimit:%d i:%d info:%p process:%s pid:%p wow64:%d",
+            //    BuildNumber,
+            //    PsSystemDllTotalTypes,
+            //    SystemDllQueryLimit,
+            //    i,
+            //    isWoW64Process ? 1 : 0);
             if (LogSystemDllDiag)
             {
                 outLog("DbgkCreateThread SystemDllQuery end build:%lu enumTotal:%d queryLimit:%d i:%d info:%p process:%s pid:%p wow64:%d",
@@ -242,6 +287,7 @@ VOID DbgkCreateThread(IN PETHREAD Thread)
                     NtHeader = RtlImageNtHeader(DllInfo->BaseAddress);
                     if (NtHeader)
                     {
+                        // /* Set image size */
                         ImageInfoEx.ImageInfo.ImageSize = NtHeader->OptionalHeader.SizeOfImage;
                     }
                 }
@@ -254,9 +300,12 @@ VOID DbgkCreateThread(IN PETHREAD Thread)
                 ImageInfoEx.ImageInfo.ImageSectionNumber = 0;
 
                 SystemDllData = CONTAINING_RECORD(DllInfo, PSP_SYSTEM_DLL_DATA, DllInfo);
-                Section = PspReferenceSystemDll(SystemDllData->SystemDll);
+                //Section = PspReferenceSystemDll(SystemDllData->SystemDll);  //快速引用对象
+                Section = PspReferenceSystemDll(SystemDllData->SystemDll); //快速引用对象
                 ControlArea = NULL;
                 FileObject = NULL;
+                //ControlArea = MiSectionControlArea(Section);
+                //FileObject = MiReferenceControlAreaFileWithTag(ControlArea, 'tlfD');
                 if (Section)
                 {
                     ControlArea = MiSectionControlArea(Section);
@@ -267,7 +316,8 @@ VOID DbgkCreateThread(IN PETHREAD Thread)
 
                     ObFastDereferenceObject(&SystemDllData->SystemDll->DllSection, Section, 'dSsP');
                 }
-                PsCallImageNotifyRoutines(&DllInfo->DllPath, Process, &ImageInfoEx, FileObject);
+                PsCallImageNotifyRoutines(&DllInfo->DllPath, Process, &ImageInfoEx, FileObject); //通知模块回调
+                //ObDereferenceObject(FileObject);
                 if (FileObject)
                 {
                     ObDereferenceObject(FileObject);
@@ -277,6 +327,7 @@ VOID DbgkCreateThread(IN PETHREAD Thread)
         }
     }
 
+    // /* Fail if we have no port */
     if (IsDebugTargetProcess((_EPROCESS*)Process, &DebugProcess))
     {
         DebugPort = DebugProcess->DebugObject;
@@ -289,14 +340,18 @@ VOID DbgkCreateThread(IN PETHREAD Thread)
 
     if (!DebugPort)
     {
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
+    //检查报告是否已经创建
     if (!(OldFlags.CreateReported))
     {
+        // /* Setup the information structure for the new thread */
         CreateProcess->InitialThread.SubSystemKey = 0;
         CreateProcess->InitialThread.StartAddress = NULL;
 
+        // /* And for the new process */
         CreateProcess->SubSystemKey = 0;
         size_t ptr_SectionObject = (size_t)Process + eprocess_offset::SectionObject;
         CreateProcess->FileHandle = DbgkpSectionToFileHandle(*(PVOID*)ptr_SectionObject);
@@ -307,6 +362,7 @@ VOID DbgkCreateThread(IN PETHREAD Thread)
 
         __try
         {
+            // /* Get the NT Header */
             NtHeader = RtlImageNtHeader(*(PVOID*)ptr_SectionBaseAddress);
             if (NtHeader)
             {
@@ -323,28 +379,34 @@ VOID DbgkCreateThread(IN PETHREAD Thread)
             CreateProcess->DebugInfoSize = 0;
         }
 
+        // /* Setup the API Message */
         ApiMessage.h.u1.Length = 0x600038;
         ApiMessage.h.u2.ZeroInit = LPC_DEBUG_EVENT;
         ApiMessage.ApiNumber = DbgKmCreateProcessApi;
 
+        // /* Send the message */
         DbgkpSendApiMessage((_EPROCESS*)Process, FALSE, &ApiMessage);
 
         if (CreateProcess->FileHandle)
         {
+            // /* Close the handle */
             ObCloseHandle(CreateProcess->FileHandle, KernelMode);
         }
         DbgkSendSystemDllMessages(NULL, NULL, &ApiMessage);
     }
     else
     {
+        // /* Otherwise, do it just for the thread */
         CreateThread->SubSystemKey = 0;
         size_t ptr_Win32StartAddress = (size_t)Thread + ethread_offset::Win32StartAddress;
         CreateThread->StartAddress = *(PVOID*)ptr_Win32StartAddress;
 
+        // /* Setup the API Message */
         ApiMessage.h.u1.Length = 0x400018;
         ApiMessage.h.u2.ZeroInit = LPC_DEBUG_EVENT;
         ApiMessage.ApiNumber = DbgKmCreateThreadApi;
 
+        // /* Send the message */
         DbgkpSendApiMessage((_EPROCESS*)Process, TRUE, &ApiMessage);
     }
 

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <ntifs.h>
 #include "../Types/ApcInjectPebTypes.h"
 #include "../Api/ApcInjectNativeApi.h"
@@ -56,17 +56,21 @@ NTSTATUS BBQueueUserApc(
     IN PVOID Arg2,
     IN PVOID Arg3,
     IN BOOLEAN bForce
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 /// <summary>
 /// Injection APC kernel callbacks
 /// </summary>
+//
+// Injection APC routines
 VOID KernelApcPrepareCallback(
     PKAPC Apc,
     PKNORMAL_ROUTINE* NormalRoutine,
     PVOID* NormalContext,
     PVOID* SystemArgument1,
     PVOID* SystemArgument2
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 VOID KernelApcInjectCallback(
@@ -75,4 +79,5 @@ VOID KernelApcInjectCallback(
     PVOID* NormalContext,
     PVOID* SystemArgument1,
     PVOID* SystemArgument2
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );

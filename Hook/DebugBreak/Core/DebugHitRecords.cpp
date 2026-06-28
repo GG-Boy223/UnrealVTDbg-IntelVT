@@ -6,6 +6,7 @@ namespace DebugBreakInternal
     {
         if (threadId == 0 || record == nullptr)
         {
+            // 处理打开进程失败的情况
             return false;
         }
 
@@ -16,6 +17,7 @@ namespace DebugBreakInternal
             if (item.ThreadId == threadId)
             {
                 *record = item;
+                // *record = item;
                 found = true;
                 break;
             }

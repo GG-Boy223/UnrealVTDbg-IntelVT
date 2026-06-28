@@ -10,6 +10,7 @@ PFN_INJECTDLL AI_InjectDll;
 BOOL TL_BlockGameResumeThread_internal(DWORD dwProcessId)
 {
 	BOOL bRet;
+	// 将缓冲区地址传递给驱动程序
 	DWORD BytesReturned = 0;
 	RING3_TL_GAME_TABLE_ENTRY GameInfo = { 0 };
 	GameInfo.dwPid = dwProcessId;

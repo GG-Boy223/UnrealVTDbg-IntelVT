@@ -7,6 +7,7 @@ using namespace std;
 namespace Model
 {
 	/*请求的数据类：卡密登录*（登陆类）*/
+	// /*请求的数据类：卡密登录*（登陆类）*/
 	class In_CardLoginArgs :public In_DataBaseArgs
 	{
 

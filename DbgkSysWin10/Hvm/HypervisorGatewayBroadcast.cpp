@@ -1,4 +1,4 @@
-#include "../Driver.h"
+﻿#include "../Driver.h"
 #include "AsmCallset.h"
 #include "vmcall_reason.h"
 #include "../ntapi.h"
@@ -30,6 +30,7 @@ namespace hvgt
 			status = false;
 		}
 
+		//ExReleaseFastMutex(&LongFlagsMutex);
 		return status;
 	}
 
@@ -64,6 +65,7 @@ namespace hvgt
 			status = false;
 		}
 
+		//ExReleaseFastMutex(&LongFlagsMutex);
 		return status;
 	}
 
@@ -71,17 +73,20 @@ namespace hvgt
 	{
 		if (vmcallinfo == nullptr || command == nullptr)
 		{
+			//outLog("DispatchOffsetToHost 密钥错误 : 0x%llX\n", verifyKey);
 			return false;
 		}
 
 		__try
 		{
 			*command = ((PVMCALLINFO)vmcallinfo)->command;
+			// *command = ((PVMCALLINFO)vmcallinfo)->command;
 			return true;
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
 			*command = 0;
+			// *command = 0;
 			return false;
 		}
 	}

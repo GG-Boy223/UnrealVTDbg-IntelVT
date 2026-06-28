@@ -1,4 +1,4 @@
-#include "EptWatchInternal.h"
+﻿#include "EptWatchInternal.h"
 
 namespace ept
 {
@@ -48,11 +48,11 @@ namespace ept
 
 			if (is_watch_entry_exact_physical_match_locked(eptWatchList[i], guest_physical_address))
 			{
-				return i;
+				return i; //返回空闲 ID
 			}
 		}
 
-		return -1;
+		return -1; // 没有空闲项
 	}
 
 	static int find_int3_page_watch_id_locked(unsigned __int64 guest_physical_address)
@@ -65,11 +65,11 @@ namespace ept
 				eptWatchList[i].bpType == 3 &&
 				GET_PFN(eptWatchList[i].PhysicalAddress) == pfn)
 			{
-				return i;
+				return i; //返回空闲 ID
 			}
 		}
 
-		return -1;
+		return -1; // 没有空闲项
 	}
 
 	static bool is_cached_watch_id_valid_locked(int ID, unsigned __int64 guest_physical_address, __ept_violation ept_violation)
@@ -81,7 +81,7 @@ namespace ept
 			return false;
 		}
 
-		if (eptWatchList[ID].bpType == 3)
+		if (eptWatchList[ID].bpType == 3) //int3
 		{
 			const int exactWatchID = find_exact_non_int3_watch_id_for_ept_event_locked(guest_physical_address, ept_violation);
 			return exactWatchID == -1 && (ept_violation.read_access || ept_violation.write_access);
@@ -136,7 +136,7 @@ namespace ept
 
 			if (is_watch_entry_exact_physical_match_locked(eptWatchList[i], guest_physical_address))
 			{
-				return i;
+				return i; //返回空闲 ID
 			}
 
 			if (pageWatchId == -1)
@@ -145,22 +145,25 @@ namespace ept
 			}
 		}
 
+		// 隐藏 INT3 的 fake page 对读写不可访问；同页任意读写都需要临时切回原页。
 		if (int3PageWatchId != -1 && (ept_violation.read_access || ept_violation.write_access))
 		{
 			return int3PageWatchId;
 		}
 
+		// 普通 EPT watch 会关闭整页权限；同页非目标地址也必须放行一条指令，避免反复 VM-exit 卡死。
 		if (pageWatchId != -1)
 		{
 			return pageWatchId;
 		}
 
-		return -1;
+		return -1; // 没有空闲项
 	}
 
 	bool ept_handleWatchEvent(__vcpu* vcpu, __ept_violation ept_violation, __ept_hooked_page_info* hooked_page_info,
 		unsigned __int64 guest_physical_adddress, int& bpType)
 	{
+		//判断是否是被监视的页面
 		if (hooked_page_info->pfn_of_hooked_page == GET_PFN(guest_physical_adddress))
 		{
 			hooked_page_info->ID = -1;
@@ -187,8 +190,9 @@ namespace ept
 
 			hooked_page_info->last_watch_id = ID;
 
-			if (eptWatchList[ID].bpType == 3)
+			if (eptWatchList[ID].bpType == 3) //int3
 			{
+				//如果读到的是int3监视页则进行换页
 				bpType = 3;
 				hooked_page_info->ID = ID;
 				if (ept_violation.write_access)
@@ -206,17 +210,24 @@ namespace ept
 			}
 
 			const bool isTargetWatchAddress = ept_isWatchAddress(guest_physical_adddress, ID) != 0;
+			//判断是否是虚拟化断点
 			if ((eptWatchList[ID].Options & EPTO_VIRTUAL_BREAKPOINT) &&
 				isTargetWatchAddress &&
 				(guest_physical_adddress >= eptWatchList[ID].PhysicalAddress) &&
 				(guest_physical_adddress < eptWatchList[ID].PhysicalAddress + eptWatchList[ID].Size))
 			{
+				//系统软件可以使用 TPR 寄存器暂时阻止低优先级中断，中断高优先级任务。
+				//这是通过将要阻止的最高优先级中断的值加载到 TPR 来实现的。例如，将 TPR 的值加载为 9 (1001b)
+				//将阻止优先级为 9 或更低的所有中断，同时允许识别优先级为 10 或更高的所有中断。将 TPR 加载为 0 可启用所有外部中断。将 TPR 加载为
+				//15 (1111b) 可禁用所有外部中断。
+				//Task Priority Register (CR8)
 				unsigned __int64 CR8 = __readcr8();
-				rflags rflags;
-				rflags.flags = hv::vmread(GUEST_RFLAGS);
+				rflags rflags; // RFLAGS 结构，用于判断 TF（单步标志）等位
+				rflags.flags = hv::vmread(GUEST_RFLAGS); // 读取来宾 RFLAGS，查看是否开启单步
 				__vmx_interruptibility_state is = { hv::vmread(GUEST_INTERRUPTIBILITY_STATE) };
-				int canBreak = (CR8 == 0) && (rflags.interrupt_enable_flag);
+				int canBreak = (CR8 == 0) && (rflags.interrupt_enable_flag); //判断中断是否开启
 				canBreak = canBreak && ((is.all & (1 << 0)) == 0);
+				//判断触发ept违例之前的模式是内核还是用户模式
 				const int kernelmode = hv::get_guest_cpl() == 0;
 
 				if (!kernelmode && canBreak && eptWatchList[ID].LoopUserMode)

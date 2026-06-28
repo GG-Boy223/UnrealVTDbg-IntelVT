@@ -1,7 +1,8 @@
-#include "EptWatchInternal.h"
+﻿#include "EptWatchInternal.h"
 
 namespace ept
 {
+	//填充页事件所需信息
 	void fillPageEventBasic(PageEventBasic* peb, guest_context* guest_registers)
 	{
 		peb->VirtualAddress = hv::vmread(GUEST_LINEAR_ADDRESS);
@@ -43,13 +44,15 @@ namespace ept
 
 	void RestoreEptPageProperties(__ept_hooked_page_info* hooked_page_info, int ID)
 	{
+		//还原ept页的属性，让guest程序能正常执行，正常读写
 		hooked_page_info->entry_address->read = 1;
 		hooked_page_info->entry_address->write = 1;
 		hooked_page_info->entry_address->execute = 1;
 		hooked_page_info->ID = ID;
-		hv::set_mtf(true);
+		hv::set_mtf(true); //开启mtf
 	}
 
+	//判断是否是监视的地址
 	int ept_isWatchAddress(unsigned __int64 guest_physical_adddress, int ID)
 	{
 		return ((eptWatchList[ID].inuse) &&
@@ -57,23 +60,25 @@ namespace ept
 			(guest_physical_adddress < eptWatchList[ID].PhysicalAddress + eptWatchList[ID].Size)));
 	}
 
+	//判断是否是监视的页
 	int ept_isWatchPage(unsigned __int64 pfn, int ID)
 	{
+		//比较页帧
 		return ((eptWatchList[ID].inuse) && (GET_PFN(eptWatchList[ID].PhysicalAddress) == pfn));
 	}
 
 	int ept_getWatchID(unsigned __int64 guest_physical_adddress)
 	{
-		unsigned __int64 pfn = GET_PFN(guest_physical_adddress);
+		unsigned __int64 pfn = GET_PFN(guest_physical_adddress); //获取页帧
 		for (int i = 0; i < EPTWATCHLISTSIZE; i++)
 		{
 			if (ept_isWatchPage(pfn, i))
 			{
-				return i;
+				return i; //返回空闲 ID
 			}
 		}
 
-		return -1;
+		return -1; // 没有空闲项
 	}
 
 	void clear_detected_breakpoint_for_watch_locked(unsigned __int64 virtual_address)

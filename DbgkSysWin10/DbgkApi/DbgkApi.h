@@ -15,7 +15,7 @@
 #define DBGK_ALL_FLAGS                    (DBGK_KILL_PROCESS_ON_EXIT)
 
 
-extern volatile LONG g_DbgkActiveRuntimeCallCount;
+extern volatile LONG g_DbgkActiveRuntimeCallCount; // Active hook/debug callback count during unload drain
 
 inline BOOLEAN DbgkIsDriverRuntimeUnloading()
 {

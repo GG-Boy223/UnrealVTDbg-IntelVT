@@ -1,8 +1,9 @@
-#pragma once
+﻿#pragma once
 
 #ifndef _DRIVER_PROTOCOL_SHARED_H
 #define _DRIVER_PROTOCOL_SHARED_H
 
+// DbgkSysWin11 -> VT_Driver 握手常量，必须与 VT_Driver 内定义一致。
 #define VT_INIT_HANDSHAKE_KEY 0x9DD14D00F5DD0000ULL
 
 #define HOOK_DRIVER_HANDSHAKE_KEY 0x5544565448444B31ULL

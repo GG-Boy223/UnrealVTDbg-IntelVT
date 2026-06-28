@@ -3,10 +3,10 @@
 #include "Globals.h"
 #include "vmcall_handler.h"
 #include "interrupt.h"
-#include "vmcall_reason.h"
-#include "invalid_ept.h"
+#include "vmcall_reason.h" // 引入 VMCALL 命令编号：告诉 Hypervisor 执行哪一种具体操作
+#include "invalid_ept.h" // INVEPT 描述符与接口声明
 #include "msr.h"
-#include "mtrr.h"
+#include "mtrr.h" // MTRR 相关结构
 #include "EPT.h"
 #include "AsmCallset.h"
 #include "hypervisor_routines.h"
@@ -81,18 +81,18 @@ namespace
 		unsigned __int64 vmcall_parameter1,
 		unsigned __int64 vmcall_parameter2)
 	{
-		switch (vmcall_reason)
+		switch (vmcall_reason) //什么原因调用vmcall
 		{
 		case VMCALL_EPT_RIP_HOOK:
 			return IsCurrentEptStateValid(vcpu, true) &&
 				vmcall_parameter1 != 0 &&
 				vmcall_parameter2 != 0;
 
-		case VMCALL_EPT_UNHOOK_FUNCTION:
+		case VMCALL_EPT_UNHOOK_FUNCTION: //关闭ept hook
 			return IsCurrentEptStateValid(vcpu, true) &&
 				(vmcall_parameter1 != 0 || vmcall_parameter2 != 0);
 
-		case VMCALL_INVEPT_CONTEXT:
+		case VMCALL_INVEPT_CONTEXT: //刷新ept缓存
 			return vmcall_parameter1 != 0 || IsCurrentEptStateValid(vcpu, true);
 
 		case VMCALL_READ_SOFTWARE_BREAKPOINT:
@@ -122,12 +122,23 @@ void restore_segment_registers()
 {
 	__writemsr(IA32_FS_BASE, hv::vmread(GUEST_FS_BASE));
 	__writemsr(IA32_GS_BASE, hv::vmread(GUEST_GS_BASE));
-	__reload_gdtr(hv::vmread(GUEST_GDTR_BASE), hv::vmread(GUEST_GDTR_LIMIT));
-	__reload_idtr(hv::vmread(GUEST_IDTR_BASE), hv::vmread(GUEST_IDTR_LIMIT));
+	//恢复gdtr和idtr寄存器的值
+	__reload_gdtr(hv::vmread(GUEST_GDTR_BASE), hv::vmread(GUEST_GDTR_LIMIT)); // 恢复 GDTR 基址与界限，保证分段描述符表正确
+	__reload_idtr(hv::vmread(GUEST_IDTR_BASE), hv::vmread(GUEST_IDTR_LIMIT)); // 恢复 IDTR 基址与界限，保证中断描述符表正确
 }
 
 void call_vmxoff(__vcpu* vcpu)
 {
+	// 1. 推进 RIP 并立即写回 VMCS
+	//uint64_t new_rip = vcpu->vmexit_info.guest_rip + vcpu->vmexit_info.instruction_length;
+	//hv::vmwrite(GUEST_RIP, new_rip);
+
+	//// 2. 保存状态供卸载时使用
+	//vcpu->vmx_off_state.guest_rip = new_rip;
+	//vcpu->vmx_off_state.guest_rsp = vcpu->vmexit_info.guest_registers->rsp;
+	//vcpu->vmx_off_state.vmx_off_executed = true;
+
+
 	//vcpu->vmx_off_state.guest_rip = vcpu->vmexit_info.guest_rip + vcpu->vmexit_info.instruction_length;
 	//vcpu->vmx_off_state.guest_rsp = vcpu->vmexit_info.guest_registers->rsp;
 	vcpu->vmx_off_state.vmx_off_executed = true;
@@ -268,7 +279,7 @@ void vmexit_vmcall_handler(__vcpu* vcpu)
 	{
 		//unsigned __int64 old_cr3 = hv::swap_context(vmcall_parameter4);
 
-		//status = ept::hook_function(*vcpu->ept_state, (void*)vmcall_parameter1, (void*)vmcall_parameter2, (void**)vmcall_parameter3);
+		status = ept::hook_function(*vcpu->ept_state, (void*)vmcall_parameter1, (void*)vmcall_parameter2, (void**)vmcall_parameter3);
 
 		//hv::restore_context(old_cr3);
 
@@ -335,7 +346,7 @@ void vmexit_vmcall_handler(__vcpu* vcpu)
 	}
 	case VMCALL_UNHIDE_HV_PRESENCE:
 	{
-		g_vmm_context.hv_presence = true;
+		g_vmm_context.hv_presence = true; // 标记VMM已存在，便于其他逻辑快速判断
 		break;
 	}
 	case VMCALL_HIDE_SOFTWARE_BREAKPOINT:

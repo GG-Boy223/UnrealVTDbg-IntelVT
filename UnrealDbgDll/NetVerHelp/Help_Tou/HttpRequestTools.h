@@ -22,6 +22,12 @@ namespace Help
 		 * @param timeOut	-- 接收服务器数据的超时时间
 		 * @return				--- 请求的结果
 		 */
+		// /**
+		// * @brief				-- Http Get 请求
+		// * @param url		-- input,请求的url地址
+		// * @param timeOut	-- 接收服务器数据的超时时间
+		// * @return				--- 请求的结果
+		// */
 		string HttpGet(string url, int timeOut);
 
 		/**
@@ -32,6 +38,14 @@ namespace Help
 		 * @param timeOut	-- 接收服务器数据的超时时间
 		 * @return				--- 请求的结果
 		 */
+		// /**
+		// * @brief				-- Http Post 请求
+		// * @param url		-- input,请求的url地址
+		// * @param postData	-- Post的内容
+		// * @param head	-- 头部
+		// * @param timeOut	-- 接收服务器数据的超时时间
+		// * @return				--- 请求的结果
+		// */
 		string HttpPost(string url, string postData, list<string> head, int timeOut);
 
 
@@ -40,12 +54,20 @@ namespace Help
 		 * @brief				-- 将url转码为utf_8
 		 * @param strText		-- CString reference
 		 */
+		// /**
+		// * @brief				-- 将url转码为utf_8
+		// * @param strText		-- CString reference
+		// */
 		void ConvertUnicodeToUtf8(CString& strText);
 
 		/**
 		 * @brief				-- 将获取到的网页msg转码为Unicode
 		 * @param strText		-- string reference
 		 */
+		// /**
+		// * @brief				-- 将获取到的网页msg转码为Unicode
+		// * @param strText		-- string reference
+		// */
 		void ConvertUtf8ToUnicode(string& strText);
 
 		/**
@@ -54,6 +76,12 @@ namespace Help
 		 * @param timeOut	-- 接收服务器数据的超时时间
 		 * @return				-- 请求的结果
 		 */
+		// /**
+		// * @brief				-- Http Get 请求
+		// * @param strUrl		-- input,请求的url地址
+		// * @param timeOut	-- 接收服务器数据的超时时间
+		// * @return				-- 请求的结果
+		// */
 		string ExecuteGetRequest(CString strUrl, int timeOut);
 
 		/**
@@ -64,11 +92,22 @@ namespace Help
 		 * @param timeOut	-- 接收服务器数据的超时时间
 		 * @return				--- 请求的结果
 		 */
+		// /**
+		// * @brief				-- Http Post 请求
+		// * @param strUrl		-- input,请求的url地址
+		// * @param m_strPostData	-- Post的内容
+		// * @param head	-- 头部
+		// * @param timeOut	-- 接收服务器数据的超时时间
+		// * @return				--- 请求的结果
+		// */
 		string ExecutePostRequest(CString strUrl, CString m_strPostData, list<string> head, int timeOut);
 
 		/**
 		 * @brief				-- recycle CHttpConnection* and CHttpFile*
 		 */
+		// /**
+		// * @brief				-- recycle CHttpConnection* and CHttpFile*
+		// */
 		void Clear();
 
 	private:

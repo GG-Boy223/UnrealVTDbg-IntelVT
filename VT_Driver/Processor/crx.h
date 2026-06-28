@@ -88,7 +88,7 @@ union __cr3
     struct
     {
         unsigned __int64 pcid : 12;
-        unsigned __int64 page_frame_number : 36;
+        unsigned __int64 page_frame_number : 36; // bit (N-1):12 or Page-Frame-Number
         unsigned __int64 reserved_1 : 12;
         unsigned __int64 reserved_2 : 3;
         unsigned __int64 pcid_invalidate : 1;

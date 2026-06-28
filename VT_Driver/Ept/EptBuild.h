@@ -42,6 +42,7 @@ namespace ept
 	/// 初始化 EPT 结构
 	/// </summary>
 	/// <returns>status</returns>
+	/// <returns></returns>
 	bool initialize(__ept_state& ept_state);
 
 	/// <summary>
@@ -72,6 +73,7 @@ namespace ept
 	/// <param name="pre_allocated_buffer"> Pre allocated buffer for split </param>
 	/// <param name="physical_address">物理地址</param>
 	/// <returns> status </returns>
+	/// <param name="physical_address"></param>
 	bool split_pml2(mtrr_data const& mtrrs, __ept_state& ept_state, void* pre_allocated_buffer, unsigned __int64 physical_address);
 
 	/// <summary>

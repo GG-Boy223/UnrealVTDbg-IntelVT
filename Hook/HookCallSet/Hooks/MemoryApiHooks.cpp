@@ -21,6 +21,10 @@ NewVirtualProtectEx(
     //    return TRUE;
     //}
 
+    //if (flNewProtect == MAP_PROTECT)
+    //{
+    //    return TRUE;
+    //}
     BOOL boResult = Sys_VirtualProtectEx(hProcess, lpAddress, dwSize, flNewProtect, lpflOldProtect);
     if (!boResult)
     {
@@ -124,6 +128,7 @@ bool TryHook_VirtualProtectEx()
     {
         return HookOn((PVOID*)&Sys_VirtualProtectEx, NewVirtualProtectEx, GetCurrentThread());
     }
+    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
     else
     {
         logger.Log("Sys_VirtualProtectEx空指针");
@@ -138,6 +143,7 @@ bool TryUnHook_VirtualProtectEx()
         return HookOff((PVOID*)&Sys_VirtualProtectEx, NewVirtualProtectEx, GetCurrentThread());
     }
 
+    // 调试器会高频读取断点附近字节，回填路径保持静默，避免日志拖慢步进和反汇编刷新。
     return true;
 }
 
@@ -149,6 +155,7 @@ bool TryHook_WriteProcessMemory()
     {
         return HookOn((PVOID*)&Sys_WriteProcessMemory, NewWriteProcessMemory, GetCurrentThread());
     }
+    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
     else
     {
         logger.Log("Sys_WriteProcessMemory空指针");
@@ -163,6 +170,7 @@ bool TryUnHook_WriteProcessMemory()
         return HookOff((PVOID*)&Sys_WriteProcessMemory, NewWriteProcessMemory, GetCurrentThread());
     }
 
+    // 调试器会高频读取断点附近字节，回填路径保持静默，避免日志拖慢步进和反汇编刷新。
     return true;
 }
 
@@ -174,6 +182,7 @@ bool TryHook_ReadProcessMemory()
     {
         return HookOn((PVOID*)&Sys_ReadProcessMemory, NewReadProcessMemory, GetCurrentThread());
     }
+    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
     else
     {
         logger.Log("Sys_ReadProcessMemory空指针");
@@ -188,6 +197,7 @@ bool TryUnHook_ReadProcessMemory()
         return HookOff((PVOID*)&Sys_ReadProcessMemory, NewReadProcessMemory, GetCurrentThread());
     }
 
+    // 调试器会高频读取断点附近字节，回填路径保持静默，避免日志拖慢步进和反汇编刷新。
     return true;
 }
 
@@ -199,6 +209,7 @@ bool TryHook_NtWriteVirtualMemory()
     {
         return HookOn((PVOID*)&Sys_NtWriteVirtualMemory, NewNtWriteVirtualMemory, GetCurrentThread());
     }
+    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
     else
     {
         logger.Log("Sys_NtWriteVirtualMemory空指针");
@@ -213,6 +224,7 @@ bool TryUnHook_NtWriteVirtualMemory()
         return HookOff((PVOID*)&Sys_NtWriteVirtualMemory, NewNtWriteVirtualMemory, GetCurrentThread());
     }
 
+    // 调试器会高频读取断点附近字节，回填路径保持静默，避免日志拖慢步进和反汇编刷新。
     return true;
 }
 
@@ -224,6 +236,7 @@ bool TryHook_NtReadVirtualMemory()
     {
         return HookOn((PVOID*)&Sys_NtReadVirtualMemory, NewNtReadVirtualMemory, GetCurrentThread());
     }
+    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
     else
     {
         logger.Log("Sys_NtReadVirtualMemory空指针");
@@ -238,6 +251,7 @@ bool TryUnHook_NtReadVirtualMemory()
         return HookOff((PVOID*)&Sys_NtReadVirtualMemory, NewNtReadVirtualMemory, GetCurrentThread());
     }
 
+    // 调试器会高频读取断点附近字节，回填路径保持静默，避免日志拖慢步进和反汇编刷新。
     return true;
 }
 

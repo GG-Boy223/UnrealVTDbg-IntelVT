@@ -5,10 +5,18 @@
 #include "ModuleResolver.h"
 #include "UtilityFunctions.h"
 
+/// <param name="pContext">Loader context.</param>
+/// <param name="name">Name to resolve</param>
+/// <param name="resolved">Resolved name if any</param>
+/// <returns>Status code</returns>
+/// <summary>
+///Try to resolve image via SxS isolation
+/// </summary>
 NTSTATUS BBResolveSxS(
     IN PMMAP_CONTEXT pContext,
     IN PUNICODE_STRING name,
     OUT PUNICODE_STRING resolved
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 )
 {
     NTSTATUS status = STATUS_NOT_FOUND;
@@ -17,21 +25,25 @@ NTSTATUS BBResolveSxS(
 
     typedef struct _STRIBG_BUF
     {
+        // Activation context data
         union
         {
             UNICODE_STRING name1;
             UNICODE_STRING32 name132;
         };
+        // Activation context data
         union
         {
             UNICODE_STRING name2;
             UNICODE_STRING32 name232;
         };
+        // Activation context data
         union
         {
             UNICODE_STRING origName;
             UNICODE_STRING32 origName32;
         };
+        // Activation context data
         union
         {
             PUNICODE_STRING pResolved;
@@ -57,6 +69,7 @@ NTSTATUS BBResolveSxS(
     RtlZeroMemory(pStringBuf->origBuf, sizeof(pStringBuf->origBuf));
     RtlZeroMemory(pStringBuf->staticBuf, sizeof(pStringBuf->staticBuf));
 
+    // Fill params
     memcpy(pStringBuf->origBuf, name->Buffer, name->Length);
     if (wow64)
     {
@@ -80,11 +93,13 @@ NTSTATUS BBResolveSxS(
 
     __try
     {
+        // RtlDosApplyFileIsolationRedirection_Ustr
         status = BBCallRoutine(
             FALSE, pContext, pQueryName, 9,
             (PVOID)TRUE, &pStringBuf->origName, NULL,
             &pStringBuf->name1, &pStringBuf->name2, &pStringBuf->pResolved,
             NULL, NULL, NULL
+        // __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
         );
 
         if (NT_SUCCESS(status) && NT_SUCCESS(pContext->userMem->status))

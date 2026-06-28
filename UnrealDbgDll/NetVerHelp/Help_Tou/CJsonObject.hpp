@@ -20,6 +20,8 @@
 #include <string>
 #include <map>
 #include <list>
+// /* cJSON */
+// /* JSON parser in C. */
 #include "cJSON.h"
 
 
@@ -38,6 +40,9 @@ namespace Help
 		CJsonObject& operator=(const CJsonObject& oJsonObject);
 		bool operator==(const CJsonObject& oJsonObject) const;
 		bool Parse(const std::string& strJson);
+		// /**
+		// * @brief				-- recycle CHttpConnection* and CHttpFile*
+		// */
 		void Clear();
 		bool IsEmpty() const;
 		bool IsArray() const;

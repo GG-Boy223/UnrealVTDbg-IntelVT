@@ -6,6 +6,7 @@ namespace HookInternal
     {
         if (value == nullptr)
         {
+            // 处理打开进程失败的情况
             return false;
         }
 
@@ -133,6 +134,7 @@ namespace HookInternal
             }
             RemoveInt3BreakpointRecord(existing);
         }
+        // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
         else
         {
             INT3BreakpointList.UnLock();

@@ -44,6 +44,7 @@ namespace
         {
             return TRUE;
         }
+        //当前线程必须是gui线程才能访问win32k的内存
         symbolic_access::ModuleExtenderFactory extenderFactory{};
         auto moduleExtender = extenderFactory.Create(L"ntdll.dll");
         if (!moduleExtender.has_value())
@@ -86,15 +87,22 @@ namespace
     }
 }
 
+/// </summary>
+/// <param name="pThread">Thread to check</param>
+/// /// <param name="isWow64">If TRUE - check Wow64 TEB</param>
+/// <returns>If TRUE - BBLookupProcessThread should skip thread</returns>
+/// <summary>
+/// Check if thread does not satisfy APC requirements
 BOOLEAN BBSkipThread(IN PETHREAD pThread, IN BOOLEAN isWow64)
 {
     BOOLEAN skipThread = TRUE;
     PUCHAR pTeb64 = (PUCHAR)PsGetThreadTeb(pThread);
     PEPROCESS pProcess = PsGetThreadProcess(pThread);
     KAPC_STATE apcState = {};
-    BOOLEAN attached = FALSE;
+    BOOLEAN attached = FALSE; // 记录是否完成 Attach，确保异常路径也能 Detach。
     if (!pTeb64)
         return TRUE;
+    // System image, not supported
     if (pProcess == NULL)
         return TRUE;
     KeStackAttachProcess(pProcess, &apcState);
@@ -106,6 +114,7 @@ BOOLEAN BBSkipThread(IN PETHREAD pThread, IN BOOLEAN isWow64)
         // Skip GUI threads. APC to GUI thread causes ZwUserGetMessage to fail.
         if (*(PULONG64)(pTeb64 + g_ApcTebOffsets.Teb64Win32ThreadInfo) != 0)
             goto Exit;
+        // Wow64 process
         if (isWow64)
         {
             LONG wowTebOffset = *(PLONG)(pTeb64 + g_ApcTebOffsets.Teb64WowTebOffset);
@@ -136,12 +145,18 @@ Exit:
     return skipThread;
 }
 
+/// </summary>
+/// <param name="pProcess">Target process</param>
+/// <param name="ppThread">Found thread. Thread object reference count is increased by 1</param>
+/// <returns>Status code</returns>
+/// <summary>
+/// Find first thread of the target process
 NTSTATUS BBLookupProcessThread(IN PEPROCESS pProcess, OUT PETHREAD* ppThread)
 {
     NTSTATUS status = STATUS_SUCCESS;
     ASSERT(ppThread != NULL);
     if (ppThread == NULL)
-        return STATUS_INVALID_PARAMETER;
+        return STATUS_INVALID_PARAMETER; // 参数不合法时直接拒绝。
 
     HANDLE pid = PsGetProcessId(pProcess);
     PVOID pBuf = ExAllocatePoolWithTag(NonPagedPool, 1024 * 1024, BB_POOL_TAG);
@@ -153,6 +168,7 @@ NTSTATUS BBLookupProcessThread(IN PEPROCESS pProcess, OUT PETHREAD* ppThread)
         return STATUS_NO_MEMORY;
     }
 
+    // Get the process thread list
     status = ZwQuerySystemInformation(SystemProcessInformation, pInfo, 1024 * 1024, NULL);
     if (!NT_SUCCESS(status))
     {
@@ -160,6 +176,7 @@ NTSTATUS BBLookupProcessThread(IN PEPROCESS pProcess, OUT PETHREAD* ppThread)
         return status;
     }
 
+    // Find target thread
     if (NT_SUCCESS(status))
     {
         status = STATUS_NOT_FOUND;
@@ -167,6 +184,7 @@ NTSTATUS BBLookupProcessThread(IN PEPROCESS pProcess, OUT PETHREAD* ppThread)
         {
             if (pInfo->UniqueProcessId == pid)
             {
+                // *handle_table = *entry;
                 status = STATUS_SUCCESS;
                 break;
             }
@@ -179,23 +197,28 @@ NTSTATUS BBLookupProcessThread(IN PEPROCESS pProcess, OUT PETHREAD* ppThread)
 
     BOOLEAN wow64 = PsGetProcessWow64Process(pProcess) != NULL;
 
+    // Reference target thread
     if (NT_SUCCESS(status))
     {
         status = STATUS_NOT_FOUND;
 
+        // Get first thread
         for (ULONG i = 0; i < pInfo->NumberOfThreads; i++)
         {
             if (pInfo->Threads[i].ClientId.UniqueThread == PsGetCurrentThreadId())
             {
+                // *ppThread = NULL;
                 continue;
             }
 
             status = PsLookupThreadByThreadId(pInfo->Threads[i].ClientId.UniqueThread, ppThread);
 
+            // Skip specific threads
             if (*ppThread && BBSkipThread(*ppThread, wow64))
             {
                 ObDereferenceObject(*ppThread);
                 *ppThread = NULL;
+                // *ppThread = NULL;
                 continue;
             }
 
@@ -210,6 +233,7 @@ NTSTATUS BBLookupProcessThread(IN PEPROCESS pProcess, OUT PETHREAD* ppThread)
     if (pBuf)
         ExFreePoolWithTag(pBuf, BB_POOL_TAG);
 
+    // No suitable thread
     if (!*ppThread)
         status = STATUS_NOT_FOUND;
 

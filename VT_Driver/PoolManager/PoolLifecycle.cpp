@@ -1,7 +1,12 @@
-#include "PoolManagerInternal.h"
+﻿#include "PoolManagerInternal.h"
 
 namespace pool_manager
 {
+    /// Initalize pool manager struct and preallocate pools
+    /// 初始化池管理器结构并预分配池
+    /// </summary>
+    /// <returns> status </returns>
+    /// <summary>
     bool initialize()
     {
         g_vmm_context.pool_manager = ::allocate_pool<__pool_manager>();
@@ -60,6 +65,10 @@ namespace pool_manager
         return perform_allocation();
     }
 
+    /// <summary>
+    /// Free all allocted pools
+    /// 释放所有已分配的池
+    /// </summary>
     void uninitialize()
     {
         PLIST_ENTRY ListHead, NextEntry, DelEntry;
@@ -71,14 +80,18 @@ namespace pool_manager
 
             while (ListHead != NextEntry)
             {
+                // Get the head of the record
                 __pool_table* pool_table = (__pool_table*)CONTAINING_RECORD(NextEntry, __pool_table, pool_list);
 
+                // Free the alloocated buffer
                 free_pool(pool_table->address);
 
                 DelEntry = NextEntry;
+                // /* Move to the next entry */
                 NextEntry = NextEntry->Flink;
 
                 RemoveEntryList(DelEntry);
+                // Free the record itself
                 free_pool(pool_table);
             }
 

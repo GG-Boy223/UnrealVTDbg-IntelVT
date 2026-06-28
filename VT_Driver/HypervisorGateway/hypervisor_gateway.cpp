@@ -227,7 +227,7 @@ namespace hvgt // Hypervisor Gateway：普通内核线程调用 Hypervisor 的�
 	// 初学者理解：一些软件通过 CPUID 判断是否存在 Hypervisor，这里可隐藏或显示。
 	void hypervisor_visible(bool value)
 	{
-		if (value == true)
+		if (value == true) // 根据 value 决定置位还是清位
 			__vm_call(VMCALL_UNHIDE_HV_PRESENCE, 0, 0, 0); // 让 Hypervisor 可见
 		else
 			__vm_call(VMCALL_HIDE_HV_PRESENCE, 0, 0, 0); // 让 Hypervisor 隐藏

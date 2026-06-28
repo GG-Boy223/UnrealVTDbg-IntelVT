@@ -10,6 +10,7 @@ namespace Help
 	/* Type define */
 
 	/* MD5 declaration. */
+	// /* MD5 declaration. */
 	class MD5 {
 
 		typedef unsigned  char byte;
@@ -36,6 +37,7 @@ namespace Help
 		string bytesToHexString(const byte* input, size_t length);
 
 		/* class uncopyable */
+		// /* class uncopyable */
 		MD5(const MD5&);
 		MD5& operator=(const MD5&);
 
@@ -47,6 +49,7 @@ namespace Help
 		bool _finished;        /* calculate finished ? */
 
 		static const byte PADDING[64];    /* padding for calculate */
+		// static const byte PADDING[64];    /* padding for calculate */
 		static const char HEX[16];
 		enum { BUFFER_SIZE = 1024 };
 	};

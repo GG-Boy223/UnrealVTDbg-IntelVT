@@ -1,5 +1,5 @@
 ﻿#include "Driver.h"
-#include "invalid_vpid.h"
+#include "invalid_vpid.h" // 包含 VPID 无效化相关函数
 #include "AsmCallset.h"
 
 void invvpid_invidual_address_func(unsigned __int64 linear_address, unsigned __int16 vpid)

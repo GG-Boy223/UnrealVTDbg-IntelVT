@@ -17,6 +17,7 @@ void RemoveHook(DWORD dwPid)
 	try
 	{
 		HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwPid);
+		//hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwPid);
 		if (hProcess)
 		{
 			LdrInitializeThunk = (PFN_LDRINITIALIZETHUNK)GetProcAddress(GetModuleHandle(_T("ntdll.dll")), "LdrInitializeThunk");
@@ -41,6 +42,7 @@ void RemoveHook(DWORD dwPid)
 			// 关闭进程句柄
 			CloseHandle(hProcess);
 		}
+		// *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
 		else
 		{
 			logger.Log("打开进程失败 error: %d",GetLastError());
@@ -58,6 +60,7 @@ void RestoreHook(DWORD dwPid)
 	try
 	{
 		HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwPid);
+		//hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwPid);
 		if (hProcess)
 		{
 			LdrInitializeThunk = (PFN_LDRINITIALIZETHUNK)GetProcAddress(GetModuleHandle(_T("ntdll.dll")), "LdrInitializeThunk");
@@ -71,6 +74,7 @@ void RestoreHook(DWORD dwPid)
 			// 关闭进程句柄
 			CloseHandle(hProcess);
 		}
+		// *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
 		else
 		{
 			logger.Log("打开进程失败 error: %d", GetLastError());
@@ -89,6 +93,7 @@ void RemoveKiUserApcDispatcherHook(DWORD dwPid)
 	try
 	{
 		HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwPid);
+		//hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwPid);
 		if (hProcess)
 		{
 			KiUserApcDispatcher = (PFN_LDRINITIALIZETHUNK)GetProcAddress(GetModuleHandle(_T("ntdll.dll")), "KiUserApcDispatcher");
@@ -113,6 +118,7 @@ void RemoveKiUserApcDispatcherHook(DWORD dwPid)
 			// 关闭进程句柄
 			CloseHandle(hProcess);
 		}
+		// *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
 		else
 		{
 			logger.Log("打开进程失败 error: %d", GetLastError());
@@ -130,6 +136,7 @@ void RestoreKiUserApcDispatcherHook(DWORD dwPid)
 	try
 	{
 		HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwPid);
+		//hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwPid);
 		if (hProcess)
 		{
 			KiUserApcDispatcher = (PFN_LDRINITIALIZETHUNK)GetProcAddress(GetModuleHandle(_T("ntdll.dll")), "KiUserApcDispatcher");
@@ -143,6 +150,7 @@ void RestoreKiUserApcDispatcherHook(DWORD dwPid)
 			// 关闭进程句柄
 			CloseHandle(hProcess);
 		}
+		// *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
 		else
 		{
 			logger.Log("打开进程失败 error: %d", GetLastError());

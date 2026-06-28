@@ -1,5 +1,8 @@
 ﻿#include "HookInternal.h"
 
+/// <summary>
+/// 测试用的
+/// </summary>
 void NewLdrInitializeThunk(PCONTEXT ContextRecord, PVOID SystemArgument1)
 {
     UNREFERENCED_PARAMETER(ContextRecord);
@@ -18,6 +21,7 @@ void Hook_LdrInitializeThunk()
     {
         HookOn(reinterpret_cast<PVOID*>(&LdrInitializeThunk), NewLdrInitializeThunk, GetCurrentThread());
     }
+    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
     else
     {
         logger.Log("LdrInitializeThunk空指针");

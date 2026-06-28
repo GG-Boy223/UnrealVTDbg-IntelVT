@@ -3,6 +3,7 @@
 namespace Help
 {
 	/* Constants for MD5Transform routine. */
+// /* Constants for MD5Transform routine. */
 #define S11 7
 #define S12 12
 #define S13 17
@@ -23,6 +24,8 @@ namespace Help
 
 /* F, G, H and I are basic MD5 functions.
 */
+// /* F, G, H and I are basic MD5 functions.
+// */
 #define F(x, y, z) (((x) & (y)) | ((~x) & (z)))
 #define G(x, y, z) (((x) & (z)) | ((y) & (~z)))
 #define H(x, y, z) ((x) ^ (y) ^ (z))
@@ -30,6 +33,8 @@ namespace Help
 
 /* ROTATE_LEFT rotates x left n bits.
 */
+// /* ROTATE_LEFT rotates x left n bits.
+// */
 #define ROTATE_LEFT(x, n) (((x) << (n)) | ((x) >> (32-(n))))
 
 /* FF, GG, HH, and II transformations for rounds 1, 2, 3, and 4.
@@ -67,29 +72,34 @@ Rotation is separate from addition to prevent recomputation.
 
 
 	/* Default construct. */
+	// /* Default construct. */
 	MD5::MD5() {
 		reset();
 	}
 
 	/* Construct a MD5 object with a input buffer. */
+	// /* Construct a MD5 object with a input buffer. */
 	MD5::MD5(const void* input, size_t length) {
 		reset();
 		update(input, length);
 	}
 
 	/* Construct a MD5 object with a string. */
+	// /* Construct a MD5 object with a string. */
 	MD5::MD5(const string& str) {
 		reset();
 		update(str);
 	}
 
 	/* Construct a MD5 object with a file. */
+	// /* Construct a MD5 object with a file. */
 	MD5::MD5(ifstream& in) {
 		reset();
 		update(in);
 	}
 
 	/* Return the message-digest */
+	// /* Return the message-digest */
 	const MD5::byte* MD5::digest() {
 
 		if (!_finished) {
@@ -100,12 +110,15 @@ Rotation is separate from addition to prevent recomputation.
 	}
 
 	/* Reset the calculate state */
+	// /* Reset the calculate state */
 	void MD5::reset() {
 
 		_finished = false;
 		/* reset number of bits. */
+		// /* reset number of bits. */
 		_count[0] = _count[1] = 0;
 		/* Load magic initialization constants. */
+		// /* Load magic initialization constants. */
 		_state[0] = 0x67452301;
 		_state[1] = 0xefcdab89;
 		_state[2] = 0x98badcfe;
@@ -113,16 +126,19 @@ Rotation is separate from addition to prevent recomputation.
 	}
 
 	/* Updating the context with a input buffer. */
+	// /* Updating the context with a input buffer. */
 	void MD5::update(const void* input, size_t length) {
 		update((const byte*)input, length);
 	}
 
 	/* Updating the context with a string. */
+	// /* Updating the context with a string. */
 	void MD5::update(const string& str) {
 		update((const byte*)str.c_str(), str.length());
 	}
 
 	/* Updating the context with a file. */
+	// /* Updating the context with a file. */
 	void MD5::update(ifstream& in) {
 
 		if (!in) {
@@ -145,6 +161,10 @@ Rotation is separate from addition to prevent recomputation.
 	operation, processing another message block, and updating the
 	context.
 	*/
+	// /* MD5 block update operation. Continues an MD5 message-digest
+	// operation, processing another message block, and updating the
+	// context.
+	// */
 	void MD5::update(const byte* input, size_t length) {
 
 		uint32 i, index, partLen;
@@ -152,9 +172,11 @@ Rotation is separate from addition to prevent recomputation.
 		_finished = false;
 
 		/* Compute number of bytes mod 64 */
+		// /* Compute number of bytes mod 64 */
 		index = (uint32)((_count[0] >> 3) & 0x3f);
 
 		/* update number of bits */
+		// /* update number of bits */
 		if ((_count[0] += ((uint32)length << 3)) < ((uint32)length << 3)) {
 			++_count[1];
 		}
@@ -163,6 +185,7 @@ Rotation is separate from addition to prevent recomputation.
 		partLen = 64 - index;
 
 		/* transform as many times as possible. */
+		// /* transform as many times as possible. */
 		if (length >= partLen) {
 
 			memcpy(&_buffer[index], input, partLen);
@@ -179,12 +202,16 @@ Rotation is separate from addition to prevent recomputation.
 		}
 
 		/* Buffer remaining input */
+		// /* Buffer remaining input */
 		memcpy(&_buffer[index], &input[i], length - i);
 	}
 
 	/* MD5 finalization. Ends an MD5 message-_digest operation, writing the
 	the message _digest and zeroizing the context.
 	*/
+	// /* MD5 finalization. Ends an MD5 message-_digest operation, writing the
+	// the message _digest and zeroizing the context.
+	// */
 	void MD5::final() {
 
 		byte bits[8];
@@ -193,29 +220,36 @@ Rotation is separate from addition to prevent recomputation.
 		uint32 index, padLen;
 
 		/* Save current state and count. */
+		// /* Save current state and count. */
 		memcpy(oldState, _state, 16);
 		memcpy(oldCount, _count, 8);
 
 		/* Save number of bits */
+		// /* Save number of bits */
 		encode(_count, bits, 8);
 
 		/* Pad out to 56 mod 64. */
+		// /* Pad out to 56 mod 64. */
 		index = (uint32)((_count[0] >> 3) & 0x3f);
 		padLen = (index < 56) ? (56 - index) : (120 - index);
 		update(PADDING, padLen);
 
 		/* Append length (before padding) */
+		// /* Append length (before padding) */
 		update(bits, 8);
 
 		/* Store state in digest */
+		// /* Store state in digest */
 		encode(_state, _digest, 16);
 
 		/* Restore current state and count. */
+		// /* Restore current state and count. */
 		memcpy(_state, oldState, 16);
 		memcpy(_count, oldCount, 8);
 	}
 
 	/* MD5 basic transformation. Transforms _state based on block. */
+	// /* MD5 basic transformation. Transforms _state based on block. */
 	void MD5::transform(const byte block[64]) {
 
 		uint32 a = _state[0], b = _state[1], c = _state[2], d = _state[3], x[16];
@@ -303,6 +337,9 @@ Rotation is separate from addition to prevent recomputation.
 	/* Encodes input (ulong) into output (byte). Assumes length is
 	a multiple of 4.
 	*/
+	// /* Encodes input (ulong) into output (byte). Assumes length is
+	// a multiple of 4.
+	// */
 	void MD5::encode(const uint32* input, byte* output, size_t length) {
 
 		for (size_t i = 0, j = 0; j < length; ++i, j += 4) {
@@ -316,6 +353,9 @@ Rotation is separate from addition to prevent recomputation.
 	/* Decodes input (byte) into output (ulong). Assumes length is
 	a multiple of 4.
 	*/
+	// /* Decodes input (byte) into output (ulong). Assumes length is
+	// a multiple of 4.
+	// */
 	void MD5::decode(const byte* input, uint32* output, size_t length) {
 
 		for (size_t i = 0, j = 0; j < length; ++i, j += 4) {
@@ -325,6 +365,7 @@ Rotation is separate from addition to prevent recomputation.
 	}
 
 	/* Convert byte array to hex string. */
+	// /* Convert byte array to hex string. */
 	string MD5::bytesToHexString(const byte* input, size_t length) {
 
 		string str;
@@ -340,6 +381,7 @@ Rotation is separate from addition to prevent recomputation.
 	}
 
 	/* Convert digest to string value */
+	// /* Convert digest to string value */
 	string MD5::toString() {
 		return bytesToHexString(digest(), 16);
 	}

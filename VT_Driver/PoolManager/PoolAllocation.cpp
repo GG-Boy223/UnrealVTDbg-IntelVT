@@ -1,4 +1,4 @@
-#include "PoolManagerInternal.h"
+﻿#include "PoolManagerInternal.h"
 
 namespace pool_manager
 {
@@ -24,7 +24,7 @@ namespace pool_manager
             RtlSecureZeroMemory(single_pool->address, size);
 
             single_pool->intention = intention;
-            single_pool->is_busy = false;
+            single_pool->is_busy = false; //将内存标识为未使用
             single_pool->size = size;
 
             InsertTailList(g_vmm_context.pool_manager->list_of_allocated_pools, &(single_pool->pool_list));
@@ -33,6 +33,10 @@ namespace pool_manager
         return true;
     }
 
+    /// <summary>
+    /// 分配所有请求的池
+    /// </summary>
+    /// <returns></returns>
     bool perform_allocation()
     {
         bool status = true;

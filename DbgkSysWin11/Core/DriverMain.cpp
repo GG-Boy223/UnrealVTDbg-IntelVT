@@ -70,6 +70,7 @@ namespace
                 zeroSamples++;
                 if (zeroSamples >= 2)
                 {
+                    //是我们自己的调试器要创建线程，则直接返回不走线程回调
                     return;
                 }
             }
@@ -128,6 +129,11 @@ NTSTATUS DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING Registry
     if (!NT_SUCCESS(ntStatus))
     {
         outLog("Win11创建设备对象失败.");
+        //        }
+        //    }
+        //}
+        //__except (EXCEPTION_EXECUTE_HANDLER) {
+        //    return ntStatus;
         return ntStatus;
     }
     else
@@ -139,10 +145,13 @@ NTSTATUS DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING Registry
     DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = HandlerDispatchRoutin;
     /* Initialize the User-Mode Debugging Subsystem */
     //TestVMM();
+    // /* Initialize the User-Mode Debugging Subsystem */
+    //DbgBreakPoint();
     DriverObject->DriverUnload = Unload;
     return STATUS_SUCCESS;
 }
 
+//创建设备 符号链接等
 NTSTATUS CreateDevice(IN PDRIVER_OBJECT pDriver_Object)
 {
     NTSTATUS ntStatus;
@@ -158,10 +167,16 @@ NTSTATUS CreateDevice(IN PDRIVER_OBJECT pDriver_Object)
 
     if (!NT_SUCCESS(ntStatus))
     {
+        //        }
+        //    }
+        //}
+        //__except (EXCEPTION_EXECUTE_HANDLER) {
+        //    return ntStatus;
         return ntStatus;
     }
 
     //可以直接读写设备
+    //创建直接读写设备
     pDevObj->Flags |= DO_BUFFERED_IO;
     pDevExt = (PDEVICE_EXTENSION)pDevObj->DeviceExtension;
     pDevExt->pDevice = pDevObj;
@@ -175,11 +190,17 @@ NTSTATUS CreateDevice(IN PDRIVER_OBJECT pDriver_Object)
     if (!NT_SUCCESS(ntStatus))
     {
         IoDeleteDevice(pDevObj);  //创建失败删除设备
+        //        }
+        //    }
+        //}
+        //__except (EXCEPTION_EXECUTE_HANDLER) {
+        //    return ntStatus;
         return ntStatus;
     }
     return STATUS_SUCCESS;
 }
 
+//删除设备
 VOID _RemoveDevice(IN PDRIVER_OBJECT pDriver_Object)
 {
     PDEVICE_OBJECT	pNextObj;
@@ -198,7 +219,7 @@ VOID _RemoveDevice(IN PDRIVER_OBJECT pDriver_Object)
 
 NTSTATUS InitDispatchRoutin(IN PDEVICE_OBJECT pDevObj, IN PIRP pIrp)
 {
-    NTSTATUS ntStatus = STATUS_SUCCESS;
+    NTSTATUS ntStatus = STATUS_SUCCESS; // 统一返回状态。
     //得到当前堆栈
     PIO_STACK_LOCATION stack = IoGetCurrentIrpStackLocation(pIrp);
     //得到输入缓冲区大小
@@ -234,9 +255,23 @@ NTSTATUS InitDispatchRoutin(IN PDEVICE_OBJECT pDevObj, IN PIRP pIrp)
     pIrp->IoStatus.Status = ntStatus;
     pIrp->IoStatus.Information = cbin;
     IoCompleteRequest(pIrp, IO_NO_INCREMENT);
+    //        }
+    //    }
+    //}
+    //__except (EXCEPTION_EXECUTE_HANDLER) {
+    //    return ntStatus;
     return ntStatus;
 }
 
+////初始化保护
+//VOID InitProtect(IN PDRIVER_OBJECT DriverObject)
+//{
+//    RegisterCallbacks(DriverObject);
+//}
+//
+////卸载保护
+//VOID UnloadProtect()
+//    UnCallbacks();
 EXTERN_C
 VOID RemoveHooks()
 {

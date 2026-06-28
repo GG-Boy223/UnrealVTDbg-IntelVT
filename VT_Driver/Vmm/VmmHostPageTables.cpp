@@ -43,18 +43,16 @@ bool create_host_page_tables() // 构建宿主页表并映射全部物理内存�
 				KAPC_STATE ApcState;
 				bool attached = false;
 
-				__try
+				__try // 保护性异常处理，避免内核崩溃
 				{
 					KeStackAttachProcess(current_process, &ApcState); // 进入目标进程地址空间，保持原dwm.exe页表构建方式
 					attached = true;
-					__try
+					__try // 保护性异常处理，避免内核崩溃
 					{
 						// hv::ghv.system_cr3.flags = eprocess_directory_table_base; // 旧逻辑：只使用EPROCESS字段，KVA/PCID/新系统上可能不是当前硬件实际CR3。
 						hv::ghv.system_cr3.flags = __readcr3(); // 新逻辑：attach到dwm.exe后读取当前硬件CR3，保证Host页表来源与实际dwm地址空间一致。
 						outFile("[信息][Host页表] dwm.exe CR3=0x%llX EPROCESS_DTB=0x%llX CR4=0x%llX",
-							hv::ghv.system_cr3.flags,
-							eprocess_directory_table_base,
-							__readcr4());
+							hv::ghv.system_cr3.flags,eprocess_directory_table_base,__readcr4());
 
 						if (hv::ghv.system_cr3.flags == 0 || hv::ghv.system_cr3.address_of_page_directory == 0)
 						{

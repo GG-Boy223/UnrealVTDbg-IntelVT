@@ -2,7 +2,7 @@
 #include "VmExitCommon.h"
 
 // 控制寄存器访问处理
-void vmexit_cr_handler(__vcpu* vcpu);
+void vmexit_cr_handler(__vcpu* vcpu); // 前置声明 VM-exit 分支处理函数，便于后续分发调用
 void vmexit_mov_dr_handler(__vcpu* vcpu);
 
 // CR处理辅助函数

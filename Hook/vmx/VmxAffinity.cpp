@@ -9,10 +9,12 @@ namespace HookVmxInternal
     {
         if (Mask == nullptr || CpuNo < 0 || CpuNo >= static_cast<int>(sizeof(DWORD_PTR) * 8))
         {
+            // 处理打开进程失败的情况
             return false;
         }
 
         *Mask = static_cast<DWORD_PTR>(1) << CpuNo;
+        // *Mask = static_cast<DWORD_PTR>(1) << CpuNo;
         return true;
     }
 
@@ -31,6 +33,7 @@ namespace HookVmxInternal
     {
         if (CallSucceeded == nullptr)
         {
+            // 处理打开进程失败的情况
             return false;
         }
 
@@ -39,6 +42,7 @@ namespace HookVmxInternal
         DWORD_PTR target_mask = 0;
         if (!BuildAffinityMask(CpuNo, &target_mask))
         {
+            // 处理打开进程失败的情况
             return false;
         }
 
@@ -94,6 +98,7 @@ namespace HookVmxInternal
             logger.Log("restore process affinity failed (error: %u)", GetLastError());
         }
 
+        // 调试器会高频读取断点附近字节，回填路径保持静默，避免日志拖慢步进和反汇编刷新。
         return true;
     }
 }
@@ -118,6 +123,7 @@ void RunOnCPU(HANDLE hThread, int CpuNo)
                 throw std::runtime_error("设置线程亲和性失败");
             }
         }
+        // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
         else
         {
             throw std::runtime_error("设置进程亲和性失败");

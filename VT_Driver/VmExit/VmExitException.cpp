@@ -3,7 +3,7 @@
 void vmexit_unimplemented(__vcpu* vcpu) // 未实现 VM-exit 的兜底处理，向 guest 注入 #GP 避免静默继续。
 {
 	sLog("\n"); // 记录未实现路径，便于后续补齐具体 reason。
-	hv::inject_interruption(EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT, INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, true);
+	hv::inject_interruption(EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT, INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, true); // 注入 #GP(0) 给来宾：按硬件规则告知"非法/不支持的操作"，防止继续执行
 }
 
 void vmexit_nmi_window_handler(__vcpu* vcpu) // 在 guest 解除 NMI blocking 后投递 queued_nmis。
@@ -44,6 +44,74 @@ void vmexit_nmi_window_handler(__vcpu* vcpu) // 在 guest 解除 NMI blocking �
 	}
 }
 
+//void vmexit_monitor_trap_flag_handler(__vcpu* vcpu) // 处理 MTF（Monitor Trap Flag）VM-exit，用于单步式的 EPT 钩子收尾
+//{
+//	hv::set_mtf(false);  // 关闭 MTF：本次单步完成后不再继续触发 MTF VM-exit
+//
+//	// 切记不可滥用 page_to_change：它只会在 EPT 违例时被记录
+//	// 当它非空时，说明 MTF 是我们主动打开的，用来处理特定页面
+//	// 处理结束后必须清空，否则可能对错误页面做恢复/替换
+//	const auto hooked_page_info = vcpu->ept_state->page_to_change; // 取出本次需要处理的 EPT 钩子页面信息
+//	if (hooked_page_info) // 仅当存在待处理页面时才进入后续逻辑
+//	{
+//		if (hooked_page_info->Options == EPTO_HOOK_FUNCTION) // 钩子类型：函数钩子（通常通过执行权限切换实现）
+//		{
+//			// 将原页设置为不可执行：下一次执行该页会触发 EPT 违例，从而切换到伪页
+//			hooked_page_info->original_entry.execute = 0; // 禁止原页执行权限，制造下一次 EPT 违例
+//			vcpu->ept_state->page_to_change = nullptr; // 清空 page_to_change，避免重复处理同一页
+//			ept::swap_pml1_and_invalidate_tlb(*vcpu->ept_state, // 交换 PML1 表项并刷新 TLB，确保权限立即生效
+//				hooked_page_info->entry_address, // 要更新的 EPT PML1 项地址
+//				hooked_page_info->original_entry, // 更新后的原页表项（已禁用执行）
+//				invept_type::invept_single_context); // 仅刷新当前 EPT 上下文，减少全局开销
+//		}
+//		if (hooked_page_info->Options == EPTO_VIRTUAL_BREAKPOINT) // 钩子类型：虚拟断点（读/写/执行监控）
+//			spinlock::lock(&eptWatchList_lock); // 加锁保护监视列表，避免并发修改
+//			int ID = hooked_page_info->ID; // 取得监视条目 ID，用于索引 watchlist
+//			if ((ID == -1) || (eptWatchList[ID].inuse == 0)) // 若 ID 无效或条目未启用
+//			{
+//				CleanUp(vcpu, hooked_page_info); // 清理钩子状态，避免残留
+//				spinlock::unlock(&eptWatchList_lock); // 释放锁
+//				return; // 直接返回，停止后续处理
+//			}
+//			if (hooked_page_info->isInt3) // INT3（0xCC）断点类型
+//				cr3 guest_cr3; // 临时保存来宾 CR3（页表基址）
+//				guest_cr3.flags = eptWatchList[ID].cr3; // 使用该断点关联的 CR3，保证虚拟地址转换一致
+//				if (!hooked_page_info->fake_page_synced || hooked_page_info->fake_page_needs_full_sync)
+//				{
+//					// 只有首次建立或显式标记 dirty 时才整页同步，避免高频 INT3 MTF 每次读 4KB。
+//					if (PAGE_SIZE != hv::read_guest_virtual_memory(guest_cr3, PAGE_ALIGN(eptWatchList[ID].VirtualAddress), &hooked_page_info->fake_page_contents, PAGE_SIZE))
+//					{
+//						hooked_page_info->fake_page_synced = false;
+//						hooked_page_info->fake_page_needs_full_sync = true;
+//						CleanUp(vcpu, hooked_page_info); // 清理状态，避免残留
+//						spinlock::unlock(&eptWatchList_lock); // 释放锁
+//						return; // 终止处理
+//					}
+//					hooked_page_info->fake_page_synced = true;
+//					hooked_page_info->fake_page_needs_full_sync = false;
+//				}
+//				// 整页同步会覆盖伪页中的 0xCC；平时只补写同页仍 active 的 INT3 字节。
+//				for (int i = 0; i < EPTWATCHLISTSIZE; i++) // 遍历所有监视条目
+//					if (ept::ept_isWatchPage(GET_PFN(eptWatchList[ID].PhysicalAddress), i) && eptWatchList[i].bpType == 3)
+//						int offset = eptWatchList[i].VirtualAddress & 0xFFF; // 计算页内偏移（低 12 位）
+//						hooked_page_info->fake_page_contents[offset] = 0xCC; // 写入 INT3 指令字节
+//				// 再次将原页设为不可执行，以便下一次执行触发 EPT 违例并切换伪页
+//				hooked_page_info->original_entry.execute = 0; // 禁止原页执行权限
+//				ept::swap_pml1_and_invalidate_tlb(*vcpu->ept_state, // 交换页表项并刷新 TLB
+//					hooked_page_info->entry_address, // 目标页表项地址
+//					hooked_page_info->original_entry, // 更新后的原页表项
+//					invept_type::invept_single_context); // 刷新当前 EPT 上下文
+//			else // 非 INT3 的虚拟断点（读/写/执行监控）
+//				ept::apply_active_watch_permissions_locked(hooked_page_info);
+//				if (hooked_page_info->isBp)
+//					hv::inject_single_step(vcpu);
+//				// 刷新当前逻辑处理器的 EPT TLB，保证权限变化立即生效
+//				_mm_mfence(); // 内存栅栏：保证页表修改先完成
+//				invept_single_context_func(vcpu->ept_state->ept_pointer->all); // 执行 INVEPT 刷新单一 EPT 上下文
+//			CleanUp(vcpu, hooked_page_info); // 处理结束后清理钩子状态
+//			spinlock::unlock(&eptWatchList_lock); // 解锁监视列表
+//	}
+//}
 void vmexit_monitor_trap_flag_handler(__vcpu* vcpu) // MTF 单步窗口结束后恢复 EPT hook/watch 临时状态。
 {
 	hv::set_mtf(false); // 当前 MTF 已触发，先关闭 monitor trap flag 防止重复单步退出。
@@ -57,7 +125,7 @@ void vmexit_monitor_trap_flag_handler(__vcpu* vcpu) // MTF 单步窗口结束后
 		return; // 无可恢复页面，直接返回 guest。
 	}
 
-	if (hooked_page_info->Options == EPTO_HOOK_FUNCTION)
+	if (hooked_page_info->Options == EPTO_HOOK_FUNCTION) // 原理：函数钩子需要在执行/读写时切换页权限；作用：区分钩子类型；结果：进入函数钩子处理
 	{
 		hooked_page_info->original_entry.execute = 0; // 函数 EPT hook 恢复为不可执行原页，下一次执行继续触发 EPT violation。
 		ept::swap_pml1_and_invalidate_tlb(*vcpu->ept_state,
@@ -121,6 +189,7 @@ void vmexit_monitor_trap_flag_handler(__vcpu* vcpu) // MTF 单步窗口结束后
 			{
 				hv::inject_single_step(vcpu); // 命中硬件式 watch 后补一次 #DB，交给调试器处理单步事件。
 			}
+			//刷新当前逻辑处理器的eptp
 			_mm_mfence(); // 确保权限写入在 INVEPT 前对当前处理器可见。
 			invept_single_context_func(vcpu->ept_state->ept_pointer->all); // 刷新当前 EPTP 上下文，避免旧权限缓存残留。
 		}
@@ -129,6 +198,7 @@ void vmexit_monitor_trap_flag_handler(__vcpu* vcpu) // MTF 单步窗口结束后
 	}
 }
 
+//处理 int3 断点中断（调试异常的一种表现形式）
 unsigned __int32 handler_breakpoint(__ept_state& ept_state, __vmexit_interrupt_info interrupt_info) // 处理 EPT hook 页上的 #BP，决定交给 guest 还是跳转 hook handler。
 {
 	sLog("\n"); // 记录 #BP 处理路径。
@@ -136,7 +206,7 @@ unsigned __int32 handler_breakpoint(__ept_state& ept_state, __vmexit_interrupt_i
 	unsigned __int64 physical_address = MmGetPhysicalAddress((PVOID)guest_rip).QuadPart; // 转为物理地址以匹配 EPT hook 页 PFN。
 
 	PLIST_ENTRY current = &ept_state.hooked_page_list; // 从 EPT state 的 hook 页链表头开始遍历。
-	while (&ept_state.hooked_page_list != current->Flink)
+	while (&ept_state.hooked_page_list != current->Flink) // 遍历链表直到回到表头
 	{
 		current = current->Flink; // 移动到下一个 hook 页节点。
 		__ept_hooked_page_info* hooked_page_info = CONTAINING_RECORD(current, __ept_hooked_page_info, hooked_page_list); // 从 LIST_ENTRY 还原 hook 页结构。
@@ -144,7 +214,7 @@ unsigned __int32 handler_breakpoint(__ept_state& ept_state, __vmexit_interrupt_i
 		if (hooked_page_info->pfn_of_hooked_page == GET_PFN(physical_address))
 		{
 			PLIST_ENTRY current_hooked_function = &hooked_page_info->hooked_functions_list; // 只在 PFN 匹配的页内遍历 hook 函数。
-			while (&hooked_page_info->hooked_functions_list != current_hooked_function->Flink)
+			while (&hooked_page_info->hooked_functions_list != current_hooked_function->Flink) // 逐个检查每个函数钩子
 			{
 				current_hooked_function = current_hooked_function->Flink; // 移动到下一个函数 hook 记录。
 				__ept_hooked_function_info* hooked_function_info = CONTAINING_RECORD(current_hooked_function, __ept_hooked_function_info, hooked_function_list); // 还原函数 hook 信息。
@@ -167,14 +237,16 @@ unsigned __int32 handler_breakpoint(__ept_state& ept_state, __vmexit_interrupt_i
 	return 1; // 未匹配 hook 记录时按普通 #BP 处理。
 }
 
+//处理int1
+//处理 int1（#DB 单步/调试异常）
 unsigned __int32 handler_debug(__ept_state& ept_state, __vmexit_interrupt_info interrupt_info) // 处理 EPT hook 页上的 #DB，逻辑与 #BP 匹配路径一致。
 {
 	sLog("\n"); // 记录 #DB 处理路径。
 	unsigned __int64 guest_rip = hv::vmread(GUEST_RIP); // 读取当前 guest RIP。
 	unsigned __int64 physical_address = MmGetPhysicalAddress((PVOID)guest_rip).QuadPart; // 转换为物理地址用于 PFN 匹配。
 
-	PLIST_ENTRY current = &ept_state.hooked_page_list;
-	while (&ept_state.hooked_page_list != current->Flink)
+	PLIST_ENTRY current = &ept_state.hooked_page_list; // 从钩子页链表头开始遍历
+	while (&ept_state.hooked_page_list != current->Flink) // 遍历链表直到回到表头
 	{
 		current = current->Flink;
 		__ept_hooked_page_info* hooked_page_info = CONTAINING_RECORD(current, __ept_hooked_page_info, hooked_page_list);
@@ -182,10 +254,10 @@ unsigned __int32 handler_debug(__ept_state& ept_state, __vmexit_interrupt_info i
 		if (hooked_page_info->pfn_of_hooked_page == GET_PFN(physical_address))
 		{
 			PLIST_ENTRY current_hooked_function = &hooked_page_info->hooked_functions_list;
-			while (&hooked_page_info->hooked_functions_list != current_hooked_function->Flink)
+			while (&hooked_page_info->hooked_functions_list != current_hooked_function->Flink) // 逐个检查每个函数钩子
 			{
-				current_hooked_function = current_hooked_function->Flink;
-				__ept_hooked_function_info* hooked_function_info = CONTAINING_RECORD(current_hooked_function, __ept_hooked_function_info, hooked_function_list);
+				current_hooked_function = current_hooked_function->Flink; // 移动到下一个函数钩子节点
+				__ept_hooked_function_info* hooked_function_info = CONTAINING_RECORD(current_hooked_function, __ept_hooked_function_info, hooked_function_list); // 取得函数钩子信息
 
 				if (hooked_function_info->virtual_address == (PVOID)guest_rip)
 				{
@@ -205,6 +277,8 @@ unsigned __int32 handler_debug(__ept_state& ept_state, __vmexit_interrupt_info i
 	return 1; // 未匹配时按普通 #DB 继续处理。
 }
 
+//cpu重启信号
+//CPU 重启信号（INIT）处理
 void vmexit_init_signal_handler(__vcpu* vcpu) // 处理 INIT signal VM-exit，恢复 guest activity state 后跳过当前状态。
 {
 	sLog("GUEST_ACTIVITY_STATE: %d\n", hv::vmread(GUEST_ACTIVITY_STATE)); // 记录 INIT 前 activity state。
@@ -220,6 +294,7 @@ void vmexit_sipi_handler(__vcpu* vcpu) // 处理 SIPI VM-exit，确保 guest act
 	hv::vmwrite<unsigned __int64>(GUEST_ACTIVITY_STATE, vmx_active); // 激活 guest，允许后续 VMRESUME。
 }
 
+//处理 triple fault 的 VM-exit：三重故障表示来宾无法继续执行，此处统一注入 #GP 作为终止/错误路径
 void vmexit_triple_fault_handler(__vcpu* vcpu) // triple fault 兜底处理，当前实现向 guest 注入 #GP。
 {
 	sLog("\n"); // 记录 triple fault 路径。
@@ -227,6 +302,7 @@ void vmexit_triple_fault_handler(__vcpu* vcpu) // triple fault 兜底处理，�
 		INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, true); // 以 #GP 反馈，避免直接让 host 崩溃。
 }
 
+//处理 VM-exit 失败路径：VMX 指令或状态失败时统一注入 #GP，避免来宾继续在错误状态运行
 void vmexit_failed(__vcpu* vcpu) // VM-entry/VM-exit 失败兜底处理。
 {
 	sLog("\n"); // 记录失败路径。

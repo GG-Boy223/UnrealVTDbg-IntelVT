@@ -94,6 +94,7 @@ NTSTATUS DispatchBreakpointIoctl(ULONG Code, PIOCTL_DISPATCH_CONTEXT Context, BO
         Context->Information = sizeof(VT_BREAK_POINT);
         return STATUS_SUCCESS;
     }
+    // /* No special handling for other messages */
     default:
     {
         *Handled = FALSE;

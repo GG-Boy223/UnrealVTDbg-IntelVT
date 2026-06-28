@@ -33,6 +33,25 @@ bool vmcall_internal(PVOID vmcallinfo) // 执行用户态到 VMM 的 VMCALL，�
     {
         logger.Log("执行vmcall时遇到了错误 (error: 0x%x)", ecode); // 未进入 VT 或 VMM 未接管时记录异常，不让 Hook DLL 崩溃宿主进程。
     }
+    //SYSTEM_INFO SysInfo = { 0 };
+    //GetSystemInfo(&SysInfo);
+    //vmcallinfo.CPUCount = SysInfo.dwNumberOfProcessors;
+    //boSuccess = current_vmcall(&vmcallinfo);
+    //if (boSuccess)
+    //{
+    //    logger.Log("返回的监视id: %d", vmcallinfo.watchid);
+    //    // Add the breakpoint
+    //    BREAKPOINT_RECORD Breakpoint = { 0 };
+    //    Breakpoint.Address = vmcallinfo.VirtualAddress;
+    //    Breakpoint.length = vmcallinfo.Size;
+    //    Breakpoint.cr3 = vmcallinfo.cr3;
+    //    Breakpoint.watchid = vmcallinfo.watchid;
+    //    BreakpointList.Lock();
+    //    BreakpointList.push_back(Breakpoint);
+    //    BreakpointList.UnLock();
+    //}
+    //else
+    //    logger.Log("current_vmcall 失败!  errorCode:%d", vmcallinfo.errorCode);
     return boSuccess; // 返回 VMCALL 执行结果，调用方据此判断驱动通信是否成功。
 }
 

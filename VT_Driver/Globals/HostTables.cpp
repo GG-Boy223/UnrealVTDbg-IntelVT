@@ -51,6 +51,8 @@ namespace hv
             }
 
             auto const& pml4e = ghv.host_page_tables.pml4[vaddr.pml4_idx];
+            //判断该页是否存在
+            //当P=1指示表或物理页面已加载到物理内存中
             if (!pml4e.present)
             {
                 return false;
@@ -71,8 +73,8 @@ namespace hv
 
             if (pdpte.large_page)
             {
-                pdpte_1gb_64 pdpte_1gb;
-                pdpte_1gb.flags = pdpte.flags;
+                pdpte_1gb_64 pdpte_1gb; // 1GB 大页结构
+                pdpte_1gb.flags = pdpte.flags; // 复制标志位
                 if (physical_address != nullptr)
                 {
                     *physical_address =
@@ -99,8 +101,8 @@ namespace hv
 
             if (pde.large_page)
             {
-                pde_2mb_64 pde_2mb;
-                pde_2mb.flags = pde.flags;
+                pde_2mb_64 pde_2mb; // 2MB 大页结构
+                pde_2mb.flags = pde.flags; // 复制标志位
                 if (physical_address != nullptr)
                 {
                     *physical_address =
@@ -176,7 +178,7 @@ namespace hv
             if (page == nullptr)
             {
                 outFile("[警告][Host页表覆盖] 分配%s页失败：仅记录，不阻断VT进入链路", level);
-                return nullptr;
+                return nullptr; // 失败返回空指针
             }
 
             RtlSecureZeroMemory(page, PAGE_SIZE);
@@ -193,7 +195,7 @@ namespace hv
                 }
             }
 
-            return nullptr;
+            return nullptr; // 失败返回空指针
         }
 
         pde_64* find_dynamic_pd(host_page_tables& pt, unsigned __int16 pml4_idx, unsigned __int16 pdpt_idx)
@@ -207,7 +209,7 @@ namespace hv
                 }
             }
 
-            return nullptr;
+            return nullptr; // 失败返回空指针
         }
 
         pte_64* find_dynamic_pt(host_page_tables& pt, unsigned __int16 pml4_idx, unsigned __int16 pdpt_idx, unsigned __int16 pd_idx)
@@ -222,7 +224,7 @@ namespace hv
                 }
             }
 
-            return nullptr;
+            return nullptr; // 失败返回空指针
         }
 
         pdpte_64* get_or_create_dynamic_pdpt(host_page_tables& pt, unsigned __int16 pml4_idx)
@@ -235,14 +237,14 @@ namespace hv
             if (pt.dynamic_pdpt_count >= HOST_DYNAMIC_PAGE_TABLE_POOL_COUNT)
             {
                 outFile("[警告][Host页表覆盖] 动态PDPT池耗尽：PML4=%u Capacity=%u", pml4_idx, HOST_DYNAMIC_PAGE_TABLE_POOL_COUNT);
-                return nullptr;
+                return nullptr; // 失败返回空指针
             }
 
             auto const source_pml4e = pt.pml4[pml4_idx];
             auto const page = static_cast<pdpte_64*>(allocate_host_page_table_page("PDPT"));
             if (page == nullptr)
             {
-                return nullptr;
+                return nullptr; // 失败返回空指针
             }
 
             if (source_pml4e.present)
@@ -282,13 +284,13 @@ namespace hv
 
             if (pdpt == nullptr)
             {
-                return nullptr;
+                return nullptr; // 失败返回空指针
             }
 
             if (pt.dynamic_pd_count >= HOST_DYNAMIC_PAGE_TABLE_POOL_COUNT)
             {
                 outFile("[警告][Host页表覆盖] 动态PD池耗尽：PML4=%u PDPT=%u Capacity=%u", pml4_idx, pdpt_idx, HOST_DYNAMIC_PAGE_TABLE_POOL_COUNT);
-                return nullptr;
+                return nullptr; // 失败返回空指针
             }
 
             auto const source_pdpte = pdpt[pdpt_idx];
@@ -300,7 +302,7 @@ namespace hv
             auto const page = static_cast<pde_64*>(allocate_host_page_table_page("PD"));
             if (page == nullptr)
             {
-                return nullptr;
+                return nullptr; // 失败返回空指针
             }
 
             if (source_pdpte.present)
@@ -323,7 +325,7 @@ namespace hv
             pdpte.write = 1;
             pdpte.supervisor = 0;
             pdpte.large_page = 0;
-            pdpte.execute_disable = 0;
+            pdpte.execute_disable = 0; // 允许执行
             pdpte.page_frame_number = MmGetPhysicalAddress(page).QuadPart >> 12;
 
             unsigned int const slot = pt.dynamic_pd_count++;
@@ -342,13 +344,13 @@ namespace hv
 
             if (pd == nullptr)
             {
-                return nullptr;
+                return nullptr; // 失败返回空指针
             }
 
             if (pt.dynamic_pt_count >= HOST_DYNAMIC_PAGE_TABLE_POOL_COUNT)
             {
                 outFile("[警告][Host页表覆盖] 动态PT池耗尽：PML4=%u PDPT=%u PD=%u Capacity=%u", pml4_idx, pdpt_idx, pd_idx, HOST_DYNAMIC_PAGE_TABLE_POOL_COUNT);
-                return nullptr;
+                return nullptr; // 失败返回空指针
             }
 
             auto const source_pde = pd[pd_idx];
@@ -360,7 +362,7 @@ namespace hv
             auto const page = static_cast<pte_64*>(allocate_host_page_table_page("PT"));
             if (page == nullptr)
             {
-                return nullptr;
+                return nullptr; // 失败返回空指针
             }
 
             if (source_pde.present)
@@ -379,11 +381,11 @@ namespace hv
             auto& pde = pd[pd_idx];
             // pde.flags = source_pde.flags; // 旧逻辑：缺页时没有为4KB关键页挂入可控PT。
             pde.flags = source_pde.present ? source_pde.flags : 0;
-            pde.present = 1;
-            pde.write = 1;
-            pde.supervisor = 0;
+            pde.present = 1; // 有效
+            pde.write = 1; // 可写
+            pde.supervisor = 0; // 内核访问
             pde.large_page = 0;
-            pde.execute_disable = 0;
+            pde.execute_disable = 0; // 允许执行
             pde.page_frame_number = MmGetPhysicalAddress(page).QuadPart >> 12;
 
             unsigned int const slot = pt.dynamic_pt_count++;
@@ -490,7 +492,7 @@ namespace hv
                 return false;
             }
 
-            auto& pt = ghv.host_page_tables;
+            auto& pt = ghv.host_page_tables; // 获取全局宿主页表对象
             uint64_t const start_page = start_value & ~0xfffull;
             uint64_t const last_page = (start_value + size - 1) & ~0xfffull;
             unsigned __int64 total_pages = 0;
@@ -536,48 +538,60 @@ namespace hv
 
     ia32_vmx_procbased_ctls_register read_ctrl_proc_based()
     {
-        ia32_vmx_procbased_ctls_register value;
-        value.flags = vmread(PRIMARY_PROCESSOR_BASED_VM_EXEC_CONTROL);
-        return value;
+        ia32_vmx_procbased_ctls_register value; // 本地结构：用于返回 Primary 控制寄存器字段
+        value.flags = vmread(PRIMARY_PROCESSOR_BASED_VM_EXEC_CONTROL); // 读取 VMCS 中 Primary 控制位，获知当前 VM-Exit 策略
+        return value; // 返回给调用方，用于修改或检查控制位
     }
 
     void write_ctrl_proc_based(ia32_vmx_procbased_ctls_register const value)
     {
-        vmwrite(PRIMARY_PROCESSOR_BASED_VM_EXEC_CONTROL, value.flags);
+        vmwrite(PRIMARY_PROCESSOR_BASED_VM_EXEC_CONTROL, value.flags); // 写回 Primary 控制位，实时影响 VM-Exit 行为
     }
 
     void prepare_external_structures(__vcpu* const vcpu)
     {
-        memset(&vcpu->msr_bitmap, 0, sizeof(vcpu->msr_bitmap));
-        memset(&vcpu->host_tss, 0, sizeof(vcpu->host_tss));
+        memset(&vcpu->msr_bitmap, 0, sizeof(vcpu->msr_bitmap)); // 清空 MSR 位图：默认不拦截 MSR，提高性能，减少 VM-Exit
+        // we don't care about anything that's in the TSS
+        memset(&vcpu->host_tss, 0, sizeof(vcpu->host_tss)); // 清零 TSS：避免未初始化内容导致异常或不稳定
 
-        prepare_host_idt(vcpu->host_idt);
-        prepare_host_gdt(vcpu->host_gdt, &vcpu->host_tss);
+        prepare_host_idt(vcpu->host_idt); // 构造宿主 IDT：确保 VM-Exit 后中断可正确分派
+        prepare_host_gdt(vcpu->host_gdt, &vcpu->host_tss); // 构造宿主 GDT：提供 CS/TR 等段描述符
     }
 
     void inject_nmi()
     {
-        inject_interruption(EXCEPTION_VECTOR_NMII, INTERRUPT_TYPE_NMI, 0, false);
+        //vmentry_interrupt_information interrupt_info;
+        //interrupt_info.flags = 0;
+        //interrupt_info.vector = nmi;
+        //interrupt_info.interruption_type = non_maskable_interrupt;
+        //interrupt_info.deliver_error_code = 0;
+        //interrupt_info.valid = 1;
+        //vmwrite(VM_ENTRY_INTERRUPTION_INFO_FIELD, interrupt_info.flags);
+        inject_interruption(EXCEPTION_VECTOR_NMII, INTERRUPT_TYPE_NMI, 0, false); // 通过 VM-Entry 字段注入 NMI，维持来宾中断语义
     }
 
     cr0 read_effective_guest_cr0()
     {
-        auto const mask = vmread(CR0_GUEST_HOST_MASK);
+        // TODO: cache this value
+        auto const mask = vmread(CR0_GUEST_HOST_MASK); // 读取 CR0 掩码：指示哪些位由 VMCS 控制读取
 
-        cr0 cr0;
-        cr0.flags = (vmread(CR0_READ_SHADOW) & mask) | (vmread(GUEST_CR0) & ~mask);
+        // bits set to 1 in the mask are read from CR0, otherwise from the shadow
+        cr0 cr0; // 组合结果的 CR0 结构
+        cr0.flags = (vmread(CR0_READ_SHADOW) & mask) | (vmread(GUEST_CR0) & ~mask); // 掩码位从 shadow 取，其余从真实值取
 
-        return cr0;
+        return cr0; // 返回来宾有效 CR0，用于指令模拟或校验
     }
 
     cr4 read_effective_guest_cr4()
     {
-        auto const mask = vmread(CR4_GUEST_HOST_MASK);
+        // TODO: cache this value
+        auto const mask = vmread(CR4_GUEST_HOST_MASK); // 读取 CR4 掩码：哪些位受 VMCS 控制
 
-        cr4 cr4;
-        cr4.flags = (vmread(CR4_READ_SHADOW) & mask) | (vmread(GUEST_CR4) & ~mask);
+        // bits set to 1 in the mask are read from CR4, otherwise from the shadow
+        cr4 cr4; // 组合结果的 CR4 结构
+        cr4.flags = (vmread(CR4_READ_SHADOW) & mask) | (vmread(GUEST_CR4) & ~mask); // 按掩码组合 shadow 与真实值
 
-        return cr4;
+        return cr4; // 返回来宾有效 CR4
     }
 
     void map_physical_memory(host_page_tables& pt)
@@ -595,33 +609,33 @@ namespace hv
 
         for (uint64_t i = 0; i < HOST_PHYSICAL_MEMORY_PD_COUNT; ++i)
         {
-            auto& pdpte = pt.phys_pdpt[i];
-            pdpte.flags = 0;
-            pdpte.present = 1;
+            auto& pdpte = pt.phys_pdpt[i]; // PDPTE 条目
+            pdpte.flags = 0; // 清零标志
+            pdpte.present = 1; // 标记存在
             pdpte.write = 1;
             pdpte.supervisor = 0;
-            pdpte.page_level_write_through = 0;
-            pdpte.page_level_cache_disable = 0;
-            pdpte.accessed = 0;
-            pdpte.execute_disable = 0;
-            pdpte.page_frame_number = MmGetPhysicalAddress(&pt.phys_pds[i]).QuadPart >> 12;
+            pdpte.page_level_write_through = 0; // 禁止写穿
+            pdpte.page_level_cache_disable = 0; // 允许缓存
+            pdpte.accessed = 0; // 清零访问位
+            pdpte.execute_disable = 0; // 允许执行
+            pdpte.page_frame_number = MmGetPhysicalAddress(&pt.phys_pds[i]).QuadPart >> 12; // 指向对应 PD
 
             for (uint64_t j = 0; j < 512; ++j)
             {
-                auto& pde = pt.phys_pds[i][j];
-                pde.flags = 0;
-                pde.present = 1;
-                pde.write = 1;
-                pde.supervisor = 0;
-                pde.page_level_write_through = 0;
-                pde.page_level_cache_disable = 0;
-                pde.accessed = 0;
-                pde.dirty = 0;
+                auto& pde = pt.phys_pds[i][j]; // PDE 条目
+                pde.flags = 0; // 清零
+                pde.present = 1; // 有效
+                pde.write = 1; // 可写
+                pde.supervisor = 0; // 内核访问
+                pde.page_level_write_through = 0; // 禁止写穿
+                pde.page_level_cache_disable = 0; // 允许缓存
+                pde.accessed = 0; // 清零访问位
+                pde.dirty = 0; // 清零脏位
                 pde.large_page = 1;
                 pde.global = 0;
                 pde.pat = 0;
-                pde.execute_disable = 0;
-                pde.page_frame_number = (i << 9) + j;
+                pde.execute_disable = 0; // 允许执行
+                pde.page_frame_number = (i << 9) + j; // 线性映射 PFN，形成物理直映
             }
         }
     }
@@ -637,42 +651,42 @@ namespace hv
         pml4e.page_level_cache_disable = 0;
         pml4e.accessed = 0;
         pml4e.execute_disable = 0;
-        pml4e.page_frame_number = MmGetPhysicalAddress(&pt.phys_pdpt).QuadPart >> 12;
+        pml4e.page_frame_number = MmGetPhysicalAddress(&pt.phys_pdpt).QuadPart >> 12; // 指向 PDPT
 
-        pdpte_64 pdpte = { 0 };
-        pdpte.present = 1;
+        pdpte_64 pdpte = { 0 }; // PDPTE 模板
+        pdpte.present = 1; // 有效
         pdpte.write = 1;
         pdpte.supervisor = 0;
-        pdpte.page_level_write_through = 0;
-        pdpte.page_level_cache_disable = 0;
-        pdpte.accessed = 0;
-        pdpte.execute_disable = 0;
-        __stosq((unsigned __int64*)&pt.phys_pdpt[0], pdpte.flags, HOST_PHYSICAL_MEMORY_PD_COUNT);
+        pdpte.page_level_write_through = 0; // 禁止写穿
+        pdpte.page_level_cache_disable = 0; // 允许缓存
+        pdpte.accessed = 0; // 清零访问位
+        pdpte.execute_disable = 0; // 允许执行
+        __stosq((unsigned __int64*)&pt.phys_pdpt[0], pdpte.flags, HOST_PHYSICAL_MEMORY_PD_COUNT); // 批量初始化 PDPTE
 
         for (uint64_t i = 0; i < HOST_PHYSICAL_MEMORY_PD_COUNT; ++i)
         {
-            pt.phys_pdpt[i].page_frame_number = GET_PFN(MmGetPhysicalAddress(&pt.phys_pds[i]).QuadPart);
+            pt.phys_pdpt[i].page_frame_number = GET_PFN(MmGetPhysicalAddress(&pt.phys_pds[i]).QuadPart); // 绑定 PD 的物理页帧
         }
 
-        pde_2mb_64 pde = { 0 };
-        pde.present = 1;
-        pde.write = 1;
-        pde.supervisor = 0;
-        pde.page_level_write_through = 0;
-        pde.page_level_cache_disable = 0;
-        pde.accessed = 0;
-        pde.dirty = 0;
+        pde_2mb_64 pde = { 0 }; // PDE 模板
+        pde.present = 1; // 有效
+        pde.write = 1; // 可写
+        pde.supervisor = 0; // 内核访问
+        pde.page_level_write_through = 0; // 禁止写穿
+        pde.page_level_cache_disable = 0; // 允许缓存
+        pde.accessed = 0; // 清零访问位
+        pde.dirty = 0; // 清零脏位
         pde.large_page = 1;
         pde.global = 0;
         pde.pat = 0;
-        pde.execute_disable = 0;
-        __stosq((unsigned __int64*)&pt.phys_pds[0], pde.flags, 512 * 512);
+        pde.execute_disable = 0; // 允许执行
+        __stosq((unsigned __int64*)&pt.phys_pds[0], pde.flags, 512 * 512); // 批量初始化 PDE
 
         for (uint64_t i = 0; i < HOST_PHYSICAL_MEMORY_PD_COUNT; ++i)
         {
             for (uint64_t j = 0; j < 512; ++j)
             {
-                pt.phys_pds[i][j].page_frame_number = (i << 9) + j;
+                pt.phys_pds[i][j].page_frame_number = (i << 9) + j; // 填充 PFN，形成线性映射
             }
         }
     }
@@ -692,25 +706,33 @@ namespace hv
             return false;
         }
 
-        auto& pt = ghv.host_page_tables;
+        auto& pt = ghv.host_page_tables; // 获取全局宿主页表对象
         free_host_dynamic_page_table_pages(pt); // 旧逻辑：重建前直接memset会丢失动态页表页指针；先释放避免失败重试泄漏。
-        memset(&pt, 0, sizeof(pt));
+        memset(&pt, 0, sizeof(pt)); // 清零整个页表，避免保留位导致 #GP
 
-        map_physical_memory(pt);
+        map_physical_memory(pt); // 构建物理直映窗口，供 VMX root 使用
 
-        PHYSICAL_ADDRESS pml4_address;
-        pml4_address.QuadPart = ghv.system_cr3.address_of_page_directory << 12;
+        //先获得kernel system进程的cr3的pml4的物理地址
+        PHYSICAL_ADDRESS pml4_address; // 物理地址结构
+        pml4_address.QuadPart = ghv.system_cr3.address_of_page_directory << 12; // CR3 PFN 左移得到 PML4 物理地址
 
-        auto const guest_pml4 = static_cast<pml4e_64*>(MmGetVirtualForPhysical(pml4_address));
+        // kernel PML4 address
+        // 由kernel pml4物理地址得到虚拟线性地址
+        // 因为memcpy这些函数是操作虚拟地址的
+        auto const guest_pml4 = static_cast<pml4e_64*>(MmGetVirtualForPhysical(pml4_address)); // 映射到 HVA，便于 memcpy
         if (guest_pml4 == nullptr)
         {
             outDebug("MmGetVirtualForPhysical 返回空的 guest PML4。\n");
             return false;
         }
 
-        outDebug("guest_pml4 地址：%p\n", guest_pml4);
+        outDebug("guest_pml4 地址：%p\n", guest_pml4); // 调试输出：确认映射有效
 
-        memcpy(&pt.pml4[256], &guest_pml4[256], sizeof(pml4e_64) * 256);
+        // copy the top half of the System pml4 (a.k.a. the kernel address space)
+        // 复制system pml4 的后半部分（又称内核地址空间）
+        // 将256左移39位得到0x800000000000
+        //outDebug("&guest_pml4[256]: %p\n", &guest_pml4[256]);
+        memcpy(&pt.pml4[256], &guest_pml4[256], sizeof(pml4e_64) * 256); // 复制内核半区映射，保证宿主能访问内核地址
         // if (!validate_host_address("HostPML4", &pt.pml4) ||
         //     !validate_host_address("物理直映基址", host_physical_memory_base))
         // {

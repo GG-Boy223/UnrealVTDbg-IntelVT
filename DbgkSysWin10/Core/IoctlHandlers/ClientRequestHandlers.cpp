@@ -1,4 +1,4 @@
-#include "../../Driver.h"
+﻿#include "../../Driver.h"
 #include "IoctlHandlerCommon.h"
 #include "../../Globals.h"
 #include "../../../Common/Ring0/Inject/ApcInject/Api/ApcInjectRemoteThreadApi.h"
@@ -7,6 +7,7 @@ void VerifyHookClient(IN PUSER_DATA userData, IN PIRP pIrp)
 {
     if (pIrp == nullptr || pIrp->AssociatedIrp.SystemBuffer == nullptr)
     {
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
@@ -31,9 +32,11 @@ void VerifyHookClient(IN PUSER_DATA userData, IN PIRP pIrp)
     UCHAR* aucPlainText = AllocateAndDecryptUserRecords(user, sizeof(RING3_VERIFY), &numElements);
     if (aucPlainText == nullptr)
     {
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
+    // 遍历明文缓冲区中的结构体
     for (size_t i = 0; i < numElements; i++)
     {
         PRING3_VERIFY info = reinterpret_cast<PRING3_VERIFY>(aucPlainText + i * sizeof(RING3_VERIFY));
@@ -52,6 +55,7 @@ void GetProcessInfo(IN PUSER_DATA userData, IN PIRP pIrp)
 {
     if (pIrp == nullptr || pIrp->AssociatedIrp.SystemBuffer == nullptr)
     {
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
@@ -63,14 +67,17 @@ void GetProcessInfo(IN PUSER_DATA userData, IN PIRP pIrp)
     UCHAR* aucPlainText = AllocateAndDecryptUserRecords(user, sizeof(RING3_PROCESS_INFO), &numElements);
     if (aucPlainText == nullptr)
     {
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
+    // 遍历明文缓冲区中的结构体
     for (size_t i = 0; i < numElements; i++)
     {
         PRING3_PROCESS_INFO pInfo = reinterpret_cast<PRING3_PROCESS_INFO>(aucPlainText + i * sizeof(RING3_PROCESS_INFO));
         if (pInfo->ProcessHandle == 0)
         {
+            // *ppThread = NULL;
             continue;
         }
 
@@ -78,11 +85,13 @@ void GetProcessInfo(IN PUSER_DATA userData, IN PIRP pIrp)
         NTSTATUS Status = ObReferenceObjectByHandle((HANDLE)pInfo->ProcessHandle,
             PROCESS_ALL_ACCESS,
             *PsProcessType,
+            // *PsProcessType,
             KernelMode,
             (PVOID*)&Process,
             NULL);
         if (!NT_SUCCESS(Status) || Process == nullptr)
         {
+            // *ppThread = NULL;
             continue;
         }
 
@@ -91,7 +100,7 @@ void GetProcessInfo(IN PUSER_DATA userData, IN PIRP pIrp)
         {
             output->cr3 = *(size_t*)ptr_DirectoryTableBase;
         }
-        ObDereferenceObject(Process);
+        ObDereferenceObject(Process); //释放进程对象
         break;
     }
 
@@ -107,9 +116,11 @@ void TL_BlockGameResumeThread(IN PUSER_DATA userData, IN PIRP pIrp)
     UCHAR* aucPlainText = AllocateAndDecryptUserRecords(user, sizeof(RING3_TL_GAME_TABLE_ENTRY), &numElements);
     if (aucPlainText == nullptr)
     {
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
+    // 遍历明文缓冲区中的结构体
     for (size_t i = 0; i < numElements; i++)
     {
         PRING3_TL_GAME_TABLE_ENTRY pInfo = reinterpret_cast<PRING3_TL_GAME_TABLE_ENTRY>(aucPlainText + i * sizeof(RING3_TL_GAME_TABLE_ENTRY));
@@ -130,9 +141,11 @@ void CreateRemoteThread(IN PUSER_DATA userData)
     UCHAR* aucPlainText = AllocateAndDecryptUserRecords(user, sizeof(RING3_REMOTE_THREAD), &numElements);
     if (aucPlainText == nullptr)
     {
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
+    // 遍历明文缓冲区中的结构体
     for (size_t i = 0; i < numElements; i++)
     {
         PRING3_REMOTE_THREAD pInfo = reinterpret_cast<RING3_REMOTE_THREAD*>(aucPlainText + i * sizeof(RING3_REMOTE_THREAD));

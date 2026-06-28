@@ -15,6 +15,7 @@ std::string calculateMD5(const TCHAR* inputParam)
 
     if (inputParam == NULL)
     {
+        // 转换失败，可以根据实际情况进行错误处理
         return "";
     }
 
@@ -39,7 +40,7 @@ std::string calculateMD5(const TCHAR* inputParam)
     {
         std::cout << "CryptHashData failed" << std::endl;
         CryptDestroyHash(hHash);
-        CryptReleaseContext(hProv, 0);
+        CryptReleaseContext(hProv, 0); // 释放加密提供程序上下文
         return "";
     }
 
@@ -49,7 +50,7 @@ std::string calculateMD5(const TCHAR* inputParam)
     {
         std::cout << "CryptGetHashParam failed" << std::endl;
         CryptDestroyHash(hHash);
-        CryptReleaseContext(hProv, 0);
+        CryptReleaseContext(hProv, 0); // 释放加密提供程序上下文
         return "";
     }
 
@@ -58,10 +59,11 @@ std::string calculateMD5(const TCHAR* inputParam)
     {
         std::cout << "CryptGetHashParam failed" << std::endl;
         CryptDestroyHash(hHash);
-        CryptReleaseContext(hProv, 0);
+        CryptReleaseContext(hProv, 0); // 释放加密提供程序上下文
         return "";
     }
 
+    // 创建字符串流用于构建十六进制字符串
     std::stringstream md5Stream;
     md5Stream << std::uppercase << std::hex << std::setfill('0');
     for (BYTE byte : hash)
@@ -69,8 +71,11 @@ std::string calculateMD5(const TCHAR* inputParam)
         md5Stream << std::setw(2) << static_cast<int>(byte);
     }
 
+    // 清理资源：销毁哈希对象
     CryptDestroyHash(hHash);
+    // 清理资源：释放加密提供程序上下文
     CryptReleaseContext(hProv, 0);
 
+    // 返回计算得到的MD5哈希值（十六进制字符串）
     return md5Stream.str();
 }

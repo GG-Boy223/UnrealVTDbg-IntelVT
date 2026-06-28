@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <ntifs.h>
 #include "../Types/ApcInjectNativeSupportTypes.h"
 
@@ -99,6 +99,7 @@ ZwCreateThreadEx(
     IN SIZE_T SizeOfStackCommit,
     IN SIZE_T SizeOfStackReserve,
     IN PNT_PROC_THREAD_ATTRIBUTE_LIST AttributeList
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 /// <summary>
@@ -117,4 +118,5 @@ NTSTATUS BBExecuteInNewThread(
     IN ULONG flags,
     IN BOOLEAN wait,
     OUT PNTSTATUS pExitStatus
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );

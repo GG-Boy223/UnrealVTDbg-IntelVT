@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "../../dllmain.h"
 #include "../../Globals.h"
@@ -24,9 +24,9 @@ namespace HookInternal
 
     struct INT3_BREAKPOINT_META
     {
-        unsigned __int64 VirtualAddress;
-        int watchid;
-        unsigned long pid;
+        unsigned __int64 VirtualAddress; //断点地址
+        int watchid; //监视id
+        unsigned long pid; //进程pid
         ULONGLONG CreatedTick;
     };
 

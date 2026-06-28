@@ -1,4 +1,4 @@
-#include "../../Driver.h"
+﻿#include "../../Driver.h"
 #include "../../ntos/inc/mmtypes.h"
 #include "../../ntos/inc/ntdbg.h"
 #include "../../ntos/inc/ketypes.h"
@@ -41,12 +41,14 @@ namespace
     }
 }
 
+//32位进程调用这个函数获取Context
 NTSTATUS NtQueryInformationThread(
     _In_ HANDLE ThreadHandle,
     _In_ THREADINFOCLASS ThreadInformationClass,
     _Inout_ PVOID ThreadInformation,
     _In_ ULONG ThreadInformationLength,
     _Out_opt_ PULONG ReturnLength
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 )
 {
     DbgkRuntimeCallGuard runtimeGuard;
@@ -60,6 +62,9 @@ NTSTATUS NtQueryInformationThread(
     if (NT_SUCCESS(Status) && ThreadInformationClass == kThreadWow64Context)
     {
         PDEBUG_PROCESS DebugProcess;
+        // 以下是处理pubg的硬件断点占坑的情况
+        // 判断当前进程是否是被调试的进程
+        // 如果是被调试的进程则设置shadow drx里的内容
         if (IsDebugTargetProcess((_EPROCESS*)PsGetCurrentProcess(), &DebugProcess))
         {
             ExAcquireFastMutex(&DebugProcess->Mutex);
@@ -70,9 +75,11 @@ NTSTATUS NtQueryInformationThread(
             ExReleaseFastMutex(&DebugProcess->Mutex);
         }
     }
+    // /* Return status */
     return Status;
 }
 
+//64位进程调用此函数获取Context
 NTSTATUS NtGetContextThread(_In_ HANDLE hThread, _Inout_ PCONTEXT ThreadContext)
 {
     DbgkRuntimeCallGuard runtimeGuard;
@@ -91,18 +98,21 @@ NTSTATUS NtGetContextThread(_In_ HANDLE hThread, _Inout_ PCONTEXT ThreadContext)
             ExAcquireFastMutex(&DebugProcess->Mutex);
             if (DebugProcess->Context.initializated)
             {
+                //ThreadContext->EFlags = DebugProcess->Context.EFlags;
                 ThreadContext->EFlags = 0x229;
                 DbgPrint("DebugProcess->Context.EFlags: %x\n", ThreadContext->EFlags);
             }
             ExReleaseFastMutex(&DebugProcess->Mutex);
         }
     }
+    // /* Return status */
     return Status;
 }
 
 NTSTATUS NtSetContextThread(
     __in HANDLE ThreadHandle,
     __in PCONTEXT ThreadContext
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 )
 {
     DbgkRuntimeCallGuard runtimeGuard;
@@ -112,6 +122,9 @@ NTSTATUS NtSetContextThread(
     }
 
     PDEBUG_PROCESS DebugProcess;
+    // 以下是处理pubg的硬件断点占坑的情况
+    // 判断当前进程是否是被调试的进程
+    // 如果是被调试的进程则设置shadow drx里的内容
     if (IsDebugTargetProcess((_EPROCESS*)PsGetCurrentProcess(), &DebugProcess))
     {
         ExAcquireFastMutex(&DebugProcess->Mutex);

@@ -1,4 +1,4 @@
-#include "../HookInternal.h"
+﻿#include "../HookInternal.h"
 
 namespace HookInternal
 {
@@ -39,6 +39,7 @@ namespace HookInternal
     {
         if (breakpoint.VirtualAddress != ToAddressValue(address))
         {
+            // 处理打开进程失败的情况
             return false;
         }
 
@@ -58,18 +59,21 @@ namespace HookInternal
     {
         if (baseAddress == nullptr || size == 0)
         {
+            // 处理打开进程失败的情况
             return false;
         }
 
         const unsigned __int64 base = ToAddressValue(baseAddress);
         if (targetAddress < base)
         {
+            // 处理打开进程失败的情况
             return false;
         }
 
         const unsigned __int64 delta = targetAddress - base;
         if (delta >= size)
         {
+            // 处理打开进程失败的情况
             return false;
         }
 
@@ -77,6 +81,7 @@ namespace HookInternal
         {
             *offset = static_cast<SIZE_T>(delta);
         }
+        // 调试器会高频读取断点附近字节，回填路径保持静默，避免日志拖慢步进和反汇编刷新。
         return true;
     }
 
@@ -84,16 +89,19 @@ namespace HookInternal
     {
         if (writeBytes == nullptr || value == nullptr)
         {
+            // 处理打开进程失败的情况
             return false;
         }
 
         __try
         {
             *value = writeBytes[offset];
+            // *value = writeBytes[offset];
             return true;
         }
         __except (EXCEPTION_EXECUTE_HANDLER)
         {
+            // 处理打开进程失败的情况
             return false;
         }
     }
@@ -121,6 +129,7 @@ namespace HookInternal
     {
         if (processId == 0)
         {
+            // 处理打开进程失败的情况
             return false;
         }
 
@@ -154,6 +163,7 @@ namespace HookInternal
     {
         if (process == nullptr || g_target_pid == 0 || g_target_cr3 == 0)
         {
+            // 处理打开进程失败的情况
             return false;
         }
 

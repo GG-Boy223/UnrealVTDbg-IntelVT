@@ -1,4 +1,4 @@
-#include "SerialPortInternal.h"
+﻿#include "SerialPortInternal.h"
 
 namespace SerialPortInternal
 {
@@ -22,6 +22,7 @@ namespace SerialPortInternal
             if (n || dgt > 0 || d == 0)
             {
                 *bf++ = dgt + (dgt < 10 ? '0' : (p->uc ? 'A' : 'a') - 10);
+                // *bf++ = dgt + (dgt < 10 ? '0' : (p->uc ? 'A' : 'a') - 10);
                 ++n;
             }
         }
@@ -61,6 +62,7 @@ namespace SerialPortInternal
             if (n || dgt > 0 || d == 0)
             {
                 *bf++ = dgt + (dgt < 10 ? '0' : (p->uc ? 'A' : 'a') - 10);
+                // *bf++ = dgt + (dgt < 10 ? '0' : (p->uc ? 'A' : 'a') - 10);
                 ++n;
             }
         }
@@ -99,6 +101,7 @@ namespace SerialPortInternal
             if (n || dgt > 0 || d == 0)
             {
                 *bf++ = dgt + (dgt < 10 ? '0' : (p->uc ? 'A' : 'a') - 10);
+                // *bf++ = dgt + (dgt < 10 ? '0' : (p->uc ? 'A' : 'a') - 10);
                 ++n;
             }
         }
@@ -133,7 +136,7 @@ namespace SerialPortInternal
         }
         else
         {
-            return -1;
+            return -1; // 没有空闲项
         }
     }
 
@@ -156,6 +159,8 @@ namespace SerialPortInternal
 
         *src = p;
         *nump = num;
+        // *src = p;
+        // *nump = num;
         return ch;
     }
 
@@ -165,11 +170,13 @@ namespace SerialPortInternal
         int n = p->width;
         char* bf = p->bf;
 
+        // /* Number of filling characters */
         while (*bf++ && n > 0)
         {
             n--;
         }
 
+        // /* print sign */
         if (p->sign)
         {
             n--;
@@ -192,6 +199,7 @@ namespace SerialPortInternal
             }
         }
 
+        // /* print sign */
         if (p->sign)
         {
             putf(putp, p->sign);
@@ -215,6 +223,7 @@ namespace SerialPortInternal
             }
         }
 
+        // /* Put actual buffer */
         bf = p->bf;
         while ((ch = *bf++))
         {

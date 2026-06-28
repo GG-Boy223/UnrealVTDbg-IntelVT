@@ -29,6 +29,7 @@ namespace Common
         {
             return input;
         }
+        // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
         else
         {
             return input.substr(0, length);
@@ -42,6 +43,7 @@ namespace Common
         {
             return std::make_tuple(input, "");
         }
+        // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
         else
         {
             return std::make_tuple(input.substr(0, length), input.substr(length));

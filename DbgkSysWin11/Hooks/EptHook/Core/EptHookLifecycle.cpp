@@ -1,4 +1,4 @@
-#include "EptHookCommon.h"
+﻿#include "EptHookCommon.h"
 
 EXTERN_C
 VOID UnEptHook()
@@ -6,6 +6,7 @@ VOID UnEptHook()
     if (!g_IsInitGlobalVariable)
     {
         outLog("\xCC\xF8\xB9\xFD\x20\x45\x50\x54\x20\xC8\xA1\xCF\xFB\x20\x68\x6F\x6F\x6B\xA3\xBA\xB7\xFB\xBA\xC5\xBB\xF2\x20\x68\x6F\x6F\x6B\x20\xC9\xD0\xCE\xB4\xB3\xF5\xCA\xBC\xBB\xAF\x2E");
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
@@ -23,6 +24,7 @@ VOID UnEptHook()
     {
         outLog("\xCC\xF8\xB9\xFD\x20\x45\x50\x54\x20\xC8\xA1\xCF\xFB\x20\x68\x6F\x6F\x6B\xA3\xBA\x56\x54\x20\xCD\xA8\xB5\xC0\xB2\xBB\xBF\xC9\xD3\xC3\x2E");
         g_IsInitGlobalVariable = FALSE;
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
@@ -53,7 +55,8 @@ VOID SetupEptHook()
 {
     if (g_IsInitGlobalVariable)
     {
-        Hook_NtCreateDebugObject();
+        //ntos
+        Hook_NtCreateDebugObject(); //此函数是创建调试对象 必须第一个先hook
         Hook_PspInsertProcess();
         Hook_NtSetInformationDebugObject();
         Hook_NtRemoveProcessDebug();
@@ -71,7 +74,8 @@ VOID SetupEptHook()
         Hook_PspExitThread();
         Hook_ObpReferenceObjectByHandleWithTag();
 
-        Hook_ValidateHwnd();
+        //win32k.sys
+        Hook_ValidateHwnd(); //win32k中此函数必须先hook
         Hook_NtUserFindWindowEx();
         Hook_NtUserWindowFromPoint();
     }

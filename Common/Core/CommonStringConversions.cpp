@@ -126,6 +126,7 @@ namespace Common
         if (utf8Length == 0)
         {
             // 转换失败
+            // 转换失败，可以根据实际情况进行错误处理
             return "";
         }
 
@@ -133,6 +134,7 @@ namespace Common
         if (WideCharToMultiByte(CP_UTF8, 0, unicodeString.c_str(), -1, &utf8String[0], utf8Length, nullptr, nullptr) == 0)
         {
             // 转换失败
+            // 转换失败，可以根据实际情况进行错误处理
             return "";
         }
 

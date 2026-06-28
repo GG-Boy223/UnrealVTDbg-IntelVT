@@ -24,6 +24,7 @@ typedef enum _MMSYSTEM_PTE_POOL_TYPE
 typedef struct _INJECT_BUFFER
 {
     UCHAR code[0x200];
+    // Activation context data
     union
     {
         UNICODE_STRING path;
@@ -33,7 +34,7 @@ typedef struct _INJECT_BUFFER
     wchar_t buffer[488];
     PVOID module;
     ULONG complete;
-    NTSTATUS status;
+    NTSTATUS status; // Last execution status
 } INJECT_BUFFER, *PINJECT_BUFFER;
 
 typedef struct _PEB32
@@ -114,7 +115,7 @@ typedef struct _LDR_DATA_TABLE_ENTRY32
     USHORT LoadCount;
     USHORT TlsIndex;
     LIST_ENTRY32 HashLinks;
-    ULONG TimeDateStamp;
+    ULONG TimeDateStamp; // 0 if not bound,
 } LDR_DATA_TABLE_ENTRY32, *PLDR_DATA_TABLE_ENTRY32;
 
 typedef struct _LDR_DATA_TABLE_ENTRY
@@ -131,18 +132,22 @@ typedef struct _LDR_DATA_TABLE_ENTRY
     USHORT LoadCount;
     USHORT TlsIndex;
     LIST_ENTRY HashLinks;
-    ULONG TimeDateStamp;
+    ULONG TimeDateStamp; // 0 if not bound,
 } LDR_DATA_TABLE_ENTRY, *PLDR_DATA_TABLE_ENTRY;
 
+/// <summary>
+/// User-mode memory region
+/// </summary>
 typedef struct _USER_CONTEXT
 {
-    UCHAR code[0x1000];
+    UCHAR code[0x1000]; // Code buffer
+    // Activation context data
     union
     {
         UNICODE_STRING ustr;
         UNICODE_STRING32 ustr32;
     };
-    wchar_t buffer[0x400];
+    wchar_t buffer[0x400]; // Buffer for unicode string
 
     union _ActCtxUnion
     {
@@ -152,31 +157,36 @@ typedef struct _USER_CONTEXT
     HANDLE hCTX;
     ULONG hCookie;
 
-    PVOID ptr;
+    PVOID ptr; // Tmp data
+    // Activation context data
     union
     {
-        NTSTATUS status;
-        PVOID retVal;
-        ULONG retVal32;
+        NTSTATUS status; // Last execution status
+        PVOID retVal; // Function return value
+        ULONG retVal32; // Function return value
     };
 } USER_CONTEXT, *PUSER_CONTEXT;
 
+/// <summary>
+/// Manual map context
+/// </summary>
 typedef struct _MMAP_CONTEXT
 {
-    PEPROCESS pProcess;
-    PVOID pWorkerBuf;
-    HANDLE hWorker;
-    PETHREAD pWorker;
-    LIST_ENTRY modules;
-    PUSER_CONTEXT userMem;
-    HANDLE hSync;
-    PKEVENT pSync;
-    PVOID pSetEvent;
-    PVOID pLoadImage;
-    BOOLEAN tlsInitialized;
-    BOOLEAN noThreads;
+    PEPROCESS pProcess; // Target process
+    PVOID pWorkerBuf; // Worker thread code buffer
+    HANDLE hWorker; // Worker thread handle
+    PETHREAD pWorker; // Worker thread object
+    LIST_ENTRY modules; // Manual module list
+    PUSER_CONTEXT userMem; // Tmp buffer in user space
+    HANDLE hSync; // APC sync handle
+    PKEVENT pSync; // APC sync object
+    PVOID pSetEvent; // ZwSetEvent address
+    PVOID pLoadImage; // LdrLoadDll address
+    BOOLEAN tlsInitialized; // Static TLS was initialized
+    BOOLEAN noThreads; // No threads should be created
 } MMAP_CONTEXT, *PMMAP_CONTEXT;
 
+// Image name resolve flags
 typedef enum _ResolveFlags
 {
     KApiShemaOnly = 1,

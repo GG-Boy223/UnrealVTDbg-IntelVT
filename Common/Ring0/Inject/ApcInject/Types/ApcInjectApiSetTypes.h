@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <ntifs.h>
 
@@ -7,7 +7,7 @@ typedef struct _API_SET_NAMESPACE_ARRAY_10
     ULONG Version;
     ULONG Size;
     ULONG Flags;
-    ULONG Count;
+    ULONG Count; //用户队列的最大计数
     ULONG Start;
     ULONG End;
     ULONG Unk[2];
@@ -25,8 +25,8 @@ typedef struct _API_SET_VALUE_ARRAY_10
     ULONG NameOffset;
     ULONG Unk;
     ULONG NameLength;
-    ULONG DataOffset;
-    ULONG Count;
+    ULONG DataOffset; // API_SET_VALUE_ARRAY
+    ULONG Count; //用户队列的最大计数
 } API_SET_VALUE_ARRAY_10, *PAPI_SET_VALUE_ARRAY_10;
 
 typedef struct _API_SET_VALUE_ENTRY_10
@@ -48,7 +48,7 @@ typedef struct _API_SET_VALUE_ENTRY_V2
 
 typedef struct _API_SET_VALUE_ARRAY_V2
 {
-    ULONG Count;
+    ULONG Count; //用户队列的最大计数
     API_SET_VALUE_ENTRY_V2 Array[ANYSIZE_ARRAY];
 } API_SET_VALUE_ARRAY_V2, *PAPI_SET_VALUE_ARRAY_V2;
 
@@ -56,13 +56,13 @@ typedef struct _API_SET_NAMESPACE_ENTRY_V2
 {
     ULONG NameOffset;
     ULONG NameLength;
-    ULONG DataOffset;
+    ULONG DataOffset; // API_SET_VALUE_ARRAY
 } API_SET_NAMESPACE_ENTRY_V2, *PAPI_SET_NAMESPACE_ENTRY_V2;
 
 typedef struct _API_SET_NAMESPACE_ARRAY_V2
 {
     ULONG Version;
-    ULONG Count;
+    ULONG Count; //用户队列的最大计数
     _Field_size_full_(Count) API_SET_NAMESPACE_ENTRY_V2 Array[ANYSIZE_ARRAY];
 } API_SET_NAMESPACE_ARRAY_V2, *PAPI_SET_NAMESPACE_ARRAY_V2;
 

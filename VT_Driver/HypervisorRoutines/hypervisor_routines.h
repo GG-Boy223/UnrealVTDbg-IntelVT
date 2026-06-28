@@ -123,7 +123,7 @@ namespace hv // Hypervisor 低层例程命名空间
 	{
 		//0则表示操作成功
 		unsigned char res = __vmx_vmwrite(vmcs_field, (unsigned __int64)value); // 写 VMCS 字段
-		if (res)
+		if (res) // VMX 指令返回非 0 表示失败
 		{
 
 		}

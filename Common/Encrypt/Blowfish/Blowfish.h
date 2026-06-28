@@ -15,10 +15,14 @@
 
 
 /*Block Structure*/
+// /*Block Structure*/
 typedef struct {
 	unsigned int m_uil; /*Hi*/
 	unsigned int m_uir; /*Lo*/
+// unsigned int m_uil; /*Hi*/
+// unsigned int m_uir; /*Lo*/
 }SBlock;
+// /*Block Structure*/
 typedef struct {
 	SBlock m_oChain;
 	unsigned int m_auiP[MAX_PBLOCK_SIZE];
@@ -26,11 +30,15 @@ typedef struct {
 }Blowfish;
 /****************************************************************************************/
 /*Constructor - Initialize the P and S boxes for a given Key*/
+// /****************************************************************************************/
+// /*Constructor - Initialize the P and S boxes for a given Key*/
 int BlowFishInit(Blowfish* blowfish, unsigned char* ucKey, size_t keysize);
 /*Encrypt/Decrypt from Input Buffer to Output Buffer*/
+// /*Encrypt/Decrypt from Input Buffer to Output Buffer*/
 int Encrypt(Blowfish* blowfish, const unsigned char* in, size_t siz_i, unsigned char* out, size_t siz_o, int iMode);
 int Decrypt(Blowfish* blowfish, const unsigned char* in, size_t siz_i, unsigned char* out, size_t siz_o, int iMode);
 /****************************************************************************************/
+// /****************************************************************************************/
 void HexStr2CharStr(unsigned char* pszHexStr, int iSize, unsigned char* pucCharStr);
 void CharStr2HexStr(unsigned char* pucCharStr, int iSize, unsigned char* pszHexStr);
 //加密函数

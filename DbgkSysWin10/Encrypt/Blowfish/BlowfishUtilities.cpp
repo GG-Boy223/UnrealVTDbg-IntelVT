@@ -1,4 +1,4 @@
-#include <ntifs.h>
+﻿#include <ntifs.h>
 
 #include "BlowfishInternal.h"
 
@@ -46,6 +46,7 @@ namespace
             {
                 *rch = (*rch << 4) + (*(szHex + i) - '0');
             }
+            // *rch = (*rch << 4) + (*(szHex + i) - '0');
             else if (*(szHex + i) >= 'A' && *(szHex + i) <= 'F')
             {
                 *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
@@ -58,6 +59,7 @@ namespace
     }
 }
 
+// /*Function to convert string of unsigned chars to string of chars*/
 VOID CharStr2HexStr(unsigned char* pucCharStr, ULONG iSize, unsigned char* pszHexStr)
 {
     ULONG i;
@@ -70,12 +72,14 @@ VOID CharStr2HexStr(unsigned char* pucCharStr, ULONG iSize, unsigned char* pszHe
     }
 }
 
+// /*Function to convert string of chars to string of unsigned chars*/
 VOID HexStr2CharStr(unsigned char* pszHexStr, ULONG iSize, unsigned char* pucCharStr)
 {
     ULONG i;
     unsigned char ch;
     if (iSize % 2 != 0)
     {
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
@@ -86,6 +90,7 @@ VOID HexStr2CharStr(unsigned char* pszHexStr, ULONG iSize, unsigned char* pucCha
     }
 }
 
+//字符流转字节流
 void StrToHex(const char* source, unsigned char* dest, int length)
 {
     short i;

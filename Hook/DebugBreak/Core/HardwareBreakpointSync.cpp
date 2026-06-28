@@ -6,6 +6,7 @@ namespace DebugBreakInternal
     {
         if (context == nullptr)
         {
+            // 处理打开进程失败的情况
             return false;
         }
 
@@ -29,6 +30,7 @@ namespace DebugBreakInternal
             unsigned __int64 command = 0;
             if (!DecodeDebugRegisterCommand(rwCode, &command))
             {
+                // 处理打开进程失败的情况
                 return false;
             }
 

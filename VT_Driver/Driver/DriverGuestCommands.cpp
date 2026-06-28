@@ -1,33 +1,35 @@
 ﻿#include "DriverInternal.h"
 
-PCLIENT_ID GuestCurrentThreadCid()
+PCLIENT_ID GuestCurrentThreadCid() // 计算来宾当前线程的CLIENT_ID地址，便于识别触发事件的线程
 {
     constexpr size_t InvalidOffset = static_cast<size_t>(0xFFFFFFFF);
+    // 方案 2：在 Win10 sys 还没有把 Cid 下发过来之前，
+    // 这里必须明确返回空，禁止后续继续解引用错误地址。
     if (ethread_offset::Cid == 0 || ethread_offset::Cid == InvalidOffset)
     {
-        return nullptr;
+        return nullptr; // 失败返回空指针
     }
-    size_t Thread = hv::current_guest_ethread();
-    size_t ptr_Cid = Thread + ethread_offset::Cid;
-    return (PCLIENT_ID)ptr_Cid;
+    size_t Thread = hv::current_guest_ethread(); // 获取来宾当前ETHREAD地址
+    size_t ptr_Cid = Thread + ethread_offset::Cid; // 计算Cid字段地址
+    return (PCLIENT_ID)ptr_Cid; // 返回Cid指针供上层使用
 }
 
-bool SetBreakpoint(PVT_BREAK_POINT vmcallinfo, unsigned __int64 Type)
+bool SetBreakpoint(PVT_BREAK_POINT vmcallinfo, unsigned __int64 Type) // 在来宾地址上设置EPT监视断点（不修改来宾代码）
 {
-    int errorCode = 0;
-    VT_BREAK_POINT tmp_vmcallinfo = { 0 };
+    int errorCode = 0; // 记录失败原因的错误码
+    VT_BREAK_POINT tmp_vmcallinfo = { 0 }; // 本地缓冲保存断点请求
 
-    if (sizeof(VT_BREAK_POINT) != hv::read_guest_virtual_memory(vmcallinfo, &tmp_vmcallinfo, sizeof(VT_BREAK_POINT)))
+    if (sizeof(VT_BREAK_POINT) != hv::read_guest_virtual_memory(vmcallinfo, &tmp_vmcallinfo, sizeof(VT_BREAK_POINT))) // 读取来宾断点参数
     {
         return false;
     }
 
-    int outID = -1;
-    if (ept::ept_watch_activate(tmp_vmcallinfo, Type, &outID, errorCode))
+    int outID = -1; // 输出的监视点ID
+    if (ept::ept_watch_activate(tmp_vmcallinfo, Type, &outID, errorCode)) // 通过EPT拦截实现断点，避免软件断点被检测
     {
-        tmp_vmcallinfo.watchid = outID;
+        tmp_vmcallinfo.watchid = outID; // 回填监视点ID给来宾
 
-        if (sizeof(VT_BREAK_POINT) != hv::write_guest_virtual_memory(vmcallinfo, &tmp_vmcallinfo, sizeof(VT_BREAK_POINT)))
+        if (sizeof(VT_BREAK_POINT) != hv::write_guest_virtual_memory(vmcallinfo, &tmp_vmcallinfo, sizeof(VT_BREAK_POINT))) // 写回结果到来宾
         {
             return false;
         }
@@ -35,9 +37,9 @@ bool SetBreakpoint(PVT_BREAK_POINT vmcallinfo, unsigned __int64 Type)
     }
     else
     {
-        tmp_vmcallinfo.errorCode = errorCode;
+        tmp_vmcallinfo.errorCode = errorCode; // 回填失败错误码
 
-        if (sizeof(VT_BREAK_POINT) != hv::write_guest_virtual_memory(vmcallinfo, &tmp_vmcallinfo, sizeof(VT_BREAK_POINT)))
+        if (sizeof(VT_BREAK_POINT) != hv::write_guest_virtual_memory(vmcallinfo, &tmp_vmcallinfo, sizeof(VT_BREAK_POINT))) // 将错误信息写回来宾
         {
             return false;
         }
@@ -70,14 +72,16 @@ bool SetBreakpoint(PVT_BREAK_POINT vmcallinfo, unsigned __int64 Type)
 
 bool RemoveBreakpoint(PVT_BREAK_POINT vmcallinfo)
 {
-    VT_BREAK_POINT tmp_vmcallinfo = { 0 };
+    VT_BREAK_POINT tmp_vmcallinfo = { 0 }; // 本地缓冲保存断点请求
 
-    if (sizeof(VT_BREAK_POINT) != hv::read_guest_virtual_memory(vmcallinfo, &tmp_vmcallinfo, sizeof(VT_BREAK_POINT)))
+    if (sizeof(VT_BREAK_POINT) != hv::read_guest_virtual_memory(vmcallinfo, &tmp_vmcallinfo, sizeof(VT_BREAK_POINT))) // 读取来宾断点参数
     {
         return false;
     }
 
     const int deactivate_status = ept::ept_watch_deactivate(tmp_vmcallinfo, tmp_vmcallinfo.watchid);
+    // 删除断点要保持幂等：CE 步过/删除可能重复下发同一个 watchid，
+    // watchid 已经空闲时也视为完成，避免用户态保留过期断点导致目标线程继续卡住。
     if (deactivate_status == 0 || deactivate_status == 2)
     {
         return true;
@@ -87,12 +91,16 @@ bool RemoveBreakpoint(PVT_BREAK_POINT vmcallinfo)
 }
 
 void MyKeBugCheck(
-    _In_ ULONG BugCheckCode,
-    _In_ ULONG_PTR BugCheckParameter1,
-    _In_ ULONG_PTR BugCheckParameter2,
-    _In_ ULONG_PTR BugCheckParameter3,
-    _In_ ULONG_PTR BugCheckParameter4
+    _In_ ULONG BugCheckCode, // 蓝屏主错误码
+    _In_ ULONG_PTR BugCheckParameter1, // 参数1：问题上下文相关信息
+    _In_ ULONG_PTR BugCheckParameter2, // 参数2：问题上下文相关信息
+    _In_ ULONG_PTR BugCheckParameter3, // 参数3：问题上下文相关信息
+    _In_ ULONG_PTR BugCheckParameter4 // 参数4：问题上下文相关信息
 )
 {
-    KeBugCheckEx(BugCheckCode, BugCheckParameter1, BugCheckParameter2, BugCheckParameter3, BugCheckParameter4);
+    //__vmx_off();                                  // 退出vmx模式
+    // __writecr3(g_guest_cr3);                      // 还原cr3
+    // __reload_gdtr(g_gdtr.base_address, g_gdtr.limit); // 还原gdt
+    // __lidt(&g_idtr);                                 // 还原idt
+    KeBugCheckEx(BugCheckCode, BugCheckParameter1, BugCheckParameter2, BugCheckParameter3, BugCheckParameter4); // 触发蓝屏并生成dump
 }

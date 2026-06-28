@@ -40,6 +40,7 @@ bool TryHook_OutputDebugStringA()
     {
         return HookOn((PVOID*)&Sys_OutputDebugStringA, NewOutputDebugStringA, GetCurrentThread());
     }
+    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
     else
     {
         logger.Log("OutputDebugStringA空指针");
@@ -54,6 +55,7 @@ bool TryUnHook_OutputDebugStringA()
         return HookOff((PVOID*)&Sys_OutputDebugStringA, NewOutputDebugStringA, GetCurrentThread());
     }
 
+    // 调试器会高频读取断点附近字节，回填路径保持静默，避免日志拖慢步进和反汇编刷新。
     return true;
 }
 
@@ -65,6 +67,7 @@ bool TryHook_OutputDebugStringW()
     {
         return HookOn((PVOID*)&Sys_OutputDebugStringW, NewOutputDebugStringW, GetCurrentThread());
     }
+    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
     else
     {
         logger.Log("OutputDebugStringW空指针");
@@ -79,9 +82,11 @@ bool TryUnHook_OutputDebugStringW()
         return HookOff((PVOID*)&Sys_OutputDebugStringW, NewOutputDebugStringW, GetCurrentThread());
     }
 
+    // 调试器会高频读取断点附近字节，回填路径保持静默，避免日志拖慢步进和反汇编刷新。
     return true;
 }
 
+//Hook OutputDebugStringA/W处理敏感日志检测
 void Hook_OutputDebugStringA()
 {
     (void)TryHook_OutputDebugStringA();

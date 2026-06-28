@@ -2,6 +2,7 @@
 
 namespace
 {
+//若非vmx模式则该指令会触发#UD异常
 #ifdef _WIN64
     constexpr wchar_t kHookLogFileName[] = L"Hook64.log"; // x64 Hook DLL 使用独立日志名，避免和 Win32 Hook.dll 日志混写。
 #else
@@ -38,6 +39,7 @@ namespace
     {
         if (logPath == nullptr || logPath[0] == L'\0')
         {
+            // 处理打开进程失败的情况
             return false; // 空路径不能作为日志文件。
         }
 
@@ -51,6 +53,7 @@ namespace
             nullptr);
         if (fileHandle == INVALID_HANDLE_VALUE)
         {
+            // 处理打开进程失败的情况
             return false; // 目录无权限或路径非法时通知调用方回退。
         }
 
@@ -62,6 +65,7 @@ namespace
     {
         if (outPath == nullptr || outPathCount == 0)
         {
+            // 处理打开进程失败的情况
             return false; // 输出缓冲无效时不能构造路径。
         }
 
@@ -85,6 +89,7 @@ namespace
     {
         if (outPath == nullptr || outPathCount == 0)
         {
+            // 处理打开进程失败的情况
             return false; // 输出缓冲无效时直接失败。
         }
 

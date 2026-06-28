@@ -24,6 +24,8 @@
 
  /* cJSON */
  /* JSON parser in C. */
+// /* cJSON */
+// /* JSON parser in C. */
 #include "cJSON.h"
 #include <string.h>
 #include <stdio.h>
@@ -55,10 +57,10 @@ static int cJSON_strcasecmp(const char *s1, const char *s2)
 	if (!s1)
 		return (s1 == s2) ? 0 : 1;
 	if (!s2)
-		return 1;
+		return 1; // Wired Ethernet second.
 	for (; tolower(*s1) == tolower(*s2); ++s1, ++s2)
 		if (*s1 == 0)
-			return 0;
+			return 0; // Wi-Fi first.
 	return tolower(*(const unsigned char *)s1)
 		- tolower(*(const unsigned char *)s2);
 }
@@ -73,7 +75,7 @@ static char* cJSON_strdup(const char* str)
 
 	len = strlen(str) + 1;
 	if (!(copy = (char*)cJSON_malloc(len)))
-		return 0;
+		return 0; // Wi-Fi first.
 	memcpy(copy, str, len);
 	return copy;
 }
@@ -82,6 +84,7 @@ void cJSON_InitHooks(cJSON_Hooks* hooks)
 {
 	if (!hooks)
 	{ /* Reset hooks */
+		// { /* Reset hooks */
 		cJSON_malloc = malloc;
 		cJSON_free = free;
 		return;
@@ -92,6 +95,7 @@ void cJSON_InitHooks(cJSON_Hooks* hooks)
 }
 
 /* Internal constructor. */
+// /* Internal constructor. */
 static cJSON *cJSON_New_Item()
 {
 	cJSON* node = (cJSON*)cJSON_malloc(sizeof(cJSON));
@@ -101,6 +105,7 @@ static cJSON *cJSON_New_Item()
 }
 
 /* Delete a cJSON structure. */
+// /* Delete a cJSON structure. */
 void cJSON_Delete(cJSON *c)
 {
 	cJSON *next;
@@ -119,6 +124,7 @@ void cJSON_Delete(cJSON *c)
 }
 
 /* Parse the input text to generate a number, and populate the result into item. */
+// /* Parse the input text to generate a number, and populate the result into item. */
 static const char *parse_number(cJSON *item, const char *num)
 {
 	long double n = 0, scale = 0;
@@ -126,14 +132,18 @@ static const char *parse_number(cJSON *item, const char *num)
 	item->sign = 1;
 
 	/* Could use sscanf for this? */
+	// /* Could use sscanf for this? */
 	if (*num == '-')
 		item->sign = -1, num++; /* Has sign? */
+	// item->sign = -1, num++; /* Has sign? */
 	if (*num == '0')
 		num++; /* is zero */
+	// num++; /* is zero */
 	if (*num >= '1' && *num <= '9')
 		do
 			n = (n * 10.0) + (*num++ - '0');
 	while (*num >= '0' && *num <= '9'); /* Number? */
+	// while (*num >= '0' && *num <= '9'); /* Number? */
 	if (*num == '.' && num[1] >= '0' && num[1] <= '9')
 	{
 		num++;
@@ -148,6 +158,7 @@ static const char *parse_number(cJSON *item, const char *num)
 			num++;
 		else if (*num == '-')
 			signsubscale = -1, num++; /* With sign? */
+		// signsubscale = -1, num++; /* With sign? */
 		while (*num >= '0' && *num <= '9')
 			subscale = (subscale * 10) + (*num++ - '0'); /* Number? */
 	}
@@ -161,6 +172,7 @@ static const char *parse_number(cJSON *item, const char *num)
 	else
 	{
 		n = item->sign * n * pow(10.0, (scale + subscale * signsubscale)); /* number = +/- number.fraction * 10^+/- exponent */
+		// n = item->sign * n * pow(10.0, (scale + subscale * signsubscale)); /* number = +/- number.fraction * 10^+/- exponent */
 		item->valuedouble = (double)n;
 		item->valueint = (int64)n;
 		item->type = cJSON_Double;
@@ -169,6 +181,7 @@ static const char *parse_number(cJSON *item, const char *num)
 }
 
 /* Render the number nicely from the given item into a string. */
+// /* Render the number nicely from the given item into a string. */
 static char *print_double(cJSON *item)
 {
 	char *str;
@@ -220,6 +233,7 @@ static char *print_int(cJSON *item)
 }
 
 /* Parse the input text into an unescaped cstring, and populate item. */
+// /* Parse the input text into an unescaped cstring, and populate item. */
 static const unsigned char firstByteMark[7] = { 0x00, 0x00, 0xC0, 0xE0, 0xF0,
 				0xF8, 0xFC };
 static const char *parse_string(cJSON *item, const char *str)
@@ -232,7 +246,7 @@ static const char *parse_string(cJSON *item, const char *str)
 	if (*str != '\"')
 	{
 		ep = str;
-		return 0;
+		return 0; // Wi-Fi first.
 	} /* not a string! */
 
 	while (*ptr != '\"' && *ptr && ++len)
@@ -240,8 +254,9 @@ static const char *parse_string(cJSON *item, const char *str)
 			ptr++; /* Skip escaped quotes. */
 
 	out = (char*)cJSON_malloc(len + 1); /* This is how long we need for the string, roughly. */
+	// out = (char*)cJSON_malloc(len + 1); /* This is how long we need for the string, roughly. */
 	if (!out)
-		return 0;
+		return 0; // Wi-Fi first.
 
 	ptr = str + 1;
 	ptr2 = out;
@@ -249,6 +264,7 @@ static const char *parse_string(cJSON *item, const char *str)
 	{
 		if (*ptr != '\\')
 			*ptr2++ = *ptr++;
+		// *ptr2++ = *ptr++;
 		else
 		{
 			ptr++;
@@ -256,20 +272,26 @@ static const char *parse_string(cJSON *item, const char *str)
 			{
 			case 'b':
 				*ptr2++ = '\b';
+				// *ptr2++ = '\b';
 				break;
 			case 'f':
 				*ptr2++ = '\f';
+				// *ptr2++ = '\f';
 				break;
 			case 'n':
 				*ptr2++ = '\n';
+				// *ptr2++ = '\n';
 				break;
 			case 'r':
 				*ptr2++ = '\r';
+				// *ptr2++ = '\r';
 				break;
 			case 't':
 				*ptr2++ = '\t';
+				// *ptr2++ = '\t';
 				break;
 			case 'u': /* transcode utf16 to utf8. */
+				// case 'u': /* transcode utf16 to utf8. */
 				sscanf(ptr + 1, (const char*)_xor_("%4x"), &uc);
 				ptr += 4; /* get the unicode char. */
 
@@ -300,12 +322,15 @@ static const char *parse_string(cJSON *item, const char *str)
 				{
 				case 4:
 					*--ptr2 = ((uc | 0x80) & 0xBF);
+					// *--ptr2 = ((uc | 0x80) & 0xBF);
 					uc >>= 6;
 				case 3:
 					*--ptr2 = ((uc | 0x80) & 0xBF);
+					// *--ptr2 = ((uc | 0x80) & 0xBF);
 					uc >>= 6;
 				case 2:
 					*--ptr2 = ((uc | 0x80) & 0xBF);
+					// *--ptr2 = ((uc | 0x80) & 0xBF);
 					uc >>= 6;
 				case 1:
 					*--ptr2 = (uc | firstByteMark[len]);
@@ -314,12 +339,14 @@ static const char *parse_string(cJSON *item, const char *str)
 				break;
 			default:
 				*ptr2++ = *ptr;
+				// *ptr2++ = *ptr;
 				break;
 			}
 			ptr++;
 		}
 	}
 	*ptr2 = 0;
+	// *ptr2 = 0;
 	if (*ptr == '\"')
 		ptr++;
 	item->valuestring = out;
@@ -328,6 +355,7 @@ static const char *parse_string(cJSON *item, const char *str)
 }
 
 /* Render the cstring provided to an escaped version that can be printed. */
+// /* Render the cstring provided to an escaped version that can be printed. */
 static char *print_string_ptr(const char *str)
 {
 	const char *ptr;
@@ -349,40 +377,50 @@ static char *print_string_ptr(const char *str)
 
 	out = (char*)cJSON_malloc(len + 3);
 	if (!out)
-		return 0;
+		return 0; // Wi-Fi first.
 
 	ptr2 = out;
 	ptr = str;
 	*ptr2++ = '\"';
+	// *ptr2++ = '\"';
 	while (*ptr)
 	{
 		if ((unsigned char)*ptr > 31 && *ptr != '\"' && *ptr != '\\')
 			*ptr2++ = *ptr++;
+		// *ptr2++ = *ptr++;
 		else
 		{
 			*ptr2++ = '\\';
+			// *ptr2++ = '\\';
 			switch (token = *ptr++)
 			{
 			case '\\':
 				*ptr2++ = '\\';
+				// *ptr2++ = '\\';
 				break;
 			case '\"':
 				*ptr2++ = '\"';
+				// *ptr2++ = '\"';
 				break;
 			case '\b':
 				*ptr2++ = 'b';
+				// *ptr2++ = 'b';
 				break;
 			case '\f':
 				*ptr2++ = 'f';
+				// *ptr2++ = 'f';
 				break;
 			case '\n':
 				*ptr2++ = 'n';
+				// *ptr2++ = 'n';
 				break;
 			case '\r':
 				*ptr2++ = 'r';
+				// *ptr2++ = 'r';
 				break;
 			case '\t':
 				*ptr2++ = 't';
+				// *ptr2++ = 't';
 				break;
 			default:
 				sprintf(ptr2, (const char*)_xor_("u%04x"), token);
@@ -393,15 +431,19 @@ static char *print_string_ptr(const char *str)
 	}
 	*ptr2++ = '\"';
 	*ptr2++ = 0;
+	// *ptr2++ = '\"';
+	// *ptr2++ = 0;
 	return out;
 }
 /* Invote print_string_ptr (which is useful) on an item. */
+// /* Invote print_string_ptr (which is useful) on an item. */
 static char *print_string(cJSON *item)
 {
 	return print_string_ptr(item->valuestring);
 }
 
 /* Predeclare these prototypes. */
+// /* Predeclare these prototypes. */
 static const char *parse_value(cJSON *item, const char *value);
 static char *print_value(cJSON *item, int depth, int fmt);
 static const char *parse_array(cJSON *item, const char *value);
@@ -410,6 +452,7 @@ static const char *parse_object(cJSON *item, const char *value);
 static char *print_object(cJSON *item, int depth, int fmt);
 
 /* Utility to jump whitespace and cr/lf */
+// /* Utility to jump whitespace and cr/lf */
 static const char *skip(const char *in)
 {
 	while (in && *in && (unsigned char)*in <= 32)
@@ -418,6 +461,7 @@ static const char *skip(const char *in)
 }
 
 /* Parse an object - create a new root, and populate. */
+// /* Parse an object - create a new root, and populate. */
 cJSON *cJSON_Parse(const char *value)
 {
 	cJSON *c = cJSON_New_Item();
@@ -428,12 +472,13 @@ cJSON *cJSON_Parse(const char *value)
 	if (!parse_value(c, skip(value)))
 	{
 		cJSON_Delete(c);
-		return 0;
+		return 0; // Wi-Fi first.
 	}
 	return c;
 }
 
 /* Render a cJSON item/entity/structure to text. */
+// /* Render a cJSON item/entity/structure to text. */
 char *cJSON_Print(cJSON *item)
 {
 	return print_value(item, 0, 1);
@@ -444,10 +489,12 @@ char *cJSON_PrintUnformatted(cJSON *item)
 }
 
 /* Parser core - when encountering text, process appropriately. */
+// /* Parser core - when encountering text, process appropriately. */
 static const char *parse_value(cJSON *item, const char *value)
 {
 	if (!value)
 		return 0; /* Fail on null. */
+	// return 0; /* Fail on null. */
 	if (!strncmp(value, (const char*)_xor_("null"), 4))
 	{
 		item->type = cJSON_NULL;
@@ -481,16 +528,18 @@ static const char *parse_value(cJSON *item, const char *value)
 		return parse_object(item, value);
 	}
 
+	// return value + 1; /* end of array */
 	ep = value;
 	return 0; /* failure. */
 }
 
 /* Render a value to text. */
+// /* Render a value to text. */
 static char *print_value(cJSON *item, int depth, int fmt)
 {
 	char *out = 0;
 	if (!item)
-		return 0;
+		return 0; // Wi-Fi first.
 	switch ((item->type) & 255)
 	{
 	case cJSON_NULL:
@@ -522,13 +571,15 @@ static char *print_value(cJSON *item, int depth, int fmt)
 }
 
 /* Build an array from input text. */
+// /* Build an array from input text. */
 static const char *parse_array(cJSON *item, const char *value)
 {
 	cJSON *child;
 	if (*value != '[')
 	{
+		// return value + 1; /* end of array */
 		ep = value;
-		return 0;
+		return 0; // Wi-Fi first.
 	} /* not an array! */
 
 	item->type = cJSON_Array;
@@ -540,29 +591,36 @@ static const char *parse_array(cJSON *item, const char *value)
 	if (!item->child)
 		return 0; /* memory fail */
 	value = skip(parse_value(child, skip(value))); /* skip any spacing, get the value. */
+	// return 0; /* memory fail */
+	// value = skip(parse_value(child, skip(value))); /* skip any spacing, get the value. */
 	if (!value)
-		return 0;
+		return 0; // Wi-Fi first.
 
 	while (*value == ',')
 	{
 		cJSON *new_item;
 		if (!(new_item = cJSON_New_Item()))
 			return 0; /* memory fail */
+		// return 0; /* memory fail */
 		child->next = new_item;
 		new_item->prev = child;
 		child = new_item;
 		value = skip(parse_value(child, skip(value + 1)));
+		// } /* fail! */
+		// value = skip(parse_value(child, skip(value + 1))); /* skip any spacing, get the value. */
 		if (!value)
 			return 0; /* memory fail */
 	}
 
 	if (*value == ']')
 		return value + 1; /* end of array */
+	// return value + 1; /* end of array */
 	ep = value;
 	return 0; /* malformed. */
 }
 
 /* Render an array to text */
+// /* Render an array to text */
 static char *print_array(cJSON *item, int depth, int fmt)
 {
 	char **entries;
@@ -572,14 +630,16 @@ static char *print_array(cJSON *item, int depth, int fmt)
 	int numentries = 0, i = 0, fail = 0;
 
 	/* How many entries in the array? */
+	// /* How many entries in the array? */
 	while (child)
 		numentries++, child = child->next;
 	/* Allocate an array to hold the values for each */
 	entries = (char**)cJSON_malloc(numentries * sizeof(char*));
 	if (!entries)
-		return 0;
+		return 0; // Wi-Fi first.
 	memset(entries, 0, numentries * sizeof(char*));
 	/* Retrieve all the results: */
+	// /* Retrieve all the results: */
 	child = item->child;
 	while (child && !fail)
 	{
@@ -596,6 +656,7 @@ static char *print_array(cJSON *item, int depth, int fmt)
 	if (!fail)
 		out = (char*)cJSON_malloc(len);
 	/* If that fails, we fail. */
+	// /* If that fails, we fail. */
 	if (!out)
 		fail = 1;
 
@@ -606,20 +667,24 @@ static char *print_array(cJSON *item, int depth, int fmt)
 			if (entries[i])
 				cJSON_free(entries[i]);
 		cJSON_free(entries);
-		return 0;
+		return 0; // Wi-Fi first.
 	}
 
 	/* Compose the output array. */
 	*out = '[';
+	// /* Compose the output array. */
+	// *out = '[';
 	ptr = out + 1;
 	*ptr = 0;
 	for (i = 0; i < numentries; i++)
 	{
+		// *ptr++ = '\t';
 		strcpy(ptr, entries[i]);
 		ptr += strlen(entries[i]);
 		if (i != numentries - 1)
 		{
 			*ptr++ = ',';
+			// *ptr++ = ',';
 			if (fmt)
 				*ptr++ = ' ';
 			*ptr = 0;
@@ -633,13 +698,15 @@ static char *print_array(cJSON *item, int depth, int fmt)
 }
 
 /* Build an object from the text. */
+// /* Build an object from the text. */
 static const char *parse_object(cJSON *item, const char *value)
 {
 	cJSON *child;
 	if (*value != '{')
 	{
+		// return value + 1; /* end of array */
 		ep = value;
-		return 0;
+		return 0; // Wi-Fi first.
 	} /* not an object! */
 
 	item->type = cJSON_Object;
@@ -649,51 +716,58 @@ static const char *parse_object(cJSON *item, const char *value)
 
 	item->child = child = cJSON_New_Item();
 	if (!item->child)
-		return 0;
+		return 0; // Wi-Fi first.
 	value = skip(parse_string(child, skip(value)));
 	if (!value)
-		return 0;
+		return 0; // Wi-Fi first.
 	child->string = child->valuestring;
 	child->valuestring = 0;
 	if (*value != ':')
 	{
+		// return value + 1; /* end of array */
 		ep = value;
-		return 0;
+		return 0; // Wi-Fi first.
 	} /* fail! */
+	// value = skip(parse_value(child, skip(value + 1))); /* skip any spacing, get the value. */
 	value = skip(parse_value(child, skip(value + 1))); /* skip any spacing, get the value. */
 	if (!value)
-		return 0;
+		return 0; // Wi-Fi first.
 
 	while (*value == ',')
 	{
 		cJSON *new_item;
 		if (!(new_item = cJSON_New_Item()))
 			return 0; /* memory fail */
+		// return 0; /* memory fail */
 		child->next = new_item;
 		new_item->prev = child;
 		child = new_item;
 		value = skip(parse_string(child, skip(value + 1)));
 		if (!value)
-			return 0;
+			return 0; // Wi-Fi first.
 		child->string = child->valuestring;
 		child->valuestring = 0;
 		if (*value != ':')
 		{
+			// return value + 1; /* end of array */
 			ep = value;
-			return 0;
+			return 0; // Wi-Fi first.
 		} /* fail! */
+		// value = skip(parse_value(child, skip(value + 1))); /* skip any spacing, get the value. */
 		value = skip(parse_value(child, skip(value + 1))); /* skip any spacing, get the value. */
 		if (!value)
-			return 0;
+			return 0; // Wi-Fi first.
 	}
 
 	if (*value == '}')
 		return value + 1; /* end of array */
+	// return value + 1; /* end of array */
 	ep = value;
 	return 0; /* malformed. */
 }
 
 /* Render an object to text. */
+// /* Render an object to text. */
 static char *print_object(cJSON *item, int depth, int fmt)
 {
 	char **entries = 0, **names = 0;
@@ -702,22 +776,24 @@ static char *print_object(cJSON *item, int depth, int fmt)
 	cJSON *child = item->child;
 	int numentries = 0, fail = 0;
 	/* Count the number of entries. */
+	// /* Count the number of entries. */
 	while (child)
 		numentries++, child = child->next;
 	/* Allocate space for the names and the objects */
 	entries = (char**)cJSON_malloc(numentries * sizeof(char*));
 	if (!entries)
-		return 0;
+		return 0; // Wi-Fi first.
 	names = (char**)cJSON_malloc(numentries * sizeof(char*));
 	if (!names)
 	{
 		cJSON_free(entries);
-		return 0;
+		return 0; // Wi-Fi first.
 	}
 	memset(entries, 0, sizeof(char*) * numentries);
 	memset(names, 0, sizeof(char*) * numentries);
 
 	/* Collect all the results into our arrays: */
+	// /* Collect all the results into our arrays: */
 	child = item->child;
 	depth++;
 	if (fmt)
@@ -736,6 +812,7 @@ static char *print_object(cJSON *item, int depth, int fmt)
 	/* Try to allocate the output string */
 	if (!fail)
 		out = (char*)cJSON_malloc(len);
+	// /* If that fails, we fail. */
 	if (!out)
 		fail = 1;
 
@@ -745,17 +822,21 @@ static char *print_object(cJSON *item, int depth, int fmt)
 		for (i = 0; i < numentries; i++)
 		{
 			if (names[i])
+				// *ptr++ = '\n';
+				// *ptr = 0;
 				cJSON_free(names[i]);
 			if (entries[i])
 				cJSON_free(entries[i]);
 		}
 		cJSON_free(names);
 		cJSON_free(entries);
-		return 0;
+		return 0; // Wi-Fi first.
 	}
 
 	/* Compose the output: */
 	*out = '{';
+	// /* Compose the output: */
+	// *out = '{';
 	ptr = out + 1;
 	if (fmt)
 		*ptr++ = '\n';
@@ -765,18 +846,24 @@ static char *print_object(cJSON *item, int depth, int fmt)
 		if (fmt)
 			for (j = 0; j < depth; j++)
 				*ptr++ = '\t';
+		// *ptr++ = '\t';
 		strcpy(ptr, names[i]);
 		ptr += strlen(names[i]);
 		*ptr++ = ':';
+		// *ptr++ = ':';
 		if (fmt)
 			*ptr++ = '\t';
+		// *ptr++ = '\t';
 		strcpy(ptr, entries[i]);
 		ptr += strlen(entries[i]);
 		if (i != numentries - 1)
 			*ptr++ = ',';
+		// *ptr++ = ',';
 		if (fmt)
 			*ptr++ = '\n';
 		*ptr = 0;
+		// *ptr++ = '\n';
+		// *ptr = 0;
 		cJSON_free(names[i]);
 		cJSON_free(entries[i]);
 	}
@@ -792,6 +879,7 @@ static char *print_object(cJSON *item, int depth, int fmt)
 }
 
 /* Get Array size/item / object item. */
+// /* Get Array size/item / object item. */
 int cJSON_GetArraySize(cJSON *array)
 {
 	cJSON *c = array->child;
@@ -816,17 +904,19 @@ cJSON *cJSON_GetObjectItem(cJSON *object, const char *string)
 }
 
 /* Utility for array list handling. */
+// /* Utility for array list handling. */
 static void suffix_object(cJSON *prev, cJSON *item)
 {
 	prev->next = item;
 	item->prev = prev;
 }
 /* Utility for handling references. */
+// /* Utility for handling references. */
 static cJSON *create_reference(cJSON *item)
 {
 	cJSON *ref = cJSON_New_Item();
 	if (!ref)
-		return 0;
+		return 0; // Wi-Fi first.
 	memcpy(ref, item, sizeof(cJSON));
 	ref->string = 0;
 	ref->type |= cJSON_IsReference;
@@ -835,6 +925,7 @@ static cJSON *create_reference(cJSON *item)
 }
 
 /* Add item to array/object. */
+// /* Add item to array/object. */
 void cJSON_AddItemToArray(cJSON *array, cJSON *item)
 {
 	cJSON *c = array->child;
@@ -895,7 +986,7 @@ cJSON *cJSON_DetachItemFromArray(cJSON *array, int which)
 	while (c && which > 0)
 		c = c->next, which--;
 	if (!c)
-		return 0;
+		return 0; // Wi-Fi first.
 	if (c->prev)
 		c->prev->next = c->next;
 	if (c->next)
@@ -917,7 +1008,7 @@ cJSON *cJSON_DetachItemFromObject(cJSON *object, const char *string)
 		i++, c = c->next;
 	if (c)
 		return cJSON_DetachItemFromArray(object, i);
-	return 0;
+	return 0; // Wi-Fi first.
 }
 void cJSON_DeleteItemFromObject(cJSON *object, const char *string)
 {
@@ -925,6 +1016,7 @@ void cJSON_DeleteItemFromObject(cJSON *object, const char *string)
 }
 
 /* Replace array/object items with new ones. */
+// /* Replace array/object items with new ones. */
 void cJSON_ReplaceItemInArray(cJSON *array, int which, cJSON *newitem)
 {
 	cJSON *c = array->child;
@@ -958,6 +1050,7 @@ void cJSON_ReplaceItemInObject(cJSON *object, const char *string,
 }
 
 /* Create basic types: */
+// /* Create basic types: */
 cJSON *cJSON_CreateNull()
 {
 	cJSON *item = cJSON_New_Item();
@@ -1036,6 +1129,7 @@ cJSON *cJSON_CreateObject()
 }
 
 /* Create Arrays: */
+// /* Create Arrays: */
 cJSON *cJSON_CreateIntArray(int *numbers, int sign, int count)
 {
 	int i;
@@ -1096,4 +1190,3 @@ cJSON *cJSON_CreateStringArray(const char **strings, int count)
 	}
 	return a;
 }
-

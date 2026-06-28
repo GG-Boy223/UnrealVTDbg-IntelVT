@@ -1,4 +1,4 @@
-#include "DllMainInternal.h"
+﻿#include "DllMainInternal.h"
 
 namespace HookDllMainInternal
 {
@@ -107,6 +107,7 @@ namespace HookDllMainInternal
             return false;
         }
 
+        // 调试器会高频读取断点附近字节，回填路径保持静默，避免日志拖慢步进和反汇编刷新。
         return true;
     }
 

@@ -8,6 +8,7 @@ NTSTATUS NtCreateDebugObject(
     IN ACCESS_MASK DesiredAccess,
     IN POBJECT_ATTRIBUTES ObjectAttributes,
     IN ULONG Flags
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 // 获取调试对象类型
@@ -20,4 +21,5 @@ VOID DbgkpCloseObject(
     IN PVOID Object,
     IN ACCESS_MASK GrantedAccess,
     IN ULONG_PTR SystemHandleCount
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );

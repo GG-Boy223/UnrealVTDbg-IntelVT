@@ -43,7 +43,7 @@ union __ia32_feature_control_msr
         unsigned __int64 lock : 1;
         unsigned __int64 vmxon_inside_smx : 1;
         unsigned __int64 vmxon_outside_smx : 1;
-        unsigned __int64 reserved_0 : 5;
+        unsigned __int64 reserved_0 : 5; //11:7
         unsigned __int64 senter_local : 6;
         unsigned __int64 senter_global : 1;
         unsigned __int64 reserved_1 : 1;
@@ -63,7 +63,7 @@ union __vmx_misc_msr_t
         unsigned __int64 vmx_preemption_tsc_rate : 5;
         unsigned __int64 store_lma_in_vmentry_control : 1;
         unsigned __int64 activate_state_bitmap : 3;
-        unsigned __int64 reserved_0 : 5;
+        unsigned __int64 reserved_0 : 5; //11:7
         unsigned __int64 pt_in_vmx : 1;
         unsigned __int64 rdmsr_in_smm : 1;
         unsigned __int64 cr3_target_value_count : 9;

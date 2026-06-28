@@ -22,6 +22,8 @@ namespace DebugBreakInternal
 
         if (clearHitRecords)
         {
+            // 删除断点后不要继续复用旧的 #DB/EPT 命中缓存；CE 多次步过再删除时，
+            // 过期 DR6 或命中地址会让调试器误以为断点仍处于暂停状态。
             ClearAllDebugHitRecords();
         }
 
@@ -51,6 +53,7 @@ namespace DebugBreakInternal
     {
         if (breakpoint.Address == 0 || detectedAddress == 0)
         {
+            // 处理打开进程失败的情况
             return false;
         }
 
@@ -92,6 +95,7 @@ bool RemoveBreakpoint()
     return !hadRecords || allDriverDeletesSucceeded;
 }
 
+//添加断点
 bool AddBreakpoint(PVOID setAddress, unsigned __int64 command, int length, int debugRegister, int debugRw, int debugLen)
 {
     bool boSuccess = false;
@@ -159,6 +163,7 @@ bool AddBreakpoint(PVOID setAddress, unsigned __int64 command, int length, int d
         debugRegister < 0 ||
         debugRegister >= DebugBreakInternal::kDebugRegisterCount)
     {
+        // 处理打开进程失败的情况
         return false;
     }
 
@@ -185,10 +190,30 @@ bool AddBreakpoint(PVOID setAddress, unsigned __int64 command, int length, int d
             ReportSeriousError("设置硬件断点失败");
         }
     }
+    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
     else
     {
         ReportSeriousError("设置断点过多，目前仅支持4个debugreg断点");
     }
 
+    //    logger.Log("current_vmcall 失败!  errorCode:%d", vmcallinfo.errorCode);
+    //SYSTEM_INFO SysInfo = { 0 };
+    //GetSystemInfo(&SysInfo);
+    //vmcallinfo.CPUCount = SysInfo.dwNumberOfProcessors;
+    //boSuccess = current_vmcall(&vmcallinfo);
+    //if (boSuccess)
+    //{
+    //    logger.Log("返回的监视id: %d", vmcallinfo.watchid);
+    //    // Add the breakpoint
+    //    BREAKPOINT_RECORD Breakpoint = { 0 };
+    //    Breakpoint.Address = vmcallinfo.VirtualAddress;
+    //    Breakpoint.length = vmcallinfo.Size;
+    //    Breakpoint.cr3 = vmcallinfo.cr3;
+    //    Breakpoint.watchid = vmcallinfo.watchid;
+    //    BreakpointList.Lock();
+    //    BreakpointList.push_back(Breakpoint);
+    //    BreakpointList.UnLock();
+    //}
+    //else
     return boSuccess;
 }

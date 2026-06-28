@@ -20,7 +20,7 @@ namespace ept
 				physical_address,
 				flat_pdpt_index,
 				ept_state.mapped_pdpte_count);
-			return nullptr;
+			return nullptr; // 失败返回空指针
 		}
 
 		//从ept页表中取pde
@@ -37,12 +37,12 @@ namespace ept
 		__ept_pde* pml2 = get_pml2_entry(ept_state, physical_address);
 		if (pml2 == nullptr)
 		{
-			return nullptr;
+			return nullptr; // 失败返回空指针
 		}
 
 		if (pml2->page_directory_entry.large_page == 1)
 		{
-			return nullptr;
+			return nullptr; // 失败返回空指针
 		}
 
 		PHYSICAL_ADDRESS pfn;
@@ -51,7 +51,7 @@ namespace ept
 
 		if (pml1 == nullptr)
 		{
-			return nullptr;
+			return nullptr; // 失败返回空指针
 		}
 
 		pml1 = &pml1[MASK_EPT_PML1_INDEX(physical_address)];
@@ -81,9 +81,11 @@ namespace ept
 		// 将所有页面设置为 rwx，以防止不必要的 ept 违规
 
 		 // 记录"这个 split 对应哪个 PDE"，回收合并时需要写回这里。
+		// 记录“这个 split 对应哪个 PDE”，回收合并时需要写回这里。
 		new_split->entry = pde;
 
 		// 默认按"不可回收"处理，只有运行期 watch/hook 路径会显式标记为可回收。
+		// 默认按“不可回收”处理，只有运行期 watch/hook 路径会显式标记为可回收。
 		new_split->ref_count = 0;
 		new_split->reclaimable_runtime_split = false;
 
@@ -116,6 +118,7 @@ namespace ept
 		new_entry.large_page.page_frame_number = MmGetPhysicalAddress(&new_split->pml1[0]).QuadPart >> PAGE_SHIFT;
 
 		// 用"指向 4KB PML1 表"的新条目覆盖原 2MB PDE。
+		// 用“指向 4KB PML1 表”的新条目覆盖原 2MB PDE。
 		RtlCopyMemory(pde, &new_entry, sizeof(new_entry));
 
 		return true;

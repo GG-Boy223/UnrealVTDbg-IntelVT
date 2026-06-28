@@ -1,4 +1,4 @@
-#include "ReadWriteInternal.h"
+﻿#include "ReadWriteInternal.h"
 
 VOID InsertBreakpointList(PBREAKPOINT_TABLE_ENTRY entry)
 {
@@ -17,6 +17,8 @@ VOID TraceBreakpoint(_EPROCESS* Process, PVOID BaseAddress, PVOID Buffer)
     {
         entry->Process = Process;
         entry->BreakpointAddress = BaseAddress;
+        //entry->firstByte = *(BYTE*)Buffer;
+        //entry->originalByte = *(BYTE*)BaseAddress;
         InsertBreakpointList(entry);
     }
 }
@@ -46,11 +48,13 @@ VOID DeleteBreakpoint(_EPROCESS* Process, PVOID BaseAddress, PVOID Buffer)
             }
         }
 
+        // /* Move to the next entry */
         NextEntry = NextEntry->Flink;
     }
     ExReleaseFastMutex(&g_BreakpointList.Mutex);
 }
 
+//检查断点是否已存在
 BOOLEAN exist_breakpoint(_EPROCESS* Process, PVOID BaseAddress)
 {
     PLIST_ENTRY ListHead, NextEntry;
@@ -76,6 +80,7 @@ BOOLEAN exist_breakpoint(_EPROCESS* Process, PVOID BaseAddress)
             }
         }
 
+        // /* Move to the next entry */
         NextEntry = NextEntry->Flink;
     }
     ExReleaseFastMutex(&g_BreakpointList.Mutex);

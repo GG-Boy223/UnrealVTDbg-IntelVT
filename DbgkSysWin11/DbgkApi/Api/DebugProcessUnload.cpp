@@ -1,4 +1,4 @@
-#include "DebugObjectCommonInternal.h"
+﻿#include "DebugObjectCommonInternal.h"
 
 namespace
 {
@@ -6,6 +6,7 @@ namespace
     {
         if (DebugProcess == NULL)
         {
+            //是我们自己的调试器要创建线程，则直接返回不走线程回调
             return;
         }
 
@@ -24,6 +25,7 @@ namespace
 
         if (DebugObject != NULL && debugObjectReferenced)
         {
+            // /* Reference the debug object */
             ObReferenceObject(DebugObject);
             WakeDebugObjectEvents(DebugObject);
         }
@@ -34,6 +36,7 @@ namespace
             __try
             {
                 size_t ptr_DebugPort = (size_t)Process + eprocess_offset::DebugPort;
+                // /* Acquire the port lock */
                 ExAcquireFastMutex(&DbgkpProcessDebugPortMutex);
                 portLocked = TRUE;
 
@@ -47,7 +50,7 @@ namespace
 
                 if (DbgkpMarkProcessPeb != NULL)
                 {
-                    DbgkpMarkProcessPeb(Process);
+                    DbgkpMarkProcessPeb(Process); //清理进程的peb结构
                 }
             }
             __except (EXCEPTION_EXECUTE_HANDLER)
@@ -61,8 +64,8 @@ namespace
 
         if (DebugObject != NULL && debugObjectReferenced)
         {
-            ObDereferenceObject(DebugObject);
-            ObDereferenceObject(DebugObject);
+            ObDereferenceObject(DebugObject); // process-debug reference
+            ObDereferenceObject(DebugObject); // temporary cleanup reference
         }
     }
 
@@ -70,6 +73,7 @@ namespace
     {
         if (Table == NULL)
         {
+            //是我们自己的调试器要创建线程，则直接返回不走线程回调
             return;
         }
 
@@ -147,6 +151,7 @@ VOID DetachDebugProcessUnloadList()
     }
 }
 
+//释放列表
 VOID ReleaseDebugProcessList()
 {
     ReleaseDebugProcessTable(&g_DebugProcessList, TRUE);

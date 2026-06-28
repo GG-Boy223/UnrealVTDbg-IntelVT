@@ -28,6 +28,7 @@ VOID InitFileList(PRING3_PROTECT_OBJECT pProtectObj)
 {
     if (pProtectObj == nullptr || pProtectObj->fileData == 0)
     {
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
@@ -110,6 +111,7 @@ VOID InitWindowList(PRING3_PROTECT_OBJECT pProtectObj)
 {
     if (pProtectObj == nullptr || pProtectObj->fileData == 0)
     {
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
@@ -167,10 +169,12 @@ VOID InitWindowList(PRING3_PROTECT_OBJECT pProtectObj)
     }
 }
 
+//初始化保护列表
 VOID InitProtectList(IN PUSER_DATA userData, IN PIRP pIrp)
 {
     if (pIrp == nullptr || pIrp->AssociatedIrp.SystemBuffer == nullptr)
     {
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
@@ -182,9 +186,11 @@ VOID InitProtectList(IN PUSER_DATA userData, IN PIRP pIrp)
     UCHAR* aucPlainText = AllocateAndDecryptUserRecords(user, sizeof(RING3_PROTECT_OBJECT), &numElements);
     if (aucPlainText == nullptr)
     {
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
+    // 遍历明文缓冲区中的结构体
     for (size_t i = 0; i < numElements; i++)
     {
         PRING3_PROTECT_OBJECT pInfo = reinterpret_cast<PRING3_PROTECT_OBJECT>(aucPlainText + i * sizeof(RING3_PROTECT_OBJECT));

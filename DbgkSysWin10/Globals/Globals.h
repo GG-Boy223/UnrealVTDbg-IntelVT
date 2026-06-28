@@ -20,6 +20,7 @@ typedef struct tagPOINT
 typedef struct tagTHREADINFO
 {
     /* 0x0000 */ struct _ETHREAD* pEThread;
+// /* 0x0000 */ struct _ETHREAD* pEThread;
 }THREADINFO, * PTHREADINFO;
 
 typedef struct _THRDESKHEAD
@@ -267,6 +268,7 @@ typedef struct _MINI_CONTEXT
 }MINI_CONTEXT, * PMINI_CONTEXT;
 
 //���Խ��̶���
+//调试进程对象
 typedef struct _DEBUG_PROCESS
 {
     LIST_ENTRY list_entry;
@@ -292,6 +294,8 @@ typedef struct _BREAKPOINT_TABLE_ENTRY
     PVOID BreakpointAddress;  //�ϵ��ַ
     //BYTE firstByte;  //���ֽ�����
     //BYTE originalByte  //ԭʼ�ֽ�����
+//BYTE firstByte;  //首字节内容
+//BYTE originalByte  //原始字节内容
 }BREAKPOINT_TABLE_ENTRY, * PBREAKPOINT_TABLE_ENTRY;
 
 typedef struct _BREAKPOINT_TABLE
@@ -308,6 +312,7 @@ typedef struct _MDL_MAP
 }MDL_MAP,*PMDL_MAP;
 
 //��������
+//虚拟句柄表
 typedef struct _VIRTUAL_HANDLE_TABLE_ENTRY
 {
     size_t id;
@@ -333,6 +338,7 @@ typedef struct _DEBUGGER_TABLE_ENTRY
 
 
 /*===============================================������===============================================*/
+// /*===============================================类描述===============================================*/
 class CDebuggerList : public CMyList
 {
 public:
@@ -429,6 +435,7 @@ extern LONG                  g_TL_Game_pid;
 
 
 /**************************** ����ָ�� ****************************/
+// /**************************** 函数指针 ****************************/
 typedef NTSTATUS(NTAPI* PFN_OBDUPLICATEOBJECT)(
     IN _EPROCESS* SourceProcess,
     IN HANDLE SourceHandle,
@@ -706,17 +713,18 @@ typedef NTSTATUS(__fastcall* PFN_NTGETCONTEXTTHREAD)(_In_ HANDLE hThread, _Inout
 typedef NTSTATUS(__fastcall* PFN_NTSETCONTEXTTHREAD)(
     __in HANDLE ThreadHandle,
     __in PCONTEXT ThreadContext  /*�˲������û����ṩ�Ļ�����*/
+    // __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
     );
 
 typedef NTSTATUS(__fastcall* PFN_NTREADVIRTUALMEMORY)(_In_ HANDLE ProcessHandle,
     _In_opt_ PVOID BaseAddress,
-    _Out_opt_ PVOID Buffer,
+    _Out_opt_ PVOID Buffer, //输出缓冲区
     _In_ SIZE_T BufferSize,
     _Out_opt_ PSIZE_T NumberOfBytesRead);
 
 typedef NTSTATUS(__fastcall* PFN_NTWRITEVIRTUALMEMORY)(_In_ HANDLE ProcessHandle,
     _In_opt_ PVOID BaseAddress,
-    _In_ PVOID Buffer,
+    _In_ PVOID Buffer, //当前进程自己的缓冲区
     _In_ SIZE_T BufferSize,
     _Out_opt_ PSIZE_T NumberOfBytesWritten);
 
@@ -789,6 +797,7 @@ typedef VOID(__fastcall* PFN_DBGKPCLOSEOBJECT)(
     IN PVOID Object,
     IN ACCESS_MASK GrantedAccess,
     IN ULONG_PTR SystemHandleCount
+    // __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
     );
 
 typedef VOID(__fastcall* PFN_KESTARTTHREAD)(_In_ _ETHREAD* Thread, _In_opt_ PGROUP_AFFINITY GroupAffinity, _In_opt_ PULONG IdealProcessor);
@@ -928,11 +937,13 @@ typedef NTSTATUS(__fastcall* PFN_OBREFERENCEOBJECTBYHANDLE)(HANDLE Handle,
 
 typedef LONG_PTR(__fastcall* PFN_OBFDEREFERENCEOBJECT)(
     _In_ PVOID Object
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 typedef LONG_PTR(__fastcall* PFN_OBFDEREFERENCEOBJECTWITHTAG)(
     _In_ PVOID Object,
     _In_ ULONG Tag
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 typedef VOID(__fastcall* PFN_KEENTERCRITICALREGIONTHREAD)(_KTHREAD* Thread);
@@ -999,6 +1010,7 @@ typedef NTSTATUS(__fastcall* PFN_PSPGETCONTEXTTHREADINTERNAL)(_In_ _ETHREAD* Thr
 typedef VOID(__fastcall* PFN_KESTACKATTACHPROCESS)(
     _Inout_ PRKPROCESS PROCESS,
     _Out_ PRKAPC_STATE ApcState
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 typedef VOID(__fastcall* PFN_KISTACKATTACHPROCESS)(_KPROCESS* Process, BOOLEAN a2, _KAPC_STATE* ApcState);
@@ -1009,21 +1021,25 @@ typedef NTSTATUS(__fastcall* PFN_NTSETINFORMATIONDEBUGOBJECT)(
     IN PVOID DebugInformation,
     IN ULONG DebugInformationLength,
     OUT PULONG ReturnLength OPTIONAL
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 typedef NTSTATUS(__fastcall* PFN_NTTERMINATEPROCESS)(
     __in_opt HANDLE ProcessHandle,
     __in NTSTATUS ExitStatus
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 typedef NTSTATUS(__fastcall* PFN_NTSUSPENDTHREAD)(
     __in HANDLE ThreadHandle,
     __out_opt PULONG PreviousSuspendCount
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 typedef NTSTATUS(__fastcall* PFN_NTRESUMETHREAD)(
     __in HANDLE ThreadHandle,
     __out_opt PULONG PreviousSuspendCount
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 typedef NTSTATUS(__fastcall* PFN_NTQUERYINFORMATIONTHREAD)(
@@ -1032,6 +1048,7 @@ typedef NTSTATUS(__fastcall* PFN_NTQUERYINFORMATIONTHREAD)(
     _Out_ PVOID ThreadInformation,
     _In_ ULONG ThreadInformationLength,
     _Out_opt_ PULONG ReturnLength
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 typedef PWND(__fastcall* PFN_VALIDATEHWND)(
@@ -1286,6 +1303,7 @@ extern PFN_SEPDELETEACCESSSTATE SepDeleteAccessState;
 
 
 //ȫ�ֱ���
+//全局变量
 extern PVOID PspLoaderInitRoutine;
 extern unsigned __int64 game_cr3;
 
@@ -1426,6 +1444,7 @@ FORCEINLINE
 KeEnterGuardedRegionThread(IN PKTHREAD Thread)
 {
     //���´�����������Thread->SpecialApcDisable -= 1;
+    //以下代码描述的是Thread->SpecialApcDisable -= 1;
     size_t ptr_SpecialApcDisable = (size_t)Thread + kthread_offset::SpecialApcDisable;
     *(short*)ptr_SpecialApcDisable -= 1;
 }
@@ -1434,6 +1453,7 @@ VOID
 FORCEINLINE
 KeLeaveGuardedRegionThread(IN PKTHREAD Thread)
 {
+    //以下代码描述的是Thread->SpecialApcDisable -= 1;
     size_t ptr_SpecialApcDisable = (size_t)Thread + kthread_offset::SpecialApcDisable;
     if ((*(short*)ptr_SpecialApcDisable += 1) == 0)
     {

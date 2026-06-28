@@ -55,6 +55,9 @@ bool init_vcpu(__vcpu* vcpu) // 为单个VCPU分配位图和EPT状态等基础�
 	// 初始化 ept 结构
 	//
 	outFile("[进行中][VCPU] 开始初始化EPT结构：VCPU=0x%p", vcpu);
+	//
+	// Initialize ept structure
+	// 初始化 ept 结构
 	if (ept::initialize(*vcpu->ept_state) == false) // 初始化EPT页表与控制字段，确保硬件可用
 	{
 		outFile("[失败][VCPU] EPT结构初始化失败：VCPU=0x%p", vcpu);

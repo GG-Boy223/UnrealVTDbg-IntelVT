@@ -56,6 +56,8 @@ namespace hv // Hypervisor 命名空间
 
     void prepare_host_idt(segment_descriptor_interrupt_gate_64* const idt); // 构建宿主 IDT
 
+    // initialize the host GDT and populate every descriptor
+    // 初始化host GDT并填充每个描述符
     void prepare_host_gdt(
         segment_descriptor_32* const gdt,
         task_state_segment_64 const* const tss); // 构建宿主 GDT/TSS
@@ -100,6 +102,7 @@ namespace hv // Hypervisor 命名空间
     //将GVA转换为GPA
     uint64_t get_physical_address(unsigned __int64 guest_cr3, _In_ PVOID BaseAddress); // 便捷 GVA->GPA
 
+    // attempt to read the memory at the specified guest virtual address from root-mode
     size_t read_guest_virtual_memory(cr3 const guest_cr3,
         void* const gva, void* const hva, size_t const size); // 读取 guest 内存（指定 CR3）
 

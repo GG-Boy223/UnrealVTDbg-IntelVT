@@ -1,4 +1,4 @@
-#include "ReadWriteInternal.h"
+﻿#include "ReadWriteInternal.h"
 
 NTSTATUS SetBreakpoint(HANDLE ProcessHandle, _EPROCESS* Process, PVOID BaseAddress, PVOID Buffer, SIZE_T BufferSize)
 {
@@ -8,19 +8,27 @@ NTSTATUS SetBreakpoint(HANDLE ProcessHandle, _EPROCESS* Process, PVOID BaseAddre
     MDL_MAP map_table = { 0 };
     PVOID MappedAddress = NULL;
 
+    //DbgBreakPoint();
     size_t ptr_Pcb = (size_t)Process + eprocess_offset::Pcb;
     RtlCopyMemory(tmpBuffer, Buffer, BufferSize);
     KiStackAttachProcess((_KPROCESS*)ptr_Pcb, FALSE, &ApcState);
+    //通过vt交换4KB物理页
+    //设置或恢复断点
     __try
     {
+        //DbgBreakPoint();
         SIZE_T RegionSize = BufferSize;
         ULONG flOldProtect;
         PVOID loc_BaseAddress = BaseAddress;
+        //将页属性改为写拷贝  从而在写入值时分配新的物理页
+        //KPROCESSOR_MODE Old_PreviousMode = KeSetPreviousMode(KernelMode);
         Status = ZwProtectVirtualMemory(NtCurrentProcess(), &loc_BaseAddress, &RegionSize, PAGE_EXECUTE_WRITECOPY, &flOldProtect);
         if (NT_SUCCESS(Status))
         {
+            //触发写拷贝分配新的物理页
             RtlCopyMemory(BaseAddress, BaseAddress, BufferSize);
 
+            //通过mdl将新分配的物理页面映射到虚拟内存
             MappedAddress = MDLMapVirtualAddress(BaseAddress, BufferSize, map_table);
             if (MappedAddress)
             {
@@ -51,11 +59,15 @@ NTSTATUS RemoveBreakpoint(HANDLE ProcessHandle, _EPROCESS* Process, PVOID BaseAd
     MDL_MAP map_table = { 0 };
     PVOID MappedAddress = NULL;
 
+    //DbgBreakPoint();
     size_t ptr_Pcb = (size_t)Process + eprocess_offset::Pcb;
     RtlCopyMemory(tmpBuffer, Buffer, BufferSize);
     KiStackAttachProcess((_KPROCESS*)ptr_Pcb, FALSE, &ApcState);
+    //通过vt交换4KB物理页
+    //设置或恢复断点
     __try
     {
+        //DbgBreakPoint();
         SIZE_T RegionSize = BufferSize;
         ULONG flOldProtect;
         PVOID loc_BaseAddress = BaseAddress;
@@ -89,16 +101,20 @@ NTSTATUS GetBreakpoint(_EPROCESS* Process, PVOID BaseAddress, PVOID Buffer, SIZE
     MDL_MAP map_table = { 0 };
     PVOID MappedAddress = NULL;
 
+    //DbgBreakPoint();
     size_t ptr_Pcb = (size_t)Process + eprocess_offset::Pcb;
     KiStackAttachProcess((_KPROCESS*)ptr_Pcb, FALSE, &ApcState);
+    //通过vt交换4KB物理页
+    //设置或恢复断点
     __try
     {
         MappedAddress = MDLMapVirtualAddress(BaseAddress, BufferSize, map_table);
         if (MappedAddress)
         {
+            //读取EPT内存
             if (hvgt::get_hide_software_breakpoint(BaseAddress, &tmpBuffer, BufferSize))
             {
-                boFound = TRUE;
+                boFound = TRUE; // 仅标记命中，回写在统一出口执行。
             }
             UnMDLMapVirtualAddress(map_table);
         }

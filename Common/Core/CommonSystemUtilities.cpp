@@ -9,6 +9,7 @@ namespace Common
         {
             return TRUE;
         }
+        // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
         else
         {
             return FALSE;
@@ -45,7 +46,7 @@ namespace Common
             NULL,
             OPEN_EXISTING,
             FILE_ATTRIBUTE_NORMAL,
-            NULL
+            NULL // 附加数据指针
         );
 
         if (hFile != INVALID_HANDLE_VALUE)
@@ -53,8 +54,10 @@ namespace Common
             CloseHandle(hFile);
             return true; // 文件存在
         }
+        // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
         else
         {
+            // 处理打开进程失败的情况
             return false; // 文件不存在
         }
     }

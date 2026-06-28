@@ -49,16 +49,20 @@ public:
 	virtual HRESULT STDMETHODCALLTYPE OnStartBinding(
 		/* [in] */ DWORD dwReserved,
 		/* [in] */ __RPC__in_opt IBinding* pib) {
+		// /* [in] */ DWORD dwReserved,
+		// /* [in] */ __RPC__in_opt IBinding* pib) {
 		return E_NOTIMPL;
 	}
 
 	virtual HRESULT STDMETHODCALLTYPE GetPriority(
 		/* [out] */ __RPC__out LONG* pnPriority) {
+		// /* [out] */ __RPC__out LONG* pnPriority) {
 		return E_NOTIMPL;
 	}
 
 	virtual HRESULT STDMETHODCALLTYPE OnLowResource(
 		/* [in] */ DWORD reserved) {
+		// /* [in] */ DWORD reserved) {
 		return E_NOTIMPL;
 	}
 
@@ -93,12 +97,16 @@ public:
 	virtual HRESULT STDMETHODCALLTYPE OnStopBinding(
 		/* [in] */ HRESULT hresult,
 		/* [unique][in] */ __RPC__in_opt LPCWSTR szError) {
+		// /* [in] */ HRESULT hresult,
+		// /* [unique][in] */ __RPC__in_opt LPCWSTR szError) {
 		return E_NOTIMPL;
 	}
 
 	virtual /* [local] */ HRESULT STDMETHODCALLTYPE GetBindInfo(
 		/* [out] */ DWORD* grfBINDF,
 		/* [unique][out][in] */ BINDINFO* pbindinfo) {
+		// /* [out] */ DWORD* grfBINDF,
+		// /* [unique][out][in] */ BINDINFO* pbindinfo) {
 		return E_NOTIMPL;
 	}
 
@@ -107,12 +115,18 @@ public:
 		/* [in] */ DWORD dwSize,
 		/* [in] */ FORMATETC* pformatetc,
 		/* [in] */ STGMEDIUM* pstgmed) {
+		// /* [in] */ DWORD grfBSCF,
+		// /* [in] */ DWORD dwSize,
+		// /* [in] */ FORMATETC* pformatetc,
+		// /* [in] */ STGMEDIUM* pstgmed) {
 		return E_NOTIMPL;
 	}
 
 	virtual HRESULT STDMETHODCALLTYPE OnObjectAvailable(
 		/* [in] */ __RPC__in REFIID riid,
 		/* [iid_is][in] */ __RPC__in_opt IUnknown* punk) {
+		// /* [in] */ __RPC__in REFIID riid,
+		// /* [iid_is][in] */ __RPC__in_opt IUnknown* punk) {
 		return E_NOTIMPL;
 	}
 

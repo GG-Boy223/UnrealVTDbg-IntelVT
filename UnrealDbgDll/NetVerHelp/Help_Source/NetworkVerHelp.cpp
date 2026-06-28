@@ -174,6 +174,7 @@ namespace Help
 			break;
 		case Model::RC4:
 			string	UTF8data = GBKToUTF8(data.c_str());
+			//如果软件设置是加密通讯，那么此处需要把data解密出来
 			string	UTF8encryptKey = GBKToUTF8(encryptKey.c_str());
 			Rc4 rc4;
 			data = rc4.Encrypt(UTF8data.c_str(), UTF8encryptKey.c_str());
@@ -588,6 +589,7 @@ namespace Help
 		oJson.Get((const char*)_xor_("activestate"), activestate);
 		oJson.Get((const char*)_xor_("remarks"), result.remarks);
 		/*result.ispay = (Model::IsPay)ispay;*/
+		// /*result.ispay = (Model::IsPay)ispay;*/
 		result.openstate = (Model::OpenState)openstate;
 		result.activestate = (Model::ActiveState)activestate;
 

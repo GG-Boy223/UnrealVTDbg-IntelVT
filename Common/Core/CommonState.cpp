@@ -1,9 +1,9 @@
-#include "CommonInternal.h"
+﻿#include "CommonInternal.h"
 
 namespace Common
 {
-    HANDLE hMutex;
+    HANDLE hMutex; // 防多开
     bool isIntel = false;
     bool isAMD = false;
-    std::mutex mutex;
+    std::mutex mutex; // 互斥锁
 }

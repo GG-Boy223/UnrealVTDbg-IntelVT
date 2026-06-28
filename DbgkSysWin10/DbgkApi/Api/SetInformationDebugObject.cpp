@@ -1,4 +1,4 @@
-#include "SetInformationDebugObject.h"
+﻿#include "SetInformationDebugObject.h"
 #include "DebugObjectCommon.h"
 #include "DebugObjectCommonInternal.h"
 #include "../DbgkApi.h"
@@ -31,10 +31,11 @@ NtSetInformationDebugObject(
     IN PVOID DebugInformation,
     IN ULONG DebugInformationLength,
     OUT PULONG ReturnLength OPTIONAL
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 )
 {
     KPROCESSOR_MODE PreviousMode;
-    NTSTATUS Status;
+    NTSTATUS Status; // eax
     PDEBUG_OBJECT DebugObject;
     ULONG Flags;
 
@@ -80,6 +81,7 @@ NtSetInformationDebugObject(
 
             break;
         }
+        // /* No special handling for other messages */
         default:
         {
             return STATUS_INVALID_PARAMETER;
@@ -102,17 +104,21 @@ NtSetInformationDebugObject(
         Status = ObReferenceObjectByHandle(DebugObjectHandle,
             DEBUG_SET_INFORMATION,
             Hvm_DbgkDebugObjectType,
+            // *PsProcessType,
             PreviousMode,
             (PVOID*)&DebugObject,
             NULL);
 
+        // /* Check if we failed */
         if (!NT_SUCCESS(Status))
         {
+            // /* Return status */
             return Status;
         }
         ExAcquireFastMutex(&DebugObject->Mutex);
 
-        if (Flags & DBGK_KILL_PROCESS_ON_EXIT)
+        // /* Set the Flags */
+        if (Flags & DBGK_KILL_PROCESS_ON_EXIT) //退出时终止进程
         {
             DebugObject->Flags |= DEBUG_OBJECT_KILL_ON_CLOSE;
         }

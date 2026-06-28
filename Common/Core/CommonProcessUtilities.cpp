@@ -35,6 +35,7 @@ namespace Common
                     {
                         process.FullPath = modulePath;
                     }
+                    // 关闭进程句柄
                     CloseHandle(hProcess);
                 }
                 processes.push_back(process);
@@ -44,6 +45,7 @@ namespace Common
         // 关闭进程快照句柄
         CloseHandle(hSnapshot);
 
+        // 返回空容器
         return processes;
     }
 
@@ -54,6 +56,7 @@ namespace Common
         PROCESSENTRY32W entry;
         entry.dwSize = sizeof(PROCESSENTRY32W);
 
+        // 获取系统中所有进程的快照
         HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
         if (hSnapshot != INVALID_HANDLE_VALUE)
         {
@@ -69,6 +72,7 @@ namespace Common
                     }
                 } while (Process32NextW(hSnapshot, &entry));
             }
+            // 关闭进程快照句柄
             CloseHandle(hSnapshot);
         }
         return boRet;
@@ -123,6 +127,7 @@ namespace Common
                                 bRet = TRUE;
                             }
                         }
+                        // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
                         else
                         {
                             if (ResumeThread(hThread) != -1)
@@ -134,6 +139,7 @@ namespace Common
                     CloseHandle(hThread);
                 }
             }
+            // 关闭进程快照句柄
             CloseHandle(hSnapshot);
         }
         return bRet;

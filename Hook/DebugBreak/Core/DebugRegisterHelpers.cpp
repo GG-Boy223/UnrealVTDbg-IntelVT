@@ -1,4 +1,4 @@
-#include "DebugBreakInternal.h"
+﻿#include "DebugBreakInternal.h"
 
 namespace DebugBreakInternal
 {
@@ -45,6 +45,7 @@ namespace DebugBreakInternal
     {
         if (context == nullptr)
         {
+            // 处理打开进程失败的情况
             return false;
         }
 
@@ -76,12 +77,15 @@ namespace DebugBreakInternal
         switch (rwCode)
         {
         case WATCH_EXECUTION_ONLY:
+            // 原版没有接管执行型 DRx；x64dbg 会用它做内部步过，桥入 VT 容易误报未知断点。
             return false;
         case WATCH_WRITE:
             *command = VMCALL_WATCH_WRITES;
+            // *command = VMCALL_WATCH_WRITES;
             return true;
         case WATCH_READWRITE:
             *command = VMCALL_WATCH_READS;
+            // *command = VMCALL_WATCH_READS;
             return true;
         default:
             return false;

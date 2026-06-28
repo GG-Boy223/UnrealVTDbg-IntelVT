@@ -52,11 +52,11 @@ bool SetBreakpoint(PVT_BREAK_POINT vmcallinfo, unsigned __int64 Type);
 bool RemoveBreakpoint(PVT_BREAK_POINT vmcallinfo);
 
 void MyKeBugCheck(
-    _In_ ULONG BugCheckCode,
-    _In_ ULONG_PTR BugCheckParameter1,
-    _In_ ULONG_PTR BugCheckParameter2,
-    _In_ ULONG_PTR BugCheckParameter3,
-    _In_ ULONG_PTR BugCheckParameter4
+    _In_ ULONG BugCheckCode, // 蓝屏主错误码
+    _In_ ULONG_PTR BugCheckParameter1, // 参数1：问题上下文相关信息
+    _In_ ULONG_PTR BugCheckParameter2, // 参数2：问题上下文相关信息
+    _In_ ULONG_PTR BugCheckParameter3, // 参数3：问题上下文相关信息
+    _In_ ULONG_PTR BugCheckParameter4 // 参数4：问题上下文相关信息
 );
 
 //--------------------------------------------------

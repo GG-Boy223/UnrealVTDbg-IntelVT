@@ -11,10 +11,20 @@ namespace ept
 	/// <summary>
 	/// Perfrom a hook
 	/// </summary>
+	/// <param name="target_address" > Address of function which we want to hook </param>
+	/// <param name="proxy_function"> Address of hooked version of function which we are hooking </param>
+	/// <param name="(Optional) trampoline">Address of code cave which is located in 2gb range of target function (Use only if you need smaller trampoline)</param>
+	/// <param name="origin_function"> Address used to call original function </param>
+	/// <returns></returns>
 	bool hook_function(__ept_state& ept_state, void* target_function, void* proxy_function, void** origin_function)
 	{
+		//unsigned __int64 physical_address = hv::get_physical_address(target_cr3, (PVOID)target_function);
 		unsigned __int64 physical_address = MmGetPhysicalAddress(target_function).QuadPart;
 
+		// 检测该函数是否存在于物理内存中
+		// 如果该函数的物理地址为空
+		// 说明该函数不存在于物理内存中
+		//
 		if (physical_address == NULL)
 		{
 			LogError("请求的虚拟内存在物理内存中不存在");
@@ -22,7 +32,7 @@ namespace ept
 		}
 
 		PLIST_ENTRY current = &ept_state.hooked_page_list;
-		while (&ept_state.hooked_page_list != current->Flink)
+		while (&ept_state.hooked_page_list != current->Flink) // 遍历链表直到回到表头
 		{
 			current = current->Flink;
 			__ept_hooked_page_info* hooked_page_info = CONTAINING_RECORD(current, __ept_hooked_page_info, hooked_page_list);
@@ -39,6 +49,9 @@ namespace ept
 					return false;
 				}
 
+				// If we are hooking code cave for second trampoline
+				// then origin function in null and we don't have to get pool for trampoline
+				//
 				if (origin_function != nullptr)
 				{
 					hooked_function_info->first_trampoline_address = pool_manager::request_pool<unsigned __int8*>(
@@ -65,13 +78,16 @@ namespace ept
 					return false;
 				}
 
+				// Track all hooked functions within page
 				InsertHeadList(&hooked_page_info->hooked_functions_list, &hooked_function_info->hooked_function_list);
 				return true;
 			}
 		}
 
+		// 仅当 PDE 还是 2MB 大页时，才申请 split 缓冲并拆页。
 		__ept_dynamic_split* runtime_split = nullptr;
 
+		//判断2mb pde是否已经进行分割
 		if (is_page_splitted(ept_state, physical_address) == false)
 		{
 			void* split_buffer = pool_manager::request_pool<void*>(
@@ -84,6 +100,7 @@ namespace ept
 				return false;
 			}
 
+			//将2MB页面分割为512个4KB页面
 			if (split_pml2(g_vmm_context.mtrr_info.mtrrs, ept_state, split_buffer, physical_address) == false)
 			{
 				pool_manager::release_pool(split_buffer);
@@ -95,9 +112,11 @@ namespace ept
 			runtime_split = reinterpret_cast<__ept_dynamic_split*>(split_buffer);
 		}
 
+		//得到目标页
 		__ept_pte* target_page = get_pml1_entry(ept_state, physical_address);
 		if (target_page == nullptr)
 		{
+			// 如果本次刚做了 runtime split 但未成功建立监视记录，则尝试回收 split。
 			if (runtime_split != nullptr)
 				ept_split_try_merge_and_release(ept_state, runtime_split);
 
@@ -111,6 +130,7 @@ namespace ept
 			sizeof(__ept_hooked_page_info));
 		if (hooked_page_info == nullptr)
 		{
+			// 如果本次刚做了 runtime split 但未成功建立监视记录，则尝试回收 split。
 			if (runtime_split != nullptr)
 				ept_split_try_merge_and_release(ept_state, runtime_split);
 
@@ -127,8 +147,10 @@ namespace ept
 			sizeof(__ept_hooked_function_info));
 		if (hooked_function_info == nullptr)
 		{
+			// 关键修复：失败路径要回收 hooked_page_info（旧代码这里直接 return false，导致池对象泄漏）。
 			pool_manager::release_pool(hooked_page_info);
 
+			// 如果本次刚做了 runtime split 但未成功建立监视记录，则尝试回收 split。
 			if (runtime_split != nullptr)
 				ept_split_try_merge_and_release(ept_state, runtime_split);
 
@@ -136,6 +158,9 @@ namespace ept
 			return false;
 		}
 
+		// If we are hooking code cave for second trampoline
+		// then origin function in null and we don't have to get pool for trampoline
+		//
 		if (origin_function != nullptr)
 		{
 			hooked_function_info->first_trampoline_address = pool_manager::request_pool<unsigned __int8*>(
@@ -144,9 +169,11 @@ namespace ept
 				100);
 			if (hooked_function_info->first_trampoline_address == nullptr)
 			{
+				// 关键修复：失败路径要回收 hooked_page_info（旧代码这里直接 return false，导致池对象泄漏）。
 				pool_manager::release_pool(hooked_page_info);
 				pool_manager::release_pool(hooked_function_info);
 
+				// 如果本次刚做了 runtime split 但未成功建立监视记录，则尝试回收 split。
 				if (runtime_split != nullptr)
 					ept_split_try_merge_and_release(ept_state, runtime_split);
 
@@ -155,21 +182,24 @@ namespace ept
 			}
 		}
 
-		hooked_page_info->pfn_of_hooked_page = GET_PFN(physical_address);
+		hooked_page_info->pfn_of_hooked_page = GET_PFN(physical_address); //获取guest物理页面的页帧号
 		hooked_page_info->pfn_of_fake_page_contents = GET_PFN(MmGetPhysicalAddress(hooked_page_info->fake_page_contents).QuadPart);
-		hooked_page_info->entry_address = target_page;
+		hooked_page_info->entry_address = target_page; //ept_pte
 		hooked_page_info->owner_split = ept_get_split_from_pml1(target_page);
 
+		//先改原页为不可执行 回到guest后执行就触发vmexit
+		//进入vmm后交换伪造页
 		hooked_page_info->entry_address->execute = 0;
 		hooked_page_info->entry_address->read = 1;
 		hooked_page_info->entry_address->write = 1;
 
-		hooked_page_info->original_entry = *target_page;
+		hooked_page_info->original_entry = *target_page; //指向原
 		hooked_page_info->changed_entry = *target_page;
 
 		hooked_page_info->changed_entry.read = 0;
 		hooked_page_info->changed_entry.write = 0;
 		hooked_page_info->changed_entry.execute = 1;
+		//将伪造页换上去
 		hooked_page_info->changed_entry.page_frame_number = hooked_page_info->pfn_of_fake_page_contents;
 
 		RtlCopyMemory(&hooked_page_info->fake_page_contents, PAGE_ALIGN(target_function), PAGE_SIZE);
@@ -182,8 +212,10 @@ namespace ept
 			if (hooked_function_info->first_trampoline_address != nullptr)
 				pool_manager::release_pool(hooked_function_info->first_trampoline_address);
 			pool_manager::release_pool(hooked_function_info);
+			// 关键修复：失败路径要回收 hooked_page_info（旧代码这里直接 return false，导致池对象泄漏）。
 			pool_manager::release_pool(hooked_page_info);
 
+			// 如果本次刚做了 runtime split 但未成功建立监视记录，则尝试回收 split。
 			if (runtime_split != nullptr)
 				ept_split_try_merge_and_release(ept_state, runtime_split);
 
@@ -195,7 +227,9 @@ namespace ept
 
 		InsertHeadList(&hooked_page_info->hooked_functions_list, &hooked_function_info->hooked_function_list);
 
+		// 引用计数 +1：表示该 split 现在被一个 watch 页面记录占用。
 		ept_split_ref_inc(hooked_page_info->owner_split);
+		// Track all hooked pages
 		InsertHeadList(&ept_state.hooked_page_list, &hooked_page_info->hooked_page_list);
 
 		_mm_mfence();

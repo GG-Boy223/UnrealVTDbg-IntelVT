@@ -11,6 +11,7 @@ namespace ept
 	//int3 hook
 	bool cc_hook_function(__ept_state& ept_state, void* target_function/*被挂钩的函数地址*/, void* proxy_function/*新函数地址*/, void** origin_function)
 	{
+		//unsigned __int64 physical_address = hv::get_physical_address(target_cr3, (PVOID)target_function);
 		unsigned __int64 physical_address = MmGetPhysicalAddress(target_function).QuadPart;
 
 		//
@@ -28,7 +29,7 @@ namespace ept
 		// 检查页面是否尚未挂钩
 		//
 		PLIST_ENTRY current = &ept_state.hooked_page_list;
-		while (&ept_state.hooked_page_list != current->Flink)
+		while (&ept_state.hooked_page_list != current->Flink) // 遍历链表直到回到表头
 		{
 			current = current->Flink;
 			//从列表中取出挂钩页
@@ -65,6 +66,7 @@ namespace ept
 
 				hooked_function_info->fake_page_contents = hooked_page_info->fake_page_contents;
 
+				//开始hook
 				if (write_cc_instruction_to_memory(hooked_function_info, target_function, proxy_function, origin_function) == false)
 				{
 					if (hooked_function_info->first_trampoline_address != nullptr)
@@ -81,6 +83,7 @@ namespace ept
 			}
 		}
 
+		//判断2mb pde是否已经进行分割
 		if (is_page_splitted(ept_state, physical_address) == false)
 		{
 			void* split_buffer = pool_manager::request_pool<void*>(pool_manager::INTENTION_SPLIT_PML2, true, sizeof(__ept_dynamic_split));
@@ -99,6 +102,7 @@ namespace ept
 			}
 		}
 
+		//得到目标页
 		__ept_pte* target_page = get_pml1_entry(ept_state, physical_address);
 		if (target_page == nullptr)
 		{
@@ -119,6 +123,7 @@ namespace ept
 		__ept_hooked_function_info* hooked_function_info = pool_manager::request_pool<__ept_hooked_function_info*>(pool_manager::INTENTION_TRACK_HOOKED_FUNCTIONS, true, sizeof(__ept_hooked_function_info));
 		if (hooked_function_info == nullptr)
 		{
+			// 关键修复：失败路径要回收 hooked_page_info（旧代码这里直接 return false，导致池对象泄漏）。
 			pool_manager::release_pool(hooked_page_info);
 			LogError("hook函数时预分配的缓冲已耗尽");
 			return false;
@@ -133,6 +138,7 @@ namespace ept
 			hooked_function_info->first_trampoline_address = pool_manager::request_pool<unsigned __int8*>(pool_manager::INTENTION_EXEC_TRAMPOLINE, TRUE, 100);
 			if (hooked_function_info->first_trampoline_address == nullptr)
 			{
+				// 关键修复：失败路径要回收 hooked_page_info（旧代码这里直接 return false，导致池对象泄漏）。
 				pool_manager::release_pool(hooked_page_info);
 				pool_manager::release_pool(hooked_function_info);
 				LogError("There is no pre-allocated pool for trampoline");
@@ -140,9 +146,9 @@ namespace ept
 			}
 		}
 
-		hooked_page_info->pfn_of_hooked_page = GET_PFN(physical_address);
+		hooked_page_info->pfn_of_hooked_page = GET_PFN(physical_address); //获取guest物理页面的页帧号
 		hooked_page_info->pfn_of_fake_page_contents = GET_PFN(MmGetPhysicalAddress(hooked_page_info->fake_page_contents).QuadPart);
-		hooked_page_info->entry_address = target_page;
+		hooked_page_info->entry_address = target_page; //ept_pte
 
 		//先改原页为不可执行 回到guest后执行就触发vmexit
 		//进入vmm后交换伪造页
@@ -150,7 +156,7 @@ namespace ept
 		hooked_page_info->entry_address->read = 1;
 		hooked_page_info->entry_address->write = 1;
 
-		hooked_page_info->original_entry = *target_page;
+		hooked_page_info->original_entry = *target_page; //指向原
 		hooked_page_info->changed_entry = *target_page;
 
 		//伪造页不得读写
@@ -174,6 +180,7 @@ namespace ept
 			if (hooked_function_info->first_trampoline_address != nullptr)
 				pool_manager::release_pool(hooked_function_info->first_trampoline_address);
 			pool_manager::release_pool(hooked_function_info);
+			// 关键修复：失败路径要回收 hooked_page_info（旧代码这里直接 return false，导致池对象泄漏）。
 			pool_manager::release_pool(hooked_page_info);
 			LogError("Hook failed");
 			return false;

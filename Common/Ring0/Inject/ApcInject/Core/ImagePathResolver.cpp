@@ -5,6 +5,16 @@
 #include "ModuleResolver.h"
 #include "UtilityFunctions.h"
 
+/// <param name="path">Image name to resolve</param>
+/// <param name="baseImage">Base image name for API SET translation</param>
+/// <param name="resolved">Resolved image path</param>
+/// <returns>Status code</returns>
+/// <summary>
+/// Resolve image name to fully qualified path
+/// </summary>
+/// <param name="pContext">Loader context</param>
+/// <param name="pProcess">Target process. Must be running in the context of this process</param>
+/// <param name="flags">Flags</param>
 NTSTATUS BBResolveImagePath(
     IN PMMAP_CONTEXT pContext,
     IN PEPROCESS pProcess,
@@ -12,6 +22,7 @@ NTSTATUS BBResolveImagePath(
     IN PUNICODE_STRING path,
     IN PUNICODE_STRING baseImage,
     OUT PUNICODE_STRING resolved
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 )
 {
     NTSTATUS status = STATUS_SUCCESS;
@@ -25,7 +36,7 @@ NTSTATUS BBResolveImagePath(
     if (pProcess == NULL || path == NULL || resolved == NULL)
     {
         outLog("BBResolveImagePath 参数无效");
-        return STATUS_INVALID_PARAMETER;
+        return STATUS_INVALID_PARAMETER; // 参数不合法时直接拒绝。
     }
 
     RtlDowncaseUnicodeString(&pathLow, path, TRUE);
@@ -44,6 +55,7 @@ NTSTATUS BBResolveImagePath(
         RtlFreeUnicodeString(&pathLow);
 
         *resolved = fullResolved;
+        // *resolved = fullResolved;
         return STATUS_SUCCESS;
     }
 
@@ -66,14 +78,17 @@ NTSTATUS BBResolveImagePath(
         RtlFreeUnicodeString(&pathLow);
 
         *resolved = fullResolved;
+        // *resolved = fullResolved;
         return STATUS_SUCCESS;
     }
     else if (status == STATUS_UNHANDLED_EXCEPTION)
     {
         *resolved = pathLow;
+        // *resolved = pathLow;
         return status;
     }
     else
+        // *handle_table = *entry;
         status = STATUS_SUCCESS;
 
 SkipSxS:
@@ -99,6 +114,7 @@ SkipSxS:
             RtlFreeUnicodeString(&pathLow);
 
             *resolved = fullResolved;
+            // *resolved = fullResolved;
             return STATUS_SUCCESS;
         }
     }
@@ -118,6 +134,7 @@ SkipSxS:
         RtlFreeUnicodeString(&pathLow);
 
         *resolved = fullResolved;
+        // *resolved = fullResolved;
         return STATUS_SUCCESS;
     }
 
@@ -126,5 +143,6 @@ SkipSxS:
     // Nothing found
 skip:
     *resolved = pathLow;
+    // *resolved = pathLow;
     return status;
 }

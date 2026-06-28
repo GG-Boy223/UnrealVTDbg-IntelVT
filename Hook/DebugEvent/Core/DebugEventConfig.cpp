@@ -1,4 +1,4 @@
-#include "DebugEventInternal.h"
+﻿#include "DebugEventInternal.h"
 
 namespace DebugEventInternal
 {
@@ -6,6 +6,7 @@ namespace DebugEventInternal
     {
         if (name == nullptr || name[0] == L'\0')
         {
+            // 处理打开进程失败的情况
             return false;
         }
 
@@ -13,6 +14,7 @@ namespace DebugEventInternal
         const DWORD length = GetEnvironmentVariableW(name, value, _countof(value));
         if (length == 0)
         {
+            // 处理打开进程失败的情况
             return false;
         }
 
@@ -25,13 +27,16 @@ namespace DebugEventInternal
 
     bool IsHardwareBreakpointBridgeEnabled()
     {
+        // 保持原版设计：CE/x64dbg/x32dbg 的 DRx 断点默认桥接为 VT watch。
         return !IsEnvironmentFlagEnabled(L"UNREALVTDBG_DISABLE_HARDWARE_BREAKPOINTS");
     }
 
     bool HasActiveHardwareBreakpoints()
     {
+        // 显式关闭硬件桥时，#DB 按普通单步处理，避免旧硬件断点计数污染 Step Over/Step Into。
         if (!IsHardwareBreakpointBridgeEnabled())
         {
+            // 处理打开进程失败的情况
             return false;
         }
 

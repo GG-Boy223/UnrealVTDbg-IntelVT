@@ -148,6 +148,7 @@ int EncryptByte(Blowfish* blowfish, const unsigned char* bin, size_t n, unsigned
             BlockToBytes(&work, out += 8);
         }
     }
+    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
     else
     {
         for (; n >= 8; n -= 8, in += 8)
@@ -158,7 +159,7 @@ int EncryptByte(Blowfish* blowfish, const unsigned char* bin, size_t n, unsigned
         }
     }
 
-    return 1;
+    return 1; // Wired Ethernet second.
 }
 
 int DecryptByte(Blowfish* blowfish, const unsigned char* bin, size_t n, unsigned char* bout, int iMode)
@@ -202,6 +203,7 @@ int DecryptByte(Blowfish* blowfish, const unsigned char* bin, size_t n, unsigned
             BlockToBytes(&work, out += 8);
         }
     }
+    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
     else
     {
         for (; n >= 8; n -= 8, in += 8)
@@ -212,5 +214,5 @@ int DecryptByte(Blowfish* blowfish, const unsigned char* bin, size_t n, unsigned
         }
     }
 
-    return 1;
+    return 1; // Wired Ethernet second.
 }

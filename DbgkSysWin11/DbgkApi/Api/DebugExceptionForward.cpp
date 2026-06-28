@@ -1,4 +1,4 @@
-#include "DebugEventHandlersInternal.h"
+﻿#include "DebugEventHandlersInternal.h"
 
 namespace
 {
@@ -64,10 +64,12 @@ namespace
             return TRUE;
         }
 
+        // /* Fail */
         return FALSE;
     }
 }
 
+//转发异常
 BOOLEAN
 DbgkForwardException(
     IN PEXCEPTION_RECORD ExceptionRecord,
@@ -76,7 +78,7 @@ DbgkForwardException(
 {
     DBGKM_APIMSG ApiMessage = { 0 };
     PDBGKM_EXCEPTION DbgKmException = &ApiMessage.u.Exception;
-    NTSTATUS Status;
+    NTSTATUS Status; // eax
     _EPROCESS* Process = (_EPROCESS*)PsGetCurrentProcess();
     PVOID Port;
     BOOLEAN UseLpc = FALSE;
@@ -103,8 +105,11 @@ DbgkForwardException(
         PsSetProcessFaultInformation(Process, (int*)&v13);
     }
 
-    if (IsUseDebugPort)
+    // /* Check if this is to be sent on the debug port */
+    if (IsUseDebugPort) //是否将异常转发到调试端口
     {
+        // /* Use the debug port, unless the thread is being hidden */
+        //outLog(("转发异常........\n"));
         if (IsDebugTargetProcess(Process, &DebugProcess))
         {
             Port = DebugProcess->DebugObject;
@@ -118,6 +123,8 @@ DbgkForwardException(
     }
     else
     {
+        //否则，使用异常端口
+        // /* Otherwise, use the exception port */
         ApiMessage.h.u2.ZeroInit = LPC_EXCEPTION;
         UseLpc = TRUE;
         Port = PsCaptureExceptionPort(Process);
@@ -128,6 +135,7 @@ DbgkForwardException(
         return FALSE;
     }
 
+    //DbgBreakPoint();
     if (IsDebugTargetProcess(Process, &DebugProcess))
     {
         if ((ExceptionRecord->ExceptionCode == STATUS_ILLEGAL_INSTRUCTION) ||
@@ -139,14 +147,21 @@ DbgkForwardException(
         if (ExceptionRecord->ExceptionCode == STATUS_SINGLE_STEP)
         {
             _ETHREAD* Thread = (_ETHREAD*)PsGetCurrentThread();
+            //    || Thread->Tcb.ApcStateIndex == 1)
+            //if (Thread->Tcb.MiscFlags & PS_MISC_FLAGS_SYSTEM_THREAD
+            //{
+            //    Teb = NULL;
+            //}
+            //else
             size_t kthread_base = (size_t)Thread + ethread_offset::Tcb;
             size_t ptr_TrapFrame = kthread_base + kthread_offset::TrapFrame;
             PKTRAP_FRAME TrapFrame = *(PKTRAP_FRAME*)ptr_TrapFrame;
 
             Dr6 dr6;
             dr6.flags = TrapFrame->Dr6;
-            if (dr6.BS == 0)
+            if (dr6.BS == 0) //判断是否是tf单步执行
             {
+                //在vt中通过向guest注入#DB异常并不会修改dr6寄存器
                 if (dr6.B0 || dr6.B1 || dr6.B2 || dr6.B3)
                 {
                     return FALSE;
@@ -155,11 +170,15 @@ DbgkForwardException(
         }
     }
 
+    // /* Fill out the exception information */
+    //DbgKmException->ExceptionRecord = *ExceptionRecord;
     KeCopyExceptionRecord(&ApiMessage.u.Exception.ExceptionRecord, ExceptionRecord);
     DbgKmException->FirstChance = !SecondChance;
 
+    // /* Check if we should use LPC */
     if (UseLpc)
     {
+        // /* Send the message on the LPC Port */
         if (!Port)
         {
             Status = STATUS_SUCCESS;
@@ -173,9 +192,11 @@ DbgkForwardException(
     }
     else
     {
+        // /* Use native debug object */
         Status = DbgkpSendApiMessage(Process, IsUseDebugPort != 0, &ApiMessage);
     }
 
+    // /* Check if we failed, and for a debug port, also check the return status */
     if (!(NT_SUCCESS(Status)))
     {
         return FALSE;
@@ -186,6 +207,7 @@ DbgkForwardException(
         if (!IsUseDebugPort)
         {
             Status = DbgkpSendErrorMessage(ExceptionRecord, 2, &ApiMessage);
+            // /* Otherwise, we're ok */
             return NT_SUCCESS(Status);
         }
 
@@ -194,9 +216,11 @@ DbgkForwardException(
             return TRUE;
         }
 
+        // /* Fail */
         return FALSE;
     }
     Status = ApiMessage.ReturnedStatus;
 
+    // /* Otherwise, we're ok */
     return NT_SUCCESS(Status);
 }

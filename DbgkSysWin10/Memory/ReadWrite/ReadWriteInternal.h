@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #ifndef _READ_WRITE_INTERNAL_H
 #define _READ_WRITE_INTERNAL_H
@@ -36,13 +36,13 @@ NTSTATUS GetBreakpoint(_EPROCESS* Process, PVOID BaseAddress, PVOID Buffer, SIZE
 NTSTATUS MyReadVirtualMemory(
     _In_ HANDLE ProcessHandle,
     _In_opt_ PVOID BaseAddress,
-    _Out_opt_ PVOID Buffer,
+    _Out_opt_ PVOID Buffer, //输出缓冲区
     _In_ SIZE_T BufferSize,
     _Out_opt_ PSIZE_T NumberOfBytesRead);
 NTSTATUS EptReadVirtualMemory(
     _In_ HANDLE ProcessHandle,
     _In_opt_ PVOID BaseAddress,
-    _Out_opt_ PVOID Buffer,
+    _Out_opt_ PVOID Buffer, //输出缓冲区
     _In_ SIZE_T BufferSize,
     _Out_opt_ PSIZE_T NumberOfBytesRead);
 

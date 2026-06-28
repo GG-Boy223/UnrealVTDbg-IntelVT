@@ -9,7 +9,7 @@ namespace ept
 	{
 		if (pml1_entry == nullptr)
 		{
-			return nullptr;
+			return nullptr; // 失败返回空指针
 		}
 
 		return reinterpret_cast<__ept_dynamic_split*>(PAGE_ALIGN(pml1_entry));
@@ -48,6 +48,7 @@ namespace ept
 
 	// 当引用计数归零时，尝试把 4KB split 合并回 2MB 大页并回收到池。
 	// 返回 true 表示发生了"合并并回收"；false 表示未回收（还在用或不可回收）。
+	// 返回 true 表示发生了“合并并回收”；false 表示未回收（还在用或不可回收）。
 	bool ept_split_try_merge_and_release(__ept_state& ept_state, __ept_dynamic_split* split)
 	{
 		if (split == nullptr)

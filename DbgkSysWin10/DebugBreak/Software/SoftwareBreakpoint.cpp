@@ -1,9 +1,12 @@
-#include "../Core/DebugBreakInternal.h"
+﻿#include "../Core/DebugBreakInternal.h"
 
+// 调整说明：旧软件断点添加路径同样在 attach 状态内探测目标地址并关中断，异常路径不利于保持 APC/attach 平衡。
+// 旧实现先保留在这里，方便回溯和对照；当前版本不再编译这段逻辑。
 bool AddSoftwareBreakpoint(PVT_BREAK_POINT vmcallinfo)
 {
     if (vmcallinfo == NULL || vmcallinfo->VirtualAddress == 0)
     {
+        //outLog("DispatchOffsetToHost 密钥错误 : 0x%llX\n", verifyKey);
         return false;
     }
 
@@ -21,21 +24,24 @@ void SetSoftwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
 {
     USER_DATA user = GetUserData(userData);
 
-    PVT_BREAK_POINT output = (PVT_BREAK_POINT)pIrp->AssociatedIrp.SystemBuffer;
+    PVT_BREAK_POINT output = (PVT_BREAK_POINT)pIrp->AssociatedIrp.SystemBuffer; //内核的缓冲区，输入输出都用的这个
     RtlZeroMemory(output, sizeof(VT_BREAK_POINT));
 
+    //分配明文缓存区
     BYTE* aucPlainText = allocate_pool<BYTE*>(AlignUserDataToBlowfishBlock(user.uSize));
     DecryptData((PVOID)user.pUserData, aucPlainText);
 
+    // 计算明文缓冲区中的结构体数量
     size_t numElements = user.uSize / sizeof(VT_BREAK_POINT);
 
+    // 遍历明文缓冲区中的结构体
     for (size_t i = 0; i < numElements; i++)
     {
         PVT_BREAK_POINT pInfo = reinterpret_cast<PVT_BREAK_POINT>(aucPlainText + i * sizeof(VT_BREAK_POINT));
 
         if (AddSoftwareBreakpoint(pInfo))
         {
-            *output = *pInfo;
+            *output = *pInfo; //成功
         }
         break;
     }
@@ -43,10 +49,13 @@ void SetSoftwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
     free_pool(aucPlainText);
 }
 
+// 调整说明：旧软件断点删除路径在 try/except 两边手动 detach，若 attach 未完成或异常点变化，存在重复 detach/失衡风险。
+// 旧实现先保留在这里，方便回溯和对照；当前版本不再编译这段逻辑。
 bool DeleteSoftwareBreakpoint(PVT_BREAK_POINT vmcallinfo)
 {
     if (vmcallinfo == NULL)
     {
+        //outLog("DispatchOffsetToHost 密钥错误 : 0x%llX\n", verifyKey);
         return false;
     }
 
@@ -60,29 +69,33 @@ bool DeleteSoftwareBreakpoint(PVT_BREAK_POINT vmcallinfo)
     return current_vmcall(vmcallinfo);
 }
 
+//移除软件断点
 void RemoveSoftwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
 {
     USER_DATA user = GetUserData(userData);
 
-    DWORD* output = (DWORD*)pIrp->AssociatedIrp.SystemBuffer;
+    DWORD* output = (DWORD*)pIrp->AssociatedIrp.SystemBuffer; //内核的缓冲区，输入输出都用的这个
     RtlZeroMemory(output, sizeof(DWORD));
 
+    //分配明文缓存区
     BYTE* aucPlainText = allocate_pool<BYTE*>(AlignUserDataToBlowfishBlock(user.uSize));
     DecryptData((PVOID)user.pUserData, aucPlainText);
 
+    // 计算明文缓冲区中的结构体数量
     size_t numElements = user.uSize / sizeof(VT_BREAK_POINT);
 
+    // 遍历明文缓冲区中的结构体
     for (size_t i = 0; i < numElements; i++)
     {
         PVT_BREAK_POINT pInfo = reinterpret_cast<PVT_BREAK_POINT>(aucPlainText + i * sizeof(VT_BREAK_POINT));
 
         if (DeleteSoftwareBreakpoint(pInfo))
         {
-            *output = 1998;
+            *output = 1998; //成功
         }
         else
         {
-            *output = 520;
+            *output = 520; //失败
         }
         break;
     }
@@ -90,10 +103,13 @@ void RemoveSoftwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
     free_pool(aucPlainText);
 }
 
+// 调整说明：旧软件断点读取路径在 attach 后探测地址并关中断，读取场景不需要触碰目标地址。
+// 旧实现先保留在这里，方便回溯和对照；当前版本不再编译这段逻辑。
 bool GetSoftwareBreakpoint(PVT_BREAK_POINT vmcallinfo)
 {
     if (vmcallinfo == NULL)
     {
+        //outLog("DispatchOffsetToHost 密钥错误 : 0x%llX\n", verifyKey);
         return false;
     }
 
@@ -107,30 +123,34 @@ bool GetSoftwareBreakpoint(PVT_BREAK_POINT vmcallinfo)
     const bool boSuccess = current_vmcall(vmcallinfo);
     if (boSuccess)
     {
-        vmcallinfo->errorCode = 1998;
+        vmcallinfo->errorCode = 1998; // 与现有用户态协议保持一致。
     }
     return boSuccess;
 }
 
+//读int3断点
 void ReadSoftwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
 {
     USER_DATA user = GetUserData(userData);
 
-    PVT_BREAK_POINT output = (PVT_BREAK_POINT)pIrp->AssociatedIrp.SystemBuffer;
+    PVT_BREAK_POINT output = (PVT_BREAK_POINT)pIrp->AssociatedIrp.SystemBuffer; //内核的缓冲区，输入输出都用的这个
     RtlZeroMemory(output, sizeof(VT_BREAK_POINT));
 
+    //分配明文缓存区
     BYTE* aucPlainText = allocate_pool<BYTE*>(AlignUserDataToBlowfishBlock(user.uSize));
     DecryptData((PVOID)user.pUserData, aucPlainText);
 
+    // 计算明文缓冲区中的结构体数量
     size_t numElements = user.uSize / sizeof(VT_BREAK_POINT);
 
+    // 遍历明文缓冲区中的结构体
     for (size_t i = 0; i < numElements; i++)
     {
         PVT_BREAK_POINT pInfo = reinterpret_cast<PVT_BREAK_POINT>(aucPlainText + i * sizeof(VT_BREAK_POINT));
 
         if (GetSoftwareBreakpoint(pInfo))
         {
-            *output = *pInfo;
+            *output = *pInfo; //成功
         }
         break;
     }

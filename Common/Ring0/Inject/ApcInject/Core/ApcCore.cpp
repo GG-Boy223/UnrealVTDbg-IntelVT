@@ -1,3 +1,3 @@
 #include "ApcCore.h"
 
-// APC core implementations are split by responsibility in this folder.
+// APC 核心实现根据职责在这个文件夹中拆分。

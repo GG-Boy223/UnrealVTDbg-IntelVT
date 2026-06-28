@@ -1,4 +1,4 @@
-#include "RemoveProcessDebug.h"
+﻿#include "RemoveProcessDebug.h"
 #include "DebugObjectCommonInternal.h"
 
 EXTERN_C
@@ -7,9 +7,9 @@ NtRemoveProcessDebug(
     IN HANDLE ProcessHandle,
     IN HANDLE DebugObjectHandle)
 {
-    NTSTATUS Status;
+    NTSTATUS Status; // eax
     PDEBUG_OBJECT DebugObject;
-    _EPROCESS* Process;
+    _EPROCESS* Process; //进程对象
 
     PAGED_CODE();
     DbgkStateOpGuard stateGuard;
@@ -19,15 +19,19 @@ NtRemoveProcessDebug(
         return STATUS_DELETE_PENDING;
     }
 
+    // /* Reference the process */
     Status = ObReferenceObjectByHandle(ProcessHandle,
         PROCESS_SET_PORT,
         *PsProcessType,
+        // *PsProcessType,
         KernelMode,
         (PVOID*)&Process,
         NULL);
 
+    // /* Check if we failed */
     if (!NT_SUCCESS(Status))
     {
+        // /* Return status */
         return Status;
     }
 
@@ -46,6 +50,8 @@ NtRemoveProcessDebug(
         ObDereferenceObject(DebugObject);
     }
 
-    ObDereferenceObject(Process);
+    ObDereferenceObject(Process); //释放进程对象
+    /* Return status */
+    // /* Return status */
     return Status;
 }

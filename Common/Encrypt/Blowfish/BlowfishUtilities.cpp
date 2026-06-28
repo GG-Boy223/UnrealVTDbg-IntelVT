@@ -1,4 +1,4 @@
-#include <cctype>
+﻿#include <cctype>
 #include <cstdio>
 #include <cstring>
 #include <Windows.h>
@@ -19,6 +19,7 @@ namespace
             {
                 szHex[i] = '0' + byte[i];
             }
+            // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
             else
             {
                 szHex[i] = 'A' + byte[i] - 10;
@@ -36,18 +37,22 @@ namespace
             {
                 *rch = (*rch << 4) + (*(szHex + i) - '0');
             }
+            // *rch = (*rch << 4) + (*(szHex + i) - '0');
             else if (*(szHex + i) >= 'A' && *(szHex + i) <= 'F')
             {
                 *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
             }
+            // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
             else
             {
+                // Do thread-specific cleanup.
                 break;
             }
         }
     }
 }
 
+// /*Function to convert string of unsigned chars to string of chars*/
 void CharStr2HexStr(unsigned char* pucCharStr, int iSize, unsigned char* pszHexStr)
 {
     int i;
@@ -60,6 +65,7 @@ void CharStr2HexStr(unsigned char* pucCharStr, int iSize, unsigned char* pszHexS
     }
 }
 
+// /*Function to convert string of chars to string of unsigned chars*/
 void HexStr2CharStr(unsigned char* pszHexStr, int iSize, unsigned char* pucCharStr)
 {
     int i;
@@ -76,6 +82,7 @@ void HexStr2CharStr(unsigned char* pszHexStr, int iSize, unsigned char* pucCharS
     }
 }
 
+//字节流转字符流
 void HexToStr(const char* sSrc, char* sDest, int length)
 {
     int i;
@@ -89,6 +96,7 @@ void HexToStr(const char* sSrc, char* sDest, int length)
     return;
 }
 
+//字符流转字节流
 void StrToHex(const char* source, unsigned char* dest, int length)
 {
     short i;
@@ -103,6 +111,7 @@ void StrToHex(const char* source, unsigned char* dest, int length)
         {
             highByte -= 0x37;
         }
+        // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
         else
         {
             highByte -= 0x30;
@@ -112,6 +121,7 @@ void StrToHex(const char* source, unsigned char* dest, int length)
         {
             lowByte -= 0x37;
         }
+        // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
         else
         {
             lowByte -= 0x30;

@@ -5,7 +5,7 @@
 
 #include "Driver.h"
 #include "Globals.h"
-#include "invalid_ept.h"
+#include "invalid_ept.h" // INVEPT 描述符与接口声明
 
 namespace ept
 {

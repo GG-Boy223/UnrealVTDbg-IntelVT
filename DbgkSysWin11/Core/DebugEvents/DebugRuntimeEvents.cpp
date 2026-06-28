@@ -1,4 +1,4 @@
-#include "DebugEventsCommon.h"
+﻿#include "DebugEventsCommon.h"
 #include "../../Driver.h"
 #include "../../Globals.h"
 #include "../../DbgkApi/DbgkApi.h"
@@ -6,6 +6,12 @@
 KPROCESSOR_MODE KeGetPreviousMode()
 {
     _ETHREAD* Thread = (_ETHREAD*)KeGetCurrentThread();
+    //    || Thread->Tcb.ApcStateIndex == 1)
+    //if (Thread->Tcb.MiscFlags & PS_MISC_FLAGS_SYSTEM_THREAD
+    //{
+    //    Teb = NULL;
+    //}
+    //else
     size_t kthread_base = (size_t)Thread + ethread_offset::Tcb;
     size_t ptr_PreviousMode = kthread_base + kthread_offset::PreviousMode;
     return *(KPROCESSOR_MODE*)ptr_PreviousMode;
@@ -15,10 +21,17 @@ KPROCESSOR_MODE KeSetPreviousMode(KPROCESSOR_MODE PreviousMode)
 {
     KPROCESSOR_MODE Old_PreviousMode;
     _ETHREAD* Thread = (_ETHREAD*)KeGetCurrentThread();
+    //    || Thread->Tcb.ApcStateIndex == 1)
+    //if (Thread->Tcb.MiscFlags & PS_MISC_FLAGS_SYSTEM_THREAD
+    //{
+    //    Teb = NULL;
+    //}
+    //else
     size_t kthread_base = (size_t)Thread + ethread_offset::Tcb;
     size_t ptr_PreviousMode = kthread_base + kthread_offset::PreviousMode;
     Old_PreviousMode = *(KPROCESSOR_MODE*)ptr_PreviousMode;
     *(KPROCESSOR_MODE*)ptr_PreviousMode = PreviousMode;
+    // *(KPROCESSOR_MODE*)ptr_PreviousMode = PreviousMode;
     return Old_PreviousMode;
 }
 
@@ -41,6 +54,7 @@ VOID KiDispatchException(IN PEXCEPTION_RECORD ExceptionRecord,
     }
 }
 
+//判断目标进程是否是我们自己的调试器
 BOOLEAN IsDebugger(PEPROCESS Process)
 {
     BOOLEAN result = FALSE;
@@ -67,22 +81,46 @@ BOOLEAN IsDebugger(PEPROCESS Process)
         {
             if (entry->dwPid == HandleToULong(pid))
             {
+                // *DebugProcess = entry;
                 result = TRUE;
                 break;
             }
         }
 
+        // /* Move to the next entry */
         NextEntry = NextEntry->Flink;
     }
     ExReleaseFastMutex(&g_DebuggerList.Mutex);
     return result;
 }
 
+//    __finally
+//
+//BOOLEAN SetDebugTargetProcess(_EPROCESS* Process, PDEBUG_OBJECT DebugObject)
+//{
+//    BOOLEAN result = FALSE;
+//    g_DebugProcessList->Lock();
+//    __try
+//    {
+//        if (IsDebugger(NULL))
+//        {
+//            PDEBUG_PROCESS tmp = new DEBUG_PROCESS;
+//            RtlZeroMemory(tmp, sizeof(DEBUG_PROCESS));
+//            tmp->Process = Process;
+//            tmp->DebugObject = DebugObject;
+//            g_DebugProcessList->Add(tmp);
+//            result = TRUE;
+//        }
+//        return result;
+//    }
+//        g_DebugProcessList->UnLock();
+//}
 BOOLEAN IsProtectTargetProcess(_EPROCESS* Process)
 {
     BOOLEAN result = FALSE;
     if (Process == g_ProtectTargetProcess)
     {
+        // *DebugProcess = entry;
         result = TRUE;
     }
     return result;

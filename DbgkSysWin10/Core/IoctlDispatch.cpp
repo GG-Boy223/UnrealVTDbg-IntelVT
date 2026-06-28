@@ -1,13 +1,13 @@
-#include "../Driver.h"
+﻿#include "../Driver.h"
 #include "IoctlDispatchInternal.h"
 #include "../Globals.h"
 #include "../DbgkApi/DbgkApi.h"
 
 NTSTATUS HandlerDispatchRoutin(IN PDEVICE_OBJECT pDevObj, IN PIRP pIrp)
 {
-    UNREFERENCED_PARAMETER(pDevObj);
+    UNREFERENCED_PARAMETER(pDevObj); // 设备对象在该分发路径未使用，避免编译告警。
 
-    NTSTATUS ntStatus = STATUS_SUCCESS;
+    NTSTATUS ntStatus = STATUS_SUCCESS; // 统一返回状态。
     BOOLEAN ioctlEntered = FALSE;
     BOOLEAN handled = FALSE;
 
@@ -42,7 +42,7 @@ NTSTATUS HandlerDispatchRoutin(IN PDEVICE_OBJECT pDevObj, IN PIRP pIrp)
     ntStatus = DispatchBreakpointIoctl(stack->Parameters.DeviceIoControl.IoControlCode, &context, &handled);
     if (!handled)
     {
-        ntStatus = STATUS_INVALID_VARIANT;
+        ntStatus = STATUS_INVALID_VARIANT; // 与现有代码保持相同错误码语义。
         context.Information = 0;
     }
 

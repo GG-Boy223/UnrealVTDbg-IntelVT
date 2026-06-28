@@ -27,6 +27,7 @@ std::string GetMac();
 bool EnsureMacCode();
 
 string cardnum;
+//心跳Key,每次心跳此值都会变
 string heartbeatkey;
 string token;
 std::string maccode;
@@ -121,6 +122,7 @@ bool IsUsableMacAdapter(const IP_ADAPTER_ADDRESSES* adapter)
 {
     if (adapter == nullptr)
     {
+        // 处理打开进程失败的情况
         return false;
     }
 
@@ -129,6 +131,7 @@ bool IsUsableMacAdapter(const IP_ADAPTER_ADDRESSES* adapter)
         adapter->IfType == IF_TYPE_SOFTWARE_LOOPBACK ||
         adapter->IfType == IF_TYPE_TUNNEL)
     {
+        // 处理打开进程失败的情况
         return false;
     }
 
@@ -578,6 +581,7 @@ BOOL Initialize_F3(ULONG64 key)   //初始化驱动 key用户  驱动对比
         }
         else
         {
+            // 处理打开进程失败的情况
             return false;
         }
         std::thread HeartBeatThread(HeartBeat); HeartBeatThread.detach();
@@ -624,6 +628,7 @@ BOOL LoadSymbolsTable(ULONG64 key)
 {
    VMProtectBeginVirtualization("VMP");
     BOOL bRet;
+    // 将缓冲区地址传递给驱动程序
     DWORD BytesReturned = 0;
     RING3_VERIFY info = { 0 };
     info.key = key;

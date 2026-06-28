@@ -109,6 +109,7 @@ typedef PVOID PMMVAD;
             ExRaiseAccessViolation();                                          \
         }                                                                      \
         *(volatile Type *)(Ptr) = *(volatile Type *)(Ptr);                     \
+        /* old code: *(volatile Type *)(Ptr) = *(volatile Type *)(Ptr); \ */  \
     } while (0)
 
 #define ProbeForWriteUlong(Ptr) ProbeForWriteGenericType(Ptr, ULONG)
@@ -273,11 +274,13 @@ static const LARGE_INTEGER __emptyLargeInteger = { {0, 0} };
 #define DPRINT(fmt, ...) do { \
             if (DbgPrint("(%s:%d) " fmt, __RELFILE__, __LINE__, ##__VA_ARGS__))  \
                 DbgPrint("(%s:%d) DbgPrint() failed!\n", __RELFILE__, __LINE__); \
+            /* old code: *(volatile Type *)(Ptr) = *(volatile Type *)(Ptr); \ */  \
         } while (0)
 
 #define DPRINT1(fmt, ...) do { \
         if (DbgPrint("(%s:%d) " fmt, __RELFILE__, __LINE__, ##__VA_ARGS__))  \
             DbgPrint("(%s:%d) DbgPrint() failed!\n", __RELFILE__, __LINE__); \
+        /* old code: *(volatile Type *)(Ptr) = *(volatile Type *)(Ptr); \ */  \
     } while (0)
 
 //
@@ -373,16 +376,20 @@ ExSystemExceptionFilter(VOID);
 EXTERN_C ULONG64
 __readgsqword(
     _In_ ULONG Offset
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
+//根据对象获得句柄
 EXTERN_C
 NTSYSAPI
 PACCESS_TOKEN
 NTAPI
 PsReferencePrimaryToken(
     __inout PEPROCESS Process
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
+//根据对象获得句柄
 EXTERN_C
 NTSYSAPI
 NTSTATUS
@@ -392,6 +399,7 @@ ZwFreeVirtualMemory(
     __inout PVOID* BaseAddress,
     __inout PSIZE_T RegionSize,
     __in ULONG FreeType
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 //根据对象获得句柄
@@ -414,8 +422,10 @@ NTAPI
 ZwFlushInstructionCache(IN HANDLE 	ProcessHandle,
     IN PVOID 	BaseAddress,
     IN ULONG 	NumberOfBytesToFlush
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
+//根据对象获得句柄
 EXTERN_C
 NTSYSAPI
 VOID
@@ -453,6 +463,7 @@ NTKERNELAPI
 VOID
 FASTCALL ExfAcquirePushLockShared(
     __inout PEX_PUSH_LOCK PushLock
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 EXTERN_C
@@ -460,6 +471,7 @@ NTKERNELAPI
 VOID
 FASTCALL ExfReleasePushLockShared(
     __inout PEX_PUSH_LOCK PushLock
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 EXTERN_C
@@ -468,6 +480,7 @@ VOID
 FASTCALL
 ExfAcquirePushLockExclusive(
     __inout PEX_PUSH_LOCK PushLock
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 EXTERN_C
@@ -476,6 +489,7 @@ VOID
 FASTCALL
 ExfReleasePushLockExclusive(
     __inout PEX_PUSH_LOCK PushLock
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 EXTERN_C
@@ -484,6 +498,7 @@ VOID
 FASTCALL
 ExfTryToWakePushLock(
     __inout PEX_PUSH_LOCK PushLock
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 
@@ -491,12 +506,14 @@ NTSTATUS
 PsSuspendThread(
     IN _ETHREAD* Thread,
     OUT PULONG PreviousSuspendCount OPTIONAL
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 NTSTATUS
 PsResumeThread(
     IN _ETHREAD* Thread,
     OUT PULONG PreviousSuspendCount OPTIONAL
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 //创建设备 符号链接等
@@ -547,6 +564,7 @@ ProxyDbgkOpenProcessDebugPort(
     IN PEPROCESS Process,
     IN KPROCESSOR_MODE PreviousMode,
     OUT HANDLE* pHandle
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 void CreateRemoteThread(IN PUSER_DATA userData);
@@ -590,6 +608,8 @@ NTSTATUS NewObReferenceObjectByHandleWithTag(HANDLE Handle,
     PVOID* Object,
     __int64 a7);
 
+//ObReferenceObjectByHandle与ObReferenceObjectByHandleWithTag函数内部
+//都调用的ObpReferenceObjectByHandleWithTag
 NTSTATUS NewObpReferenceObjectByHandleWithTag(HANDLE Handle,
     ACCESS_MASK DesiredAccess,
     POBJECT_TYPE ObjectType,
@@ -601,11 +621,13 @@ NTSTATUS NewObpReferenceObjectByHandleWithTag(HANDLE Handle,
 
 LONG_PTR NewObfDereferenceObject(
     _In_ PVOID Object
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 LONG_PTR NewObfDereferenceObjectWithTag(
     _In_ PVOID Object,
     _In_ ULONG Tag
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 NTSTATUS NewNtOpenProcess(PHANDLE ProcessHandle,
@@ -613,6 +635,9 @@ NTSTATUS NewNtOpenProcess(PHANDLE ProcessHandle,
     POBJECT_ATTRIBUTES ObjectAttributes,
     PCLIENT_ID ClientId);
 
+//如果ApcFunc调用的是LdrInitializeThunk则
+//a4是ContextRecord
+//a5是ntdll模块基址
 VOID NewPspCreateUserContext(_CONTEXT* context,
     char a2,
     PVOID ApcFunc,
@@ -656,6 +681,7 @@ VOID
 NewKeStackAttachProcess(
     _Inout_ PRKPROCESS PROCESS,
     _Out_ PRKAPC_STATE ApcState
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 VOID NewKiStackAttachProcess(_KPROCESS* Process, BOOLEAN a2, _KAPC_STATE* ApcState);
@@ -664,18 +690,21 @@ NTSTATUS
 NewNtTerminateProcess(
     __in_opt HANDLE ProcessHandle,
     __in NTSTATUS ExitStatus
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 NTSTATUS
 NewNtSuspendThread(
     __in HANDLE ThreadHandle,
     __out_opt PULONG PreviousSuspendCount
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 NTSTATUS
 NewNtResumeThread(
     __in HANDLE ThreadHandle,
     __out_opt PULONG PreviousSuspendCount
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 NTSTATUS
@@ -685,6 +714,7 @@ NewNtQueryInformationThread(
     _Out_ PVOID ThreadInformation,
     _In_ ULONG ThreadInformationLength,
     _Out_opt_ PULONG ReturnLength
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
 USER_DATA GetUserData(PUSER_DATA userData);

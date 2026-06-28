@@ -1,6 +1,7 @@
-#include <ntifs.h>
+﻿#include <ntifs.h>
 #include "../StringHandler.h"
 
+//搜索子字符串
 BOOLEAN RtlUnicodeStringContains(PUNICODE_STRING Str, PUNICODE_STRING SubStr, BOOLEAN CaseInsensitive)
 {
     if (Str == NULL || SubStr == NULL || Str->Length < SubStr->Length)
@@ -19,5 +20,6 @@ BOOLEAN RtlUnicodeStringContains(PUNICODE_STRING Str, PUNICODE_STRING SubStr, BO
             return TRUE;
         }
     }
+    // /* Fail */
     return FALSE;
 }

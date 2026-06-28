@@ -12,6 +12,7 @@ NewContinueDebugEvent(
     DWORD dwOldProtect;
     DWORD error = 0;
 
+    //处理非附加调试的情况
     if (g_process_info.isCreate)
     {
         if (dwContinueStatus == DBG_CONTINUE)
@@ -42,18 +43,21 @@ NewContinueDebugEvent(
                             }
                             VirtualProtectEx(g_process_info.ProcessHandle, BreakPointAddr, sizeof(chOldBytes), dwOldProtect, &dwOldProtect);
                         }
+                        // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
                         else
                         {
                             error = GetLastError();
                             outDebug((TCHAR*)_T("[EXCEPTION_DEBUG_EVENT] 检查内存时失败！(error:%d)"), error);
                         }
                     }
+                    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
                     else
                     {
                         error = GetLastError();
                         outDebug((TCHAR*)_T("[EXCEPTION_DEBUG_EVENT] 修改内存属性失败！(error:%d)"), error);
                     }
                 }
+                // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
                 else
                 {
                     error = GetLastError();
@@ -62,6 +66,8 @@ NewContinueDebugEvent(
             }
         }
     }
+    // CE/x64dbg 的手动 F5 软件断点必须保持到用户再次 F5/删除。
+    // 这里不能在 Continue 时主动删除隐藏 INT3；真正删除只由写回原字节路径处理。
     const BOOL continueResult = Sys_ContinueDebugEvent(dwProcessId, dwThreadId, dwContinueStatus);
     if (continueResult)
     {

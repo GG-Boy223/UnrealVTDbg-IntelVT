@@ -1,5 +1,6 @@
 ﻿#include "VmExitInstruction.h"
 
+//处理来宾执行 VMX 指令的 VM-exit：统一注入 #UD，阻止来宾进入 VMX operation
 void vmexit_vm_instruction(__vcpu* vcpu) // 处理 guest 执行 VMX 指令导致的 VM-exit，统一向 guest 注入 #UD。
 {
 	sLog("\n"); // 保留日志占位，便于确认 guest 是否尝试执行 VMX 指令。
@@ -8,6 +9,9 @@ void vmexit_vm_instruction(__vcpu* vcpu) // 处理 guest 执行 VMX 指令导致
 		INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, false); // VMX 指令对普通 guest 不可见，注入无错误码 #UD。
 }
 
+//Vol1[5.23 SAFER MODE EXTENSIONS]
+//SMX: GETSEC.
+//处理 GETSEC 指令的 VM-exit：来宾尝试进入 SMX 安全模式时统一注入 #GP
 void vmexit_getsec_handler(__vcpu* vcpu) // 处理 GETSEC 退出，避免 guest 进入 SMX/安全启动相关路径。
 {
 	sLog("\n"); // 记录 GETSEC 触发，便于排查异常指令流。
@@ -15,10 +19,11 @@ void vmexit_getsec_handler(__vcpu* vcpu) // 处理 GETSEC 退出，避免 guest 
 		INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, true); // 当前 VMM 不模拟 GETSEC，按保护异常反馈 guest。
 }
 
+//处理 VMXON 指令的 VM-exit：根据 CR4.VMXE 状态注入 #UD 或 #GP，阻止来宾进入 VMX operation
 void vmexit_vmx_on_handler(__vcpu* vcpu) // 处理 guest VMXON，防止嵌套 VMX 干扰 host VMCS。
 {
 	sLog("\n"); // 记录 guest VMXON 尝试。
-	if (!hv::read_effective_guest_cr4().vmx_enable)
+	if (!hv::read_effective_guest_cr4().vmx_enable) // 原理：CR4.VMXE=0 表示 VMX 指令无效；作用：按硬件语义注入 #UD；结果：来宾认为指令不可用
 	{
 		hv::inject_interruption(EXCEPTION_VECTOR_UNDEFINED_OPCODE,
 			INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, false); // CR4.VMXE 未开启时，硬件语义为 #UD。
@@ -30,13 +35,16 @@ void vmexit_vmx_on_handler(__vcpu* vcpu) // 处理 guest VMXON，防止嵌套 VM
 	}
 }
 
+//清除cpu缓存,并将数据写回到内存
 void vmexit_invd_handler(__vcpu* vcpu) // 模拟 INVD 指令退出。
 {
 	sLog("\n"); // 记录缓存失效指令路径。
+	//hv::inject_interruption(EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT, INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, true);
 	__wbinvd(); // 使用 WBINVD 保守写回并失效缓存，避免直接 INVD 丢弃脏缓存造成数据风险。
 	adjust_rip(vcpu); // 指令已模拟完成，推进 guest RIP。
 }
 
+//处理 INVLPG 指令的 VM-exit：按来宾给定地址失效 TLB，并让来宾继续执行后续指令
 void vmexit_invlpg_handler(__vcpu* vcpu) // 模拟 INVLPG，维护 VPID 单地址失效。
 {
 	sLog("\n"); // 记录 INVLPG 退出。
@@ -46,12 +54,14 @@ void vmexit_invlpg_handler(__vcpu* vcpu) // 模拟 INVLPG，维护 VPID 单地�
 	adjust_rip(vcpu); // TLB 失效完成后跳过 INVLPG。
 }
 
+//处理 RDTSCP 指令：读取时间戳计数器 TSC，并返回 IA32_TSC_AUX（通常为 CPU/核心标识）
 void vmexit_rdtscp_handler(__vcpu* vcpu) // 模拟 RDTSCP，返回 TSC 和处理器 AUX 值。
 {
 	sLog("\n"); // 记录时间读取路径，便于分析反虚拟化检测。
 	unsigned __int32 processor_id; // 接收 RDTSCP 返回的 IA32_TSC_AUX。
 	unsigned __int64 tsc = __rdtscp(&processor_id); // 在 host 执行 RDTSCP，随后拆分写回 guest 寄存器。
 
+	// 下面三行将 RDTSCP 的输出写回到来宾寄存器，等价于来宾自己执行了 RDTSCP
 	vcpu->vmexit_info.guest_registers->rcx = processor_id; // RDTSCP 约定 ECX 返回 TSC_AUX。
 	vcpu->vmexit_info.guest_registers->rdx = MASK_GET_HIGHER_32BITS(tsc) >> 32; // RDX 返回 TSC 高 32 位。
 	vcpu->vmexit_info.guest_registers->rax = MASK_GET_LOWER_32BITS(tsc); // RAX 返回 TSC 低 32 位。
@@ -61,16 +71,19 @@ void vmexit_rdtscp_handler(__vcpu* vcpu) // 模拟 RDTSCP，返回 TSC 和处理
 
 void vmexit_vmx_preemption_handler(__vcpu* vcpu) // VMX preemption timer 退出保留入口。
 {
+	// 这里目前什么都不做
 	sLog("\n"); // 当前仅记录触发，时间开销隐藏逻辑在其他路径控制。
 }
 
+//处理 XSETBV 指令：校验 XCR0 写入规则并安全执行，非法则注入 #UD/#GP
 void vmexit_xsetbv_handler(__vcpu* vcpu) // 模拟 XSETBV，严格验证 XCR0 合法性后再写入。
 {
 	sLog("\n"); // 记录扩展状态寄存器写入路径。
 	__xcr0 new_xcr0; // 保存 guest 请求写入的新 XCR0。
 	__xcr0 current_xcr0; // 保存 host 当前 XCR0，用于检查保留位一致性。
 
-	if (!hv::read_effective_guest_cr4().os_xsave)
+	// 原理：XSETBV 只有在 CR4.OSXSAVE=1 时合法；作用：检查前置条件；结果：不满足则注入 #UD
+	if (!hv::read_effective_guest_cr4().os_xsave) // 原理：读取来宾 CR4.OSXSAVE；作用：判断是否允许执行 XSETBV；结果：为 0 则非法
 	{
 		hv::inject_interruption(EXCEPTION_VECTOR_UNDEFINED_OPCODE,
 			INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, false); // CR4.OSXSAVE 未开启时 XSETBV 应产生 #UD。
@@ -87,18 +100,19 @@ void vmexit_xsetbv_handler(__vcpu* vcpu) // 模拟 XSETBV，严格验证 XCR0 �
 	__cpuidex(reinterpret_cast<int*>(&cpuid_0d), 0x0D, 0x00); // 查询扩展状态支持掩码。
 	auto const unsupported_mask = ~((static_cast<uint64_t>(cpuid_0d.edx.flags) << 32) | cpuid_0d.eax.flags); // 取反得到 guest 不允许置位的位。
 
-	if ((xcr_number != 0) ||
-		(new_xcr0.reserved1 != current_xcr0.reserved1) ||
-		(new_xcr0.reserved2 != current_xcr0.reserved2) ||
-		(new_xcr0.reserved3 != current_xcr0.reserved3) ||
-		(new_xcr0.reserved4 != current_xcr0.reserved4) ||
-		(new_xcr0.all & unsupported_mask) ||
-		(new_xcr0.x87 == 0) ||
-		(new_xcr0.sse == 0 && new_xcr0.avx == 1) ||
-		(new_xcr0.avx == 0 && (new_xcr0.opmask || new_xcr0.zmm_hi256 || new_xcr0.hi16_zmm)) ||
-		(new_xcr0.bndreg != new_xcr0.bndcsr) ||
-		(new_xcr0.opmask != new_xcr0.zmm_hi256 || new_xcr0.zmm_hi256 != new_xcr0.hi16_zmm) ||
-		(new_xcr0.TILECFG != new_xcr0.TILEDATA)
+	// 原理：XSETBV 对编号、保留位和依赖位有严格约束；作用：逐项校验；结果：不满足则注入 #GP
+	if ((xcr_number != 0) || // 原理：当前仅支持 XCR0；作用：禁止其它编号；结果：非 0 则非法
+		(new_xcr0.reserved1 != current_xcr0.reserved1) || // 原理：保留位必须保持不变；作用：检测非法改动；结果：不一致则非法
+		(new_xcr0.reserved2 != current_xcr0.reserved2) || // 原理：保留位必须保持不变；作用：检测非法改动；结果：不一致则非法
+		(new_xcr0.reserved3 != current_xcr0.reserved3) || // 原理：保留位必须保持不变；作用：检测非法改动；结果：不一致则非法
+		(new_xcr0.reserved4 != current_xcr0.reserved4) || // 原理：保留位必须保持不变；作用：检测非法改动；结果：不一致则非法
+		(new_xcr0.all & unsupported_mask) || // 原理：不支持的位不能置 1；作用：检测非法置位；结果：命中则非法
+		(new_xcr0.x87 == 0) || // 原理：x87 位必须为 1；作用：保证基本浮点状态可用；结果：为 0 则非法
+		(new_xcr0.sse == 0 && new_xcr0.avx == 1) || // 原理：AVX 依赖 SSE；作用：保证依赖关系；结果：违背则非法
+		(new_xcr0.avx == 0 && (new_xcr0.opmask || new_xcr0.zmm_hi256 || new_xcr0.hi16_zmm)) || // 原理：AVX-512 依赖 AVX；作用：保证依赖关系；结果：违背则非法
+		(new_xcr0.bndreg != new_xcr0.bndcsr) || // 原理：MPX 位需成对启用；作用：保持一致；结果：不一致则非法
+		(new_xcr0.opmask != new_xcr0.zmm_hi256 || new_xcr0.zmm_hi256 != new_xcr0.hi16_zmm) || // 原理：AVX-512 相关位需一致；作用：保持一致；结果：不一致则非法
+		(new_xcr0.TILECFG != new_xcr0.TILEDATA) // 原理：AMX TILECFG/TILEDATA 需成对启用；作用：保持一致；结果：不一致则非法
 		)
 	{
 		hv::inject_interruption(EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT,
@@ -110,7 +124,7 @@ void vmexit_xsetbv_handler(__vcpu* vcpu) // 模拟 XSETBV，严格验证 XCR0 �
 	hv::host_exception_info e = { 0 }; // 捕获host执行XSETBV时可能产生的异常，清零后再交给Host IDT写回。
 	hv::xsetbv_safe(e, xcr_number, new_xcr0.all); // 通过安全封装写 XCR，防止 host 异常直接 BugCheck。
 
-	if (e.exception_occurred)
+	if (e.exception_occurred) // 原理：xsetbv 执行期间可能触发异常；作用：检测写入是否失败；结果：失败则注入 #GP
 	{
 		hv::inject_interruption(EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT,
 			INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, true); // host 侧写入失败时向 guest 反馈 #GP。
@@ -121,6 +135,7 @@ void vmexit_xsetbv_handler(__vcpu* vcpu) // 模拟 XSETBV，严格验证 XCR0 �
 	adjust_rip(vcpu); // 写入成功后推进 guest RIP。
 }
 
+//处理 RDTSC 指令：读取时间戳计数器 TSC，并按 EDX:EAX 返回给来宾
 void vmexit_rdtsc_handler(__vcpu* vcpu) // 模拟 RDTSC，返回 host TSC 拆分值。
 {
 	sLog("\n"); // 记录时间读取路径。
@@ -132,6 +147,7 @@ void vmexit_rdtsc_handler(__vcpu* vcpu) // 模拟 RDTSC，返回 host TSC 拆分
 	adjust_rip(vcpu); // 模拟完成后推进 RIP。
 }
 
+//处理 CPUID 指令：根据来宾 leaf/subleaf 返回 CPU 特性信息，可在此处做伪装/过滤
 void vmexit_cpuid_handler(__vcpu* vcpu) // 模拟 CPUID，按 guest 输入 leaf/subleaf 返回寄存器结果。
 {
 	int regs[4]; // 保存 EAX/EBX/ECX/EDX 返回值。

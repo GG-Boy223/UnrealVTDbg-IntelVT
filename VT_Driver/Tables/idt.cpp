@@ -2,7 +2,7 @@
 #include "poolmanager.h"
 #include "Globals.h"
 #include "mtrr.h"
-#include "EPT.h"
+#include "EPT.h" // 包含 EPT 相关结构与函数
 #include "vmexit_handler.h"
 #include "idt.h"
 

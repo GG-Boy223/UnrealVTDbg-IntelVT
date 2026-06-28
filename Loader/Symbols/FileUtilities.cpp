@@ -1,4 +1,4 @@
-#include "SymbolsInternal.h"
+﻿#include "SymbolsInternal.h"
 
 bool CreateDirectoryIfNotExists(const TCHAR* dir)
 {
@@ -8,6 +8,7 @@ bool CreateDirectoryIfNotExists(const TCHAR* dir)
     }
     else
     {
+        // 处理打开进程失败的情况
         return false;
     }
 }
@@ -18,6 +19,7 @@ std::wstring GetFileName(const std::wstring& full)
     return (pos == std::wstring::npos) ? full : full.substr(pos + 1);
 }
 
+// 检查文件是否存在（C++14 写法）
 bool FileExists(const std::wstring& path)
 {
     DWORD attr = GetFileAttributesW(path.c_str());

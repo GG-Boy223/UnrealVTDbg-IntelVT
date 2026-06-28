@@ -9,4 +9,5 @@ NTSTATUS NtWaitForDebugEvent(
     IN BOOLEAN Alertable,
     IN PLARGE_INTEGER Timeout OPTIONAL,
     OUT PDBGUI_WAIT_STATE_CHANGE StateChange
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );

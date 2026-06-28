@@ -84,6 +84,7 @@ namespace DebugEventInternal
                 InterlockedExchange(&g_debug_register_status, 0);
                 StoreDebugHitRecord(threadId, 2, 0);
             }
+            // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
             else
             {
                 const LONG registerStatus = static_cast<LONG>(Context.Dr6 & 0xF);
@@ -93,6 +94,7 @@ namespace DebugEventInternal
                     InterlockedExchange(&g_debug_register_status, registerStatus);
                     StoreDebugHitRecord(threadId, 1, registerStatus);
                 }
+                // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
                 else
                 {
                     const ULONG64 detectedAddress = QueryDetectedBreakpointAddress(threadId);
@@ -102,6 +104,7 @@ namespace DebugEventInternal
                         InterlockedExchange(&g_debug_register_status, 0);
                         StoreDebugHitRecord(threadId, 1, 0, detectedAddress);
                     }
+                    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
                     else
                     {
                         InterlockedExchange(&g_debug_condition_detected, 2);
@@ -111,6 +114,7 @@ namespace DebugEventInternal
                 }
             }
         }
+        // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
         else
         {
             logger.Log("获取调试寄存器Context失败! (error: %d)", GetLastError());

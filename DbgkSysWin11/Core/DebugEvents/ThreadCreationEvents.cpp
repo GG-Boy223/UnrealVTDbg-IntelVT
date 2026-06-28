@@ -1,4 +1,4 @@
-#include "DebugEventsCommon.h"
+﻿#include "DebugEventsCommon.h"
 #include "../../Driver.h"
 #include "../../Globals.h"
 #include "../../DbgkApi/DbgkApi.h"
@@ -36,6 +36,7 @@ NTSTATUS NtCreateThreadEx(unsigned __int64 a1,
         a9,
         a10,
         a11);
+    // /* Return status */
     return Status;
 }
 
@@ -62,6 +63,7 @@ NTSTATUS PspCreateThread(HANDLE* ThreadHandle,
         arg_Process,
         CreateProcessContext,
         a7, a8, a9, a10, StartRoutine, a12, a13);
+    // /* Return status */
     return Status;
 }
 
@@ -80,9 +82,13 @@ NTSTATUS NewPspAllocateThread(_EPROCESS* Process,
 {
     DbgkRuntimeCallGuard runtimeGuard;
     NTSTATUS Status = Original_PspAllocateThread(Process, ObjectAttributes, a3, a4, a5, a6, StartRoutine, a8, a9, a10, a11, a12);
+    // /* Return status */
     return Status;
 }
 
+//如果ApcFunc调用的是LdrInitializeThunk则
+//a4是ContextRecord
+//a5是ntdll模块基址
 VOID NewPspCreateUserContext(_CONTEXT* context,
     char a2,
     PVOID ApcFunc,
@@ -114,11 +120,14 @@ VOID NewPspCallThreadNotifyRoutines(_ETHREAD* Thread, BOOLEAN Create, BOOLEAN a3
         {
             Original_PspCallThreadNotifyRoutines(Thread, Create, a3);
         }
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
+    //DbgBreakPoint();
     if (IsDebugger(PsGetCurrentProcess()))
     {
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
     Original_PspCallThreadNotifyRoutines(Thread, Create, a3);

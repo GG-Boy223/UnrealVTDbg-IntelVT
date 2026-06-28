@@ -7,7 +7,7 @@ inline PVOID allocate_vmm_pool(unsigned __int64 size)
 {
     if (size == 0)
     {
-        return nullptr;
+        return nullptr; // 失败返回空指针
     }
 
 #pragma warning(suppress:4996)
@@ -39,7 +39,7 @@ inline T allocate_contignous_memory(unsigned __int64 size)
 {
     if (size == 0)
     {
-        return nullptr;
+        return nullptr; // 失败返回空指针
     }
 
     PHYSICAL_ADDRESS a;

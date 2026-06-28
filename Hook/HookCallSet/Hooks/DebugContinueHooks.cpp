@@ -19,6 +19,7 @@ bool TryHook_ContinueDebugEvent()
     {
         return HookOn((PVOID*)&Sys_ContinueDebugEvent, NewContinueDebugEvent, GetCurrentThread());
     }
+    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
     else
     {
         logger.Log("ContinueDebugEvent空指针");
@@ -33,6 +34,7 @@ bool TryUnHook_ContinueDebugEvent()
         return HookOff((PVOID*)&Sys_ContinueDebugEvent, NewContinueDebugEvent, GetCurrentThread());
     }
 
+    // 调试器会高频读取断点附近字节，回填路径保持静默，避免日志拖慢步进和反汇编刷新。
     return true;
 }
 
@@ -44,6 +46,7 @@ bool TryHook_NtDebugContinue()
     {
         return HookOn((PVOID*)&Sys_NtDebugContinue, NewNtDebugContinue, GetCurrentThread());
     }
+    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
     else
     {
         logger.Log("Sys_NtDebugContinue空指针");
@@ -58,6 +61,7 @@ bool TryUnHook_NtDebugContinue()
         return HookOff((PVOID*)&Sys_NtDebugContinue, NewNtDebugContinue, GetCurrentThread());
     }
 
+    // 调试器会高频读取断点附近字节，回填路径保持静默，避免日志拖慢步进和反汇编刷新。
     return true;
 }
 

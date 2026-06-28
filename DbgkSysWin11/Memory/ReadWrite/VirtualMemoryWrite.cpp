@@ -1,9 +1,9 @@
-#include "ReadWriteInternal.h"
+﻿#include "ReadWriteInternal.h"
 
 NTSTATUS NtWriteVirtualMemory(
     _In_ HANDLE ProcessHandle,
     _In_opt_ PVOID BaseAddress,
-    _In_ PVOID Buffer,
+    _In_ PVOID Buffer, //当前进程自己的缓冲区
     _In_ SIZE_T BufferSize,
     _Out_opt_ PSIZE_T NumberOfBytesWritten)
 {
@@ -14,7 +14,7 @@ NTSTATUS NtWriteVirtualMemory(
     }
 
     NTSTATUS Status = STATUS_SUCCESS;
-    _EPROCESS* Process;
+    _EPROCESS* Process; //进程对象
 
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
 
@@ -30,15 +30,19 @@ NTSTATUS NtWriteVirtualMemory(
         }
     }
 
+    //DbgBreakPoint();
     if (IsDebugger(PsGetCurrentProcess()))
     {
         if (BufferSize == 1)
         {
+            //设置int3断点
             if (Buffer && (*(UCHAR*)Buffer == 0xCC))
             {
+                // /* Reference the process */
                 Status = ObReferenceObjectByHandle(ProcessHandle,
                     PROCESS_ALL_ACCESS,
                     *PsProcessType,
+                    // *PsProcessType,
                     KernelMode,
                     (PVOID*)&Process,
                     NULL);
@@ -50,22 +54,27 @@ NTSTATUS NtWriteVirtualMemory(
                     }
                     else
                     {
+                        // /* Then default to STATUS_SUCCESS */
                         Status = STATUS_SUCCESS;
                     }
                     if (Process)
                     {
-                        ObDereferenceObject(Process);
+                        ObDereferenceObject(Process); //释放进程对象
                     }
+                    // /* Return status */
                     return Status;
                 }
                 return STATUS_UNSUCCESSFUL;
             }
 
+            //移除int3断点
             if (Buffer)
             {
+                // /* Reference the process */
                 Status = ObReferenceObjectByHandle(ProcessHandle,
                     PROCESS_ALL_ACCESS,
                     *PsProcessType,
+                    // *PsProcessType,
                     KernelMode,
                     (PVOID*)&Process,
                     NULL);
@@ -76,13 +85,14 @@ NTSTATUS NtWriteVirtualMemory(
                         Status = RemoveBreakpoint(ProcessHandle, Process, BaseAddress, Buffer, BufferSize);
                         if (Process)
                         {
-                            ObDereferenceObject(Process);
+                            ObDereferenceObject(Process); //释放进程对象
                         }
+                        // /* Return status */
                         return Status;
                     }
                     if (Process)
                     {
-                        ObDereferenceObject(Process);
+                        ObDereferenceObject(Process); //释放进程对象
                     }
                 }
                 else

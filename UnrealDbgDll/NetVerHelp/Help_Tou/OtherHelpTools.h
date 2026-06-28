@@ -11,6 +11,9 @@ namespace OtherHelp
 	/*
 	类型转换
 	*/
+	// /*
+	// 类型转换
+	// */
 	class OtherHelpTools
 	{
 	public:

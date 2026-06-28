@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "../Driver.h"
 #include "../poolmanager.h"
@@ -16,7 +16,9 @@
 #include "../vmm.h"
 
 bool allocate_vmm_context();
+//创建host页表
 bool create_host_page_tables();
+//分配vcpu结构内存
 bool init_vcpu(__vcpu* vcpu);
 void adjust_control_registers();
 bool init_logical_processor2(unsigned int iter);

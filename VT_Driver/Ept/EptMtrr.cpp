@@ -54,15 +54,32 @@ namespace ept
 			current_phys_base.all = __readmsr(IA32_SMRR_PHYSBASE);
 			current_phys_mask.all = __readmsr(IA32_SMRR_PHYSMASK);
 
+			// If range is enabled
+			// 如果启用范围
+			//
 			if (current_phys_mask.valid && current_phys_base.type != mtrr_def_type.memory_type)
 			{
 				descriptor = &g_vmm_context.mtrr_info.memory_range[g_vmm_context.mtrr_info.enabled_memory_ranges++];
+				// Calculate base address, physbase is truncated by 12 bits so we have to left shift it by 12
+				// 计算基址，physbase 被截断了 12 位，因此我们必须将其左移 12
+				//
 				descriptor->physcial_base_address = current_phys_base.physbase << PAGE_SHIFT;
 
+				// Index of first bit set to one determines how much do we have to bit shift to get size of range
+				// physmask is truncated by 12 bits so we have to left shift it by 12
+				// 第一个设置为 1 的位的索引决定了我们需要移位多少位才能得到范围 physmask 的大小，
+				// 它被截断了 12 位，所以我们必须将其左移 12 位
+				//
 				unsigned long bits_in_mask = 0;
 				_BitScanForward64(&bits_in_mask, current_phys_mask.physmask << PAGE_SHIFT);
 
+				// Calculate the end of range specified by mtrr
+				// 计算 mtrr 指定的范围的结束位置
+				//
 				descriptor->physcial_end_address = descriptor->physcial_base_address + ((1ULL << bits_in_mask) - 1ULL);
+				// Get memory type of range
+				// 获取范围的内存类型
+				//
 				descriptor->memory_type = (unsigned __int8)current_phys_base.type;
 				descriptor->fixed_range = false;
 			}
@@ -83,6 +100,8 @@ namespace ept
 			//寄存器 IA32_MTRR_FIX64K_00000 — 映射 512 KB 地址范围，从 0H 到 7FFFFH。此范围分为8个 64 KB 子范围。
 			__mtrr_fixed_range_type k64_types = { __readmsr(IA32_MTRR_FIX64K_00000) };
 
+			//寄存器 IA32_MTRR_FIX4K_C0000 至 IA32_MTRR_FIX4K_F8000 — 映射 8 个 32 KB 地址范围，
+			//从 C0000H 到 FFFFFH。此范围分为 64 个 4 KB 子范围，每个寄存器 8 个范围。
 			for (unsigned int i = 0; i < 8; i++)
 			{
 				descriptor = &g_vmm_context.mtrr_info.memory_range[g_vmm_context.mtrr_info.enabled_memory_ranges++];
@@ -221,6 +240,7 @@ namespace ept
 		unsigned __int64 page_start_address = pfn * LARGE_PAGE_SIZE;
 		unsigned __int64 page_end_address = (pfn * LARGE_PAGE_SIZE) + (LARGE_PAGE_SIZE - 1);
 
+		//在MTRR中寻找给定地址的内存类型
 		for (unsigned int i = 0; i < g_vmm_context.mtrr_info.enabled_memory_ranges; i++)
 		{
 			if (page_start_address <= g_vmm_context.mtrr_info.memory_range[i].physcial_end_address &&

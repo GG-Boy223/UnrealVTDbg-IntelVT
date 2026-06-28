@@ -1,9 +1,12 @@
-#include "../Core/DebugBreakInternal.h"
+﻿#include "../Core/DebugBreakInternal.h"
 
+// 调整说明：旧硬件断点路径会在 KeStackAttachProcess 后强读目标地址、再 _disable/_enable 读取 CR3，并在 attach 状态内执行 VMCALL；CE 查找地址访问时异常频繁，容易造成 APC_INDEX_MISMATCH。
+// 旧实现先保留在这里，方便回溯和对照；当前版本不再编译这段逻辑。
 bool AddHardwareBreakpoint(PBREAKPOINT_RECORD Breakpoint)
 {
     if (Breakpoint == NULL || Breakpoint->Address == 0)
     {
+        //outLog("DispatchOffsetToHost key mismatch: 0x%llX\n", verifyKey);
         return false;
     }
 
@@ -44,21 +47,24 @@ void SetHardwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
 {
     USER_DATA user = GetUserData(userData);
 
-    PBREAKPOINT_RECORD output = (PBREAKPOINT_RECORD)pIrp->AssociatedIrp.SystemBuffer;
+    PBREAKPOINT_RECORD output = (PBREAKPOINT_RECORD)pIrp->AssociatedIrp.SystemBuffer; //内核的缓冲区，输入输出都用的这个
     RtlZeroMemory(output, sizeof(BREAKPOINT_RECORD));
 
+    //分配明文缓存区
     BYTE* aucPlainText = allocate_pool<BYTE*>(AlignUserDataToBlowfishBlock(user.uSize));
     DecryptData((PVOID)user.pUserData, aucPlainText);
 
+    // 计算明文缓冲区中的结构体数量
     size_t numElements = user.uSize / sizeof(BREAKPOINT_RECORD);
 
+    // 遍历明文缓冲区中的结构体
     for (size_t i = 0; i < numElements; i++)
     {
         PBREAKPOINT_RECORD pInfo = reinterpret_cast<PBREAKPOINT_RECORD>(aucPlainText + i * sizeof(BREAKPOINT_RECORD));
 
         if (AddHardwareBreakpoint(pInfo))
         {
-            *output = *pInfo;
+            *output = *pInfo; //成功
         }
         break;
     }
@@ -70,6 +76,7 @@ bool DeleteHardwareBreakpoint(PBREAKPOINT_RECORD Breakpoint)
 {
     if (Breakpoint == NULL || Breakpoint->watchid < 0)
     {
+        //outLog("DispatchOffsetToHost key mismatch: 0x%llX\n", verifyKey);
         return false;
     }
 
@@ -85,29 +92,33 @@ bool DeleteHardwareBreakpoint(PBREAKPOINT_RECORD Breakpoint)
     return current_vmcall(&vmcallinfo);
 }
 
+//移除硬件断点
 void RemoveHardwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
 {
     USER_DATA user = GetUserData(userData);
 
-    DWORD* output = (DWORD*)pIrp->AssociatedIrp.SystemBuffer;
+    DWORD* output = (DWORD*)pIrp->AssociatedIrp.SystemBuffer; //内核的缓冲区，输入输出都用的这个
     RtlZeroMemory(output, sizeof(DWORD));
 
+    //分配明文缓存区
     BYTE* aucPlainText = allocate_pool<BYTE*>(AlignUserDataToBlowfishBlock(user.uSize));
     DecryptData((PVOID)user.pUserData, aucPlainText);
 
+    // 计算明文缓冲区中的结构体数量
     size_t numElements = user.uSize / sizeof(BREAKPOINT_RECORD);
 
+    // 遍历明文缓冲区中的结构体
     for (size_t i = 0; i < numElements; i++)
     {
         PBREAKPOINT_RECORD pInfo = reinterpret_cast<PBREAKPOINT_RECORD>(aucPlainText + i * sizeof(BREAKPOINT_RECORD));
 
         if (DeleteHardwareBreakpoint(pInfo))
         {
-            *output = 1998;
+            *output = 1998; //成功
         }
         else
         {
-            *output = 520;
+            *output = 520; //失败
         }
         break;
     }

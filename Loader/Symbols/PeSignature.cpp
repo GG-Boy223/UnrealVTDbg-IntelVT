@@ -1,11 +1,14 @@
-#include "SymbolsInternal.h"
+﻿#include "SymbolsInternal.h"
 
+//---------- 工具：从 PE 文件里读 PDB 签名 ----------
+// 从 PE 文件里读 PDB 签名
 bool GetPePdbSig(const std::wstring& pePath, GUID* guid, DWORD* age, DWORD* ts)
 {
     HANDLE hFile = CreateFileW(pePath.c_str(), GENERIC_READ,
         FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
     if (hFile == INVALID_HANDLE_VALUE)
     {
+        // 处理打开进程失败的情况
         return false;
     }
 
@@ -71,6 +74,9 @@ bool GetPePdbSig(const std::wstring& pePath, GUID* guid, DWORD* age, DWORD* ts)
                     *guid = cv->Guid;
                     *age = cv->Age;
                     *ts = dbg->TimeDateStamp;
+                    // *guid = cv->Guid;
+                    // *age = cv->Age;
+                    // *ts = dbg->TimeDateStamp;
                     ok = true;
                     __leave;
                 }

@@ -14,13 +14,13 @@ std::string calculateMD5(const std::vector<unsigned char>& data)
     if (!CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT))
     {
         std::cerr << "CryptAcquireContext failed." << std::endl;
-        return "";
+        return ""; // 获取上下文失败，返回空字符串
     }
 
     if (!CryptCreateHash(hProv, CALG_MD5, 0, 0, &hHash))
     {
         std::cerr << "CryptCreateHash failed." << std::endl;
-        CryptReleaseContext(hProv, 0);
+        CryptReleaseContext(hProv, 0); // 释放加密提供程序上下文
         return "";
     }
 
@@ -31,8 +31,8 @@ std::string calculateMD5(const std::vector<unsigned char>& data)
         if (!CryptHashData(hHash, data.data() + offset, chunkSize, 0))
         {
             std::cerr << "CryptHashData failed." << std::endl;
-            CryptDestroyHash(hHash);
-            CryptReleaseContext(hProv, 0);
+            CryptDestroyHash(hHash); // 销毁哈希对象
+            CryptReleaseContext(hProv, 0); // 释放加密提供程序上下文
             return "";
         }
         offset += chunkSize;
@@ -43,8 +43,8 @@ std::string calculateMD5(const std::vector<unsigned char>& data)
     if (!CryptGetHashParam(hHash, HP_HASHSIZE, reinterpret_cast<BYTE*>(&cbHashSize), &dwCount, 0))
     {
         std::cerr << "CryptGetHashParam failed." << std::endl;
-        CryptDestroyHash(hHash);
-        CryptReleaseContext(hProv, 0);
+        CryptDestroyHash(hHash); // 销毁哈希对象
+        CryptReleaseContext(hProv, 0); // 释放加密提供程序上下文
         return "";
     }
 
@@ -52,8 +52,8 @@ std::string calculateMD5(const std::vector<unsigned char>& data)
     if (!CryptGetHashParam(hHash, HP_HASHVAL, hashData.data(), &cbHashSize, 0))
     {
         std::cerr << "CryptGetHashParam failed." << std::endl;
-        CryptDestroyHash(hHash);
-        CryptReleaseContext(hProv, 0);
+        CryptDestroyHash(hHash); // 销毁哈希对象
+        CryptReleaseContext(hProv, 0); // 释放加密提供程序上下文
         return "";
     }
 
@@ -65,6 +65,7 @@ std::string calculateMD5(const std::vector<unsigned char>& data)
         md5Hash += hex;
     }
 
+    // 清理资源：销毁哈希对象
     CryptDestroyHash(hHash);
     CryptReleaseContext(hProv, 0);
 

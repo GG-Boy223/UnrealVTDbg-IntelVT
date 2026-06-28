@@ -121,7 +121,7 @@ namespace ept
 	{
 		if (ept_state.ept_page_table == nullptr || flat_pdpt_index >= ept_state.mapped_pdpte_count)
 		{
-			return nullptr;
+			return nullptr; // 失败返回空指针
 		}
 
 		if (flat_pdpt_index < 512)
@@ -133,13 +133,13 @@ namespace ept
 		unsigned __int32 pml3_index = flat_pdpt_index & 0x1ff;
 		if (ept_state.extended_pml3_pages == nullptr || pml4_index == 0 || pml4_index >= ept_state.mapped_pml4_count)
 		{
-			return nullptr;
+			return nullptr; // 失败返回空指针
 		}
 
 		__ept_pdpte_page* pdpt_page = ept_state.extended_pml3_pages[pml4_index - 1];
 		if (pdpt_page == nullptr)
 		{
-			return nullptr;
+			return nullptr; // 失败返回空指针
 		}
 
 		return &pdpt_page->entries[pml3_index];
@@ -522,6 +522,8 @@ namespace ept
 		page_table->pml4[0].execute = 1;
 		page_table->pml4[0].execute_for_usermode = 0;
 
+		// MTRR data for setting memory types
+		// 用于设置内存类型的 MTRR 数据
 		auto const mtrrs = hv::read_mtrr_data();
 
 		// TODO: allocate a PT for the fixed MTRRs region so that we can get
@@ -537,7 +539,7 @@ namespace ept
 			pdpte.read = 1;
 			pdpte.write = 1;
 			pdpte.execute = 1;
-			pdpte.accessed = 0;
+			pdpte.accessed = 0; // 清零访问位
 			pdpte.execute_for_usermode = 0;
 			pdpte.page_frame_number = GET_PFN(MmGetPhysicalAddress(&page_table->pml2[i][0]).QuadPart);
 

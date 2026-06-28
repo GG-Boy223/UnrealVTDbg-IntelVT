@@ -76,6 +76,7 @@ namespace
             return false;
         }
 
+        // 调试器会高频读取断点附近字节，回填路径保持静默，避免日志拖慢步进和反汇编刷新。
         return true;
     }
 
@@ -140,6 +141,7 @@ bool SetupHook()
         logger.Log("初始化成功，钩子安装完毕");
         return true;
     }
+    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
     else
     {
         InterlockedExchange(&HookDllMainInternal::g_HookInstalled, kHookStateNotInstalled);

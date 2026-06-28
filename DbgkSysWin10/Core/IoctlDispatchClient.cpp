@@ -142,6 +142,7 @@ NTSTATUS DispatchClientIoctl(ULONG Code, PIOCTL_DISPATCH_CONTEXT Context, BOOLEA
         Context->Information = 0;
         return STATUS_SUCCESS;
     }
+    // /* No special handling for other messages */
     default:
     {
         *Handled = FALSE;

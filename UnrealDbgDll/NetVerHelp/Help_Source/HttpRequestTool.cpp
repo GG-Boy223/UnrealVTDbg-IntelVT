@@ -1,4 +1,5 @@
 
+//#define _CRT_SECURE_NO_WARNINGS
 #include "../Help_Tou/HttpRequestTools.h"
 
 namespace Help
@@ -46,7 +47,7 @@ namespace Help
 	{
 		if (NULL != m_pFile)
 		{
-			m_pFile->Close();
+			m_pFile->Close(); // recycle
 			delete m_pFile;
 			m_pFile = NULL;
 		}
@@ -104,7 +105,7 @@ namespace Help
 		{
 			if (m_pFile)
 			{
-				m_pFile->Close();
+				m_pFile->Close(); // recycle
 				delete m_pFile;
 				m_pFile = NULL;
 			}
@@ -203,7 +204,7 @@ namespace Help
 					::ZeroMemory(szChars, BUFFER_SIZE + 1);
 				}
 
-				ConvertUtf8ToUnicode(strResponse);
+				ConvertUtf8ToUnicode(strResponse); // response context convert coding
 			}
 
 		}

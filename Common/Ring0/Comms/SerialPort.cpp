@@ -1,4 +1,4 @@
-#include "SerialPortInternal.h"
+﻿#include "SerialPortInternal.h"
 
 #include "../Spinlock/spinlock.h"
 
@@ -24,11 +24,13 @@ void outportb(_In_ USHORT Port, _In_ UCHAR Data)
     SerialPortInternal::OutPortByte(Port, Data);
 }
 
+//通过串口发送字符数据
 void sendchar2(char c)
 {
     SerialPortInternal::SendChar(c);
 }
 
+//通过串口打印日志
 void Log(const char* format, ...)
 {
     int sl = 0;

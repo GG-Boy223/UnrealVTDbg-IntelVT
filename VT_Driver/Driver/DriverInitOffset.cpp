@@ -2,6 +2,9 @@
 #include <Shared/DriverProtocol.h>
 
 #ifdef _DEBUG_Key_Log
+// ================================
+// InitOffset 延后打印所需的全局状态
+// ================================
 unsigned __int64 verifyKeyold = 0;
 volatile LONG g_InitOffsetLogPending = 0;
 const char* g_InitOffsetLastMessage = nullptr;
@@ -10,7 +13,7 @@ size_t g_InitOffsetLastDirectoryTableBase = 0;
 HANDLE g_InitOffsetLogThreadHandle = nullptr;
 volatile LONG g_StopInitOffsetLogThread = 0;
 
-bool InitOffset(PWINDOWS_STRUCT vmcallinfo, unsigned __int64 verifyKey)
+bool InitOffset(PWINDOWS_STRUCT vmcallinfo, unsigned __int64 verifyKey) // 从来宾传入结构初始化关键偏移（fallback）
 {
     if (verifyKey != VT_INIT_HANDSHAKE_KEY)
     {
@@ -102,7 +105,7 @@ VOID InitOffsetLogThread(_In_ PVOID StartContext)
     UNREFERENCED_PARAMETER(StartContext);
 
     LARGE_INTEGER interval = {};
-    interval.QuadPart = -10 * 1000 * 100;
+    interval.QuadPart = -10 * 1000 * 100; // 100ms，相对时间
 
     for (;;)
     {
@@ -111,6 +114,7 @@ VOID InitOffsetLogThread(_In_ PVOID StartContext)
             break;
         }
 
+        // 有待打印日志时，由普通系统线程统一输出。
         if (InterlockedExchange(&g_InitOffsetLogPending, 0) != 0)
         {
             if (g_InitOffsetLastMessage != nullptr)
@@ -134,7 +138,7 @@ VOID InitOffsetLogThread(_In_ PVOID StartContext)
 
 #else
 
-bool InitOffset(PWINDOWS_STRUCT vmcallinfo, unsigned __int64 verifyKey)
+bool InitOffset(PWINDOWS_STRUCT vmcallinfo, unsigned __int64 verifyKey) // 从来宾传入结构初始化关键偏移（fallback）
 {
     if (verifyKey != VT_INIT_HANDSHAKE_KEY)
     {

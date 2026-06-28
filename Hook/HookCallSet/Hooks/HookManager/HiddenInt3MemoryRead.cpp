@@ -1,4 +1,4 @@
-#include "../HookInternal.h"
+﻿#include "../HookInternal.h"
 
 namespace HookInternal
 {
@@ -16,6 +16,7 @@ namespace HookInternal
             !IsHiddenInt3MemoryIoTarget(process) ||
             !HasActiveHiddenInt3Breakpoints())
         {
+            // 处理打开进程失败的情况
             return false;
         }
 
@@ -43,6 +44,7 @@ namespace HookInternal
 
         if (overlappedBreakpoints.empty())
         {
+            // 处理打开进程失败的情况
             return false;
         }
 
@@ -72,6 +74,7 @@ namespace HookInternal
 
         if (!readOk)
         {
+            // 处理打开进程失败的情况
             return false;
         }
 
@@ -92,6 +95,7 @@ namespace HookInternal
             *bytesRead = actualBytesRead;
         }
 
+        // 调试器会高频读取断点附近字节，回填路径保持静默，避免日志拖慢步进和反汇编刷新。
         return true;
     }
 }

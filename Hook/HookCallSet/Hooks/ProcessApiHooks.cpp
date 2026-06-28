@@ -20,10 +20,18 @@ NewNtCreateUserProcess(
         ProcessFlags, ThreadFlags, ProcessParameters, CreateInfo, AttributeList);
     if (NT_SUCCESS(Status))
     {
+        //DoDebuggerBreak(ProcessHandle);
         g_process_info.ProcessHandle = *ProcessHandle;
         g_process_info.isCreate = TRUE;
         logger.Log("创建调试进程");
     }
+    //if (NT_SUCCESS(Status))
+    //{
+    //    //在目标进程内触发int3事件
+    //    Status = DbgUiIssueRemoteBreakin(hProcess);
+    //    if (!NT_SUCCESS(Status))
+    //        ZwRemoveProcessDebug(hProcess, NtCurrentTeb()->DbgSsReserved[1]);
+    //}
     return Status;
 }
 
@@ -80,6 +88,7 @@ bool TryHook_TerminateProcess()
     {
         return HookOn((PVOID*)&Sys_TerminateProcess, NewTerminateProcess, GetCurrentThread());
     }
+    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
     else
     {
         logger.Log("TerminateProcess空指针");
@@ -94,6 +103,7 @@ bool TryUnHook_TerminateProcess()
         return HookOff((PVOID*)&Sys_TerminateProcess, NewTerminateProcess, GetCurrentThread());
     }
 
+    // 调试器会高频读取断点附近字节，回填路径保持静默，避免日志拖慢步进和反汇编刷新。
     return true;
 }
 
@@ -105,6 +115,7 @@ bool TryHook_NtRemoveProcessDebug()
     {
         return HookOn((PVOID*)&Sys_NtRemoveProcessDebug, NewNtRemoveProcessDebug, GetCurrentThread());
     }
+    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
     else
     {
         logger.Log("NtRemoveProcessDebug空指针");
@@ -119,6 +130,7 @@ bool TryUnHook_NtRemoveProcessDebug()
         return HookOff((PVOID*)&Sys_NtRemoveProcessDebug, NewNtRemoveProcessDebug, GetCurrentThread());
     }
 
+    // 调试器会高频读取断点附近字节，回填路径保持静默，避免日志拖慢步进和反汇编刷新。
     return true;
 }
 
@@ -130,6 +142,7 @@ bool TryHook_NtTerminateProcess()
     {
         return HookOn((PVOID*)&Sys_NtTerminateProcess, NewNtTerminateProcess, GetCurrentThread());
     }
+    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
     else
     {
         logger.Log("NtTerminateProcess空指针");
@@ -144,6 +157,7 @@ bool TryUnHook_NtTerminateProcess()
         return HookOff((PVOID*)&Sys_NtTerminateProcess, NewNtTerminateProcess, GetCurrentThread());
     }
 
+    // 调试器会高频读取断点附近字节，回填路径保持静默，避免日志拖慢步进和反汇编刷新。
     return true;
 }
 
@@ -155,6 +169,7 @@ bool TryHook_NtCreateUserProcess()
     {
         return HookOn((PVOID*)&Sys_NtCreateUserProcess, NewNtCreateUserProcess, GetCurrentThread());
     }
+    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
     else
     {
         logger.Log("NtCreateUserProcess空指针");
@@ -169,6 +184,7 @@ bool TryUnHook_NtCreateUserProcess()
         return HookOff((PVOID*)&Sys_NtCreateUserProcess, NewNtCreateUserProcess, GetCurrentThread());
     }
 
+    // 调试器会高频读取断点附近字节，回填路径保持静默，避免日志拖慢步进和反汇编刷新。
     return true;
 }
 

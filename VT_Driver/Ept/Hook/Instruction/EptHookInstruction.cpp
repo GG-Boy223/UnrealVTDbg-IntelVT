@@ -65,6 +65,7 @@ namespace ept
 
 		// set jmp offset
 		*((__int32*)&target_buffer[1]) = jmp_value;
+		// *((__int32*)&target_buffer[1]) = jmp_value;
 		return true;
 	}
 
@@ -119,6 +120,7 @@ namespace ept
 		target_buffer[2] = 0xC1;  //0F 01 C1 vmcall
 		hooked_function_info->handler_function = proxy_function;
 
+		//DbgBreakPoint();
 		if (origin_function)
 		{
 			//计算被修改的指令占用多少字节
@@ -155,6 +157,7 @@ namespace ept
 		target_buffer[0] = 0xCC;
 		hooked_function_info->handler_function = proxy_function;  //int3的处理函数
 
+		//DbgBreakPoint();
 		if (origin_function)
 		{
 			//计算被修改的指令占用多少字节
@@ -188,6 +191,7 @@ namespace ept
 		target_buffer[0] = 0xf1;  //int1
 		hooked_function_info->handler_function = proxy_function;  //int1的处理函数
 
+		//DbgBreakPoint();
 		if (origin_function)
 		{
 			//计算被修改的指令占用多少字节
@@ -249,6 +253,7 @@ namespace ept
 		// Now it's trampoline so we don't have to store origin function
 		if (origin_function == nullptr)
 		{
+			// Write the absolute jump to our shadow page memory to jump to our hooked_page.
 			hook_write_absolute_jump(&hooked_function_info->fake_page_contents[page_offset], (unsigned __int64)proxy_function);
 
 			return true;
@@ -276,7 +281,7 @@ namespace ept
 		unsigned __int64 physical_address = hv::get_physical_address(hv::ghv.system_cr3.flags, (PVOID)guest_rip);
 
 		PLIST_ENTRY current = &ept_state.hooked_page_list;
-		while (&ept_state.hooked_page_list != current->Flink)
+		while (&ept_state.hooked_page_list != current->Flink) // 遍历链表直到回到表头
 		{
 			current = current->Flink;
 			//从列表中取出挂钩页
@@ -288,10 +293,10 @@ namespace ept
 			{
 				//检查虚拟地址是否已经挂钩
 				PLIST_ENTRY current_hooked_function = &hooked_page_info->hooked_functions_list;
-				while (&hooked_page_info->hooked_functions_list != current_hooked_function->Flink)
+				while (&hooked_page_info->hooked_functions_list != current_hooked_function->Flink) // 逐个检查每个函数钩子
 				{
-					current_hooked_function = current_hooked_function->Flink;
-					__ept_hooked_function_info* hooked_function_info = CONTAINING_RECORD(current_hooked_function, __ept_hooked_function_info, hooked_function_list);
+					current_hooked_function = current_hooked_function->Flink; // 移动到下一个函数钩子节点
+					__ept_hooked_function_info* hooked_function_info = CONTAINING_RECORD(current_hooked_function, __ept_hooked_function_info, hooked_function_list); // 取得函数钩子信息
 
 					if (hooked_function_info->virtual_address == (PVOID)guest_rip)
 					{

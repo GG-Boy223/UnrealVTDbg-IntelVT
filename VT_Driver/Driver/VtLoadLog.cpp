@@ -122,7 +122,7 @@ namespace
                 AppendUnsigned(buffer, buffer_size, offset,
                     long_long_width ? va_arg(args, unsigned __int64) : va_arg(args, unsigned int),
                     10,
-                    false);
+                    false); // 参数4：是否立即注入=false（按原逻辑交由 VM-entry 注入）
                 break;
             case 'd':
             case 'i':
@@ -133,7 +133,7 @@ namespace
                 AppendUnsigned(buffer, buffer_size, offset,
                     long_long_width ? va_arg(args, unsigned __int64) : va_arg(args, unsigned int),
                     16,
-                    false);
+                    false); // 参数4：是否立即注入=false（按原逻辑交由 VM-entry 注入）
                 break;
             case 'X':
                 AppendUnsigned(buffer, buffer_size, offset,
@@ -187,7 +187,7 @@ namespace
 
         if (KeGetCurrentIrql() != PASSIVE_LEVEL)
         {
-            return STATUS_UNSUCCESSFUL;
+            return STATUS_UNSUCCESSFUL; // 返回失败状态
         }
 
         UNICODE_STRING file_name;

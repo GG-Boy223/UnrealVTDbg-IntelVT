@@ -18,6 +18,7 @@ typedef struct tagPOINT
 typedef struct tagTHREADINFO
 {
     /* 0x0000 */ struct _ETHREAD* pEThread;
+// /* 0x0000 */ struct _ETHREAD* pEThread;
 }THREADINFO, * PTHREADINFO;
 
 typedef struct _THRDESKHEAD
@@ -264,6 +265,13 @@ typedef struct _MINI_CONTEXT_WOW64
     unsigned long Dr6;
     unsigned long Dr7;
     unsigned long EFlags;
+// /* 0x0004 */ unsigned long Dr0;
+// /* 0x0008 */ unsigned long Dr1;
+// /* 0x000c */ unsigned long Dr2;
+// /* 0x0010 */ unsigned long Dr3;
+// /* 0x0014 */ unsigned long Dr6;
+// /* 0x0018 */ unsigned long Dr7;
+// /* 0x00c0 */ unsigned long EFlags;
 }MINI_CONTEXT_WOW64, * PMINI_CONTEXT_WOW64;
 
 typedef struct _MINI_CONTEXT
@@ -279,6 +287,7 @@ typedef struct _MINI_CONTEXT
 }MINI_CONTEXT, * PMINI_CONTEXT;
 
 //���Խ��̶���
+//调试进程对象
 typedef struct _DEBUG_PROCESS
 {
     LIST_ENTRY list_entry;
@@ -304,6 +313,8 @@ typedef struct _BREAKPOINT_TABLE_ENTRY
     PVOID BreakpointAddress;  //�ϵ��ַ
     //BYTE firstByte;  //���ֽ�����
     //BYTE originalByte  //ԭʼ�ֽ�����
+//BYTE firstByte;  //首字节内容
+//BYTE originalByte  //原始字节内容
 }BREAKPOINT_TABLE_ENTRY, * PBREAKPOINT_TABLE_ENTRY;
 
 typedef struct _BREAKPOINT_TABLE
@@ -320,6 +331,7 @@ typedef struct _MDL_MAP
 }MDL_MAP, * PMDL_MAP;
 
 //��������
+//虚拟句柄表
 typedef struct _VIRTUAL_HANDLE_TABLE_ENTRY
 {
     size_t id;
@@ -345,6 +357,7 @@ typedef struct _DEBUGGER_TABLE_ENTRY
 
 
 /*===============================================������===============================================*/
+// /*===============================================类描述===============================================*/
 class CDebuggerList : public CMyList
 {
 public:
@@ -441,6 +454,7 @@ extern LONG                  g_TL_Game_pid;
 
 
 /**************************** ����ָ�� ****************************/
+// /**************************** 函数指针 ****************************/
 typedef NTSTATUS(NTAPI* PFN_OBDUPLICATEOBJECT)(
     IN _EPROCESS* SourceProcess,
     IN HANDLE SourceHandle,
@@ -709,17 +723,18 @@ typedef NTSTATUS(__fastcall* PFN_NTGETCONTEXTTHREAD)(_In_ HANDLE hThread, _Inout
 typedef NTSTATUS(__fastcall* PFN_NTSETCONTEXTTHREAD)(
     __in HANDLE ThreadHandle,
     __in PCONTEXT ThreadContext  /*�˲������û����ṩ�Ļ�����*/
+    // __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
     );
 
 typedef NTSTATUS(__fastcall* PFN_NTREADVIRTUALMEMORY)(_In_ HANDLE ProcessHandle,
     _In_opt_ PVOID BaseAddress,
-    _Out_opt_ PVOID Buffer,
+    _Out_opt_ PVOID Buffer, //输出缓冲区
     _In_ SIZE_T BufferSize,
     _Out_opt_ PSIZE_T NumberOfBytesRead);
 
 typedef NTSTATUS(__fastcall* PFN_NTWRITEVIRTUALMEMORY)(_In_ HANDLE ProcessHandle,
     _In_opt_ PVOID BaseAddress,
-    _In_ PVOID Buffer,
+    _In_ PVOID Buffer, //当前进程自己的缓冲区
     _In_ SIZE_T BufferSize,
     _Out_opt_ PSIZE_T NumberOfBytesWritten);
 
@@ -792,6 +807,7 @@ typedef VOID(__fastcall* PFN_DBGKPCLOSEOBJECT)(
     IN PVOID Object,
     IN ACCESS_MASK GrantedAccess,
     IN ULONG_PTR SystemHandleCount
+    // __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
     );
 
 typedef VOID(__fastcall* PFN_KESTARTTHREAD)(_In_ _ETHREAD* Thread, _In_opt_ PGROUP_AFFINITY GroupAffinity, _In_opt_ PULONG IdealProcessor);
@@ -931,11 +947,13 @@ typedef NTSTATUS(__fastcall* PFN_OBREFERENCEOBJECTBYHANDLE)(HANDLE Handle,
 
 typedef LONG_PTR(__fastcall* PFN_OBFDEREFERENCEOBJECT)(
     _In_ PVOID Object
+    // __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
     );
 
 typedef LONG_PTR(__fastcall* PFN_OBFDEREFERENCEOBJECTWITHTAG)(
     _In_ PVOID Object,
     _In_ ULONG Tag
+    // __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
     );
 
 typedef VOID(__fastcall* PFN_KEENTERCRITICALREGIONTHREAD)(_KTHREAD* Thread);
@@ -1002,6 +1020,7 @@ typedef NTSTATUS(__fastcall* PFN_PSPGETCONTEXTTHREADINTERNAL)(_In_ _ETHREAD* Thr
 typedef VOID(__fastcall* PFN_KESTACKATTACHPROCESS)(
     _Inout_ PRKPROCESS PROCESS,
     _Out_ PRKAPC_STATE ApcState
+    // __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
     );
 
 typedef VOID(__fastcall* PFN_KISTACKATTACHPROCESS)(_KPROCESS* Process, BOOLEAN a2, _KAPC_STATE* ApcState);
@@ -1012,21 +1031,25 @@ typedef NTSTATUS(__fastcall* PFN_NTSETINFORMATIONDEBUGOBJECT)(
     IN PVOID DebugInformation,
     IN ULONG DebugInformationLength,
     OUT PULONG ReturnLength OPTIONAL
+    // __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
     );
 
 typedef NTSTATUS(__fastcall* PFN_NTTERMINATEPROCESS)(
     __in_opt HANDLE ProcessHandle,
     __in NTSTATUS ExitStatus
+    // __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
     );
 
 typedef NTSTATUS(__fastcall* PFN_NTSUSPENDTHREAD)(
     __in HANDLE ThreadHandle,
     __out_opt PULONG PreviousSuspendCount
+    // __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
     );
 
 typedef NTSTATUS(__fastcall* PFN_NTRESUMETHREAD)(
     __in HANDLE ThreadHandle,
     __out_opt PULONG PreviousSuspendCount
+    // __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
     );
 
 typedef NTSTATUS(__fastcall* PFN_NTQUERYINFORMATIONTHREAD)(
@@ -1035,6 +1058,7 @@ typedef NTSTATUS(__fastcall* PFN_NTQUERYINFORMATIONTHREAD)(
     _Out_ PVOID ThreadInformation,
     _In_ ULONG ThreadInformationLength,
     _Out_opt_ PULONG ReturnLength
+    // __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
     );
 
 typedef PWND(__fastcall* PFN_VALIDATEHWND)(
@@ -1305,6 +1329,7 @@ extern PFN_SEPDELETEACCESSSTATE SepDeleteAccessState;
 
 
 //ȫ�ֱ���
+//全局变量
 extern PVOID PspLoaderInitRoutine;
 extern unsigned __int64 game_cr3;
 
@@ -1440,19 +1465,91 @@ namespace object_type_initializer_offset
 //    }
 //}
 
+//VOID
+//NewKeStackAttachProcess(
+//    _Inout_ PRKPROCESS PROCESS,
+//    _Out_ PRKAPC_STATE ApcState
+//)
+//{
+//    DbgkRuntimeCallGuard runtimeGuard;
+//    if (DbgkIsDriverRuntimeUnloading())
+//    {
+//        Original_KeStackAttachProcess(PROCESS, ApcState);
+//        return;
+//    }
+//
+//    if (IsDebugger((PEPROCESS)PROCESS))
+//        //获取当前调用进程
+//        WCHAR SubStr[256] = { 0 };
+//        UNICODE_STRING ImageFileName, PassImage;
+//        NTSTATUS Status = GetProcessName(PsGetCurrentProcess(), &SubStr[0]);
+//        if (NT_SUCCESS(Status))
+//        {
+//            RtlInitUnicodeString(&ImageFileName, SubStr);
+//            for (ULONG i = 0; i < sizeof(PassProcessList) / sizeof(PassProcessList[0]); i++)
+//            {
+//                RtlInitUnicodeString(&PassImage, PassProcessList[i]);
+//                if (RtlEqualUnicodeString(&ImageFileName, &PassImage, TRUE))
+//                {
+//                    //发现是白名单进程就放行
+//                    goto pass;
+//                }
+//            }
+//        }
+//        ApcState->Process = (PKPROCESS)1;
+//pass:
+//    Original_KeStackAttachProcess(PROCESS, ApcState);
+//}
 VOID
 FORCEINLINE
 KeEnterGuardedRegionThread(IN PKTHREAD Thread)
 {
     //���´�����������Thread->SpecialApcDisable -= 1;
+    //以下代码描述的是Thread->SpecialApcDisable -= 1;
     size_t ptr_SpecialApcDisable = (size_t)Thread + kthread_offset::SpecialApcDisable;
     *(short*)ptr_SpecialApcDisable -= 1;
 }
 
+//pass:
+//VOID
+//NewKeStackAttachProcess(
+//    _Inout_ PRKPROCESS PROCESS,
+//    _Out_ PRKAPC_STATE ApcState
+//)
+//{
+//    DbgkRuntimeCallGuard runtimeGuard;
+//    if (DbgkIsDriverRuntimeUnloading())
+//    {
+//        Original_KeStackAttachProcess(PROCESS, ApcState);
+//        return;
+//    }
+//
+//    if (IsDebugger((PEPROCESS)PROCESS))
+//        //获取当前调用进程
+//        WCHAR SubStr[256] = { 0 };
+//        UNICODE_STRING ImageFileName, PassImage;
+//        NTSTATUS Status = GetProcessName(PsGetCurrentProcess(), &SubStr[0]);
+//        if (NT_SUCCESS(Status))
+//        {
+//            RtlInitUnicodeString(&ImageFileName, SubStr);
+//            for (ULONG i = 0; i < sizeof(PassProcessList) / sizeof(PassProcessList[0]); i++)
+//            {
+//                RtlInitUnicodeString(&PassImage, PassProcessList[i]);
+//                if (RtlEqualUnicodeString(&ImageFileName, &PassImage, TRUE))
+//                {
+//                    //发现是白名单进程就放行
+//                    goto pass;
+//                }
+//            }
+//        }
+//        ApcState->Process = (PKPROCESS)1;
+//    Original_KeStackAttachProcess(PROCESS, ApcState);
+//}
 VOID
 FORCEINLINE
 KeLeaveGuardedRegionThread(IN PKTHREAD Thread)
 {
+    //以下代码描述的是Thread->SpecialApcDisable -= 1;
     size_t ptr_SpecialApcDisable = (size_t)Thread + kthread_offset::SpecialApcDisable;
     if ((*(short*)ptr_SpecialApcDisable += 1) == 0)
     {
@@ -1500,6 +1597,41 @@ KeLeaveGuardedRegionThread(IN PKTHREAD Thread)
 
 
 
+//VOID
+//NewKeStackAttachProcess(
+//    _Inout_ PRKPROCESS PROCESS,
+//    _Out_ PRKAPC_STATE ApcState
+//)
+//{
+//    DbgkRuntimeCallGuard runtimeGuard;
+//    if (DbgkIsDriverRuntimeUnloading())
+//    {
+//        Original_KeStackAttachProcess(PROCESS, ApcState);
+//        return;
+//    }
+//
+//    if (IsDebugger((PEPROCESS)PROCESS))
+//        //获取当前调用进程
+//        WCHAR SubStr[256] = { 0 };
+//        UNICODE_STRING ImageFileName, PassImage;
+//        NTSTATUS Status = GetProcessName(PsGetCurrentProcess(), &SubStr[0]);
+//        if (NT_SUCCESS(Status))
+//        {
+//            RtlInitUnicodeString(&ImageFileName, SubStr);
+//            for (ULONG i = 0; i < sizeof(PassProcessList) / sizeof(PassProcessList[0]); i++)
+//            {
+//                RtlInitUnicodeString(&PassImage, PassProcessList[i]);
+//                if (RtlEqualUnicodeString(&ImageFileName, &PassImage, TRUE))
+//                {
+//                    //发现是白名单进程就放行
+//                    goto pass;
+//                }
+//            }
+//        }
+//        ApcState->Process = (PKPROCESS)1;
+//pass:
+//    Original_KeStackAttachProcess(PROCESS, ApcState);
+//}
 VOID
 FORCEINLINE
 PspLockProcessShared(IN PMY_EPROCESS Process,  //���̹�����
@@ -1509,6 +1641,41 @@ PspLockProcessShared(IN PMY_EPROCESS Process,  //���̹�����
     ExAcquirePushLockShared((PULONG_PTR)&Process->ProcessLock);
 }
 
+//pass:
+//VOID
+//NewKeStackAttachProcess(
+//    _Inout_ PRKPROCESS PROCESS,
+//    _Out_ PRKAPC_STATE ApcState
+//)
+//{
+//    DbgkRuntimeCallGuard runtimeGuard;
+//    if (DbgkIsDriverRuntimeUnloading())
+//    {
+//        Original_KeStackAttachProcess(PROCESS, ApcState);
+//        return;
+//    }
+//
+//    if (IsDebugger((PEPROCESS)PROCESS))
+//        //获取当前调用进程
+//        WCHAR SubStr[256] = { 0 };
+//        UNICODE_STRING ImageFileName, PassImage;
+//        NTSTATUS Status = GetProcessName(PsGetCurrentProcess(), &SubStr[0]);
+//        if (NT_SUCCESS(Status))
+//        {
+//            RtlInitUnicodeString(&ImageFileName, SubStr);
+//            for (ULONG i = 0; i < sizeof(PassProcessList) / sizeof(PassProcessList[0]); i++)
+//            {
+//                RtlInitUnicodeString(&PassImage, PassProcessList[i]);
+//                if (RtlEqualUnicodeString(&ImageFileName, &PassImage, TRUE))
+//                {
+//                    //发现是白名单进程就放行
+//                    goto pass;
+//                }
+//            }
+//        }
+//        ApcState->Process = (PKPROCESS)1;
+//    Original_KeStackAttachProcess(PROCESS, ApcState);
+//}
 VOID
 FORCEINLINE
 PspUnlockProcessShared(IN PMY_EPROCESS Process,
@@ -1518,6 +1685,41 @@ PspUnlockProcessShared(IN PMY_EPROCESS Process,
     KeLeaveCriticalRegionThread(&CurrentThread->Tcb);
 }
 
+//pass:
+//VOID
+//NewKeStackAttachProcess(
+//    _Inout_ PRKPROCESS PROCESS,
+//    _Out_ PRKAPC_STATE ApcState
+//)
+//{
+//    DbgkRuntimeCallGuard runtimeGuard;
+//    if (DbgkIsDriverRuntimeUnloading())
+//    {
+//        Original_KeStackAttachProcess(PROCESS, ApcState);
+//        return;
+//    }
+//
+//    if (IsDebugger((PEPROCESS)PROCESS))
+//        //获取当前调用进程
+//        WCHAR SubStr[256] = { 0 };
+//        UNICODE_STRING ImageFileName, PassImage;
+//        NTSTATUS Status = GetProcessName(PsGetCurrentProcess(), &SubStr[0]);
+//        if (NT_SUCCESS(Status))
+//        {
+//            RtlInitUnicodeString(&ImageFileName, SubStr);
+//            for (ULONG i = 0; i < sizeof(PassProcessList) / sizeof(PassProcessList[0]); i++)
+//            {
+//                RtlInitUnicodeString(&PassImage, PassProcessList[i]);
+//                if (RtlEqualUnicodeString(&ImageFileName, &PassImage, TRUE))
+//                {
+//                    //发现是白名单进程就放行
+//                    goto pass;
+//                }
+//            }
+//        }
+//        ApcState->Process = (PKPROCESS)1;
+//    Original_KeStackAttachProcess(PROCESS, ApcState);
+//}
 VOID
 FORCEINLINE
 PspLockDbgkpErrorPortShared(IN _ETHREAD* CurrentThread)
@@ -1526,6 +1728,41 @@ PspLockDbgkpErrorPortShared(IN _ETHREAD* CurrentThread)
     ExAcquirePushLockShared((PULONG_PTR)&DbgkpErrorPortLock);
 }
 
+//pass:
+//VOID
+//NewKeStackAttachProcess(
+//    _Inout_ PRKPROCESS PROCESS,
+//    _Out_ PRKAPC_STATE ApcState
+//)
+//{
+//    DbgkRuntimeCallGuard runtimeGuard;
+//    if (DbgkIsDriverRuntimeUnloading())
+//    {
+//        Original_KeStackAttachProcess(PROCESS, ApcState);
+//        return;
+//    }
+//
+//    if (IsDebugger((PEPROCESS)PROCESS))
+//        //获取当前调用进程
+//        WCHAR SubStr[256] = { 0 };
+//        UNICODE_STRING ImageFileName, PassImage;
+//        NTSTATUS Status = GetProcessName(PsGetCurrentProcess(), &SubStr[0]);
+//        if (NT_SUCCESS(Status))
+//        {
+//            RtlInitUnicodeString(&ImageFileName, SubStr);
+//            for (ULONG i = 0; i < sizeof(PassProcessList) / sizeof(PassProcessList[0]); i++)
+//            {
+//                RtlInitUnicodeString(&PassImage, PassProcessList[i]);
+//                if (RtlEqualUnicodeString(&ImageFileName, &PassImage, TRUE))
+//                {
+//                    //发现是白名单进程就放行
+//                    goto pass;
+//                }
+//            }
+//        }
+//        ApcState->Process = (PKPROCESS)1;
+//    Original_KeStackAttachProcess(PROCESS, ApcState);
+//}
 VOID
 FORCEINLINE
 PspUnlockDbgkpErrorPortShared(IN PMY_ETHREAD CurrentThread)
@@ -1534,6 +1771,41 @@ PspUnlockDbgkpErrorPortShared(IN PMY_ETHREAD CurrentThread)
     KeLeaveCriticalRegionThread(&CurrentThread->Tcb);
 }
 
+//pass:
+//VOID
+//NewKeStackAttachProcess(
+//    _Inout_ PRKPROCESS PROCESS,
+//    _Out_ PRKAPC_STATE ApcState
+//)
+//{
+//    DbgkRuntimeCallGuard runtimeGuard;
+//    if (DbgkIsDriverRuntimeUnloading())
+//    {
+//        Original_KeStackAttachProcess(PROCESS, ApcState);
+//        return;
+//    }
+//
+//    if (IsDebugger((PEPROCESS)PROCESS))
+//        //获取当前调用进程
+//        WCHAR SubStr[256] = { 0 };
+//        UNICODE_STRING ImageFileName, PassImage;
+//        NTSTATUS Status = GetProcessName(PsGetCurrentProcess(), &SubStr[0]);
+//        if (NT_SUCCESS(Status))
+//        {
+//            RtlInitUnicodeString(&ImageFileName, SubStr);
+//            for (ULONG i = 0; i < sizeof(PassProcessList) / sizeof(PassProcessList[0]); i++)
+//            {
+//                RtlInitUnicodeString(&PassImage, PassProcessList[i]);
+//                if (RtlEqualUnicodeString(&ImageFileName, &PassImage, TRUE))
+//                {
+//                    //发现是白名单进程就放行
+//                    goto pass;
+//                }
+//            }
+//        }
+//        ApcState->Process = (PKPROCESS)1;
+//    Original_KeStackAttachProcess(PROCESS, ApcState);
+//}
 VOID
 FORCEINLINE
 PspLockProcessExclusive(IN PMY_EPROCESS Process,   //���̶�ռ��
@@ -1543,6 +1815,41 @@ PspLockProcessExclusive(IN PMY_EPROCESS Process,   //���̶�ռ��
     ExAcquirePushLockExclusive((PULONG_PTR)&Process->ProcessLock);
 }
 
+//pass:
+//VOID
+//NewKeStackAttachProcess(
+//    _Inout_ PRKPROCESS PROCESS,
+//    _Out_ PRKAPC_STATE ApcState
+//)
+//{
+//    DbgkRuntimeCallGuard runtimeGuard;
+//    if (DbgkIsDriverRuntimeUnloading())
+//    {
+//        Original_KeStackAttachProcess(PROCESS, ApcState);
+//        return;
+//    }
+//
+//    if (IsDebugger((PEPROCESS)PROCESS))
+//        //获取当前调用进程
+//        WCHAR SubStr[256] = { 0 };
+//        UNICODE_STRING ImageFileName, PassImage;
+//        NTSTATUS Status = GetProcessName(PsGetCurrentProcess(), &SubStr[0]);
+//        if (NT_SUCCESS(Status))
+//        {
+//            RtlInitUnicodeString(&ImageFileName, SubStr);
+//            for (ULONG i = 0; i < sizeof(PassProcessList) / sizeof(PassProcessList[0]); i++)
+//            {
+//                RtlInitUnicodeString(&PassImage, PassProcessList[i]);
+//                if (RtlEqualUnicodeString(&ImageFileName, &PassImage, TRUE))
+//                {
+//                    //发现是白名单进程就放行
+//                    goto pass;
+//                }
+//            }
+//        }
+//        ApcState->Process = (PKPROCESS)1;
+//    Original_KeStackAttachProcess(PROCESS, ApcState);
+//}
 VOID
 FORCEINLINE
 PspUnlockProcessExclusive(IN PEPROCESS Process,
@@ -1554,6 +1861,41 @@ PspUnlockProcessExclusive(IN PEPROCESS Process,
     KeLeaveCriticalRegionThread((PKTHREAD)kthread_base);
 }
 
+//pass:
+//VOID
+//NewKeStackAttachProcess(
+//    _Inout_ PRKPROCESS PROCESS,
+//    _Out_ PRKAPC_STATE ApcState
+//)
+//{
+//    DbgkRuntimeCallGuard runtimeGuard;
+//    if (DbgkIsDriverRuntimeUnloading())
+//    {
+//        Original_KeStackAttachProcess(PROCESS, ApcState);
+//        return;
+//    }
+//
+//    if (IsDebugger((PEPROCESS)PROCESS))
+//        //获取当前调用进程
+//        WCHAR SubStr[256] = { 0 };
+//        UNICODE_STRING ImageFileName, PassImage;
+//        NTSTATUS Status = GetProcessName(PsGetCurrentProcess(), &SubStr[0]);
+//        if (NT_SUCCESS(Status))
+//        {
+//            RtlInitUnicodeString(&ImageFileName, SubStr);
+//            for (ULONG i = 0; i < sizeof(PassProcessList) / sizeof(PassProcessList[0]); i++)
+//            {
+//                RtlInitUnicodeString(&PassImage, PassProcessList[i]);
+//                if (RtlEqualUnicodeString(&ImageFileName, &PassImage, TRUE))
+//                {
+//                    //发现是白名单进程就放行
+//                    goto pass;
+//                }
+//            }
+//        }
+//        ApcState->Process = (PKPROCESS)1;
+//    Original_KeStackAttachProcess(PROCESS, ApcState);
+//}
 VOID
 FORCEINLINE
 PspLockProcessListExclusive(IN PETHREAD CurrentThread)  //��ס������б�
@@ -1563,6 +1905,41 @@ PspLockProcessListExclusive(IN PETHREAD CurrentThread)  //��ס����
     ExAcquirePushLockExclusive((PULONG_PTR)PspActiveProcessLock);
 }
 
+//pass:
+//VOID
+//NewKeStackAttachProcess(
+//    _Inout_ PRKPROCESS PROCESS,
+//    _Out_ PRKAPC_STATE ApcState
+//)
+//{
+//    DbgkRuntimeCallGuard runtimeGuard;
+//    if (DbgkIsDriverRuntimeUnloading())
+//    {
+//        Original_KeStackAttachProcess(PROCESS, ApcState);
+//        return;
+//    }
+//
+//    if (IsDebugger((PEPROCESS)PROCESS))
+//        //获取当前调用进程
+//        WCHAR SubStr[256] = { 0 };
+//        UNICODE_STRING ImageFileName, PassImage;
+//        NTSTATUS Status = GetProcessName(PsGetCurrentProcess(), &SubStr[0]);
+//        if (NT_SUCCESS(Status))
+//        {
+//            RtlInitUnicodeString(&ImageFileName, SubStr);
+//            for (ULONG i = 0; i < sizeof(PassProcessList) / sizeof(PassProcessList[0]); i++)
+//            {
+//                RtlInitUnicodeString(&PassImage, PassProcessList[i]);
+//                if (RtlEqualUnicodeString(&ImageFileName, &PassImage, TRUE))
+//                {
+//                    //发现是白名单进程就放行
+//                    goto pass;
+//                }
+//            }
+//        }
+//        ApcState->Process = (PKPROCESS)1;
+//    Original_KeStackAttachProcess(PROCESS, ApcState);
+//}
 VOID
 FORCEINLINE
 PspUnlockProcessList(IN PETHREAD CurrentThread)

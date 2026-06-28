@@ -41,8 +41,10 @@ BOOLEAN IsProtectFile(PUNICODE_STRING ImageFileName)
                     return TRUE;
                 }
                 /* Move to the next entry */
+                // /* Move to the next entry */
                 NextEntry = NextEntry->Flink;
             }
+            // /* Fail */
             return FALSE;
         }
         __finally
@@ -59,22 +61,24 @@ BOOLEAN IsProtectFile(PUNICODE_STRING ImageFileName)
 //是白名单进程
 NTSTATUS IsWhiteListProcess(_In_ HANDLE ProcessHandle,  //要读取的目标进程
     _In_opt_ PVOID BaseAddress,
-    _Out_opt_ PVOID Buffer,
+    _Out_opt_ PVOID Buffer, //输出缓冲区
     _In_ SIZE_T BufferSize,
     _Out_opt_ PSIZE_T NumberOfBytesRead)
 {
     NTSTATUS Status = STATUS_SUCCESS;
 
-    _EPROCESS* Process;
+    _EPROCESS* Process; //进程对象
     PUNICODE_STRING ImageFileName;
     UNICODE_STRING fileName;
     UNICODE_STRING CurrentProcName, PassProcName, PassProcName2;
     BOOLEAN bIsPassProc = FALSE;
 
     /* Reference the process */
+    // /* Reference the process */
     NTSTATUS Status2 = ObReferenceObjectByHandle(ProcessHandle,
         PROCESS_ALL_ACCESS,
         *PsProcessType,
+        // *PsProcessType,
         KernelMode,
         (PVOID*)&Process,
         NULL);
@@ -83,6 +87,7 @@ NTSTATUS IsWhiteListProcess(_In_ HANDLE ProcessHandle,  //要读取的目标进程
         Status2 = SeLocateProcessImageName((PEPROCESS)Process, &ImageFileName);
         if (NT_SUCCESS(Status2))
         {
+            //获取当前调用进程
             WCHAR SubStr[256] = { 0 };
             if (GetModuleFileName(&SubStr[0], ImageFileName))
             {
@@ -116,8 +121,9 @@ NTSTATUS IsWhiteListProcess(_In_ HANDLE ProcessHandle,  //要读取的目标进程
         }
         if (Process)
         {
-            ObDereferenceObject(Process);
+            ObDereferenceObject(Process); //释放进程对象
         }
     }
+    // /* Return status */
     return Status;
 }

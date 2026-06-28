@@ -1,4 +1,4 @@
-#include "DebugActiveProcess.h"
+﻿#include "DebugActiveProcess.h"
 #include "DebugObjectCommonInternal.h"
 
 EXTERN_C
@@ -6,10 +6,10 @@ NTSTATUS NtDebugActiveProcess(
     IN HANDLE ProcessHandle,
     IN HANDLE DebugHandle)
 {
-    NTSTATUS Status;
+    NTSTATUS Status; // eax
     _ETHREAD* LastThread = NULL;
-    _EPROCESS* TargetProcess;
-    PDEBUG_OBJECT DebugObject;
+    _EPROCESS* TargetProcess; // [rsp+60h] [rbp+18h]
+    PDEBUG_OBJECT DebugObject; // [rsp+68h] [rbp+20h]
 
     PAGED_CODE();
     DbgkStateOpGuard stateGuard;
@@ -21,9 +21,11 @@ NTSTATUS NtDebugActiveProcess(
         return STATUS_DELETE_PENDING;
     }
 
+    // /* Reference the process */
     Status = ObReferenceObjectByHandle(ProcessHandle,
         PROCESS_SET_PORT,
         *PsProcessType,
+        // *PsProcessType,
         KernelMode,
         (PVOID*)&TargetProcess,
         NULL);
@@ -31,6 +33,7 @@ NTSTATUS NtDebugActiveProcess(
     {
         if (TargetProcess == (_EPROCESS*)PsGetCurrentProcess() || TargetProcess == (_EPROCESS*)PsInitialSystemProcess)
         {
+            // /* Dereference and fail */
             ObDereferenceObject(TargetProcess);
             return STATUS_ACCESS_DENIED;
         }
@@ -47,7 +50,8 @@ NTSTATUS NtDebugActiveProcess(
                 (*(unsigned short*)ptr_CurrentMachine != IMAGE_FILE_MACHINE_I386 && *(unsigned short*)ptr_CurrentMachine != IMAGE_FILE_MACHINE_ARMNT) ||
                 (*(size_t*)ptr_TargetWoW64Process && (*(unsigned short*)ptr_TargetMachine == IMAGE_FILE_MACHINE_I386 || *(unsigned short*)ptr_TargetMachine == IMAGE_FILE_MACHINE_ARMNT)))
             {
-                Status = ObReferenceObjectByHandle(DebugHandle,
+                // /* Get the debug object */
+                Status = ObReferenceObjectByHandle(DebugHandle, //根据句柄引用调试对象
                     DEBUG_PROCESS_ASSIGN,
                     Hvm_DbgkDebugObjectType,
                     KernelMode,
@@ -55,16 +59,18 @@ NTSTATUS NtDebugActiveProcess(
                     NULL);
                 if (NT_SUCCESS(Status))
                 {
+                    // /* Acquire process rundown */
                     size_t ptr_RundownProtect = (size_t)TargetProcess + eprocess_offset::RundownProtect;
                     if (ExAcquireRundownProtection((PEX_RUNDOWN_REF)ptr_RundownProtect))
                     {
                         Status = DbgkpPostFakeProcessCreateMessages(TargetProcess, DebugObject, &LastThread);
                         Status = DbgkpSetProcessDebugObject(TargetProcess, DebugObject, Status, LastThread);
+                        // /* Release rundown protection */
                         ExReleaseRundownProtection((PEX_RUNDOWN_REF)ptr_RundownProtect);
                     }
                     else
                     {
-                        Status = STATUS_PROCESS_IS_TERMINATING;
+                        Status = STATUS_PROCESS_IS_TERMINATING; //进程正在终止
                     }
                     ObDereferenceObject(DebugObject);
                 }
@@ -74,7 +80,9 @@ NTSTATUS NtDebugActiveProcess(
                 Status = STATUS_NOT_SUPPORTED;
             }
         }
+        // /* Dereference and fail */
         ObDereferenceObject(TargetProcess);
     }
+    // /* Return status */
     return Status;
 }

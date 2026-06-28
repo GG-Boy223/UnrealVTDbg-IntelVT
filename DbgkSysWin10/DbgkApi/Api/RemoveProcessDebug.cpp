@@ -1,4 +1,4 @@
-#include "RemoveProcessDebug.h"
+﻿#include "RemoveProcessDebug.h"
 #include "DebugObjectCommon.h"
 #include "DebugObjectCommonInternal.h"
 #include "../DbgkApi.h"
@@ -28,12 +28,13 @@ NTSTATUS
 NtRemoveProcessDebug(
     IN HANDLE ProcessHandle,
     IN HANDLE DebugObjectHandle
+// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 )
 {
-    NTSTATUS Status;
+    NTSTATUS Status; // eax
     KPROCESSOR_MODE PreviousMode;
     PDEBUG_OBJECT DebugObject;
-    _EPROCESS* Process;
+    _EPROCESS* Process; //进程对象
 
     PAGED_CODE();
     DbgkRuntimeCallGuard stateGuard;
@@ -45,20 +46,25 @@ NtRemoveProcessDebug(
 
     PreviousMode = KeGetPreviousMode();
 
+    // /* Reference the process */
     Status = ObReferenceObjectByHandle(ProcessHandle,
         PROCESS_SET_PORT,
         *PsProcessType,
+        // *PsProcessType,
         PreviousMode,
         (PVOID*)&Process,
         NULL);
+    // /* Check if we failed */
     if (!NT_SUCCESS(Status))
     {
+        // /* Return status */
         return Status;
     }
 
     Status = ObReferenceObjectByHandle(DebugObjectHandle,
         DEBUG_PROCESS_ASSIGN,
         Hvm_DbgkDebugObjectType,
+        // *PsProcessType,
         PreviousMode,
         (PVOID*)&DebugObject,
         NULL);
@@ -70,6 +76,8 @@ NtRemoveProcessDebug(
         ObDereferenceObject(DebugObject);
     }
 
-    ObDereferenceObject(Process);
+    ObDereferenceObject(Process); //释放进程对象
+    /* Return status */
+    // /* Return status */
     return Status;
 }

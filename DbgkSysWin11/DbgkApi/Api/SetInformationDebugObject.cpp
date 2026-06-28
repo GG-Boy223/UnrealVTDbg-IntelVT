@@ -1,4 +1,4 @@
-#include "SetInformationDebugObject.h"
+﻿#include "SetInformationDebugObject.h"
 #include "DebugObjectCommonInternal.h"
 
 NTSTATUS
@@ -10,7 +10,7 @@ NtSetInformationDebugObject(
     OUT PULONG ReturnLength OPTIONAL)
 {
     KPROCESSOR_MODE PreviousMode;
-    NTSTATUS Status;
+    NTSTATUS Status; // eax
     PDEBUG_OBJECT DebugObject;
     ULONG Flags;
 
@@ -56,13 +56,14 @@ NtSetInformationDebugObject(
 
             break;
         }
+        // /* No special handling for other messages */
         default:
         {
-            return STATUS_INVALID_PARAMETER;
+            return STATUS_INVALID_PARAMETER; // 参数不合法时直接拒绝。
         }
         }
     }
-    __except (ExSystemExceptionFilter())
+    __except (ExSystemExceptionFilter()) // 如果先前的模式是内核模式，则不处理异常
     {
         return GetExceptionCode();
     }
@@ -73,7 +74,7 @@ NtSetInformationDebugObject(
     {
         if (Flags & ~DBGK_KILL_PROCESS_ON_EXIT)
         {
-            return STATUS_INVALID_PARAMETER;
+            return STATUS_INVALID_PARAMETER; // 参数不合法时直接拒绝。
         }
         Status = ObReferenceObjectByHandle(DebugObjectHandle,
             DEBUG_SET_INFORMATION,
@@ -82,13 +83,16 @@ NtSetInformationDebugObject(
             (PVOID*)&DebugObject,
             NULL);
 
+        // /* Check if we failed */
         if (!NT_SUCCESS(Status))
         {
+            // /* Return status */
             return Status;
         }
         ExAcquireFastMutex(&DebugObject->Mutex);
 
-        if (Flags & DBGK_KILL_PROCESS_ON_EXIT)
+        // /* Set the Flags */
+        if (Flags & DBGK_KILL_PROCESS_ON_EXIT) //退出时终止进程
         {
             DebugObject->Flags |= DEBUG_OBJECT_KILL_ON_CLOSE;
         }

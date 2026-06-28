@@ -34,6 +34,7 @@ NewSetThreadContext(
 
             DebugBreakInternal::ClearLocalHardwareBreakpointRecords(false, "硬件断点桥关闭");
         }
+        // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
         else
         {
             if (!DebugBreakInternal::IsCurrentHardwareBreakpointState(lpContext))
@@ -42,6 +43,7 @@ NewSetThreadContext(
             }
         }
 
+        //可能是为了清理dr6
         if (lpContext->Dr6 == 0)
         {
             InterlockedExchange(&g_debug_condition_detected, 0);
@@ -84,6 +86,7 @@ BOOL WINAPI NewGetThreadContext(
     }
 
     const DWORD requestedContextFlags = lpContext->ContextFlags;
+    //调用原函数
     BOOL boSuccess = Sys_GetThreadContext(hThread, lpContext);
 
     if (boSuccess && DebugBreakInternal::HasContextDebugRegisterRequest(requestedContextFlags))
@@ -133,7 +136,7 @@ BOOL WINAPI NewGetThreadContext(
         int validBreakpointCount = 0;
 
         BreakpointList.Lock();
-        for (const auto& Breakpoint : BreakpointList)
+        for (const auto& Breakpoint : BreakpointList) //即使如果列表为0，它也会自动跳过，不会进for循环里
         {
             if (Breakpoint.Address &&
                 Breakpoint.debugRegister >= 0 &&
@@ -175,7 +178,7 @@ BOOL WINAPI NewGetThreadContext(
         }
         else if (debugCondition == 2 && !reportedDetectedBreakpoint)
         {
-            lpContext->Dr6 = 1 << 14;
+            lpContext->Dr6 = 1 << 14; //设置bs位
         }
 
         // 旧项目保留的禁用路径：GetThreadContext 时通过 vmcall2(VMCALL_GET_BREAKPOINT) 查询当前线程命中的地址，
@@ -222,5 +225,24 @@ BOOL WINAPI NewGetThreadContext(
         //    }
         //}
     }
+    //    logger.Log("current_vmcall 失败!  errorCode:%d", vmcallinfo.errorCode);
+    //SYSTEM_INFO SysInfo = { 0 };
+    //GetSystemInfo(&SysInfo);
+    //vmcallinfo.CPUCount = SysInfo.dwNumberOfProcessors;
+    //boSuccess = current_vmcall(&vmcallinfo);
+    //if (boSuccess)
+    //{
+    //    logger.Log("返回的监视id: %d", vmcallinfo.watchid);
+    //    // Add the breakpoint
+    //    BREAKPOINT_RECORD Breakpoint = { 0 };
+    //    Breakpoint.Address = vmcallinfo.VirtualAddress;
+    //    Breakpoint.length = vmcallinfo.Size;
+    //    Breakpoint.cr3 = vmcallinfo.cr3;
+    //    Breakpoint.watchid = vmcallinfo.watchid;
+    //    BreakpointList.Lock();
+    //    BreakpointList.push_back(Breakpoint);
+    //    BreakpointList.UnLock();
+    //}
+    //else
     return boSuccess;
 }

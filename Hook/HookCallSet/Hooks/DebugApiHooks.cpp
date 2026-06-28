@@ -37,9 +37,18 @@ NTSTATUS NTAPI NewNtDebugActiveProcess(
             return STATUS_UNSUCCESSFUL;
         }
 
+        //连接调试器
         Status = Sys_NtDebugActiveProcess(ProcessHandle, DebugObjectHandle);
+        //if (NT_SUCCESS(Status))
+        //{
+        //    //在目标进程内触发int3事件
+        //    Status = DbgUiIssueRemoteBreakin(hProcess);
+        //    if (!NT_SUCCESS(Status))
+        //        ZwRemoveProcessDebug(hProcess, NtCurrentTeb()->DbgSsReserved[1]);
+        //}
         return Status;
     }
+    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
     else
     {
         ReportSeriousError("无法获取目标进程cr3");
@@ -88,6 +97,7 @@ NewDbgUiIssueRemoteBreakin(IN HANDLE Process)
     {
         return STATUS_SUCCESS;
     }
+    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
     else
     {
         return STATUS_UNSUCCESSFUL;
@@ -104,6 +114,13 @@ NTSTATUS NTAPI NewDbgUiDebugActiveProcess(HANDLE hProcess)
     }
 
     NTSTATUS Status = ntDebugActiveProcess(hProcess, NtCurrentTeb()->DbgSsReserved[1]);
+    //if (NT_SUCCESS(Status))
+    //{
+    //    //在目标进程内触发int3事件
+    //    Status = DbgUiIssueRemoteBreakin(hProcess);
+    //    if (!NT_SUCCESS(Status))
+    //        ZwRemoveProcessDebug(hProcess, NtCurrentTeb()->DbgSsReserved[1]);
+    //}
     return Status;
 }
 
@@ -144,6 +161,7 @@ bool TryHook_DebugActiveProcess()
     {
         return HookOn((PVOID*)&Sys_DebugActiveProcess, NewDebugActiveProcess, GetCurrentThread());
     }
+    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
     else
     {
         logger.Log("DebugActiveProcess空指针");
@@ -158,6 +176,7 @@ bool TryUnHook_DebugActiveProcess()
         return HookOff((PVOID*)&Sys_DebugActiveProcess, NewDebugActiveProcess, GetCurrentThread());
     }
 
+    // 调试器会高频读取断点附近字节，回填路径保持静默，避免日志拖慢步进和反汇编刷新。
     return true;
 }
 
@@ -169,6 +188,7 @@ bool TryHook_DebugActiveProcessStop()
     {
         return HookOn((PVOID*)&Sys_DebugActiveProcessStop, NewDebugActiveProcessStop, GetCurrentThread());
     }
+    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
     else
     {
         logger.Log("DebugActiveProcessStop空指针");
@@ -183,6 +203,7 @@ bool TryUnHook_DebugActiveProcessStop()
         return HookOff((PVOID*)&Sys_DebugActiveProcessStop, NewDebugActiveProcessStop, GetCurrentThread());
     }
 
+    // 调试器会高频读取断点附近字节，回填路径保持静默，避免日志拖慢步进和反汇编刷新。
     return true;
 }
 
@@ -194,6 +215,7 @@ bool TryHook_NtDebugActiveProcess()
     {
         return HookOn((PVOID*)&Sys_NtDebugActiveProcess, NewNtDebugActiveProcess, GetCurrentThread());
     }
+    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
     else
     {
         logger.Log("NtDebugActiveProcess空指针");
@@ -208,6 +230,7 @@ bool TryUnHook_NtDebugActiveProcess()
         return HookOff((PVOID*)&Sys_NtDebugActiveProcess, NewNtDebugActiveProcess, GetCurrentThread());
     }
 
+    // 调试器会高频读取断点附近字节，回填路径保持静默，避免日志拖慢步进和反汇编刷新。
     return true;
 }
 
@@ -219,6 +242,7 @@ bool TryHook_DbgUiIssueRemoteBreakin()
     {
         return HookOn((PVOID*)&Sys_DbgUiIssueRemoteBreakin, NewDbgUiIssueRemoteBreakin, GetCurrentThread());
     }
+    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
     else
     {
         logger.Log("DbgUiIssueRemoteBreakin空指针");
@@ -233,6 +257,7 @@ bool TryUnHook_DbgUiIssueRemoteBreakin()
         return HookOff((PVOID*)&Sys_DbgUiIssueRemoteBreakin, NewDbgUiIssueRemoteBreakin, GetCurrentThread());
     }
 
+    // 调试器会高频读取断点附近字节，回填路径保持静默，避免日志拖慢步进和反汇编刷新。
     return true;
 }
 
@@ -244,6 +269,7 @@ bool TryHook_DbgUiDebugActiveProcess()
     {
         return HookOn((PVOID*)&Sys_DbgUiDebugActiveProcess, NewDbgUiDebugActiveProcess, GetCurrentThread());
     }
+    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
     else
     {
         logger.Log("DbgUiDebugActiveProcess空指针");
@@ -258,6 +284,7 @@ bool TryUnHook_DbgUiDebugActiveProcess()
         return HookOff((PVOID*)&Sys_DbgUiDebugActiveProcess, NewDbgUiDebugActiveProcess, GetCurrentThread());
     }
 
+    // 调试器会高频读取断点附近字节，回填路径保持静默，避免日志拖慢步进和反汇编刷新。
     return true;
 }
 
@@ -269,6 +296,7 @@ bool TryHook_WaitForDebugEvent()
     {
         return HookOn((PVOID*)&Sys_WaitForDebugEvent, NewWaitForDebugEvent, GetCurrentThread());
     }
+    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
     else
     {
         logger.Log("WaitForDebugEvent空指针");
@@ -283,6 +311,7 @@ bool TryUnHook_WaitForDebugEvent()
         return HookOff((PVOID*)&Sys_WaitForDebugEvent, NewWaitForDebugEvent, GetCurrentThread());
     }
 
+    // 调试器会高频读取断点附近字节，回填路径保持静默，避免日志拖慢步进和反汇编刷新。
     return true;
 }
 

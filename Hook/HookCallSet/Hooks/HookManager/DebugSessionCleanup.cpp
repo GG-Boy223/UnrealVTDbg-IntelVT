@@ -27,6 +27,8 @@ void CleanupDebugSessionState(const char* reason)
             continue;
         }
 
+        // 旧日志包含 watchid，避免在日志文件暴露内部断点编号。
+        // logger.Log("调试会话清理: 删除隐藏int3失败 地址:%p watchid:%d 来源:%s", ...);
         logger.Log("调试会话清理: 删除隐藏int3失败 地址:%p 来源:%s",
             reinterpret_cast<PVOID>(breakpoint.VirtualAddress),
             cleanupReason);

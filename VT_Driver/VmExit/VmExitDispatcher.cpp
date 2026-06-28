@@ -29,6 +29,7 @@ namespace
 
 	void clear_vm_entry_event_fields() // 清空 VM-entry 注入字段，保证每次 VM-exit 重新决定是否投递事件。
 	{
+		// 清空 VM-entry 中断注入字段
 		hv::vmwrite<unsigned __int64>(VM_ENTRY_INTERRUPTION_INFO_FIELD, 0); // 清除 pending event 标志，避免沿用上一次注入请求。
 		hv::vmwrite<unsigned __int64>(VM_ENTRY_EXCEPTION_ERROR_CODE, 0); // 清除异常错误码，避免无错误码异常继承旧值。
 		hv::vmwrite<unsigned __int64>(VM_ENTRY_INSTRUCTION_LENGTH, 0); // 清除软件中断指令长度，后续注入路径按需重新写入。
@@ -65,11 +66,15 @@ void record_vmresume_failure(unsigned __int64 const rflags) // 只写内存快�
 //注意：在 Host 上永远禁止直接调用 Windows API，因为 Host 处于 VMX 非根路径上，任何段检查都可能导致不稳定
 //原因：很多 Windows API 依赖 IRQL、栈边界（stack base limit）、其他约束，Host 在 VM-exit 期间不一定满足这些约束
 //如果一项调用失败，系统可能直接触发 BugCheck（BSOD）；因此像 ASSERT/DbgBreakPoint 等调试函数也不应该使用
-EXTERN_C
+//原因：很多 Windows API 会检查 IRQL、栈边界（stack base limit）等条件，Host 在 VM-exit 期间不一定满足这些约束
+//后果：一旦检查失败，系统可能直接触发 BugCheck（BSOD），因此像 ASSERT/DbgBreakPoint 等调试函数也不应在这里使用
+EXTERN_C // 使用 C 链接方式导出函数名，避免 C++ 名字修饰影响汇编入口或链接匹配
 bool vmexit_handler(guest_context* guest_registers, PFXSAVE64 fxsave) // VM-exit 总入口：采集 guest 状态并分派到具体 exit handler。
 {
 	//从 fs_base 获取到 vcpu 的指针，因为 Host 已经将每个 CPU 的 vCPU 指针到 FS 基址
 	//硬件原理：FS Base 是每个 CPU 可独立维护的寄存器，适合用于快速访问 CPU 相关数据（类似 TLS）结构
+	//从 fs_base 里取出 vcpu 的指针，因为 Host 保存了每个 CPU 的 vCPU 指针到 FS 基址
+	//硬件原理：FS Base 是每个 CPU 可独立维护的寄存器，适合作为快速访问 CPU 本地数据（类似 TLS）的入口
 	__vcpu* vcpu = reinterpret_cast<__vcpu*>(_readfsbase_u64()); // 当前 CPU 的 vCPU 上下文必须来自 FS Base，避免调用内核 API 查询处理器号。
 	if (vcpu == nullptr)
 	{
@@ -89,12 +94,16 @@ bool vmexit_handler(guest_context* guest_registers, PFXSAVE64 fxsave) // VM-exit
 
 	vcpu->hide_vm_exit_overhead = false; // 每次退出默认不隐藏开销，只有 CPUID/RDTSC 等时间敏感路径主动开启。
 
+	//
+	//采用函数棒（函数指针表）的设计无法满足需求，因为无法很好地处理未知/未来的退出原因
+	//改用 switch：可以把未收录的 reason 统一落到 default 做保护性处理
 	dispatch_vm_exit(vcpu); // 根据 exit reason 执行模拟、注入异常、EPT 切换或 VMCALL 服务。
 
 	if (vcpu->vmx_off_state.vmx_off_executed) // VMCALL/退出流程要求关闭 VMX 时，由汇编上层执行最终 VMXOFF。
 	{
 		vcpu->vcpu_status.vmm_launched = false; // 标记当前 vCPU 不再处于已 launch 状态，防止后续误用 VMRESUME。
 		RestoreGuest(); // VMXOFF 前恢复 guest 控制寄存器、段寄存器、MSR 等真实硬件状态。
+		//如果要停止虚拟化，vmexit_handler 将返回 true，通知上层跳出 VMX 处理循环
 		return true; // 通知汇编入口走退出虚拟化路径，而不是继续 VMRESUME。
 	}
 
@@ -103,6 +112,10 @@ bool vmexit_handler(guest_context* guest_registers, PFXSAVE64 fxsave) // VM-exit
 
 void dispatch_vm_exit(__vcpu* vcpu) // 按 VM-exit 原因码分发，保持所有事件注入策略集中在进入 switch 前处理。
 {
+	// Reset VM-entry injection fields for this VM-exit. New handlers set them again before VMRESUME.
+	//hv::vmwrite<unsigned __int64>(VM_ENTRY_INTERRUPTION_INFO_FIELD, 0);
+	//hv::vmwrite<unsigned __int64>(VM_ENTRY_EXCEPTION_ERROR_CODE, 0);
+	//hv::vmwrite<unsigned __int64>(VM_ENTRY_INSTRUCTION_LENGTH, 0);
 	clear_vm_entry_event_fields(); // 先清理上一轮 VM-entry 注入状态，后续 handler 再按当前 exit 决定是否写入。
 	if (vcpu->vmexit_info.reason != VMX_EXIT_REASON_EXCEPTION_OR_NMI) // Exception/NMI handler 会直接读取 exit interruption 信息，其他 exit 需先处理 IDT-vectoring。
 	{
@@ -140,19 +153,20 @@ void dispatch_vm_exit(__vcpu* vcpu) // 按 VM-exit 原因码分发，保持所�
 		break;
 
 	case VMX_EXIT_REASON_EXECUTE_VMCLEAR: // 以下 VMX 指令不允许 guest 直接执行，统一按非法指令语义处理。
-	case VMX_EXIT_REASON_EXECUTE_VMLAUNCH:
-	case VMX_EXIT_REASON_EXECUTE_VMPTRLD:
-	case VMX_EXIT_REASON_EXECUTE_VMPTRST:
-	case VMX_EXIT_REASON_EXECUTE_VMREAD:
-	case VMX_EXIT_REASON_EXECUTE_VMRESUME:
-	case VMX_EXIT_REASON_EXECUTE_VMWRITE:
-	case VMX_EXIT_REASON_EXECUTE_VMXOFF:
-	case VMX_EXIT_REASON_EXECUTE_INVEPT:
-	case VMX_EXIT_REASON_EXECUTE_INVVPID:
+	case VMX_EXIT_REASON_EXECUTE_VMLAUNCH: // VMLAUNCH
+	case VMX_EXIT_REASON_EXECUTE_VMPTRLD: // VMPTRLD
+	case VMX_EXIT_REASON_EXECUTE_VMPTRST: // VMPTRST
+	case VMX_EXIT_REASON_EXECUTE_VMREAD: // VMREAD
+	case VMX_EXIT_REASON_EXECUTE_VMRESUME: // VMRESUME
+	case VMX_EXIT_REASON_EXECUTE_VMWRITE: // VMWRITE
+	case VMX_EXIT_REASON_EXECUTE_VMXOFF: // VMXOFF
+	case VMX_EXIT_REASON_EXECUTE_INVEPT: // INVEPT
+	case VMX_EXIT_REASON_EXECUTE_INVVPID: // INVVPID
 	case VMX_EXIT_REASON_EXECUTE_VMFUNC:               vmexit_vm_instruction(vcpu);                break; // 注入 #UD，避免 guest 干扰 host VMCS/EPT/VPID 状态。
 
 	default:
 	{
+		//其他 vmexit：统一先注入 #GP，避免来宾继续执行未知指令/状态
 		sLog("reason: %d\n", vcpu->vmexit_info.reason); // 未实现 reason 必须记录，便于按硬件手册补齐新 exit。
 		hv::inject_interruption(EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT, INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, true); // 默认给 guest #GP(0)，避免静默继续导致状态错乱。
 		break; // 结束 default 分支，回到 VMRESUME 路径。

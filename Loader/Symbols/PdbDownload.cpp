@@ -1,5 +1,6 @@
 ﻿#include "SymbolsInternal.h"
 
+// 下载PDB文件
 bool DownloadSymbol_internal(const std::wstring& szModulePath, const std::wstring& path, std::wstring* pdb_path_out, bool Redownload)
 {
     std::ifstream File(szModulePath, std::ios::binary | std::ios::ate);
@@ -109,7 +110,8 @@ bool DownloadSymbol_internal(const std::wstring& szModulePath, const std::wstrin
         g_szPdbPath += L'\\';
     }
 
-    CreateDirectoryIfNotExists(g_szPdbPath.c_str());
+    // 创建目录
+    CreateDirectoryIfNotExists(g_szPdbPath.c_str()); //创建baseDir
 
     size_t len = lstrlenA(pdb_info->PdbFileName);
     wchar_t* PdbFileNameW = new(std::nothrow) wchar_t[len + 1]();
@@ -130,7 +132,7 @@ bool DownloadSymbol_internal(const std::wstring& szModulePath, const std::wstrin
     }
 
     g_szPdbPath += PdbFileNameW;
-    CreateDirectoryIfNotExists(g_szPdbPath.c_str());
+    CreateDirectoryIfNotExists(g_szPdbPath.c_str()); //二级目录
 
     delete[] PdbFileNameW;
 
@@ -173,6 +175,9 @@ bool DownloadSymbol_internal(const std::wstring& szModulePath, const std::wstrin
         _itoa_s(pdb_info->Age, age, 10);
 
         std::wstring filename = FileSystem::GetModuleDirectory(NULL) + _T("SymbolTool\\Config.ini");
+        //char szBuf[MAX_PATH] = { 0 };
+        //sprintf(szBuf, "符号服务器: %s\n", Common::wideStringToString(filename).c_str());
+        //OutputDebugStringA(szBuf);
         std::string url = BuildSymbolServerBaseUrl(filename);
         url += pdb_info->PdbFileName;
         url += '/';
@@ -205,7 +210,7 @@ bool DownloadSymbol_internal(const std::wstring& szModulePath, const std::wstrin
         }
         g_szPdbPath += Common::stringToWideString(guid_filtered);
         g_szPdbPath += Common::stringToWideString(age);
-        CreateDirectoryIfNotExists(g_szPdbPath.c_str());
+        CreateDirectoryIfNotExists(g_szPdbPath.c_str()); //三级目录
 
         if (g_szPdbPath[g_szPdbPath.length() - 1] != L'\\')
         {
@@ -220,6 +225,7 @@ bool DownloadSymbol_internal(const std::wstring& szModulePath, const std::wstrin
 
         if (Redownload)
         {
+            //不能用于下载大小超过 4 GB 的文件
             auto hr = URLDownloadToFileW(nullptr, UrlW, g_szPdbPath.c_str(), NULL, &callback);
 
             if (hr != S_OK)

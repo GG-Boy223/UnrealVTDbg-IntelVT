@@ -1,4 +1,4 @@
-#include "EptWatchInternal.h"
+﻿#include "EptWatchInternal.h"
 
 namespace ept
 {
@@ -11,19 +11,20 @@ namespace ept
 				eptWatchList[i].VirtualAddress == virtual_address &&
 				eptWatchList[i].PhysicalAddress == physical_address)
 			{
-				return i;
+				return i; //返回空闲 ID
 			}
 		}
 
-		return -1;
+		return -1; // 没有空闲项
 	}
 
+	//设置隐形软件断点-多页监控
 	bool set_hide_software_breakpoint(PVT_BREAK_POINT vmcallinfo)
 	{
-		int status = 0;
-		VT_BREAK_POINT tmp_vmcallinfo = { 0 };
+		int status = 0; // 预留状态变量（当前未使用）
+		VT_BREAK_POINT tmp_vmcallinfo = { 0 }; // 本地缓冲保存断点请求
 
-		if (sizeof(VT_BREAK_POINT) != hv::read_guest_virtual_memory(vmcallinfo, &tmp_vmcallinfo, sizeof(VT_BREAK_POINT)))
+		if (sizeof(VT_BREAK_POINT) != hv::read_guest_virtual_memory(vmcallinfo, &tmp_vmcallinfo, sizeof(VT_BREAK_POINT))) // 读取来宾断点参数
 		{
 			return false;
 		}
@@ -53,6 +54,10 @@ namespace ept
 			}
 
 			unsigned __int64 physical_address = hv::get_physical_address(tmp_vmcallinfo.cr3, (PVOID)va);
+			// 检测该函数是否存在于物理内存中
+			// 如果该函数的物理地址为空
+			// 说明该函数不存在于物理内存中
+			//
 			if (physical_address == NULL)
 			{
 				spinlock::unlock(&eptWatchList_lock);
@@ -110,6 +115,7 @@ namespace ept
 			page_info.PhysicalAddress = physical_address;
 
 			status = 0;
+			//设置每个cpu
 			for (unsigned int i = 0; i < cpu_count; i++)
 			{
 				__vcpu* vcpu = &g_vmm_context.vcpu[i];
@@ -146,7 +152,7 @@ namespace ept
 	rollback:
 		for (int i = 0; i < id_count; i++)
 		{
-			ept::ept_watch_deactivate(tmp_vmcallinfo, ids[i]);
+			ept::ept_watch_deactivate(tmp_vmcallinfo, ids[i]); //卸载监视
 		}
 		return false;
 	}

@@ -1,4 +1,4 @@
-#include "DebugObjectCommonInternal.h"
+﻿#include "DebugObjectCommonInternal.h"
 
 namespace
 {
@@ -13,6 +13,7 @@ namespace
         {
             if (InterlockedCompareExchange(&g_DbgkActiveRuntimeCallCount, 0, 0) == 0)
             {
+                //是我们自己的调试器要创建线程，则直接返回不走线程回调
                 return;
             }
 
@@ -51,6 +52,7 @@ namespace
     {
         if (Hvm_DbgkDebugObjectType == NULL)
         {
+            //是我们自己的调试器要创建线程，则直接返回不走线程回调
             return;
         }
 
@@ -72,6 +74,7 @@ namespace
     {
         if (List == NULL || Mutex == NULL)
         {
+            //是我们自己的调试器要创建线程，则直接返回不走线程回调
             return;
         }
 
@@ -140,6 +143,7 @@ NTSTATUS DbgkInitialize()
     {
         outLog("\x44\x62\x67\x6B\x49\x6E\x69\x74\x69\x61\x6C\x69\x7A\x65\x20\xCA\xA7\xB0\xDC\xA3\xBA\x4F\x62\x43\x72\x65\x61\x74\x65\x4F\x62\x6A\x65\x63\x74\x54\x79\x70\x65\x20\xB7\xB5\xBB\xD8\x20\x30\x78\x25\x58\x2E", Status);
         Hvm_DbgkDebugObjectType = NULL;
+        // /* Return status */
         return Status;
     }
 
@@ -151,9 +155,11 @@ NTSTATUS DbgkInitialize()
     }
 
     Status = InstallDbgkCloseProcedure();
+    // /* Check if we failed */
     if (!NT_SUCCESS(Status))
     {
         Hvm_DbgkDebugObjectType = NULL;
+        // /* Return status */
         return Status;
     }
 

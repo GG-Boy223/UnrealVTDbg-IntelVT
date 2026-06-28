@@ -7,12 +7,13 @@
 
 EXTERN_C
 {
+//若非vmx模式则该指令会触发#UD异常
 #ifdef _WIN64
 	bool __vm_call(unsigned __int64 vmcall_reason, unsigned __int64 rdx, unsigned __int64 r8, unsigned __int64 r9);
 	bool __vm_call_ex(unsigned __int64 vmcall_reason, unsigned __int64 rdx, unsigned __int64 r8, unsigned __int64 r9, unsigned __int64 r10, unsigned __int64 r11, unsigned __int64 r12, unsigned __int64 r13, unsigned __int64 r14, unsigned __int64 r15);
 #else
     bool __stdcall __vm_call(DWORD vmcall_reason, PVOID vmcallinfo);
-#endif
+#endif // _WIN64
 }
 
 //将线程运行在指定cpu核上

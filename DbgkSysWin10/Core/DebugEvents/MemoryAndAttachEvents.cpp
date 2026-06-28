@@ -1,4 +1,4 @@
-#include "DebugEventsCommon.h"
+﻿#include "DebugEventsCommon.h"
 #include "../../Driver.h"
 #include "../../Globals.h"
 #include "../../DbgkApi/DbgkApi.h"
@@ -27,10 +27,13 @@ PMMVAD MiObtainReferencedVadEx(PVOID StartingAddress, char a2, PNTSTATUS status)
 
         if (IsDebugTargetProcess(Process, &DebugProcess))
         {
+            //DbgBreakPoint();
             size_t ptr_LongFlags = (size_t)FoundVad + mmvad_short_offset::LongFlags;
             unsigned long LongFlags = *(unsigned long*)ptr_LongFlags;
+            //DbgPrint("LongFlags: %X\n", LongFlags);
             if (LongFlags == 0x188)
             {
+                //*(unsigned long*)ptr_LongFlags = 0x3A0;
                 g_ptrLongFlags = ptr_LongFlags;
             }
         }
@@ -66,11 +69,14 @@ NTSTATUS MmProtectVirtualMemory(_EPROCESS* sourceProcess,
 
                     status = Original_MmProtectVirtualMemory(sourceProcess, TargetProcess, BaseAddress, RegionSize, NewProtectWin32, LastProtect);
                     *(unsigned long*)g_ptrLongFlags = 0x188;
+                    //还原
+                    // *(unsigned long*)g_ptrLongFlags = 0x188;
                     g_ptrLongFlags = NULL;
                 }
             }
         }
     }
+    //ExReleaseFastMutex(&LongFlagsMutex);
     return status;
 }
 
@@ -80,11 +86,13 @@ VOID NewKeStackAttachProcess(_Inout_ PRKPROCESS PROCESS, _Out_ PRKAPC_STATE ApcS
     if (DbgkIsDriverRuntimeUnloading())
     {
         Original_KeStackAttachProcess(PROCESS, ApcState);
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
     if (IsDebugger((PEPROCESS)PROCESS))
     {
+        //获取当前调用进程
         WCHAR SubStr[256] = { 0 };
         UNICODE_STRING ImageFileName, PassImage;
         NTSTATUS Status = GetProcessName(PsGetCurrentProcess(), &SubStr[0]);
@@ -96,6 +104,7 @@ VOID NewKeStackAttachProcess(_Inout_ PRKPROCESS PROCESS, _Out_ PRKAPC_STATE ApcS
                 RtlInitUnicodeString(&PassImage, PassProcessList[i]);
                 if (RtlEqualUnicodeString(&ImageFileName, &PassImage, TRUE))
                 {
+                    //发现是白名单进程就放行
                     goto pass;
                 }
             }
@@ -112,11 +121,13 @@ VOID NewKiStackAttachProcess(_KPROCESS* Process, BOOLEAN a2, _KAPC_STATE* ApcSta
     if (DbgkIsDriverRuntimeUnloading())
     {
         Original_KiStackAttachProcess(Process, a2, ApcState);
+        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
     if (IsDebugger((PEPROCESS)Process))
     {
+        //获取当前调用进程
         WCHAR SubStr[256] = { 0 };
         UNICODE_STRING ImageFileName, PassImage;
         NTSTATUS Status = GetProcessName(PsGetCurrentProcess(), &SubStr[0]);
@@ -128,6 +139,7 @@ VOID NewKiStackAttachProcess(_KPROCESS* Process, BOOLEAN a2, _KAPC_STATE* ApcSta
                 RtlInitUnicodeString(&PassImage, PassProcessList[i]);
                 if (RtlEqualUnicodeString(&ImageFileName, &PassImage, TRUE))
                 {
+                    //发现是白名单进程就放行
                     goto pass;
                 }
             }
@@ -146,16 +158,17 @@ NTSTATUS NewNtTerminateProcess(__in_opt HANDLE ProcessHandle, __in NTSTATUS Exit
         return Original_NtTerminateProcess(ProcessHandle, ExitStatus);
     }
 
-    _EPROCESS* Process;
+    _EPROCESS* Process; //进程对象
     NTSTATUS Status = ObReferenceObjectByHandle(ProcessHandle,
         PROCESS_ALL_ACCESS,
         *PsProcessType,
+        // *PsProcessType,
         KernelMode,
         (PVOID*)&Process,
         NULL);
     if (NT_SUCCESS(Status))
     {
-        ObDereferenceObject(Process);
+        ObDereferenceObject(Process); //释放进程对象
     }
     return Original_NtTerminateProcess(ProcessHandle, ExitStatus);
 }
@@ -184,12 +197,14 @@ NTSTATUS NewNtSuspendThread(__in HANDLE ThreadHandle, __out_opt PULONG PreviousS
                 NTSTATUS Status = ObReferenceObjectByHandle(ThreadHandle,
                     THREAD_ALL_ACCESS,
                     *PsThreadType,
+                    // *PsThreadType,
                     KernelMode,
                     (PVOID*)&Thread,
                     NULL);
                 if (NT_SUCCESS(Status))
                 {
                     _EPROCESS* pProcess = (_EPROCESS*)PsGetThreadProcess((PETHREAD)Thread);
+                    //获取当前调用进程
                     WCHAR SubStr[256] = { 0 };
                     UNICODE_STRING ImageFileName, PassImage;
                     NTSTATUS Status = GetProcessName((PEPROCESS)pProcess, &SubStr[0]);
@@ -269,5 +284,17 @@ HANDLE NewNtUserQueryWindow(IN HWND hwnd, IN WINDOWINFOCLASS WindowInfo)
     UNREFERENCED_PARAMETER(hwnd);
     UNREFERENCED_PARAMETER(WindowInfo);
 
+    ////判断当前调用者是否是调试器进程
+    //if (!IsDebugger(PsGetCurrentProcess()))
+    //{
+    //    //根据窗口句柄获得窗口对象
+    //    PWND pwnd = Sys_ValidateHwnd(hwnd);
+    //    if (pwnd)
+    //    {
+    //        //根据线程对象获得进程对象
+    //        PsGetThreadProcess((PETHREAD)pwnd->head.pti->pEThread);
+    //    }
+    //}
+    //NtUserQueryWindow(hwnd, WindowInfo);
     return NULL;
 }
