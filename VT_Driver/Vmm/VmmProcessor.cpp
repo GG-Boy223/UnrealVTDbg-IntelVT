@@ -105,15 +105,18 @@ bool init_logical_processor2(unsigned int iter) // 在指定CPU上完成VMXON/VM
 	// if (!hv::validate_host_page_tables_for_vcpu(vcpu)) // 旧逻辑：只靠自检发现缺页，无法主动补齐Host CR3下的VM-exit关键页。
 	if (!hv::ensure_host_page_tables_for_vcpu(vcpu))
 	{
-		outFile("[警告][CPU%u] Host关键页补映射未完全成功：继续自检和VMLAUNCH", iter);
+		outFile("[失败][CPU%u] Host关键页补映射不完整，回滚当前CPU的VMXON状态", iter);
+		vcpu->vcpu_status.vmx_on = false;
+		__vmx_off();
+		return false;
 	}
 
 	if (!hv::validate_host_page_tables_for_vcpu(vcpu))
 	{
-		//vcpu->vcpu_status.vmx_on = false;
-        //__vmx_off();
-		outFile("[警告][CPU%u] Host页表自检未完全通过：继续填充VMCS并执行VMLAUNCH", iter);
-		//return false;
+		outFile("[失败][CPU%u] Host页表自检未通过，回滚当前CPU的VMXON状态", iter);
+		vcpu->vcpu_status.vmx_on = false;
+		__vmx_off();
+		return false;
 	}
 
 	//配置vmcs区域

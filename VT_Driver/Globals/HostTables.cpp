@@ -733,18 +733,14 @@ namespace hv
         // 将256左移39位得到0x800000000000
         //outDebug("&guest_pml4[256]: %p\n", &guest_pml4[256]);
         memcpy(&pt.pml4[256], &guest_pml4[256], sizeof(pml4e_64) * 256); // 复制内核半区映射，保证宿主能访问内核地址
-        // if (!validate_host_address("HostPML4", &pt.pml4) ||
-        //     !validate_host_address("物理直映基址", host_physical_memory_base))
-        // {
-        //     outFile("[失败][Host页表] Host页表基础自检失败，停止使用该HOST_CR3");
-        //     return false;
-        // } // 旧逻辑：自检失败会阻断Host页表构建；现在自检只做诊断，不改变VT进入链路。
         bool const basic_check_ok =
             validate_host_address("HostPML4", &pt.pml4) &&
             validate_host_address("物理直映基址", host_physical_memory_base);
         if (!basic_check_ok)
         {
-            outFile("[警告][Host页表] Host页表基础自检失败：仅记录诊断，继续使用dwm.exe Host页表链路");
+            outFile("[失败][Host页表] 基于dwm.exe构建的独占Host页表基础映射不完整，停止使用该HOST_CR3");
+            cleanup_host_page_tables();
+            return false;
         }
 
         return true;
@@ -754,12 +750,14 @@ namespace hv
     {
         if (vcpu == nullptr)
         {
-            outFile("[警告][Host页表覆盖] VCPU为空，无法扩大Host关键页覆盖：仅记录，不阻断VT进入");
+            outFile("[失败][Host页表覆盖] VCPU为空，无法建立完整VM-exit执行环境");
             return false;
         }
 
         bool ok = true;
         ok = ensure_host_virtual_range("VT驱动镜像代码/数据", g_vt_driver_image_base, g_vt_driver_image_size) && ok;
+        const void* host_kpcr = reinterpret_cast<const void*>(__readmsr(IA32_GS_BASE));
+        ok = ensure_host_virtual_range("当前CPU KPCR", host_kpcr, PAGE_SIZE) && ok;
         ok = ensure_host_virtual_range("VCPU完整结构", vcpu, sizeof(*vcpu)) && ok;
         ok = ensure_host_virtual_range("IO Bitmap A", vcpu->vcpu_bitmaps.io_bitmap_a, PAGE_SIZE) && ok;
         ok = ensure_host_virtual_range("IO Bitmap B", vcpu->vcpu_bitmaps.io_bitmap_b, PAGE_SIZE) && ok;
@@ -793,14 +791,14 @@ namespace hv
         }
         else
         {
-            outFile("[警告][Host页表覆盖] CPU[%u] EPT状态为空：仅记录，不阻断VT进入",
+            outFile("[失败][Host页表覆盖] CPU[%u] EPT状态为空，VM-exit无法安全访问EPT状态",
                 vcpu->logical_processor_index);
             ok = false;
         }
 
         if (!ok)
         {
-            outFile("[警告][Host页表覆盖] CPU[%u] Host关键页补映射存在失败项：继续VMLAUNCH，不作为VT进入条件",
+            outFile("[失败][Host页表覆盖] CPU[%u] Host关键页补映射不完整，禁止进入VMLAUNCH",
                 vcpu->logical_processor_index);
             return false;
         }
@@ -820,6 +818,7 @@ namespace hv
 
         bool ok = true;
         ok = validate_host_address("vm_exit入口", reinterpret_cast<void const*>(vm_exit)) && ok;
+        ok = validate_host_address("当前CPU KPCR", reinterpret_cast<void const*>(__readmsr(IA32_GS_BASE))) && ok;
         ok = validate_host_address("VCPU结构", vcpu) && ok;
         ok = validate_host_address("Host栈底", &vcpu->host_stack[0]) && ok;
         ok = validate_host_address("Host栈顶", &vcpu->host_stack[VMM_STACK_SIZE - 1]) && ok;
@@ -829,7 +828,7 @@ namespace hv
         ok = validate_host_address("MSR Bitmap", &vcpu->msr_bitmap) && ok;
         if (!ok)
         {
-            outFile("[警告][Host页表自检] CPU[%u] VM-exit宿主路径地址存在不可翻译项：仅记录诊断，不阻断VMLAUNCH",
+            outFile("[失败][Host页表自检] CPU[%u] VM-exit宿主路径存在不可翻译地址，禁止进入VMLAUNCH",
                 vcpu->logical_processor_index);
             return false;
         }

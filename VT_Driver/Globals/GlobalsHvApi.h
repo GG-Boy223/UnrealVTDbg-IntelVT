@@ -128,8 +128,6 @@ namespace hv // Hypervisor 命名空间
     bool mark_pending_mtf_page(__vcpu* vcpu, __ept_hooked_page_info* hooked_page_info); // 标记一个活跃 MTF 页，避免覆盖未收尾状态
     void clear_pending_mtf_metadata(__ept_state* ept_state); // 清除 MTF 元数据
     void clear_pending_mtf_metadata(__vcpu* vcpu); // 清除 VCPU 的 MTF 元数据
-    bool set_mtf_guest_interruptibility_block(__vcpu* vcpu); // 临时设置 STI blocking
-    void restore_pending_mtf_guest_interruptibility(__vcpu* vcpu); // 恢复临时 guest interruptibility
 
     //向guest注入#DB事件
     void inject_single_step(__vcpu* vcpu); // 注入单步异常

@@ -123,9 +123,11 @@ vm_exit proc
   mov rdx, rsp ;param2, pointer to fxsave
 
   ; call vmexit_handler
-  sub rsp, 28h
+  ; RSP is 16-byte aligned here. Reserve the mandatory 32-byte shadow space
+  ; without changing call-site alignment; CALL then enters C++ with RSP mod 16 = 8.
+  sub rsp, 20h
   call vmexit_handler
-  add rsp, 28h
+  add rsp, 20h
   fxrstor64 [rsp]
   mov rsp, rbp
 
@@ -203,9 +205,10 @@ vm_exit proc
   push r11
   pushfq
   pop rcx
-  sub rsp, 28h
+  ; The register-save sequence leaves RSP 16-byte aligned at this call site.
+  sub rsp, 20h
   call record_vmresume_failure
-  add rsp, 28h
+  add rsp, 20h
   pop r11
   pop r10
   pop r9

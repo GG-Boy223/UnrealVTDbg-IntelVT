@@ -234,11 +234,6 @@ namespace ept
 				{
 					hooked_page_info->isBp = true;
 					vcpu->breakpoint_detected = eptWatchList[ID].VirtualAddress;
-					if (!hv::set_mtf_guest_interruptibility_block(vcpu))
-					{
-						spinlock::unlock(&eptWatchList_lock);
-						return false;
-					}
 				}
 			}
 

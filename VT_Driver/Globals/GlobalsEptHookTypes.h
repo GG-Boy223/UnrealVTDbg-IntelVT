@@ -305,6 +305,4 @@ struct __ept_state // EPT 状态（每 VCPU 一份）
     unsigned __int32 mapped_pdpte_count; // 已填充的 flat PDPTE/PD 页数量
     __ept_hooked_page_info* page_to_change; // 当前需要切换的页（用于 MTF）
     bool mtf_pending; // page_to_change 是否属于当前活跃 MTF 窗口
-    bool mtf_restore_interruptibility; // MTF 收尾时是否需要恢复 guest interruptibility
-    unsigned __int64 mtf_saved_interruptibility; // 临时 blocking 前的 guest interruptibility
 };

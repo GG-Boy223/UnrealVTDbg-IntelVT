@@ -166,8 +166,10 @@ namespace hvgt
 	{
 		const auto args = reinterpret_cast<HookFunctionArgs*>(DeferredContext);
 
-		if (args != nullptr &&
-			SafeVmCallEx(VMCALL_HIDE_SOFTWARE_BREAKPOINT,
+		const BOOLEAN transaction_owner = KeSignalCallDpcSynchronize(SystemArgument2);
+		if (transaction_owner && args != nullptr)
+		{
+			const bool transaction_succeeded = SafeVmCallEx(VMCALL_HIDE_SOFTWARE_BREAKPOINT,
 				(unsigned __int64)args->target_address,
 				(unsigned __int64)args->proxy_function,
 				(unsigned __int64)args->origin_function,
@@ -176,7 +178,14 @@ namespace hvgt
 				0,
 				0,
 				0,
-				0))
+				0);
+			InterlockedExchange(&args->transaction_status, transaction_succeeded ? 1 : -1);
+		}
+
+		KeSignalCallDpcSynchronize(SystemArgument2);
+		if (args != nullptr &&
+			InterlockedCompareExchange(&args->transaction_status, 0, 0) == 1 &&
+			SafeVmCall(VMCALL_INVEPT_CONTEXT, true, 0, 0))
 		{
 			InterlockedIncrement16(&args->statuses);
 		}
@@ -227,12 +236,47 @@ namespace hvgt
 		const auto args = reinterpret_cast<VmcallBroadcastArgs*>(DeferredContext);
 		unsigned __int64 command = 0;
 
-		if (args != nullptr &&
-			TryReadVmcallCommand(args->vmcallinfo, &command) &&
-			SafeVmCall(command,
+		if (args == nullptr || !TryReadVmcallCommand(args->vmcallinfo, &command))
+		{
+			SignalDpcDone(SystemArgument1, SystemArgument2);
+			return;
+		}
+
+		const bool serialized_ept_transaction =
+			command == VMCALL_HIDE_SOFTWARE_BREAKPOINT ||
+			command == VMCALL_WATCH_WRITES ||
+			command == VMCALL_WATCH_READS ||
+			command == VMCALL_WATCH_EXECUTES ||
+			command == VMCALL_WATCH_DELETE ||
+			command == VMCALL_CLEAR_BREAKPOINT_STATE;
+
+		if (!serialized_ept_transaction)
+		{
+			if (SafeVmCall(command,
 				(unsigned __int64)args->vmcallinfo,
 				args->parameter2,
 				args->parameter3))
+			{
+				InterlockedIncrement16(&args->statuses);
+			}
+
+			SignalDpcDone(SystemArgument1, SystemArgument2);
+			return;
+		}
+
+		const BOOLEAN transaction_owner = KeSignalCallDpcSynchronize(SystemArgument2);
+		if (transaction_owner)
+		{
+			const bool transaction_succeeded = SafeVmCall(command,
+				(unsigned __int64)args->vmcallinfo,
+				args->parameter2,
+				args->parameter3);
+			InterlockedExchange(&args->transaction_status, transaction_succeeded ? 1 : -1);
+		}
+
+		KeSignalCallDpcSynchronize(SystemArgument2);
+		if (InterlockedCompareExchange(&args->transaction_status, 0, 0) == 1 &&
+			SafeVmCall(VMCALL_INVEPT_CONTEXT, true, 0, 0))
 		{
 			InterlockedIncrement16(&args->statuses);
 		}

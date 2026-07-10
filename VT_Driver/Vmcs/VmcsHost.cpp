@@ -14,7 +14,8 @@ void fill_vmcs_host_fields(__vcpu* vcpu) // 填充宿主字段
 
     // 设置宿主段基址
     hv::vmwrite<unsigned __int64>(HOST_FS_BASE, reinterpret_cast<size_t>(vcpu)); // 用 FS 指向 vCPU 结构
-    hv::vmwrite<unsigned __int64>(HOST_GS_BASE, 0); // GS 基址为 0
+    const unsigned __int64 host_gs_base = __readmsr(IA32_GS_BASE); // 当前初始化线程已绑定目标CPU且处于内核态，此值是该CPU的KPCR。
+    hv::vmwrite<unsigned __int64>(HOST_GS_BASE, host_gs_base); // 保留Windows x64内核的GS/KPCR语义，Root中调用内核例程时必须有效。
     hv::vmwrite<unsigned __int64>(HOST_TR_BASE, reinterpret_cast<size_t>(&vcpu->host_tss)); // TR 指向宿主 TSS
     hv::vmwrite<unsigned __int64>(HOST_GDTR_BASE, reinterpret_cast<size_t>(&vcpu->host_gdt)); // GDTR 指向宿主 GDT
     hv::vmwrite<unsigned __int64>(HOST_IDTR_BASE, reinterpret_cast<size_t>(&vcpu->host_idt)); // IDTR 指向宿主 IDT
@@ -79,9 +80,10 @@ void fill_vmcs_host_fields(__vcpu* vcpu) // 填充宿主字段
     auto const rsp = ((reinterpret_cast<size_t>(vcpu->host_stack) + VMM_STACK_SIZE) & ~0b1111ull) - 8; // 计算对齐后的 RSP
     hv::vmwrite<unsigned __int64>(HOST_RSP, rsp); // 写入宿主 RSP
     hv::vmwrite<void*>(HOST_RIP, hv::vm_exit); // 写入宿主 RIP（VM-exit 入口）
-    outFile("[信息][VMCS Host] HOST_RSP=0x%llX HOST_RIP=0x%llX HOST_GDTR=0x%llX HOST_IDTR=0x%llX",
+    outFile("[信息][VMCS Host] HOST_RSP=0x%llX HOST_RIP=0x%llX HOST_GS_BASE=0x%llX HOST_GDTR=0x%llX HOST_IDTR=0x%llX",
         rsp,
         reinterpret_cast<unsigned __int64>(hv::vm_exit),
+        host_gs_base,
         reinterpret_cast<unsigned __int64>(&vcpu->host_gdt),
         reinterpret_cast<unsigned __int64>(&vcpu->host_idt));
 

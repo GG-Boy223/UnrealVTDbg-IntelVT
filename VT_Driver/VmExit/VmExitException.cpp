@@ -203,7 +203,8 @@ unsigned __int32 handler_breakpoint(__ept_state& ept_state, __vmexit_interrupt_i
 {
 	sLog("\n"); // 记录 #BP 处理路径。
 	unsigned __int64 guest_rip = hv::vmread(GUEST_RIP); // 当前 guest RIP 用于匹配 hook 函数入口。
-	unsigned __int64 physical_address = MmGetPhysicalAddress((PVOID)guest_rip).QuadPart; // 转为物理地址以匹配 EPT hook 页 PFN。
+	const unsigned __int64 guest_cr3 = hv::vmread(GUEST_CR3);
+	unsigned __int64 physical_address = hv::get_physical_address(guest_cr3, (PVOID)guest_rip); // VMX Root 必须按 Guest CR3 翻译 Guest RIP，不能使用 Host 当前地址空间的 MmGetPhysicalAddress。
 
 	PLIST_ENTRY current = &ept_state.hooked_page_list; // 从 EPT state 的 hook 页链表头开始遍历。
 	while (&ept_state.hooked_page_list != current->Flink) // 遍历链表直到回到表头
@@ -243,7 +244,8 @@ unsigned __int32 handler_debug(__ept_state& ept_state, __vmexit_interrupt_info i
 {
 	sLog("\n"); // 记录 #DB 处理路径。
 	unsigned __int64 guest_rip = hv::vmread(GUEST_RIP); // 读取当前 guest RIP。
-	unsigned __int64 physical_address = MmGetPhysicalAddress((PVOID)guest_rip).QuadPart; // 转换为物理地址用于 PFN 匹配。
+	const unsigned __int64 guest_cr3 = hv::vmread(GUEST_CR3);
+	unsigned __int64 physical_address = hv::get_physical_address(guest_cr3, (PVOID)guest_rip); // 使用 Guest 页表完成 GVA->GPA，避免 HOST_CR3 下错误解析用户地址。
 
 	PLIST_ENTRY current = &ept_state.hooked_page_list; // 从钩子页链表头开始遍历
 	while (&ept_state.hooked_page_list != current->Flink) // 遍历链表直到回到表头

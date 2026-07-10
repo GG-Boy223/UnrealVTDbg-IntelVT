@@ -2,21 +2,6 @@
 
 namespace hv
 {
-    void restore_pending_mtf_guest_interruptibility(__vcpu* vcpu)
-    {
-        if (vcpu == nullptr || vcpu->ept_state == nullptr)
-        {
-            return;
-        }
-
-        if (vcpu->ept_state->mtf_restore_interruptibility)
-        {
-            hv::vmwrite(GUEST_INTERRUPTIBILITY_STATE, vcpu->ept_state->mtf_saved_interruptibility);
-            vcpu->ept_state->mtf_restore_interruptibility = false;
-            vcpu->ept_state->mtf_saved_interruptibility = 0;
-        }
-    }
-
     void clear_pending_mtf_metadata(__ept_state* ept_state)
     {
         if (ept_state == nullptr)
@@ -26,8 +11,6 @@ namespace hv
 
         ept_state->page_to_change = nullptr;
         ept_state->mtf_pending = false;
-        ept_state->mtf_restore_interruptibility = false;
-        ept_state->mtf_saved_interruptibility = 0;
     }
 
     void clear_pending_mtf_metadata(__vcpu* vcpu)
@@ -37,8 +20,6 @@ namespace hv
             return;
         }
 
-        restore_pending_mtf_guest_interruptibility(vcpu);
-        //clear_pending_mtf_metadata(vcpu->ept_state);
         clear_pending_mtf_metadata(vcpu->ept_state);
     }
 
@@ -78,7 +59,6 @@ namespace hv
                 }
             }
 
-            restore_pending_mtf_guest_interruptibility(vcpu);
             clear_pending_mtf_metadata(ept_state);
         }
 
@@ -87,22 +67,4 @@ namespace hv
         return true;
     }
 
-    bool set_mtf_guest_interruptibility_block(__vcpu* vcpu)
-    {
-        if (vcpu == nullptr || vcpu->ept_state == nullptr)
-        {
-            return false;
-        }
-
-        __vmx_interruptibility_state interruptibility = { hv::vmread(GUEST_INTERRUPTIBILITY_STATE) };
-        if (!vcpu->ept_state->mtf_restore_interruptibility)
-        {
-            vcpu->ept_state->mtf_saved_interruptibility = interruptibility.all;
-            vcpu->ept_state->mtf_restore_interruptibility = true;
-        }
-
-        interruptibility.blocking_by_sti = 1;
-        hv::vmwrite(GUEST_INTERRUPTIBILITY_STATE, interruptibility.all);
-        return true;
-    }
 }

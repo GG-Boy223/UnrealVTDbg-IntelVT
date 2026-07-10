@@ -13,6 +13,7 @@ namespace hvgt
 		void** origin_function;
 		unsigned __int64 current_cr3;
 		volatile SHORT statuses;
+		volatile LONG transaction_status;
 	};
 
 	// 专用于普通 vmcall 广播的参数结构。
@@ -23,6 +24,7 @@ namespace hvgt
 		unsigned __int64 parameter2;
 		unsigned __int64 parameter3;
 		volatile SHORT statuses;
+		volatile LONG transaction_status;
 	};
 
 	struct UnHookFunctionArgs
