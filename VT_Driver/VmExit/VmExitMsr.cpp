@@ -101,7 +101,7 @@ void vmexit_msr_write_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 			hv::update_ept_memory_type(*vcpu->ept_state); // 参数：EPT 状态；原理：根据 MTRR 重算类型；结果：EPT 内存类型同步
 
 		_mm_mfence(); // 原理：内存屏障确保类型更新先于后续访问；作用：避免乱序；结果：更新有序生效
-		invept_all_contexts_func();
+		invept_single_context_func(vcpu->ept_state->ept_pointer->all);
 	}
 
 	set_hide_vm_exit_overhead(vcpu, true);

@@ -177,7 +177,7 @@ bool mov_to_cr0_handler(__vcpu* vcpu, unsigned __int64 guest_cr0) // vcpu=当前
 		}
 
 		_mm_mfence();
-		invept_all_contexts_func();
+		invept_single_context_func(vcpu->ept_state->ept_pointer->all);
 	}
 
 	__cr0 cr0; // 原理：准备写回真实 CR0；作用：建立可修改副本；结果：cr0 可调整
