@@ -159,15 +159,6 @@ namespace ept
 		for (int index = id_count - 1; index >= 0; index--)
 		{
 			const int ID = ids[index];
-			if (committed_vcpus[index] == cpu_count)
-			{
-				spinlock::lock(&eptWatchList_lock);
-				eptWatchList[ID].inuse = EPT_WATCH_ACTIVE;
-				spinlock::unlock(&eptWatchList_lock);
-				ept::ept_watch_deactivate(tmp_vmcallinfo, ID);
-				continue;
-			}
-
 			int has = 0;
 			spinlock::lock(&eptWatchList_lock);
 			for (int other = 0; other < EPTWATCHLISTSIZE; other++)

@@ -129,35 +129,43 @@ namespace ept
 			return 4;
 		}
 
+		spinlock::lock(&eptWatchTransaction_lock);
 		spinlock::lock(&eptWatchList_lock);
 
 		if (ID < 0 || ID >= EPTWATCHLISTSIZE)
 		{
 			spinlock::unlock(&eptWatchList_lock);
+			spinlock::unlock(&eptWatchTransaction_lock);
 			return 1;
 		}
 
 		if (!ept_watch_entry_is_active(eptWatchList[ID]))
 		{
 			spinlock::unlock(&eptWatchList_lock);
+			spinlock::unlock(&eptWatchTransaction_lock);
 			return 2;
 		}
 
+		EPTWatchEntry removing_entry = eptWatchList[ID];
+		eptWatchList[ID].inuse = EPT_WATCH_REMOVING;
+
 		for (int i = 0; i < EPTWATCHLISTSIZE; i++)
 		{
-			if ((i != ID) && ept_isWatchPage(GET_PFN(eptWatchList[ID].PhysicalAddress), i))
+			if ((i != ID) && ept_watch_entry_is_active(eptWatchList[i]) &&
+				GET_PFN(eptWatchList[i].PhysicalAddress) == GET_PFN(removing_entry.PhysicalAddress))
 			{
 				has = 1; //属于同一页，存在其他监视断点
-				if (eptWatchList[i].Type == eptWatchList[ID].Type)
+				if (eptWatchList[i].Type == removing_entry.Type)
 				{
 					has = 2; //不能撤销
 					break;
 				}
 			}
 		}
+		spinlock::unlock(&eptWatchList_lock);
 
 		//没有其他的监视断点了，现在可以把页撤销了
-		if ((has != 2) || (eptWatchList[ID].bpType == 3))
+		if ((has != 2) || (removing_entry.bpType == 3))
 		{
 			//设置每个cpu
 			for (unsigned int i = 0; i < cpu_count; i++)
@@ -165,11 +173,11 @@ namespace ept
 				__vcpu* vcpu = &g_vmm_context.vcpu[i];
 				if (ept_watch_deactivate_internal(vcpu,
 					*vcpu->ept_state,
-					eptWatchList[ID].VirtualAddress,
-					eptWatchList[ID].PhysicalAddress,
-					eptWatchList[ID].Type,
-					eptWatchList[ID].bpType,
-					eptWatchList[ID].OriginalByte,
+					removing_entry.VirtualAddress,
+					removing_entry.PhysicalAddress,
+					removing_entry.Type,
+					removing_entry.bpType,
+					removing_entry.OriginalByte,
 					has,
 					ID))
 				{
@@ -184,14 +192,19 @@ namespace ept
 			}
 			else
 			{
+				spinlock::lock(&eptWatchList_lock);
+				eptWatchList[ID].inuse = EPT_WATCH_ACTIVE;
 				spinlock::unlock(&eptWatchList_lock);
+				spinlock::unlock(&eptWatchTransaction_lock);
 				return 3;
 			}
 		}
 
-		clear_detected_breakpoint_for_watch_locked(eptWatchList[ID].VirtualAddress);
+		spinlock::lock(&eptWatchList_lock);
+		clear_detected_breakpoint_for_watch_locked(removing_entry.VirtualAddress);
 		eptWatchList[ID] = { 0 }; //将当前entry的inuse标记为未使用
 		spinlock::unlock(&eptWatchList_lock);
+		spinlock::unlock(&eptWatchTransaction_lock);
 		return 0;
 	}
 }

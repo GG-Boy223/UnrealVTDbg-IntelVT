@@ -273,14 +273,21 @@ namespace ept
 		for (int index = id_count - 1; index >= 0; index--)
 		{
 			const int ID = ids[index];
-			if (committed_vcpus[index] == cpu_count)
+			int has = 0;
+			spinlock::lock(&eptWatchList_lock);
+			for (int other = 0; other < EPTWATCHLISTSIZE; other++)
 			{
-				spinlock::lock(&eptWatchList_lock);
-				eptWatchList[ID].inuse = EPT_WATCH_ACTIVE;
-				spinlock::unlock(&eptWatchList_lock);
-				ept::ept_watch_deactivate(vmcallinfo, ID);
-				continue;
+				if (other != ID && ept_watch_entry_is_active(eptWatchList[other]) &&
+					GET_PFN(eptWatchList[other].PhysicalAddress) == GET_PFN(eptWatchList[ID].PhysicalAddress))
+				{
+					has = eptWatchList[other].Type == eptWatchList[ID].Type ? 2 : 1;
+					if (has == 2)
+					{
+						break;
+					}
+				}
 			}
+			spinlock::unlock(&eptWatchList_lock);
 
 			for (unsigned int cpu = committed_vcpus[index]; cpu > 0; cpu--)
 			{
@@ -292,7 +299,7 @@ namespace ept
 					eptWatchList[ID].Type,
 					eptWatchList[ID].bpType,
 					eptWatchList[ID].OriginalByte,
-					0,
+					has,
 					ID);
 			}
 
