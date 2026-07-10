@@ -55,7 +55,7 @@ namespace ept
 	//判断是否是监视的地址
 	int ept_isWatchAddress(unsigned __int64 guest_physical_adddress, int ID)
 	{
-		return ((eptWatchList[ID].inuse) &&
+		return (ept_watch_entry_is_active(eptWatchList[ID]) &&
 			((guest_physical_adddress >= eptWatchList[ID].PhysicalAddress) &&
 			(guest_physical_adddress < eptWatchList[ID].PhysicalAddress + eptWatchList[ID].Size)));
 	}
@@ -64,7 +64,7 @@ namespace ept
 	int ept_isWatchPage(unsigned __int64 pfn, int ID)
 	{
 		//比较页帧
-		return ((eptWatchList[ID].inuse) && (GET_PFN(eptWatchList[ID].PhysicalAddress) == pfn));
+		return (ept_watch_entry_is_active(eptWatchList[ID]) && (GET_PFN(eptWatchList[ID].PhysicalAddress) == pfn));
 	}
 
 	int ept_getWatchID(unsigned __int64 guest_physical_adddress)

@@ -38,7 +38,7 @@ namespace ept
 
 		for (int i = 0; i < EPTWATCHLISTSIZE; i++)
 		{
-			if (!eptWatchList[i].inuse ||
+			if (!ept_watch_entry_is_active(eptWatchList[i]) ||
 				eptWatchList[i].bpType == 3 ||
 				GET_PFN(eptWatchList[i].PhysicalAddress) != pfn ||
 				!is_watch_access_match(eptWatchList[i], ept_violation))
@@ -61,7 +61,7 @@ namespace ept
 
 		for (int i = 0; i < EPTWATCHLISTSIZE; i++)
 		{
-			if (eptWatchList[i].inuse &&
+			if (ept_watch_entry_is_active(eptWatchList[i]) &&
 				eptWatchList[i].bpType == 3 &&
 				GET_PFN(eptWatchList[i].PhysicalAddress) == pfn)
 			{
@@ -75,7 +75,7 @@ namespace ept
 	static bool is_cached_watch_id_valid_locked(int ID, unsigned __int64 guest_physical_address, __ept_violation ept_violation)
 	{
 		if (!is_watch_id_valid(ID) ||
-			!eptWatchList[ID].inuse ||
+			!ept_watch_entry_is_active(eptWatchList[ID]) ||
 			GET_PFN(eptWatchList[ID].PhysicalAddress) != GET_PFN(guest_physical_address))
 		{
 			return false;
@@ -115,7 +115,7 @@ namespace ept
 
 		for (int i = 0; i < EPTWATCHLISTSIZE; i++)
 		{
-			if (!eptWatchList[i].inuse || GET_PFN(eptWatchList[i].PhysicalAddress) != pfn)
+			if (!ept_watch_entry_is_active(eptWatchList[i]) || GET_PFN(eptWatchList[i].PhysicalAddress) != pfn)
 			{
 				continue;
 			}

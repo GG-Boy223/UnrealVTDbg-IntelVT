@@ -6,7 +6,7 @@ namespace ept
 	{
 		for (int i = 0; i < EPTWATCHLISTSIZE; i++)
 		{
-			if (eptWatchList[i].inuse &&
+			if (ept_watch_entry_is_active(eptWatchList[i]) &&
 				eptWatchList[i].bpType == 3 &&
 				eptWatchList[i].VirtualAddress == virtual_address &&
 				eptWatchList[i].PhysicalAddress == physical_address)
@@ -107,7 +107,7 @@ namespace ept
 			eptWatchList[ID].Type = EPTW_READWRITE;
 			eptWatchList[ID].Options = EPTO_VIRTUAL_BREAKPOINT;
 			eptWatchList[ID].bpType = 3;
-			eptWatchList[ID].inuse = 1;
+			eptWatchList[ID].inuse = EPT_WATCH_ACTIVE;
 
 			VT_BREAK_POINT page_info = tmp_vmcallinfo;
 			page_info.VirtualAddress = va;

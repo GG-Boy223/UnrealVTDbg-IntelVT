@@ -79,9 +79,16 @@ namespace ept
 
 					if (has == 0) //如果has为0则说明没有存在其他的监视断点，那么我们可以将页进行回收
 					{
+						InterlockedExchange(&hooked_page_info->removing, 1);
+
 						if (ept_state.page_to_change == hooked_page_info)
 						{
 							hv::clear_pending_mtf_metadata(vcpu);
+						}
+
+						while (InterlockedCompareExchange(&hooked_page_info->mtf_reference_count, 0, 0) != 0)
+						{
+							_mm_pause();
 						}
 
 						hooked_page_info->ID = -1;
@@ -130,7 +137,7 @@ namespace ept
 			return 1;
 		}
 
-		if (eptWatchList[ID].inuse == 0)
+		if (!ept_watch_entry_is_active(eptWatchList[ID]))
 		{
 			spinlock::unlock(&eptWatchList_lock);
 			return 2;

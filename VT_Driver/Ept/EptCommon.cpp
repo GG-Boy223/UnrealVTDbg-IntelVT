@@ -53,6 +53,8 @@ namespace ept
 		hooked_page_info->last_watch_id = -1;
 		hooked_page_info->fake_page_synced = false;
 		hooked_page_info->fake_page_needs_full_sync = false;
+		hooked_page_info->mtf_reference_count = 0;
+		hooked_page_info->removing = 0;
 	}
 
 	bool is_watch_id_valid(int ID)

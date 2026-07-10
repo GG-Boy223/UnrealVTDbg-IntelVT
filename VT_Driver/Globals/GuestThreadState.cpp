@@ -79,7 +79,7 @@ namespace hv
         if (request.WatchId >= 0 && request.WatchId < EPTWATCHLISTSIZE)
         {
             spinlock::lock(&eptWatchList_lock);
-            if (eptWatchList[request.WatchId].inuse &&
+            if (ept_watch_entry_is_active(eptWatchList[request.WatchId]) &&
                 eptWatchList[request.WatchId].PhysicalAddress != NULL)
             {
                 target_pfn = GET_PFN(eptWatchList[request.WatchId].PhysicalAddress);
@@ -304,7 +304,7 @@ namespace hv
         int i; // 循环索引
         for (i = 0; i < EPTWATCHLISTSIZE; i++)
         {
-            if (eptWatchList[i].inuse == 0) //查找未使用条目
+            if (!ept_watch_entry_is_reserved(eptWatchList[i])) // 事务中的槽位也不可重复分配
             {
                 return i; //返回空闲 ID
             }

@@ -18,6 +18,7 @@ extern unsigned __int64 g_vt_driver_image_size; // VT驱动镜像大小，用于
 extern __vmm_context g_vmm_context; // 全局 VMM 上下文
 extern uint16_t guest_vpid; // guest VPID
 extern volatile long eptWatchList_lock; // 监视表自旋锁
+extern volatile long eptWatchTransaction_lock; // EPT watch 安装/删除事务锁
 extern EPTWatchEntry eptWatchList[EPTWATCHLISTSIZE]; // 监视断点表
 
 namespace ethread_offset // ETHREAD 结构偏移集合

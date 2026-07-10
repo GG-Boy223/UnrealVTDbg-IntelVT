@@ -41,7 +41,7 @@ namespace ept
 		const unsigned __int64 pfn = hooked_page_info->pfn_of_hooked_page;
 		for (int i = 0; i < EPTWATCHLISTSIZE; i++)
 		{
-			if (i == ignoredID || !eptWatchList[i].inuse || GET_PFN(eptWatchList[i].PhysicalAddress) != pfn)
+			if (i == ignoredID || !ept_watch_entry_is_active(eptWatchList[i]) || GET_PFN(eptWatchList[i].PhysicalAddress) != pfn)
 			{
 				continue;
 			}
@@ -233,7 +233,7 @@ namespace ept
 			eptWatchList[ID].Type = Type;
 			eptWatchList[ID].Options = EPTO_VIRTUAL_BREAKPOINT;
 			eptWatchList[ID].bpType = 1;
-			eptWatchList[ID].inuse = 1;
+			eptWatchList[ID].inuse = EPT_WATCH_ACTIVE;
 
 			int status = 0; // 预留状态变量（当前未使用）
 			//设置每个cpu

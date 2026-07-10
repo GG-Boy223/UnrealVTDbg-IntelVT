@@ -120,6 +120,10 @@ struct __ept_hooked_page_info // 被 hook 的页面信息
     bool fake_page_synced; // fake page 是否已与 guest 原页完成整页同步
 
     bool fake_page_needs_full_sync; // 需要在下次 MTF 收尾时重新整页同步 fake page
+
+    volatile long mtf_reference_count; // 当前持有该页的 VCPU pending-MTF 引用数
+
+    volatile long removing; // 删除事务已开始，禁止建立新的 pending-MTF 引用
 };
 
 union __ept_violation // EPT 违规信息字段

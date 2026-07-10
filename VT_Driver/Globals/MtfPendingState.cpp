@@ -9,8 +9,15 @@ namespace hv
             return;
         }
 
+        const bool had_pending_reference = ept_state->mtf_pending && ept_state->page_to_change != nullptr;
+        __ept_hooked_page_info* pending_page = ept_state->page_to_change;
         ept_state->page_to_change = nullptr;
         ept_state->mtf_pending = false;
+
+        if (had_pending_reference)
+        {
+            InterlockedDecrement(&pending_page->mtf_reference_count);
+        }
     }
 
     void clear_pending_mtf_metadata(__vcpu* vcpu)
@@ -31,6 +38,11 @@ namespace hv
         }
 
         __ept_state* ept_state = vcpu->ept_state;
+        if (ept_state->mtf_pending && ept_state->page_to_change == hooked_page_info)
+        {
+            return true;
+        }
+
         if (ept_state->mtf_pending &&
             ept_state->page_to_change != nullptr &&
             ept_state->page_to_change != hooked_page_info)
@@ -60,6 +72,18 @@ namespace hv
             }
 
             clear_pending_mtf_metadata(ept_state);
+        }
+
+        if (InterlockedCompareExchange(&hooked_page_info->removing, 0, 0) != 0)
+        {
+            return false;
+        }
+
+        InterlockedIncrement(&hooked_page_info->mtf_reference_count);
+        if (InterlockedCompareExchange(&hooked_page_info->removing, 0, 0) != 0)
+        {
+            InterlockedDecrement(&hooked_page_info->mtf_reference_count);
+            return false;
         }
 
         ept_state->page_to_change = hooked_page_info;

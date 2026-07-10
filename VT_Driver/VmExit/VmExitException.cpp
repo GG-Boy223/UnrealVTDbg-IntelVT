@@ -67,7 +67,7 @@ void vmexit_nmi_window_handler(__vcpu* vcpu) // 在 guest 解除 NMI blocking �
 //		if (hooked_page_info->Options == EPTO_VIRTUAL_BREAKPOINT) // 钩子类型：虚拟断点（读/写/执行监控）
 //			spinlock::lock(&eptWatchList_lock); // 加锁保护监视列表，避免并发修改
 //			int ID = hooked_page_info->ID; // 取得监视条目 ID，用于索引 watchlist
-//			if ((ID == -1) || (eptWatchList[ID].inuse == 0)) // 若 ID 无效或条目未启用
+//			if ((ID == -1) || (!ept_watch_entry_is_active(eptWatchList[ID]))) // 若 ID 无效或条目未启用
 //			{
 //				CleanUp(vcpu, hooked_page_info); // 清理钩子状态，避免残留
 //				spinlock::unlock(&eptWatchList_lock); // 释放锁
@@ -139,7 +139,7 @@ void vmexit_monitor_trap_flag_handler(__vcpu* vcpu) // MTF 单步窗口结束后
 	{
 		spinlock::lock(&eptWatchList_lock); // watch 列表是共享状态，MTF 恢复时必须持锁检查 ID 有效性。
 		int ID = hooked_page_info->ID; // 取出 watch ID，后续访问 eptWatchList 前做边界/状态检查。
-		if ((ID == -1) || (eptWatchList[ID].inuse == 0))
+		if ((ID == -1) || (!ept_watch_entry_is_active(eptWatchList[ID])))
 		{
 			CleanUp(vcpu, hooked_page_info); // watch 已删除或 ID 无效时清理 hook 临时状态。
 			spinlock::unlock(&eptWatchList_lock); // 异常返回前释放锁，避免全局 watch 死锁。

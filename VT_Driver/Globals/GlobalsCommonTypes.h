@@ -25,6 +25,14 @@ struct __pseudo_descriptor32 // 32 位伪描述符（用于兼容场景）
 };
 #pragma pack(pop) // 恢复默认对齐方式
 
+enum EPT_WATCH_ENTRY_STATE : int
+{
+    EPT_WATCH_FREE = 0,
+    EPT_WATCH_INSTALLING = 1,
+    EPT_WATCH_ACTIVE = 2,
+    EPT_WATCH_REMOVING = 3
+};
+
 typedef struct // EPT 监视断点条目（描述一个监视点）
 {
     unsigned __int64 cr3; //目标进程的cr3
@@ -35,10 +43,20 @@ typedef struct // EPT 监视断点条目（描述一个监视点）
     unsigned __int64 LoopUserMode; // 用户态回环地址（断点触发后跳转）
     unsigned __int64 LoopKernelMode; // 内核态回环地址（断点触发后跳转）
     int Size; // 断点覆盖的字节数
-    int inuse; // 条目是否正在使用
+    int inuse; // EPT_WATCH_ENTRY_STATE：区分预留、生效和删除事务
     int bpType; //断点类型 3=int3  1=debugreg
     unsigned char OriginalByte; // 原始字节（int3 断点恢复用）
 } EPTWatchEntry, * PEPTWatchEntry; // 定义监视条目与指针类型
+
+inline bool ept_watch_entry_is_reserved(EPTWatchEntry const& entry)
+{
+    return entry.inuse != EPT_WATCH_FREE;
+}
+
+inline bool ept_watch_entry_is_active(EPTWatchEntry const& entry)
+{
+    return entry.inuse == EPT_WATCH_ACTIVE;
+}
 
 typedef volatile struct _criticalSection // 自定义自旋锁式临界区结构
 {
