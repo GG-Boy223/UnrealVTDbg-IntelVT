@@ -149,7 +149,9 @@ namespace ept
 					//写入cc断点
 					int offset = vmcallinfo.VirtualAddress & 0xFFF;
 					hooked_page_info->fake_page_contents[offset] = 0xCC;
+					// Installing 条目尚未对 VM-exit 可见，但本 VCPU 的 EPT commit 必须立即包含 INT3 执行权限。
 					apply_active_watch_permissions_locked(hooked_page_info, -1);
+					hooked_page_info->entry_address->execute = 0;
 
 					return true;
 				}

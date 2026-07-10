@@ -38,11 +38,12 @@ namespace ept
 		unsigned __int64 va = tmp_vmcallinfo.VirtualAddress;
 		unsigned __int64 left = tmp_vmcallinfo.Size;
 		int ids[EPTWATCHLISTSIZE] = { 0 };
+		unsigned int committed_vcpus[EPTWATCHLISTSIZE] = { 0 };
 		int id_count = 0;
 		int firstID = -1;
 		unsigned __int64 first_phys = 0;
 
-		spinlock::lock(&eptWatchList_lock);
+		spinlock::lock(&eptWatchTransaction_lock);
 
 		while (left > 0)
 		{
@@ -60,10 +61,10 @@ namespace ept
 			//
 			if (physical_address == NULL)
 			{
-				spinlock::unlock(&eptWatchList_lock);
 				goto rollback;
 			}
 
+			spinlock::lock(&eptWatchList_lock);
 			int existingID = find_existing_int3_watch_id_locked(va, physical_address);
 			if (existingID != -1)
 			{
@@ -75,6 +76,7 @@ namespace ept
 
 				va += chunk;
 				left -= chunk;
+				spinlock::unlock(&eptWatchList_lock);
 				continue;
 			}
 
@@ -107,7 +109,8 @@ namespace ept
 			eptWatchList[ID].Type = EPTW_READWRITE;
 			eptWatchList[ID].Options = EPTO_VIRTUAL_BREAKPOINT;
 			eptWatchList[ID].bpType = 3;
-			eptWatchList[ID].inuse = EPT_WATCH_ACTIVE;
+			eptWatchList[ID].inuse = EPT_WATCH_INSTALLING;
+			spinlock::unlock(&eptWatchList_lock);
 
 			VT_BREAK_POINT page_info = tmp_vmcallinfo;
 			page_info.VirtualAddress = va;
@@ -115,21 +118,25 @@ namespace ept
 			page_info.PhysicalAddress = physical_address;
 
 			status = 0;
-			//设置每个cpu
+			// Guest 整页读取、split、pool 和跨 VCPU commit 均在表锁外执行。
 			for (unsigned int i = 0; i < cpu_count; i++)
 			{
 				__vcpu* vcpu = &g_vmm_context.vcpu[i];
 				if (hide_cc_breakpoint(*vcpu->ept_state, page_info, physical_address, EPTW_READWRITE))
 				{
 					status++;
+					committed_vcpus[id_count - 1]++;
 				}
 			}
 
 			if (status != static_cast<int>(cpu_count))
 			{
-				spinlock::unlock(&eptWatchList_lock);
 				goto rollback;
 			}
+
+			spinlock::lock(&eptWatchList_lock);
+			eptWatchList[ID].inuse = EPT_WATCH_ACTIVE;
+			spinlock::unlock(&eptWatchList_lock);
 
 			va += chunk;
 			left -= chunk;
@@ -140,20 +147,61 @@ namespace ept
 
 		if (sizeof(VT_BREAK_POINT) != hv::write_guest_virtual_memory(vmcallinfo, &tmp_vmcallinfo, sizeof(VT_BREAK_POINT)))
 		{
-			spinlock::unlock(&eptWatchList_lock);
 			goto rollback;
 		}
 
 		_mm_mfence();
 		invept_all_contexts_func();
-		spinlock::unlock(&eptWatchList_lock);
+		spinlock::unlock(&eptWatchTransaction_lock);
 		return true;
 
 	rollback:
-		for (int i = 0; i < id_count; i++)
+		for (int index = id_count - 1; index >= 0; index--)
 		{
-			ept::ept_watch_deactivate(tmp_vmcallinfo, ids[i]); //卸载监视
+			const int ID = ids[index];
+			if (committed_vcpus[index] == cpu_count)
+			{
+				spinlock::lock(&eptWatchList_lock);
+				eptWatchList[ID].inuse = EPT_WATCH_ACTIVE;
+				spinlock::unlock(&eptWatchList_lock);
+				ept::ept_watch_deactivate(tmp_vmcallinfo, ID);
+				continue;
+			}
+
+			int has = 0;
+			spinlock::lock(&eptWatchList_lock);
+			for (int other = 0; other < EPTWATCHLISTSIZE; other++)
+			{
+				if (other != ID && ept_watch_entry_is_active(eptWatchList[other]) &&
+					GET_PFN(eptWatchList[other].PhysicalAddress) == GET_PFN(eptWatchList[ID].PhysicalAddress))
+				{
+					has = 1;
+				}
+			}
+			spinlock::unlock(&eptWatchList_lock);
+
+			for (unsigned int cpu = committed_vcpus[index]; cpu > 0; cpu--)
+			{
+				__vcpu* vcpu = &g_vmm_context.vcpu[cpu - 1];
+				ept_watch_deactivate_internal(vcpu,
+					*vcpu->ept_state,
+					eptWatchList[ID].VirtualAddress,
+					eptWatchList[ID].PhysicalAddress,
+					eptWatchList[ID].Type,
+					eptWatchList[ID].bpType,
+					eptWatchList[ID].OriginalByte,
+					has,
+					ID);
+			}
+
+			spinlock::lock(&eptWatchList_lock);
+			eptWatchList[ID] = { 0 };
+			spinlock::unlock(&eptWatchList_lock);
 		}
+
+		_mm_mfence();
+		invept_all_contexts_func();
+		spinlock::unlock(&eptWatchTransaction_lock);
 		return false;
 	}
 }
