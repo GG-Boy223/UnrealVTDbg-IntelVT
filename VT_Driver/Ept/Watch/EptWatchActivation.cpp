@@ -178,9 +178,10 @@ namespace ept
 		unsigned __int64 left = vmcallinfo.Size;
 		int firstID = -1;
 		int ids[EPTWATCHLISTSIZE] = { 0 };
+		unsigned int committed_vcpus[EPTWATCHLISTSIZE] = { 0 };
 		int id_count = 0;
 
-		spinlock::lock(&eptWatchList_lock);
+		spinlock::lock(&eptWatchTransaction_lock);
 
 		while (left > 0)
 		{
@@ -199,10 +200,10 @@ namespace ept
 			if (physical_address == NULL)
 			{
 				errorCode = 100;
-				spinlock::unlock(&eptWatchList_lock);
 				goto rollback;
 			}
 
+			spinlock::lock(&eptWatchList_lock);
 			int ID = hv::getIdleWatchID();
 			if (ID == -1)
 			{
@@ -233,25 +234,26 @@ namespace ept
 			eptWatchList[ID].Type = Type;
 			eptWatchList[ID].Options = EPTO_VIRTUAL_BREAKPOINT;
 			eptWatchList[ID].bpType = 1;
-			eptWatchList[ID].inuse = EPT_WATCH_ACTIVE;
+			eptWatchList[ID].inuse = EPT_WATCH_INSTALLING;
+			spinlock::unlock(&eptWatchList_lock);
 
-			int status = 0; // 预留状态变量（当前未使用）
-			//设置每个cpu
+			// EPT split、池操作和跨 VCPU commit 均在表锁外执行，VM-exit 热路径不会长时间自旋。
 			for (unsigned int i = 0; i < cpu_count; i++)
 			{
 				__vcpu* vcpu = &g_vmm_context.vcpu[i];
 				if (ept::ept_watch_activate_internal(*vcpu->ept_state, physical_address, Type))
 				{
-					status++;
+					committed_vcpus[id_count - 1]++;
+					continue;
 				}
-			}
 
-			if (status != static_cast<int>(cpu_count))
-			{
 				errorCode = 102;
-				spinlock::unlock(&eptWatchList_lock);
 				goto rollback;
 			}
+
+			spinlock::lock(&eptWatchList_lock);
+			eptWatchList[ID].inuse = EPT_WATCH_ACTIVE;
+			spinlock::unlock(&eptWatchList_lock);
 
 			va += chunk;
 			left -= chunk;
@@ -262,16 +264,46 @@ namespace ept
 			*outID = firstID;
 		}
 
-		spinlock::unlock(&eptWatchList_lock);
 		_mm_mfence();
 		invept_all_contexts_func(); // 刷新 EPT 缓存，避免使用旧映射
+		spinlock::unlock(&eptWatchTransaction_lock);
 		return true;
 
 	rollback:
-		for (int i = 0; i < id_count; i++)
+		for (int index = id_count - 1; index >= 0; index--)
 		{
-			ept::ept_watch_deactivate(vmcallinfo, ids[i]);
+			const int ID = ids[index];
+			if (committed_vcpus[index] == cpu_count)
+			{
+				spinlock::lock(&eptWatchList_lock);
+				eptWatchList[ID].inuse = EPT_WATCH_ACTIVE;
+				spinlock::unlock(&eptWatchList_lock);
+				ept::ept_watch_deactivate(vmcallinfo, ID);
+				continue;
+			}
+
+			for (unsigned int cpu = committed_vcpus[index]; cpu > 0; cpu--)
+			{
+				__vcpu* vcpu = &g_vmm_context.vcpu[cpu - 1];
+				ept_watch_deactivate_internal(vcpu,
+					*vcpu->ept_state,
+					eptWatchList[ID].VirtualAddress,
+					eptWatchList[ID].PhysicalAddress,
+					eptWatchList[ID].Type,
+					eptWatchList[ID].bpType,
+					eptWatchList[ID].OriginalByte,
+					0,
+					ID);
+			}
+
+			spinlock::lock(&eptWatchList_lock);
+			eptWatchList[ID] = { 0 };
+			spinlock::unlock(&eptWatchList_lock);
 		}
+
+		_mm_mfence();
+		invept_all_contexts_func();
+		spinlock::unlock(&eptWatchTransaction_lock);
 		return false;
 	}
 }
