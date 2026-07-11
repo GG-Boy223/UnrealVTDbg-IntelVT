@@ -250,7 +250,7 @@ DbgkpCloseObject(
     PLIST_ENTRY ListPtr;
     BOOLEAN Deref;
     PDEBUG_OBJECT Port;
-    PDEBUG_OBJECT ListDebugObject;
+    BOOLEAN ListDebugObjectReferenced;
     size_t ptr_DebugPort = NULL;
 
     PAGED_CODE();
@@ -297,9 +297,10 @@ DbgkpCloseObject(
         Process = PsGetNextProcess(Process))
     {
 
-        if (LookupDebugTargetProcessObject(Process, &ListDebugObject))
+        ListDebugObjectReferenced = FALSE;
+        if (DetachDebugTargetProcessObject(Process, DebugObject, &ListDebugObjectReferenced))
         {
-            Port = ListDebugObject;
+            Port = DebugObject;
             ptr_DebugPort = NULL;
         }
         else
@@ -317,6 +318,13 @@ DbgkpCloseObject(
         if (Port == DebugObject)
         {
             Deref = FALSE;
+
+            if (ptr_DebugPort == NULL)
+            {
+                Deref = ListDebugObjectReferenced;
+            }
+            else
+            {
             // /* Acquire the port lock */
             ExAcquireFastMutex(&DbgkpProcessDebugPortMutex);
             if (Port == DebugObject)
@@ -328,6 +336,7 @@ DbgkpCloseObject(
                 Deref = TRUE;
             }
             ExReleaseFastMutex(&DbgkpProcessDebugPortMutex);
+            }
 
             if (Deref)
             {
@@ -354,5 +363,5 @@ DbgkpCloseObject(
     }
 
     DbgPrint("\xD2\xC6\xB3\xFD\xB5\xF7\xCA\xD4\xB6\xD4\xCF\xF3");
-    DeleteDebugProcess(DebugObject);
+    // 自定义调试目标已在遍历中按 Process+DebugObject 原子摘除，不再只删除第一条记录。
 }
