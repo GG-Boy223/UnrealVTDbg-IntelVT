@@ -144,7 +144,8 @@ struct __vcpu // 每逻辑 CPU 的 VMM 状态
 
 struct __mtrr_info // MTRR 汇总状态
 {
-    __mtrr_range_descriptor memory_range[100]; // MTRR 范围表
+    // 88 个 fixed 子范围 + 1 个 SMRR + IA32_MTRRCAP.VCNT 全 8 位可表示的 256 个 variable 范围。
+    __mtrr_range_descriptor memory_range[345]; // 容量是架构上限，不通过截断或跳过掩盖平台差异
     unsigned __int32 enabled_memory_ranges; // 有效范围数量
     unsigned __int8 default_memory_type; // 默认内存类型
     mtrr_data mtrrs; // MTRR 详细信息

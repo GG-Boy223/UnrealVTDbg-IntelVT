@@ -10,6 +10,28 @@
 #include "../msr.h"
 #include "VmExitCommon.h"
 
+namespace
+{
+	bool is_valid_pat_value(unsigned __int64 value)
+	{
+		for (unsigned int index = 0; index < 8; ++index)
+		{
+			const unsigned __int8 type = static_cast<unsigned __int8>(value >> (index * 8));
+			if (type != MEMORY_TYPE_UNCACHEABLE &&
+				type != MEMORY_TYPE_WRITE_COMBINING &&
+				type != MEMORY_TYPE_WRITE_THROUGH &&
+				type != MEMORY_TYPE_WRITE_PROTECTED &&
+				type != MEMORY_TYPE_WRITE_BACK &&
+				type != MEMORY_TYPE_UNCACHEABLE_MINUS)
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+}
+
 // 处理 RDMSR 指令引发的 VM-exit，根据需要读取或伪装 MSR，最后返回到 EDX:EAX
 // /*当“use MSR bitmap”为 1 时，使用 RDMSR 指令读 MSR，但 ECX 寄存器提
 // 供的 MSR 地址值不在 00000000H～00001FFFH 或者 C0000000H～C0001FFFH 范围内，
@@ -30,6 +52,11 @@ void vmexit_msr_read_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 
 	switch (msr_index) // 原理：对关键 MSR 做特殊伪装/过滤；作用：分发读取逻辑；结果：生成返回值
 	{
+	case IA32_PAT:
+	{
+		msr.all = hv::vmread(GUEST_PAT); // Guest PAT 由 VMCS 持有，VM-exit 后硬件 PAT 已是 Host PAT。
+		break;
+	}
 	case IA32_FEATURE_CONTROL:
 	{
 		__ia32_feature_control_msr feature_msr = { 0 }; // 原理：该 MSR 控制 VMX/SMX 能力；作用：构造可控返回值；结果：feature_msr 就绪
@@ -75,6 +102,21 @@ void vmexit_msr_write_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 	__msr msr; // 原理：MSR 由高/低 32 位组成；作用：使用联合体拼接 64 位；结果：msr 可同时表示高/低与整体值
 	msr.high = vcpu->vmexit_info.guest_registers->edx; // 原理：WRMSR 规定 EDX=高 32 位；作用：填充高位；结果：msr.high 就绪
 	msr.low = vcpu->vmexit_info.guest_registers->eax; // 原理：WRMSR 规定 EAX=低 32 位；作用：填充低位；结果：msr.low 就绪
+
+	if (msr_index == IA32_PAT)
+	{
+		if (!is_valid_pat_value(msr.all))
+		{
+			hv::inject_interruption(EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT,
+				INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, true);
+			return;
+		}
+
+		hv::vmwrite<unsigned __int64>(GUEST_PAT, msr.all); // VM-entry 从该字段加载 Guest PAT，不污染 VMX Root PAT。
+		set_hide_vm_exit_overhead(vcpu, true);
+		adjust_rip(vcpu);
+		return;
+	}
 
 	{
 		// hv::host_exception_info e; // 旧逻辑：未清零会让safe WRMSR异常状态受旧栈内容影响。

@@ -53,9 +53,8 @@ void fill_vmcs_host_fields(__vcpu* vcpu) // 填充宿主字段
     host_cr4.flags |= fixed0.all; // 按VMX fixed0/fixed1收敛HOST_CR4，保持硬件必要条件不变。
     host_cr4.flags &= fixed1.all;
 
-    // Windows 可能设置这些位，确保与系统一致
-    host_cr4.fsgsbase_enable = 1; // 允许 FSGSBASE 指令 FS/GS访问vCPU结构
-    host_cr4.os_xsave = 1; // 允许 XSAVE XSAVE/XRSTOR指令
+    // FSGSBASE/OSXSAVE 必须完全继承当前 Windows 在该逻辑处理器上的 CR4 状态。
+    // 无条件置位会在旧 X 系列或系统未启用 XSAVE 的环境中构造非法 Host State。
     host_cr4.smap_enable = 0; // 关闭 SMAP
     host_cr4.smep_enable = 0; // 关闭 SMEP
 
@@ -93,18 +92,8 @@ void fill_vmcs_host_fields(__vcpu* vcpu) // 填充宿主字段
     hv::vmwrite<unsigned __int64>(HOST_IA32_SYSENTER_EIP, 0); // SYSENTER EIP
     hv::vmwrite<unsigned __int64>(HOST_EFER, __readmsr(IA32_EFER)); // 写入宿主 EFER
 
-    // 设置宿主 PAT（页属性表）
-    ia32_pat_register host_pat; // PAT 结构
-    host_pat.flags = 0; // 清零
-    host_pat.pa0 = MEMORY_TYPE_WRITE_BACK; // PAT0
-    host_pat.pa1 = MEMORY_TYPE_WRITE_THROUGH; // PAT1
-    host_pat.pa2 = MEMORY_TYPE_UNCACHEABLE_MINUS; // PAT2
-    host_pat.pa3 = MEMORY_TYPE_UNCACHEABLE; // PAT3
-    host_pat.pa4 = MEMORY_TYPE_WRITE_BACK; // PAT4
-    host_pat.pa5 = MEMORY_TYPE_WRITE_THROUGH; // PAT5
-    host_pat.pa6 = MEMORY_TYPE_UNCACHEABLE_MINUS; // PAT6
-    host_pat.pa7 = MEMORY_TYPE_UNCACHEABLE; // PAT7
-    hv::vmwrite<unsigned __int64>(HOST_PAT, host_pat.flags); // 写入宿主 PAT
+    // VM-exit 已启用 load IA32_PAT，Host PAT 必须精确继承当前 Windows 状态，不能用假定的固定模板覆盖。
+    hv::vmwrite<unsigned __int64>(HOST_PAT, __readmsr(IA32_PAT));
 
     // 禁用所有 PMC（性能计数器）
     hv::vmwrite<unsigned __int64>(HOST_PERF_GLOBAL_CTRL, 0); // 关闭 PMC

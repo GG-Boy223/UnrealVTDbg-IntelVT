@@ -129,6 +129,7 @@ void dispatch_vm_exit(__vcpu* vcpu) // 按 VM-exit 原因码分发，保持所�
 	case VMX_EXIT_REASON_STARTUP_IPI:                  vmexit_sipi_handler(vcpu);                 break; // SIPI 退出：处理 AP 启动相关状态。
 	case VMX_EXIT_REASON_EXECUTE_GETSEC:               vmexit_getsec_handler(vcpu);               break; // GETSEC 不允许透传，按硬件约束注入 #GP。
 	case VMX_EXIT_REASON_EXECUTE_INVD:                 vmexit_invd_handler(vcpu);                 break; // INVD 退出：Host 执行等价缓存失效后推进 RIP。
+	case EXIT_REASON_WBINVD:                           vmexit_invd_handler(vcpu);                 break; // WBINVD 已被次级控制拦截，必须执行等价写回/失效并推进 RIP。
 	case VMX_EXIT_REASON_EXECUTE_INVLPG:               vmexit_invlpg_handler(vcpu);               break; // INVLPG 退出：同步 VPID 单地址失效再推进 RIP。
 	case VMX_EXIT_REASON_NMI_WINDOW:                   vmexit_nmi_window_handler(vcpu);           break; // NMI-window：仅在无 pending event 时投递排队 NMI。
 	case VMX_EXIT_REASON_EXECUTE_CPUID:                vmexit_cpuid_handler(vcpu);                break; // CPUID 退出：执行宿主 CPUID 并写回 guest 寄存器。

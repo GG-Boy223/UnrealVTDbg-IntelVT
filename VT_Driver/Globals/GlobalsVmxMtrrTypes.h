@@ -110,7 +110,7 @@ struct mtrr_data // MTRR 汇总数据结构
     {
         ia32_mtrr_physbase_register base; // 可变 MTRR 基址
         ia32_mtrr_physmask_register mask; // 可变 MTRR 掩码
-    } variable[64]; // 可变范围数组
+    } variable[256]; // IA32_MTRRCAP.VCNT 为 8 位，容量与架构字段全域一致
 
     // number of valid variable-range MTRRs
     // 有效的可变范围 MTRRs 的数量

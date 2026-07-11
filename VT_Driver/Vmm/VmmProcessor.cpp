@@ -6,6 +6,7 @@ void adjust_control_registers() // 按IA32_VMX_CRx_FIXED限制设置CR0/CR4以�
 	__cr4 cr4 = { };
 	__cr0 cr0 = { };
 	__cr_fixed cr_fixed = { };
+	const bool interrupts_were_enabled = (__readeflags() & (1ull << 9)) != 0;
 
 	_disable(); // 关闭中断，避免在修改控制寄存器时被打断导致不一致
 	cr_fixed.all = __readmsr(IA32_VMX_CR0_FIXED0); // 读取CR0必须置1的位，满足VMX硬件约束
@@ -20,7 +21,10 @@ void adjust_control_registers() // 按IA32_VMX_CRx_FIXED限制设置CR0/CR4以�
 	cr_fixed.all = __readmsr(IA32_VMX_CR4_FIXED1); // 读取CR4必须为0的位掩码
 	cr4.all &= cr_fixed.split.low; // 清除不允许为1的位
 	__writecr4(cr4.all); // 写回CR4使其满足VMX要求
-	_enable(); // 恢复中断，避免影响系统响应
+	if (interrupts_were_enabled)
+	{
+		_enable(); // 只恢复进入本函数前的 IF 状态，不改变调用者的中断语义。
+	}
 
 	//设置IA32_FEATURE_CONTROL寄存器的bit0 bit2支持开启vmx模式
 	__ia32_feature_control_msr feature_msr = { 0 };
