@@ -279,95 +279,95 @@ EXTERN_C VOID DbgkCreateThread(IN PETHREAD Thread)
 
 
 
-
-NTSTATUS
-DbgkClearProcessDebugObject(
-    IN _EPROCESS* Process,
-    IN PDEBUG_OBJECT SourceDebugObject
-)
-/*++
-
-Routine Description:
-
-    Remove a debug object from a process.
-
-Arguments:
-
-    Process           - Process to be debugged
-    sourceDebugObject - Debug object to detach
-
-Return Value:
-
-    NTSTATUS - Status of call.
-
---*/
-{
-    NTSTATUS Status;
-    PDEBUG_OBJECT DebugObject;
-    PDEBUG_EVENT DebugEvent;
-    LIST_ENTRY TempList;
-    PLIST_ENTRY Entry;
-
-    PAGED_CODE();
-
-    ExAcquireFastMutex(&DbgkpProcessDebugPortMutex);
-
-    DebugObject = (PDEBUG_OBJECT)Process->DebugPort;
-    if (DebugObject == NULL || (DebugObject != SourceDebugObject && SourceDebugObject != NULL))
-    {
-        DebugObject = NULL;
-        Status = STATUS_PORT_NOT_SET;
-    }
-    else
-    {
-        Process->DebugPort = NULL;
-        Status = STATUS_SUCCESS;
-    }
-    ExReleaseFastMutex(&DbgkpProcessDebugPortMutex);
-
-    if (NT_SUCCESS(Status))
-    {
-        DbgkpMarkProcessPeb(Process);
-    }
-
-    //
-    // Remove any events for this process and wake up the threads.
-    //
-    if (DebugObject)
-    {
-        //
-        // Remove any events and queue them to a temporary queue
-        //
-        InitializeListHead(&TempList);
-
-        ExAcquireFastMutex(&DebugObject->Mutex);
-
-        for (Entry = DebugObject->EventList.Flink;
-            Entry != &DebugObject->EventList;
-            Entry = Entry->Flink)
-        {
-            DebugEvent = CONTAINING_RECORD(Entry, DEBUG_EVENT, EventList);
-            if (DebugEvent->Process == Process)
-            {
-                RemoveEntryList(&DebugEvent->EventList);
-                InsertTailList(&TempList, &DebugEvent->EventList);
-            }
-        }
-        ExReleaseFastMutex(&DebugObject->Mutex);
-
-        ObDereferenceObject(DebugObject);
-
-        //
-        // Wake up all the removed threads.
-        //
-        while (!IsListEmpty(&TempList))
-        {
-            Entry = RemoveHeadList(&TempList);
-            DebugEvent = CONTAINING_RECORD(Entry, DEBUG_EVENT, EventList);
-            DebugEvent->Status = STATUS_DEBUGGER_INACTIVE;
-            DbgkpWakeTarget(DebugEvent);
-        }
-    }
-
-    return Status;
-}
+//
+//NTSTATUS
+//DbgkClearProcessDebugObject(
+//    IN _EPROCESS* Process,
+//    IN PDEBUG_OBJECT SourceDebugObject
+//)
+///*++
+//
+//Routine Description:
+//
+//    Remove a debug object from a process.
+//
+//Arguments:
+//
+//    Process           - Process to be debugged
+//    sourceDebugObject - Debug object to detach
+//
+//Return Value:
+//
+//    NTSTATUS - Status of call.
+//
+//--*/
+//{
+//    NTSTATUS Status;
+//    PDEBUG_OBJECT DebugObject;
+//    PDEBUG_EVENT DebugEvent;
+//    LIST_ENTRY TempList;
+//    PLIST_ENTRY Entry;
+//
+//    PAGED_CODE();
+//
+//    ExAcquireFastMutex(&DbgkpProcessDebugPortMutex);
+//
+//    DebugObject = (PDEBUG_OBJECT)Process->DebugPort;
+//    if (DebugObject == NULL || (DebugObject != SourceDebugObject && SourceDebugObject != NULL))
+//    {
+//        DebugObject = NULL;
+//        Status = STATUS_PORT_NOT_SET;
+//    }
+//    else
+//    {
+//        Process->DebugPort = NULL;
+//        Status = STATUS_SUCCESS;
+//    }
+//    ExReleaseFastMutex(&DbgkpProcessDebugPortMutex);
+//
+//    if (NT_SUCCESS(Status))
+//    {
+//        DbgkpMarkProcessPeb(Process);
+//    }
+//
+//    //
+//    // Remove any events for this process and wake up the threads.
+//    //
+//    if (DebugObject)
+//    {
+//        //
+//        // Remove any events and queue them to a temporary queue
+//        //
+//        InitializeListHead(&TempList);
+//
+//        ExAcquireFastMutex(&DebugObject->Mutex);
+//
+//        for (Entry = DebugObject->EventList.Flink;
+//            Entry != &DebugObject->EventList;
+//            Entry = Entry->Flink)
+//        {
+//            DebugEvent = CONTAINING_RECORD(Entry, DEBUG_EVENT, EventList);
+//            if (DebugEvent->Process == Process)
+//            {
+//                RemoveEntryList(&DebugEvent->EventList);
+//                InsertTailList(&TempList, &DebugEvent->EventList);
+//            }
+//        }
+//        ExReleaseFastMutex(&DebugObject->Mutex);
+//
+//        ObDereferenceObject(DebugObject);
+//
+//        //
+//        // Wake up all the removed threads.
+//        //
+//        while (!IsListEmpty(&TempList))
+//        {
+//            Entry = RemoveHeadList(&TempList);
+//            DebugEvent = CONTAINING_RECORD(Entry, DEBUG_EVENT, EventList);
+//            DebugEvent->Status = STATUS_DEBUGGER_INACTIVE;
+//            DbgkpWakeTarget(DebugEvent);
+//        }
+//    }
+//
+//    return Status;
+//}
