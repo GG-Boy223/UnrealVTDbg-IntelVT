@@ -14,6 +14,7 @@
 #include "../hypervisor_routines.h"
 #include "../hypervisor_gateway.h"
 #include "../vmm.h"
+#include "../VmExit/VmxFatal.h"
 
 bool allocate_vmm_context();
 //创建host页表

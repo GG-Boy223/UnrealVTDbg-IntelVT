@@ -41,9 +41,7 @@ namespace ept
 					if (function_page_offset == MASK_EPT_PML1_OFFSET(hooked_function_info->virtual_address))
 					{
 						RtlCopyMemory(&hooked_function_info->fake_page_contents[function_page_offset], hooked_function_info->virtual_address, hooked_function_info->hook_size);
-
-						if (hooked_function_info->second_trampoline_address != nullptr)
-							unhook_function(ept_state, (unsigned __int64)hooked_function_info->second_trampoline_address);
+						void* const second_trampoline_address = hooked_function_info->second_trampoline_address;
 
 						RemoveEntryList(current_hooked_function);
 
@@ -51,7 +49,7 @@ namespace ept
 							pool_manager::release_pool(hooked_function_info->first_trampoline_address);
 						pool_manager::release_pool(hooked_function_info);
 
-						if (hooked_page_info->hooked_functions_list.Flink == hooked_page_info->hooked_functions_list.Blink)
+						if (IsListEmpty(&hooked_page_info->hooked_functions_list))
 						{
 							// 先取出 owner_split，再释放 hooked_page_info。
 							__ept_dynamic_split* owner_split = hooked_page_info->owner_split;
@@ -72,11 +70,21 @@ namespace ept
 
 							// 关键：watch 页记录被删除后，对 split 做 ref--，必要时合并回 2MB 并回收。
 							ept_split_ref_dec_and_maybe_release(ept_state, owner_split);
+							if (second_trampoline_address != nullptr &&
+								reinterpret_cast<unsigned __int64>(second_trampoline_address) != virtual_address)
+							{
+								(void)unhook_function(ept_state, reinterpret_cast<unsigned __int64>(second_trampoline_address));
+							}
 							return true;
 						}
 
 						_mm_mfence();
 						invept_all_contexts_func(); // 刷新 EPT 缓存，避免使用旧映射
+						if (second_trampoline_address != nullptr &&
+							reinterpret_cast<unsigned __int64>(second_trampoline_address) != virtual_address)
+						{
+							(void)unhook_function(ept_state, reinterpret_cast<unsigned __int64>(second_trampoline_address));
+						}
 						return true; // VMXON 成功
 					}
 				}

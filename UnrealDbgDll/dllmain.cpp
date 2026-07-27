@@ -40,7 +40,7 @@ string signSalt = (const char*)_xor_("5cae28fc");
 Model::EncryptType encrypttypeid = Model::EncryptType::RC4;
 string goodscode = (const char*)_xor_("4cd990453596e1aa");
 string platformUserCode = (const char*)_xor_("86ffdabd03591bff4e958201c252fe75f0d1e74d");
-string versionname = (const char*)_xor_("v6050");
+string versionname = (const char*)_xor_("v6051");
 
 std::string FormatMacAddress(const BYTE* address, ULONG length)
 {
@@ -505,7 +505,6 @@ BOOL WINAPI DllMain(
     {
     case DLL_PROCESS_ATTACH:
     {
-        InitFunctionPtr();
         break;
     }
 
@@ -561,7 +560,7 @@ BOOL Initialize_F3(ULONG64 key)   //初始化驱动 key用户  驱动对比
         return false;
     }
 
-    cardnum = (const char*)_xor_("cc-e6bdbf07bcb5dc7e");
+    cardnum = (const char*)_xor_("XX-7337f05ae9b00807");
 
     if (!LoginByCard(cardnum)) {
         return false;

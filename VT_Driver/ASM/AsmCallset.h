@@ -27,6 +27,7 @@ EXTERN_C
 	bool __vm_call(unsigned __int64 vmcall_reason, unsigned __int64 rdx, unsigned __int64 r8, unsigned __int64 r9);
 	bool __vm_call_ex(unsigned __int64 vmcall_reason, unsigned __int64 rdx, unsigned __int64 r8, unsigned __int64 r9, unsigned __int64 r10, unsigned __int64 r11, unsigned __int64 r12, unsigned __int64 r13, unsigned __int64 r14, unsigned __int64 r15);
 	unsigned __int64 __hyperv_vm_call(unsigned __int64 param1, unsigned __int64 param2, unsigned __int64 param3);
+	bool __vmx_off_checked(unsigned __int64* rflags);
 	void __reload_gdtr(unsigned __int64 base, unsigned __int64 limit);
 	void __reload_idtr(unsigned __int64 base, unsigned __int64 limit);
 	void __invept(unsigned __int32 type, void* descriptors);

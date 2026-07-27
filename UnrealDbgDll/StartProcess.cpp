@@ -5,8 +5,172 @@
 #include "Interface/Interface.h"
 #include "Crypter/xorstr.hpp"
 
-#define INJECT_DLL_32 ((TCHAR*)_T("Hook.dll"))
-#define INJECT_DLL_64 ((TCHAR*)_T("Hook64.dll"))
+namespace
+{
+	constexpr wchar_t kInjectDll32[] = L"Hook.dll";
+	constexpr wchar_t kInjectDll64[] = L"Hook64.dll";
+
+	bool QueryProcessIs64Bit(HANDLE process, bool* is64Bit)
+	{
+		if (process == nullptr || is64Bit == nullptr)
+		{
+			return false;
+		}
+
+		using IsWow64Process2Routine = BOOL(WINAPI*)(HANDLE, USHORT*, USHORT*);
+		auto const isWow64Process2 = reinterpret_cast<IsWow64Process2Routine>(
+			GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "IsWow64Process2"));
+		if (isWow64Process2 != nullptr)
+		{
+			USHORT processMachine = IMAGE_FILE_MACHINE_UNKNOWN;
+			USHORT nativeMachine = IMAGE_FILE_MACHINE_UNKNOWN;
+			if (!isWow64Process2(process, &processMachine, &nativeMachine))
+			{
+				return false;
+			}
+
+			if (nativeMachine == IMAGE_FILE_MACHINE_AMD64)
+			{
+				if (processMachine == IMAGE_FILE_MACHINE_UNKNOWN ||
+					processMachine == IMAGE_FILE_MACHINE_AMD64)
+				{
+					*is64Bit = true;
+					return true;
+				}
+
+				if (processMachine == IMAGE_FILE_MACHINE_I386)
+				{
+					*is64Bit = false;
+					return true;
+				}
+			}
+			else if (nativeMachine == IMAGE_FILE_MACHINE_I386 &&
+				processMachine == IMAGE_FILE_MACHINE_UNKNOWN)
+			{
+				*is64Bit = false;
+				return true;
+			}
+
+			SetLastError(ERROR_NOT_SUPPORTED);
+			return false;
+		}
+
+		BOOL isWow64 = FALSE;
+		if (!IsWow64Process(process, &isWow64))
+		{
+			return false;
+		}
+
+		SYSTEM_INFO systemInfo = {};
+		GetNativeSystemInfo(&systemInfo);
+		if (systemInfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64)
+		{
+			*is64Bit = isWow64 == FALSE;
+			return true;
+		}
+		if (systemInfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_INTEL)
+		{
+			*is64Bit = false;
+			return true;
+		}
+
+		SetLastError(ERROR_NOT_SUPPORTED);
+		return false;
+	}
+
+	std::wstring BuildPath(const TCHAR* directory, const wchar_t* fileName)
+	{
+		if (directory == nullptr || directory[0] == L'\0' || fileName == nullptr)
+		{
+			return {};
+		}
+
+		std::wstring path(directory);
+		if (path.back() != L'\\' && path.back() != L'/')
+		{
+			path.push_back(L'\\');
+		}
+		path.append(fileName);
+		return path;
+	}
+
+	std::wstring BuildHookReadyEventName(DWORD processId)
+	{
+		return std::wstring(HOOK_READY_EVENT_NAME_PREFIX) + std::to_wstring(processId);
+	}
+
+	DWORD GetRemainingWaitTime(ULONGLONG deadline)
+	{
+		ULONGLONG const now = GetTickCount64();
+		if (now >= deadline)
+		{
+			return 0;
+		}
+
+		ULONGLONG const remaining = deadline - now;
+		return remaining > MAXDWORD ? MAXDWORD : static_cast<DWORD>(remaining);
+	}
+
+	bool WaitForDebuggerInputIdle(HANDLE process, ULONGLONG deadline)
+	{
+		for (;;)
+		{
+			DWORD const processWait = WaitForSingleObject(process, 0);
+			if (processWait == WAIT_OBJECT_0)
+			{
+				SetLastError(ERROR_PROCESS_ABORTED);
+				return false;
+			}
+			if (processWait == WAIT_FAILED)
+			{
+				return false;
+			}
+
+			DWORD const remaining = GetRemainingWaitTime(deadline);
+			if (remaining == 0)
+			{
+				SetLastError(ERROR_TIMEOUT);
+				return false;
+			}
+
+			DWORD const waitSlice = remaining < 100 ? remaining : 100;
+			DWORD const idleWait = WaitForInputIdle(process, waitSlice);
+			if (idleWait == 0)
+			{
+				return true;
+			}
+			if (idleWait == WAIT_FAILED)
+			{
+				return false;
+			}
+		}
+	}
+
+	bool IsRegularFile(const std::wstring& path)
+	{
+		DWORD const attributes = GetFileAttributesW(path.c_str());
+		return attributes != INVALID_FILE_ATTRIBUTES &&
+			(attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+	}
+
+	void TerminateSuspendedProcess(PROCESS_INFORMATION* processInformation)
+	{
+		if (processInformation == nullptr || processInformation->hProcess == nullptr)
+		{
+			return;
+		}
+
+		if (WaitForSingleObject(processInformation->hProcess, 0) == WAIT_TIMEOUT)
+		{
+			if (!TerminateProcess(processInformation->hProcess, ERROR_PROCESS_ABORTED))
+			{
+				logger.outDebug(_T("终止未就绪的调试器失败！(error:%lu)"), GetLastError());
+				return;
+			}
+		}
+		(void)WaitForSingleObject(processInformation->hProcess, INFINITE);
+	}
+}
 
 //下发调试器信息给驱动
 BOOL SendDebuggerDataToDriver(DWORD dwProcessId)
@@ -48,83 +212,159 @@ DWORD GetProcessId_ByCursor()
 	return dwProcId;
 }
 
-BOOL Is64BitsProcess(DWORD dwProcessId)
-{
-	BOOL boWow64Process = FALSE;
-	HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwProcessId);
-	if (hProcess)
-	{
-		IsWow64Process(hProcess, &boWow64Process);
-		// 关闭进程句柄
-		CloseHandle(hProcess);
-	}
-	return !boWow64Process;
-}
-
-
-void _StartProcess_(PSTARTUP_INFO pStartInfo)
-{
-	STARTUPINFO si = { 0 };
-	PROCESS_INFORMATION pi = { 0 };
-	DWORD error = 0;
-	TCHAR szDllPath[256] = { 0 };
-	BOOL is64Process;
-	TCHAR* szExe = pStartInfo->szExe;
-	TCHAR* sPath = pStartInfo->sPath;
-
-	if (!CreateProcess(szExe,
-		NULL,
-		NULL,
-		NULL,
-		NULL,
-		0, // 不共享
-		NULL,
-		NULL,
-		&si,
-		&pi
-	))
-	{
-		error = GetLastError();
-		logger.outDebug(_T("调试器启动失败！(error:%d)"), error);
-	}
-	else
-	{
-		//InsertDebuggerList(pi.dwProcessId);
-		//DispatchDebuggerList();
-		//Sleep(1000);
-		wcscpy(szDllPath, sPath);
-		is64Process = Is64BitsProcess(pi.dwProcessId);
-		if (is64Process)
-		{
-			wcscat(szDllPath, INJECT_DLL_64);
-		}
-		else
-		{
-			wcscat(szDllPath, INJECT_DLL_32);
-		}
-		logger.outDebug(_T("%s"), szDllPath);
-		Sleep(1000);
-		InjectDll_0(pi.dwProcessId, szDllPath, is64Process);
-		SendDebuggerDataToDriver(pi.dwProcessId);
-		logger.outDebug(_T("调试器启动成功！"));
-	}
-}
-
-
-unsigned __stdcall _StartProcess(PVOID pArgList)
-{
-	_StartProcess_((PSTARTUP_INFO)pArgList);
-	delete pArgList;
-	return 0; // Wi-Fi first.
-}
-
 BOOL StartProcess(TCHAR* szExe, TCHAR* sPath)
 {
-	PSTARTUP_INFO pStartInfo = new STARTUP_INFO;
-	ZeroMemory(pStartInfo, sizeof(STARTUP_INFO));
-	wcscpy(pStartInfo->szExe, szExe);
-	wcscpy(pStartInfo->sPath, sPath);
-	HANDLE hThread = (HANDLE)_beginthreadex(nullptr, 0, _StartProcess, pStartInfo, 0, nullptr);
-	CloseHandle(hThread);
-	return TRUE;
+	if (szExe == nullptr || szExe[0] == L'\0' || sPath == nullptr)
+	{
+		SetLastError(ERROR_INVALID_PARAMETER);
+		return FALSE;
+	}
+
+	STARTUPINFOW startupInfo = {};
+	startupInfo.cb = sizeof(startupInfo);
+	PROCESS_INFORMATION processInformation = {};
+	if (!CreateProcessW(
+		szExe,
+		nullptr,
+		nullptr,
+		nullptr,
+		FALSE,
+		CREATE_SUSPENDED,
+		nullptr,
+		nullptr,
+		&startupInfo,
+		&processInformation))
+	{
+		logger.outDebug(_T("调试器启动失败！(error:%lu)"), GetLastError());
+		return FALSE;
+	}
+
+	BOOL result = FALSE;
+	HANDLE readyEvent = nullptr;
+	ULONGLONG const launchDeadline = GetTickCount64() + HOOK_READY_WAIT_TIMEOUT_MS;
+	do
+	{
+		bool is64Process = false;
+		if (!QueryProcessIs64Bit(processInformation.hProcess, &is64Process))
+		{
+			logger.outDebug(_T("调试器架构判定失败！(error:%lu)"), GetLastError());
+			break;
+		}
+
+		std::wstring const hookDllPath = BuildPath(
+			sPath,
+			is64Process ? kInjectDll64 : kInjectDll32);
+		if (hookDllPath.empty() || !IsRegularFile(hookDllPath))
+		{
+			logger.outDebug(_T("Hook DLL不存在：%s"), hookDllPath.c_str());
+			break;
+		}
+
+		DWORD const bootstrapSuspendCount = ResumeThread(processInformation.hThread);
+		if (bootstrapSuspendCount != 1)
+		{
+			logger.outDebug(_T("调试器初始化线程首次恢复失败！(count:%lu error:%lu)"),
+				bootstrapSuspendCount,
+				bootstrapSuspendCount == static_cast<DWORD>(-1) ? GetLastError() : ERROR_INVALID_STATE);
+			break;
+		}
+
+		if (!WaitForDebuggerInputIdle(processInformation.hProcess, launchDeadline))
+		{
+			logger.outDebug(_T("调试器初始化等待失败！(error:%lu)"), GetLastError());
+			break;
+		}
+
+		DWORD const suspendCount = SuspendThread(processInformation.hThread);
+		if (suspendCount != 0)
+		{
+			logger.outDebug(_T("调试器初始化线程重新挂起失败！(count:%lu error:%lu)"),
+				suspendCount,
+				suspendCount == static_cast<DWORD>(-1) ? GetLastError() : ERROR_INVALID_STATE);
+			break;
+		}
+
+		std::wstring const readyEventName = BuildHookReadyEventName(processInformation.dwProcessId);
+		SetLastError(ERROR_SUCCESS);
+		readyEvent = CreateEventW(nullptr, TRUE, FALSE, readyEventName.c_str());
+		DWORD const createEventError = GetLastError();
+		if (readyEvent == nullptr || createEventError == ERROR_ALREADY_EXISTS)
+		{
+			logger.outDebug(_T("Hook ready event创建失败！(error:%lu)"), createEventError);
+			break;
+		}
+
+		logger.outDebug(_T("%s"), hookDllPath.c_str());
+		if (!InjectDll_0(
+			processInformation.dwProcessId,
+			const_cast<TCHAR*>(hookDllPath.c_str()),
+			is64Process ? TRUE : FALSE))
+		{
+			break;
+		}
+
+		HANDLE waitHandles[] = { readyEvent, processInformation.hProcess };
+		DWORD const remainingWait = GetRemainingWaitTime(launchDeadline);
+		if (remainingWait == 0)
+		{
+			logger.outDebug(_T("Hook runtime等待超时！"));
+			break;
+		}
+		DWORD const waitResult = WaitForMultipleObjects(
+			_countof(waitHandles),
+			waitHandles,
+			FALSE,
+			remainingWait);
+		if (waitResult != WAIT_OBJECT_0)
+		{
+			logger.outDebug(_T("Hook runtime未就绪！(wait:0x%08lX)"), waitResult);
+			break;
+		}
+
+		if (WaitForSingleObject(processInformation.hProcess, 0) != WAIT_TIMEOUT)
+		{
+			logger.outDebug(_T("调试器在Hook就绪后提前退出！"));
+			break;
+		}
+
+		if (!SendDebuggerDataToDriver(processInformation.dwProcessId))
+		{
+			logger.outDebug(_T("调试器登记到驱动失败！(error:%lu)"), GetLastError());
+			break;
+		}
+
+		DWORD const previousSuspendCount = ResumeThread(processInformation.hThread);
+		if (previousSuspendCount != 1)
+		{
+			if (previousSuspendCount == static_cast<DWORD>(-1))
+			{
+				logger.outDebug(_T("调试器主线程恢复失败！(error:%lu)"), GetLastError());
+			}
+			else
+			{
+				logger.outDebug(_T("调试器主线程挂起计数异常！(count:%lu)"), previousSuspendCount);
+			}
+			break;
+		}
+
+		result = TRUE;
+	} while (false);
+
+	if (!result)
+	{
+		TerminateSuspendedProcess(&processInformation);
+	}
+
+	if (readyEvent != nullptr)
+	{
+		CloseHandle(readyEvent);
+	}
+	CloseHandle(processInformation.hThread);
+	CloseHandle(processInformation.hProcess);
+
+	if (result)
+	{
+		logger.outDebug(_T("调试器启动成功！"));
+	}
+	return result;
 }

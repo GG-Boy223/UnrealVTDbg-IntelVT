@@ -36,7 +36,10 @@ bool vmm_init() // 启动全局VMM，并在每个逻辑处理器上进入VMX，�
 			outFile("[失败][CPU%u] VMX初始化链路失败，开始回滚已进入VT的CPU", iter);
 			if (iter > 0)
 			{
-				hvgt::vmoff(iter);
+				if (!hvgt::vmoff(iter))
+				{
+					vmx_fatal_error(vmx_fatal_vmxoff_broadcast, iter, g_vmm_context.processor_count);
+				}
 			}
 			free_vmm_context();
 			outFile("[完成][CPU%u] 回滚和资源释放结束", iter);

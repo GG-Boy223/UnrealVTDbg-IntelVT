@@ -23,6 +23,7 @@ public __load_ar
 public __vm_call
 public __vm_call_ex
 public __hyperv_vm_call
+public __vmx_off_checked
 public __reload_gdtr
 public __reload_idtr
 public __invept
@@ -131,6 +132,19 @@ __hyperv_vm_call proc
     vmcall
     ret
 __hyperv_vm_call endp
+
+__vmx_off_checked proc
+    vmxoff
+    seta al
+    pushfq
+    pop rdx
+    test rcx, rcx
+    jz vmx_off_checked_no_flags
+    mov qword ptr [rcx], rdx
+vmx_off_checked_no_flags:
+    movzx eax, al
+    ret
+__vmx_off_checked endp
 
 __reload_gdtr proc
 	push rcx

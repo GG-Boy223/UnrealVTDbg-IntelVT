@@ -16,7 +16,7 @@ namespace
     }
 #endif
 
-    bool IsAnyVcpuLaunched()
+    bool IsAnyVcpuActive()
     {
         if (g_vmm_context.vcpu == nullptr || g_vmm_context.processor_count == 0)
         {
@@ -25,7 +25,8 @@ namespace
 
         for (unsigned int i = 0; i < g_vmm_context.processor_count; ++i)
         {
-            if (g_vmm_context.vcpu[i].vcpu_status.vmm_launched != 0)
+            if (g_vmm_context.vcpu[i].vcpu_status.vmm_launched != 0 ||
+                g_vmm_context.vcpu[i].vcpu_status.vmx_on != 0)
             {
                 return true;
             }
@@ -44,14 +45,20 @@ VOID Unload(PDRIVER_OBJECT DriverObject) // 驱动卸载入口，释放虚拟化
     StopInitOffsetLogThread(); // 先停止驱动内线程，避免卸载后线程继续执行已卸载代码
 #endif
 
-    if (IsAnyVcpuLaunched())
+    if (IsAnyVcpuActive())
     {
         if (!hvgt::ept_unhook())
         {
             outDebug("EPT 反向解绑未完全成功，继续执行 VMXOFF 清理。\n");
         }
 
-        hvgt::vmoff(g_vmm_context.processor_count);
+        if (!hvgt::vmoff(g_vmm_context.processor_count))
+        {
+            vmx_fatal_error(
+                vmx_fatal_vmxoff_broadcast,
+                g_vmm_context.processor_count,
+                0);
+        }
     }
 
     hv::disable_vmx_operation(); // 关闭全局VMX使能，防止后续路径误用VMX指令

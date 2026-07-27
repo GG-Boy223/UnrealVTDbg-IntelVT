@@ -14,3 +14,4 @@
 #include "../vmexit_handler.h"
 #include "../Vmcs/VmcsApi.h"
 #include "../vmcall_reason.h"
+#include "../VmExit/VmxFatal.h"

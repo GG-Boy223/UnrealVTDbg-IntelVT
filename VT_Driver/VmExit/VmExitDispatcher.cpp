@@ -27,6 +27,25 @@ namespace
 		return value;
 	}
 
+	__vcpu* current_vcpu_from_host_fs()
+	{
+		if (g_vmm_context.vcpu == nullptr || g_vmm_context.processor_count == 0)
+		{
+			return nullptr;
+		}
+
+		auto const begin = reinterpret_cast<unsigned __int64>(g_vmm_context.vcpu);
+		auto const size = static_cast<unsigned __int64>(sizeof(__vcpu)) * g_vmm_context.processor_count;
+		auto const candidate = _readfsbase_u64();
+		if (candidate < begin || candidate - begin >= size ||
+			(candidate - begin) % sizeof(__vcpu) != 0)
+		{
+			return nullptr;
+		}
+
+		return reinterpret_cast<__vcpu*>(candidate);
+	}
+
 	void clear_vm_entry_event_fields() // 清空 VM-entry 注入字段，保证每次 VM-exit 重新决定是否投递事件。
 	{
 		// 清空 VM-entry 中断注入字段
@@ -39,7 +58,7 @@ namespace
 EXTERN_C
 void record_vmresume_failure(unsigned __int64 const rflags) // 只写内存快照，禁止在VM-exit路径内做文件IO或调用复杂内核API。
 {
-	__vcpu* const vcpu = reinterpret_cast<__vcpu*>(_readfsbase_u64()); // HOST_FS_BASE保存当前CPU的VCPU指针，避免在VMX root路径查询处理器号。
+	__vcpu* const vcpu = current_vcpu_from_host_fs(); // HOST_FS_BASE保存当前CPU的VCPU指针，避免在VMX root路径查询处理器号。
 	if (vcpu == nullptr)
 	{
 		return; // FS Base异常时不能安全写诊断结构，直接走后续VMXOFF路径。
@@ -63,6 +82,29 @@ void record_vmresume_failure(unsigned __int64 const rflags) // 只写内存快�
 	snapshot.vmread_failure_mask = vmread_failure_mask;
 }
 
+EXTERN_C
+unsigned __int64 handle_vmresume_failure(unsigned __int64 const rflags)
+{
+	__vcpu* const vcpu = current_vcpu_from_host_fs();
+	if (vcpu == nullptr)
+	{
+		vmx_fatal_error(vmx_fatal_missing_vcpu, rflags, 0);
+	}
+
+	record_vmresume_failure(rflags);
+	vcpu->vmx_off_state.vmx_off_executed = true;
+	if (!PrepareGuestForVmxoff(vcpu))
+	{
+		vmx_fatal_error(
+			vmx_fatal_vmresume_restore,
+			rflags,
+			vcpu->vmresume_failure_snapshot.vmread_failure_mask);
+	}
+
+	vcpu->vcpu_status.vmm_launched = false;
+	return reinterpret_cast<unsigned __int64>(&vcpu->vmx_off_state);
+}
+
 //注意：在 Host 上永远禁止直接调用 Windows API，因为 Host 处于 VMX 非根路径上，任何段检查都可能导致不稳定
 //原因：很多 Windows API 依赖 IRQL、栈边界（stack base limit）、其他约束，Host 在 VM-exit 期间不一定满足这些约束
 //如果一项调用失败，系统可能直接触发 BugCheck（BSOD）；因此像 ASSERT/DbgBreakPoint 等调试函数也不应该使用
@@ -76,9 +118,9 @@ bool vmexit_handler(guest_context* guest_registers, PFXSAVE64 fxsave) // VM-exit
 	//从 fs_base 里取出 vcpu 的指针，因为 Host 保存了每个 CPU 的 vCPU 指针到 FS 基址
 	//硬件原理：FS Base 是每个 CPU 可独立维护的寄存器，适合作为快速访问 CPU 本地数据（类似 TLS）的入口
 	__vcpu* vcpu = reinterpret_cast<__vcpu*>(_readfsbase_u64()); // 当前 CPU 的 vCPU 上下文必须来自 FS Base，避免调用内核 API 查询处理器号。
-	if (vcpu == nullptr)
+	if (vcpu == nullptr || vcpu != current_vcpu_from_host_fs())
 	{
-		return true; // FS Base丢失代表Host状态已不可恢复，请求汇编走VMXOFF路径，避免继续VMRESUME。
+		vmx_fatal_error(vmx_fatal_missing_vcpu, 0, 0);
 	}
 
 	guest_registers->rsp = hv::vmread(GUEST_RSP); // 汇编入口保存通用寄存器后，这里补齐 VMCS 中的 guest RSP。
@@ -101,8 +143,14 @@ bool vmexit_handler(guest_context* guest_registers, PFXSAVE64 fxsave) // VM-exit
 
 	if (vcpu->vmx_off_state.vmx_off_executed) // VMCALL/退出流程要求关闭 VMX 时，由汇编上层执行最终 VMXOFF。
 	{
+		if (!PrepareGuestForVmxoff(vcpu))
+		{
+			vmx_fatal_error(vmx_fatal_vmresume_restore, vcpu->vmexit_info.reason, 0);
+		}
+
+		vcpu->vmexit_info.guest_registers->rsp =
+			reinterpret_cast<unsigned __int64>(&vcpu->vmx_off_state); // 汇编复用guest_context的RSP占位槽取得受检恢复帧。
 		vcpu->vcpu_status.vmm_launched = false; // 标记当前 vCPU 不再处于已 launch 状态，防止后续误用 VMRESUME。
-		RestoreGuest(); // VMXOFF 前恢复 guest 控制寄存器、段寄存器、MSR 等真实硬件状态。
 		//如果要停止虚拟化，vmexit_handler 将返回 true，通知上层跳出 VMX 处理循环
 		return true; // 通知汇编入口走退出虚拟化路径，而不是继续 VMRESUME。
 	}

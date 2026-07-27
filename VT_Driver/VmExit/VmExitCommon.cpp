@@ -1,49 +1,256 @@
 ﻿#include "VmExitCommon.h"
 
-//恢复guest状态
-void RestoreGuest() // 恢复来宾寄存器/段/表等状态，确保 VMXOFF 后来宾可继续运行
+namespace
 {
-	//恢复guest的寄存器状态
-	hv::vmwrite(CR0_READ_SHADOW, hv::read_effective_guest_cr0().flags); // 硬件原理：CR0 读影子用于 VMX 模拟，写回保证来宾读 CR0 得到一致值
-	hv::vmwrite(CR4_READ_SHADOW, hv::read_effective_guest_cr4().flags); // 硬件原理：CR4 读影子用于 VMX 模拟，写回保证来宾读 CR4 得到一致值
+	constexpr ULONG kHypervisorErrorBugCheck = 0x00020001;
 
-	// 恢复dr7 cr3寄存器的值
-	__writedr(7, hv::vmread(GUEST_DR7)); // 恢复来宾 DR7，确保断点/单步等调试行为一致
-	__writecr3(hv::vmread(GUEST_CR3)); // 恢复来宾 CR3（页表基址），确保地址转换正确
+	struct guest_restore_state
+	{
+		unsigned __int64 cr0_mask;
+		unsigned __int64 cr0_shadow;
+		unsigned __int64 guest_cr0;
+		unsigned __int64 cr4_mask;
+		unsigned __int64 cr4_shadow;
+		unsigned __int64 guest_cr4;
+		unsigned __int64 guest_cr3;
+		unsigned __int64 guest_dr7;
+		unsigned __int64 sysenter_cs;
+		unsigned __int64 sysenter_esp;
+		unsigned __int64 sysenter_eip;
+		unsigned __int64 pat;
+		unsigned __int64 debug_control;
+		unsigned __int64 perf_global_control;
+		unsigned __int64 gdtr_base;
+		unsigned __int64 gdtr_limit;
+		unsigned __int64 idtr_base;
+		unsigned __int64 idtr_limit;
+		unsigned __int64 tr_selector;
+		unsigned __int64 ds_selector;
+		unsigned __int64 es_selector;
+		unsigned __int64 fs_selector;
+		unsigned __int64 gs_selector;
+		unsigned __int64 ldtr_selector;
+		unsigned __int64 fs_base;
+		unsigned __int64 gs_base;
+		unsigned __int64 guest_rip;
+		unsigned __int64 guest_rsp;
+		unsigned __int64 guest_rflags;
+		unsigned __int64 guest_cs;
+		unsigned __int64 guest_ss;
+	};
 
-	// MSRs
-	__writemsr(IA32_SYSENTER_CS, hv::vmread(GUEST_SYSENTER_CS)); // 恢复 SYSENTER CS，保持快速系统调用语义
-	__writemsr(IA32_SYSENTER_ESP, hv::vmread(GUEST_SYSENTER_ESP)); // 恢复 SYSENTER ESP，确保系统调用栈指针正确
-	__writemsr(IA32_SYSENTER_EIP, hv::vmread(GUEST_SYSENTER_EIP)); // 恢复 SYSENTER EIP，确保系统调用入口正确
-	__writemsr(IA32_PAT, hv::vmread(GUEST_PAT)); // 恢复 PAT，保证内存类型映射正确
-	__writemsr(IA32_DEBUGCTL, hv::vmread(GUEST_DEBUG_CONTROL)); // 恢复调试控制 MSR，保持调试状态一致
+	bool try_vmread(unsigned __int64 field, unsigned __int64* value)
+	{
+		return value != nullptr && __vmx_vmread(field, value) == 0;
+	}
 
-	//恢复gdtr和idtr寄存器的值
-	__reload_gdtr(hv::vmread(GUEST_GDTR_BASE), hv::vmread(GUEST_GDTR_LIMIT)); // 恢复 GDTR 基址与界限，保证分段描述符表正确
-	__reload_idtr(hv::vmread(GUEST_IDTR_BASE), hv::vmread(GUEST_IDTR_LIMIT)); // 恢复 IDTR 基址与界限，保证中断描述符表正确
+	bool try_vmwrite(unsigned __int64 field, unsigned __int64 value)
+	{
+		return __vmx_vmwrite(field, value) == 0;
+	}
 
-	segment_selector guest_tr; // 声明 TR 选择子变量，用于恢复任务寄存器
-	guest_tr.flags = static_cast<uint16_t>(hv::vmread(GUEST_TR_SELECTOR)); // 从 VMCS 读取来宾 TR 选择子并保存
+	bool should_capture_vmcs_for_fatal(unsigned __int64 reason)
+	{
+		switch (static_cast<vmx_fatal_reason>(reason))
+		{
+		case vmx_fatal_vmresume_restore:
+		case vmx_fatal_vmxoff_instruction:
+		case vmx_fatal_vm_entry_failure:
+		case vmx_fatal_triple_fault:
+		case vmx_fatal_missing_vcpu:
+			return true;
+		default:
+			return false;
+		}
+	}
 
-	// TSS
-	//注意顺序要先将gdt的值写回gdtr寄存器
-	__pseudo_descriptor64 gdtr = { 0 }; // 准备 GDTR 结构，用于读取当前 GDT
-	__sgdt(&gdtr); // 读取当前 GDTR，获取 GDT 基址与界限
-	(reinterpret_cast<segment_descriptor_32*>(gdtr.base_address) + guest_tr.index)->type = SEGMENT_DESCRIPTOR_TYPE_TSS_AVAILABLE; // 把 TSS 描述符标记为可用，满足加载 TR 的硬件要求
-	write_tr(guest_tr.flags); // 从 VMCS 读取来宾 TR 选择子并保存
+	__vcpu* resolve_current_vcpu()
+	{
+		if (g_vmm_context.vcpu == nullptr || g_vmm_context.processor_count == 0)
+		{
+			return nullptr;
+		}
 
-	// segment selectors
-	write_ds(static_cast<uint16_t>(hv::vmread(GUEST_DS_SELECTOR))); // 恢复 DS 段选择子，保持来宾数据段一致
-	write_es(static_cast<uint16_t>(hv::vmread(GUEST_ES_SELECTOR))); // 恢复 ES 段选择子，保持来宾数据段一致
-	write_fs(static_cast<uint16_t>(hv::vmread(GUEST_FS_SELECTOR))); // 恢复 FS 段选择子，保持线程本地存储基址语义
-	write_gs(static_cast<uint16_t>(hv::vmread(GUEST_GS_SELECTOR))); // 恢复 GS 段选择子，保持内核/线程相关基址语义
-	write_ldtr(static_cast<uint16_t>(hv::vmread(GUEST_LDTR_SELECTOR))); // 恢复 LDTR 选择子，保持本地描述符表一致
+		auto const begin = reinterpret_cast<unsigned __int64>(g_vmm_context.vcpu);
+		auto const size = static_cast<unsigned __int64>(sizeof(__vcpu)) * g_vmm_context.processor_count;
+		auto const candidate = _readfsbase_u64();
+		if (candidate >= begin && candidate - begin < size &&
+			(candidate - begin) % sizeof(__vcpu) == 0)
+		{
+			return reinterpret_cast<__vcpu*>(candidate);
+		}
 
-	// FS and GS base address
-	// 和__writemsr(IA32_GS_BASE, hv::vmread(GUEST_GS_BASE))比起来
-	// 这种方式能立即将GUEST_GS_BASE的值写入到gs base寄存器里
-	_writefsbase_u64(hv::vmread(GUEST_FS_BASE)); // 直接恢复 FS 基址，硬件立即生效，避免延迟
-	_writegsbase_u64(hv::vmread(GUEST_GS_BASE)); // 直接恢复 GS 基址，硬件立即生效，避免延迟
+		PROCESSOR_NUMBER current = {};
+		KeGetCurrentProcessorNumberEx(&current);
+		for (unsigned int i = 0; i < g_vmm_context.processor_count; ++i)
+		{
+			auto& vcpu = g_vmm_context.vcpu[i];
+			if (vcpu.processor_number.Group == current.Group &&
+				vcpu.processor_number.Number == current.Number)
+			{
+				return &vcpu;
+			}
+		}
+
+		return nullptr;
+	}
+
+	bool capture_guest_restore_state(guest_restore_state* state)
+	{
+		if (state == nullptr)
+		{
+			return false;
+		}
+
+		return
+			try_vmread(CR0_GUEST_HOST_MASK, &state->cr0_mask) &&
+			try_vmread(CR0_READ_SHADOW, &state->cr0_shadow) &&
+			try_vmread(GUEST_CR0, &state->guest_cr0) &&
+			try_vmread(CR4_GUEST_HOST_MASK, &state->cr4_mask) &&
+			try_vmread(CR4_READ_SHADOW, &state->cr4_shadow) &&
+			try_vmread(GUEST_CR4, &state->guest_cr4) &&
+			try_vmread(GUEST_CR3, &state->guest_cr3) &&
+			try_vmread(GUEST_DR7, &state->guest_dr7) &&
+			try_vmread(GUEST_SYSENTER_CS, &state->sysenter_cs) &&
+			try_vmread(GUEST_SYSENTER_ESP, &state->sysenter_esp) &&
+			try_vmread(GUEST_SYSENTER_EIP, &state->sysenter_eip) &&
+			try_vmread(GUEST_PAT, &state->pat) &&
+			try_vmread(GUEST_DEBUG_CONTROL, &state->debug_control) &&
+			try_vmread(GUEST_PERF_GLOBAL_CONTROL, &state->perf_global_control) &&
+			try_vmread(GUEST_GDTR_BASE, &state->gdtr_base) &&
+			try_vmread(GUEST_GDTR_LIMIT, &state->gdtr_limit) &&
+			try_vmread(GUEST_IDTR_BASE, &state->idtr_base) &&
+			try_vmread(GUEST_IDTR_LIMIT, &state->idtr_limit) &&
+			try_vmread(GUEST_TR_SELECTOR, &state->tr_selector) &&
+			try_vmread(GUEST_DS_SELECTOR, &state->ds_selector) &&
+			try_vmread(GUEST_ES_SELECTOR, &state->es_selector) &&
+			try_vmread(GUEST_FS_SELECTOR, &state->fs_selector) &&
+			try_vmread(GUEST_GS_SELECTOR, &state->gs_selector) &&
+			try_vmread(GUEST_LDTR_SELECTOR, &state->ldtr_selector) &&
+			try_vmread(GUEST_FS_BASE, &state->fs_base) &&
+			try_vmread(GUEST_GS_BASE, &state->gs_base) &&
+			try_vmread(GUEST_RIP, &state->guest_rip) &&
+			try_vmread(GUEST_RSP, &state->guest_rsp) &&
+			try_vmread(GUEST_RFLAGS, &state->guest_rflags) &&
+			try_vmread(GUEST_CS_SELECTOR, &state->guest_cs) &&
+			try_vmread(GUEST_SS_SELECTOR, &state->guest_ss);
+	}
+}
+
+EXTERN_C __declspec(noreturn)
+void vmx_fatal_error(
+	unsigned __int64 reason,
+	unsigned __int64 detail1,
+	unsigned __int64 detail2)
+{
+	__vcpu* const vcpu = resolve_current_vcpu();
+	ULONG_PTR processor_index = static_cast<ULONG_PTR>(-1);
+	if (vcpu != nullptr)
+	{
+		processor_index = vcpu->logical_processor_index;
+		auto& snapshot = vcpu->fatal_vmx_snapshot;
+		++snapshot.count;
+		snapshot.reason = reason;
+		snapshot.detail1 = detail1;
+		snapshot.detail2 = detail2;
+		snapshot.vm_instruction_error = 0;
+		snapshot.vm_exit_reason = 0;
+		snapshot.guest_rip = 0;
+		snapshot.guest_rsp = 0;
+		snapshot.guest_cr3 = 0;
+		if (should_capture_vmcs_for_fatal(reason))
+		{
+			(void)try_vmread(VM_INSTRUCTION_ERROR, &snapshot.vm_instruction_error);
+			(void)try_vmread(VM_EXIT_REASON, &snapshot.vm_exit_reason);
+			(void)try_vmread(GUEST_RIP, &snapshot.guest_rip);
+			(void)try_vmread(GUEST_RSP, &snapshot.guest_rsp);
+			(void)try_vmread(GUEST_CR3, &snapshot.guest_cr3);
+		}
+	}
+
+	KeBugCheckEx(
+		kHypervisorErrorBugCheck,
+		static_cast<ULONG_PTR>(reason),
+		processor_index,
+		static_cast<ULONG_PTR>(detail1),
+		static_cast<ULONG_PTR>(detail2));
+	__assume(0);
+}
+
+bool PrepareGuestForVmxoff(__vcpu* vcpu)
+{
+	if (vcpu == nullptr)
+	{
+		return false;
+	}
+
+	guest_restore_state state = {};
+	if (!capture_guest_restore_state(&state))
+	{
+		return false;
+	}
+
+	segment_selector guest_tr = {};
+	guest_tr.flags = static_cast<unsigned __int16>(state.tr_selector);
+	auto const tr_descriptor_offset =
+		static_cast<unsigned __int64>(guest_tr.index) * sizeof(segment_descriptor_32);
+	if (state.gdtr_base == 0 ||
+		tr_descriptor_offset + sizeof(segment_descriptor_32) > state.gdtr_limit + 1)
+	{
+		return false;
+	}
+
+	auto const effective_cr0 =
+		(state.cr0_shadow & state.cr0_mask) | (state.guest_cr0 & ~state.cr0_mask);
+	auto const effective_cr4 =
+		(state.cr4_shadow & state.cr4_mask) | (state.guest_cr4 & ~state.cr4_mask);
+	if (!try_vmwrite(CR0_READ_SHADOW, effective_cr0) ||
+		!try_vmwrite(CR4_READ_SHADOW, effective_cr4))
+	{
+		return false;
+	}
+
+	vcpu->vmx_off_state.guest_rip = state.guest_rip;
+	vcpu->vmx_off_state.guest_rsp = state.guest_rsp;
+	vcpu->vmx_off_state.guest_rflags = state.guest_rflags;
+	vcpu->vmx_off_state.guest_cs = state.guest_cs;
+	vcpu->vmx_off_state.guest_ss = state.guest_ss;
+	vcpu->vmx_off_state.guest_cr0 = effective_cr0;
+	vcpu->vmx_off_state.guest_cr4 = effective_cr4;
+
+	__writedr(7, state.guest_dr7);
+	__writemsr(IA32_SYSENTER_CS, state.sysenter_cs);
+	__writemsr(IA32_SYSENTER_ESP, state.sysenter_esp);
+	__writemsr(IA32_SYSENTER_EIP, state.sysenter_eip);
+	__writemsr(IA32_PAT, state.pat);
+	__writemsr(IA32_DEBUGCTL, state.debug_control);
+	__writemsr(IA32_PERF_GLOBAL_CTRL, state.perf_global_control);
+
+	__reload_gdtr(state.gdtr_base, state.gdtr_limit);
+	__reload_idtr(state.idtr_base, state.idtr_limit);
+	(reinterpret_cast<segment_descriptor_32*>(state.gdtr_base) + guest_tr.index)->type =
+		SEGMENT_DESCRIPTOR_TYPE_TSS_AVAILABLE;
+	write_tr(guest_tr.flags);
+	write_ds(static_cast<unsigned __int16>(state.ds_selector));
+	write_es(static_cast<unsigned __int16>(state.es_selector));
+	write_fs(static_cast<unsigned __int16>(state.fs_selector));
+	write_gs(static_cast<unsigned __int16>(state.gs_selector));
+	write_ldtr(static_cast<unsigned __int16>(state.ldtr_selector));
+
+	_writefsbase_u64(state.fs_base);
+	_writegsbase_u64(state.gs_base);
+	__writecr3(state.guest_cr3);
+	return true;
+}
+
+//恢复guest状态
+void RestoreGuest()
+{
+	__vcpu* const vcpu = resolve_current_vcpu();
+	if (vcpu == nullptr || !PrepareGuestForVmxoff(vcpu))
+	{
+		vmx_fatal_error(vmx_fatal_vmresume_restore, 0, 0);
+	}
 }
 
 void set_hide_vm_exit_overhead(__vcpu* vcpu, bool value) // 设置“隐藏 VM-exit 开销”的开关状态，供后续逻辑判断是否要进行补偿

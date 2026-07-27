@@ -287,7 +287,7 @@ void vmexit_init_signal_handler(__vcpu* vcpu) // 处理 INIT signal VM-exit，�
 	sLog("GUEST_RSP: 0x%llX\n", hv::vmread(GUEST_RSP)); // 记录栈指针，便于定位异常 INIT。
 	sLog("GUEST_RIP: 0x%llX\n", hv::vmread(GUEST_RIP)); // 记录指令指针，便于复现问题。
 	hv::vmwrite<unsigned __int64>(GUEST_ACTIVITY_STATE, vmx_active); // 将 guest activity state 恢复为 active。
-	adjust_rip(vcpu); // 当前处理完成后推进 RIP。
+	UNREFERENCED_PARAMETER(vcpu); // INIT是异步事件，没有可推进的指令RIP。
 }
 
 void vmexit_sipi_handler(__vcpu* vcpu) // 处理 SIPI VM-exit，确保 guest activity state 为 active。
@@ -296,18 +296,20 @@ void vmexit_sipi_handler(__vcpu* vcpu) // 处理 SIPI VM-exit，确保 guest act
 	hv::vmwrite<unsigned __int64>(GUEST_ACTIVITY_STATE, vmx_active); // 激活 guest，允许后续 VMRESUME。
 }
 
-//处理 triple fault 的 VM-exit：三重故障表示来宾无法继续执行，此处统一注入 #GP 作为终止/错误路径
-void vmexit_triple_fault_handler(__vcpu* vcpu) // triple fault 兜底处理，当前实现向 guest 注入 #GP。
+//处理 triple fault 的 VM-exit：三重故障表示来宾已无法继续执行，保存快照后进入统一fatal路径。
+void vmexit_triple_fault_handler(__vcpu* vcpu)
 {
-	sLog("\n"); // 记录 triple fault 路径。
-	hv::inject_interruption(EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT,
-		INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, true); // 以 #GP 反馈，避免直接让 host 崩溃。
+	vmx_fatal_error(
+		vmx_fatal_triple_fault,
+		vcpu != nullptr ? vcpu->vmexit_info.guest_rip : 0,
+		vcpu != nullptr ? vcpu->vmexit_info.qualification : 0);
 }
 
-//处理 VM-exit 失败路径：VMX 指令或状态失败时统一注入 #GP，避免来宾继续在错误状态运行
-void vmexit_failed(__vcpu* vcpu) // VM-entry/VM-exit 失败兜底处理。
+//处理 VM-entry/VM-exit 失败路径：保存失败原因后确定性终止，禁止重新VM-entry。
+void vmexit_failed(__vcpu* vcpu)
 {
-	sLog("\n"); // 记录失败路径。
-	hv::inject_interruption(EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT,
-		INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, true); // 向 guest 注入 #GP，保持故障显式可见。
+	vmx_fatal_error(
+		vmx_fatal_vm_entry_failure,
+		vcpu != nullptr ? vcpu->vmexit_info.reason : 0,
+		vcpu != nullptr ? vcpu->vmexit_info.qualification : 0);
 }

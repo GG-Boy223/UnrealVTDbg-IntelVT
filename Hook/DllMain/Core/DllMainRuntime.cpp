@@ -4,6 +4,31 @@ namespace HookDllMainInternal
 {
     namespace
     {
+        bool SignalHookReadyEvent()
+        {
+            wchar_t eventName[96] = {};
+            if (_snwprintf_s(
+                eventName,
+                _countof(eventName),
+                _TRUNCATE,
+                L"%s%lu",
+                HOOK_READY_EVENT_NAME_PREFIX,
+                GetCurrentProcessId()) < 0)
+            {
+                return false;
+            }
+
+            HANDLE readyEvent = OpenEventW(EVENT_MODIFY_STATE, FALSE, eventName);
+            if (readyEvent == nullptr)
+            {
+                return false;
+            }
+
+            bool const signaled = SetEvent(readyEvent) != FALSE;
+            CloseHandle(readyEvent);
+            return signaled;
+        }
+
         void CompleteRuntimeThread()
         {
             InterlockedExchange(&g_HookRuntimeCompleted, 1);
@@ -39,6 +64,22 @@ namespace HookDllMainInternal
             InitGlobalVariables();
             InitFunction();
             keepModuleReference = SetupHook();
+            if (!keepModuleReference)
+            {
+                exitCode = 1;
+            }
+            else if (!VerifyDriverHandshake())
+            {
+                EarlyHookLog(L"runtime driver handshake failed");
+                keepModuleReference = !UnHook();
+                exitCode = 1;
+            }
+            else if (!SignalHookReadyEvent())
+            {
+                EarlyHookLog(L"runtime ready event failed");
+                keepModuleReference = !UnHook();
+                exitCode = 1;
+            }
             logger.Log("Hook runtime end");
             EarlyHookLog(L"runtime end");
         }

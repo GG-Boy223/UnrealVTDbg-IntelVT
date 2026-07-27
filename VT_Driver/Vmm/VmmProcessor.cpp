@@ -1,4 +1,22 @@
 ﻿#include "VmmInternal.h"
+#include "../ASM/AsmCallset.h"
+
+namespace
+{
+	void vmxoff_after_failed_initialization(__vcpu* vcpu, unsigned __int64 failure_phase)
+	{
+		unsigned __int64 rflags = 0;
+		if (!__vmx_off_checked(&rflags))
+		{
+			vmx_fatal_error(
+				vmx_fatal_vmxoff_instruction,
+				failure_phase,
+				rflags);
+		}
+
+		vcpu->vcpu_status.vmx_on = false;
+	}
+}
 
 //调节控制寄存器 cr4 cr0来启用vmx模式
 void adjust_control_registers() // 按IA32_VMX_CRx_FIXED限制设置CR0/CR4以允许VMX，避免VMXON失败
@@ -92,8 +110,7 @@ bool init_logical_processor2(unsigned int iter) // 在指定CPU上完成VMXON/VM
 	if (!hv::load_vmcs_pointer(vcpu->vmcs)) // 让VMCS成为当前活动VMCS，后续vmwrite/vmread生效
 	{
 		LogError("load_vmcs_pointer失败.\n", processor_number); // VMCS加载失败
-		vcpu->vcpu_status.vmx_on = false; // 回滚VMX状态
-		__vmx_off(); //退出vmx模式，避免处于不一致状态
+		vmxoff_after_failed_initialization(vcpu, 1); // 仅在确认VMXOFF成功后清除状态并允许外层释放资源
 		outFile("[失败][CPU%u] VMCLEAR/VMPTRLD失败，已执行VMXOFF回滚", iter);
 		return false; // 无法继续配置VMCS
 	}
@@ -110,16 +127,14 @@ bool init_logical_processor2(unsigned int iter) // 在指定CPU上完成VMXON/VM
 	if (!hv::ensure_host_page_tables_for_vcpu(vcpu))
 	{
 		outFile("[失败][CPU%u] Host关键页补映射不完整，回滚当前CPU的VMXON状态", iter);
-		vcpu->vcpu_status.vmx_on = false;
-		__vmx_off();
+		vmxoff_after_failed_initialization(vcpu, 2);
 		return false;
 	}
 
 	if (!hv::validate_host_page_tables_for_vcpu(vcpu))
 	{
 		outFile("[失败][CPU%u] Host页表自检未通过，回滚当前CPU的VMXON状态", iter);
-		vcpu->vcpu_status.vmx_on = false;
-		__vmx_off();
+		vmxoff_after_failed_initialization(vcpu, 3);
 		return false;
 	}
 
@@ -138,8 +153,7 @@ bool init_logical_processor2(unsigned int iter) // 在指定CPU上完成VMXON/VM
 		vcpu->vmexit_info.instruction_error = hv::vmread(VM_INSTRUCTION_ERROR); // 读取VM指令错误码，定位失败原因
 		LogError("Vmlaunch failed error: %d", vcpu->vmexit_info.instruction_error); // 输出失败原因
 		vcpu->vcpu_status.vmm_launched = false; // 回滚启动标记，防止卸载误判
-		vcpu->vcpu_status.vmx_on = false; // 回滚VMX状态
-		__vmx_off();  //退出vmx模式，避免处于不一致状态
+		vmxoff_after_failed_initialization(vcpu, 4);
 		outFile("[失败][CPU%u] VMLAUNCH失败：VM_INSTRUCTION_ERROR=%llu，已执行VMXOFF回滚",
 			iter,
 			vcpu->vmexit_info.instruction_error);

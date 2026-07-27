@@ -16,10 +16,12 @@
 #include "../invalid_vpid.h"
 #include "../invalid_pcid.h"
 #include "../segment.h"
+#include "VmxFatal.h"
 
 // 通用辅助函数
 // 恢复来宾状态
 void RestoreGuest(); // 将来宾寄存器状态恢复到继续执行
+bool PrepareGuestForVmxoff(__vcpu* vcpu); // 受检采集并恢复Guest状态，同时生成汇编使用的VMXOFF恢复帧
 void set_hide_vm_exit_overhead(__vcpu* vcpu, bool value);
 void hide_vm_exit_overhead(__vcpu* vcpu);
 void skip_instruction(); // 直接跳过当前指令

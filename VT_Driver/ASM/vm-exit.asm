@@ -7,7 +7,7 @@ guest_context struct
   $rcx qword ?
   $rdx qword ?
   $rbx qword ?
-  qword ? ; padding
+  $rsp qword ? ; guest RSP, also reused for the validated VMXOFF state pointer
   $rbp qword ?
   $rsi qword ?
   $rdi qword ?
@@ -51,7 +51,19 @@ guest_context struct
 guest_context ends
 
 extern vmexit_handler : proc
-extern record_vmresume_failure : proc
+extern handle_vmresume_failure : proc
+extern vmx_fatal_error : proc
+
+VMXOFF_STATE_RIP      equ 08h
+VMXOFF_STATE_RSP      equ 10h
+VMXOFF_STATE_RFLAGS   equ 18h
+VMXOFF_STATE_CS       equ 20h
+VMXOFF_STATE_SS       equ 28h
+VMXOFF_STATE_CR0      equ 30h
+VMXOFF_STATE_CR4      equ 38h
+
+VMX_FATAL_VMXOFF_INSTRUCTION equ 2
+VMX_FATAL_MISSING_VCPU       equ 6
 
 ; execution starts here after a vm-exit
 vm_exit proc
@@ -207,8 +219,9 @@ vm_exit proc
   pop rcx
   ; The register-save sequence leaves RSP 16-byte aligned at this call site.
   sub rsp, 20h
-  call record_vmresume_failure
+  call handle_vmresume_failure
   add rsp, 20h
+  mov r15, rax
   pop r11
   pop r10
   pop r9
@@ -216,6 +229,9 @@ vm_exit proc
   pop rdx
   pop rcx
   pop rax
+  mov guest_context.$rsp[rsp], r15
+  mov r15, guest_context.$r15[rsp]
+  jmp stop_virtualization
 
 stop_virtualization:
   ; we'll be dirtying these registers in order to setup the
@@ -229,51 +245,45 @@ stop_virtualization:
   push rax
   push rdx
   push rbp
+  mov rdx, guest_context.$rsp[rsp + 18h]
+  test rdx, rdx
+  jz stop_virtualization_missing_state
   lea rbp, [rsp + 38h]
 
   ; push SS
-  mov rdx, 0804h; VMCS_GUEST_SS_SELECTOR
-  vmread rax, rdx
+  mov rax, [rdx + VMXOFF_STATE_SS]
   mov [rbp - 00h], rax
 
   ; push RSP
-  mov rdx, 681Ch; VMCS_GUEST_RSP
-  vmread rax, rdx
+  mov rax, [rdx + VMXOFF_STATE_RSP]
   mov [rbp - 08h], rax
 
   ; push RFLAGS
-  mov rdx, 6820h; VMCS_GUEST_RFLAGS
-  vmread rax, rdx
+  mov rax, [rdx + VMXOFF_STATE_RFLAGS]
   mov [rbp - 10h], rax
 
   ; push CS
-  mov rdx, 0802h; VMCS_GUEST_CS_SELECTOR
-  vmread rax, rdx
+  mov rax, [rdx + VMXOFF_STATE_CS]
   mov [rbp - 18h], rax
 
   ; push RIP
-  mov rdx, 681Eh; VMCS_GUEST_RIP
-  vmread rax, rdx
+  mov rax, [rdx + VMXOFF_STATE_RIP]
   mov [rbp - 20h], rax
 
   ; the C++ exit-handler needs to ensure that the control register shadows
   ; contain the current guest control register values (even the guest-owned
   ; bits!) before returning.
 
-  ; store cr0 in rax
-  mov rax, 6004h ; VMCS_CTRL_CR0_READ_SHADOW
-  vmread rax, rax
-
-  ; store cr4 in rdx
-  mov rdx, 6006h ; VMCS_CTRL_CR4_READ_SHADOW
-  vmread rdx, rdx
-
-  ; execute vmxoff before we restore cr0 and cr4
+  ; Keep the validated recovery frame across VMXOFF. RBP is restored below.
+  mov rbp, rdx
   vmxoff
+  jbe stop_virtualization_vmxoff_failed
 
   ; restore cr0 and cr4
+  mov rax, [rbp + VMXOFF_STATE_CR0]
   mov cr0, rax
-  mov cr4, rdx
+  mov rax, [rbp + VMXOFF_STATE_CR4]
+  mov cr4, rax
 
   ; restore the dirty registers
   pop rbp
@@ -290,6 +300,23 @@ stop_virtualization:
   ;   pop SS
   ;
   iretq
+
+stop_virtualization_missing_state:
+  mov rcx, VMX_FATAL_MISSING_VCPU
+  xor rdx, rdx
+  xor r8, r8
+  sub rsp, 20h
+  call vmx_fatal_error
+  int 3
+
+stop_virtualization_vmxoff_failed:
+  pushfq
+  pop rdx
+  mov r8, [rbp + VMXOFF_STATE_RIP]
+  mov rcx, VMX_FATAL_VMXOFF_INSTRUCTION
+  sub rsp, 20h
+  call vmx_fatal_error
+  int 3
 
 vm_exit endp
 

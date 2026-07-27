@@ -1,13 +1,7 @@
 ﻿#pragma once
 
 #ifndef _START_PROCESS_H
-
-//启动信息
-typedef struct _STARTUP_INFO
-{
-	TCHAR szExe[256];
-	TCHAR sPath[256];
-}STARTUP_INFO, * PSTARTUP_INFO;
+#define _START_PROCESS_H
 
 BOOL StartProcess(TCHAR* szExe, TCHAR* sPath);
 

@@ -5,7 +5,34 @@
 
 typedef void(__stdcall* PFN_INJECTDLL)(DWORD dwPid, TCHAR* DLLPathName, BOOL is64Process);
 
-PFN_INJECTDLL AI_InjectDll;
+namespace
+{
+	std::once_flag g_aiHelperInitialization;
+	HMODULE g_aiHelperModule = nullptr;
+	PFN_INJECTDLL g_aiInjectDll = nullptr;
+
+	bool EnsureInjectDllInitialized()
+	{
+		std::call_once(g_aiHelperInitialization, []()
+		{
+			g_aiHelperModule = LoadLibraryW(L"AIHelper.dll");
+			if (g_aiHelperModule == nullptr)
+			{
+				return;
+			}
+
+			g_aiInjectDll = reinterpret_cast<PFN_INJECTDLL>(
+				GetProcAddress(g_aiHelperModule, "InjectDll"));
+			if (g_aiInjectDll == nullptr)
+			{
+				FreeLibrary(g_aiHelperModule);
+				g_aiHelperModule = nullptr;
+			}
+		});
+
+		return g_aiInjectDll != nullptr;
+	}
+}
 
 BOOL TL_BlockGameResumeThread_internal(DWORD dwProcessId)
 {
@@ -18,21 +45,23 @@ BOOL TL_BlockGameResumeThread_internal(DWORD dwProcessId)
 	return bRet;
 }
 
-void InitFunctionPtr()
+bool InjectDll_0(DWORD dwPid, TCHAR* DLLPathName, BOOL is64Process)
 {
-	HMODULE hMod = LoadLibrary(L"AIHelper.dll");
-	AI_InjectDll = (PFN_INJECTDLL)GetProcAddress(hMod, "InjectDll");
-}
+	if (!EnsureInjectDllInitialized())
+	{
+		logger.outDebug(L"AIHelper.dll加载或InjectDll解析失败");
+		return false;
+	}
 
-void InjectDll_0(DWORD dwPid, TCHAR* DLLPathName, BOOL is64Process)
-{
 	try
 	{
-		AI_InjectDll(dwPid, DLLPathName, is64Process);
+		g_aiInjectDll(dwPid, DLLPathName, is64Process);
+		return true;
 	}
-	catch (const std::exception&)
+	catch (...)
 	{
-		logger.outDebug(L"InjectDll_0×¢ÈëDLLÊ§°Ü");
+		logger.outDebug(L"InjectDll_0注入DLL失败");
+		return false;
 	}
 }
 

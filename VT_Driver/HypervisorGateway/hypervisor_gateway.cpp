@@ -167,7 +167,7 @@ namespace hvgt // Hypervisor Gateway：普通内核线程调用 Hypervisor 的�
 
 	// 让所有 CPU 退出 VMX 模式。
 	// 初学者理解：VMX 模式是 CPU 的虚拟化状态，必须逐 CPU 退出，否则系统不稳定。
-	void vmoff(unsigned __int32 processor_count)
+	bool vmoff(unsigned __int32 processor_count)
 	{
 		//KeGenericCallDpc(broadcast_vmoff, NULL); // 备选方案：直接广播 DPC
 
@@ -176,10 +176,15 @@ namespace hvgt // Hypervisor Gateway：普通内核线程调用 Hypervisor 的�
 		if (KeGetCurrentIrql() > APC_LEVEL)
 		{
 			outDebug("VMXOFF 失败：当前 IRQL 过高，无法安全切换 CPU 亲和性。\n");
-			return;
+			return false;
+		}
+		if (processor_count != 0 && g_vmm_context.vcpu == nullptr)
+		{
+			return false;
 		}
 
 		unsigned int safe_processor_count = processor_count;
+		bool all_completed = processor_count <= g_vmm_context.processor_count;
 		if (g_vmm_context.processor_count < safe_processor_count)
 		{
 			safe_processor_count = g_vmm_context.processor_count;
@@ -190,6 +195,13 @@ namespace hvgt // Hypervisor Gateway：普通内核线程调用 Hypervisor 的�
 		{
 			if (!IsVmoffRequired(iter))
 			{
+				if (g_vmm_context.vcpu[iter].vcpu_status.vmx_on != 0)
+				{
+					all_completed = false;
+					outDebug("VMXOFF 无法通过VMCALL处理未启动VCPU：CPU=%u VmxOn=%llu\n",
+						iter,
+						g_vmm_context.vcpu[iter].vcpu_status.vmx_on);
+				}
 				continue;
 			}
 
@@ -197,22 +209,36 @@ namespace hvgt // Hypervisor Gateway：普通内核线程调用 Hypervisor 的�
 			KeSetSystemGroupAffinityThread(&g_vmm_context.vcpu[iter].processor_affinity, &orig_affinity); // 绑定当前线程到指定 CPU
 			bool vmoff_completed = false;
 			__try {
-				__vm_call(VMCALL_VMXOFF, 0, 0, 0); // 在该 CPU 执行 VMXOFF
-				vmoff_completed = true;
+				vmoff_completed = __vm_call(VMCALL_VMXOFF, 0, 0, 0); // 只有VMCALL返回成功才允许释放该CPU资源
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
 				// 捕获异常，避免单个 CPU 出错导致系统崩溃
 				// VMCALL_VMXOFF可能在目标CPU已经退出/状态不一致时触发异常；记录后继续处理其他CPU，避免卸载路径放大为全局崩溃。
 				outDebug("VMCALL_VMXOFF 异常：CPU=%u Code=0x%X\n", iter, GetExceptionCode());
+				all_completed = false;
 			}
 			KeRevertToUserGroupAffinityThread(&orig_affinity); // 恢复原始亲和力
 
-			if (vmoff_completed)
+			auto const& vcpu = g_vmm_context.vcpu[iter];
+			if (vmoff_completed &&
+				vcpu.vcpu_status.vmm_launched == 0 &&
+				vcpu.vmx_off_state.vmx_off_executed != 0)
 			{
 				MarkVmoffCompleted(iter);
 			}
+			else
+			{
+				all_completed = false;
+				outDebug("VMCALL_VMXOFF 未确认完成：CPU=%u Return=%u Launched=%llu Executed=%llu\n",
+					iter,
+					vmoff_completed ? 1u : 0u,
+					vcpu.vcpu_status.vmm_launched,
+					vcpu.vmx_off_state.vmx_off_executed);
+			}
 		}
+
+		return all_completed;
 	}
 
 	// 刷新 EPT 映射缓存。

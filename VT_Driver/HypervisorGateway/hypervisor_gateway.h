@@ -8,7 +8,7 @@ namespace hvgt // Hypervisor Gateway 命名空间：提供对外的“网关”�
 	/// <summary>
 	/// Turn off virtual machine
 	/// </summary>
-	void vmoff(unsigned __int32 processor_count); // 关闭虚拟化：让所有 CPU 执行 VMXOFF，退出 VMX 模式
+	bool vmoff(unsigned __int32 processor_count); // 关闭虚拟化：仅当所有目标CPU确认退出VMX时返回true
 
 	/// <summary>
 	/// Invalidates mappings in the translation lookaside buffers (TLBs)

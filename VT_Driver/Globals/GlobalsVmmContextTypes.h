@@ -101,6 +101,19 @@ struct __vcpu // 每逻辑 CPU 的 VMM 状态
         unsigned __int64 guest_cr3; // 失败时Guest CR3
     }vmresume_failure_snapshot; // VMRESUME失败快照：只写内存，后续在安全上下文统一输出
 
+    struct __fatal_vmx_snapshot
+    {
+        volatile unsigned __int64 count; // Fatal VMX错误累计次数，主要供崩溃转储检查
+        unsigned __int64 reason; // vmx_fatal_reason
+        unsigned __int64 detail1; // 失败路径提供的第一诊断参数
+        unsigned __int64 detail2; // 失败路径提供的第二诊断参数
+        unsigned __int64 vm_instruction_error; // 尽力读取的VM指令错误
+        unsigned __int64 vm_exit_reason; // 尽力读取的VM-exit reason
+        unsigned __int64 guest_rip; // 尽力读取的Guest RIP
+        unsigned __int64 guest_rsp; // 尽力读取的Guest RSP
+        unsigned __int64 guest_cr3; // 尽力读取的Guest CR3
+    }fatal_vmx_snapshot;
+
     struct __vcpu_status
     {
         unsigned __int64 vmx_on; // 是否已 VMXON
@@ -121,6 +134,11 @@ struct __vcpu // 每逻辑 CPU 的 VMM 状态
         unsigned __int64  vmx_off_executed;  //关闭虚拟化
         unsigned __int64  guest_rip; // VMXOFF 后恢复 RIP
         unsigned __int64  guest_rsp; // VMXOFF 后恢复 RSP
+        unsigned __int64  guest_rflags; // VMXOFF 后恢复 RFLAGS
+        unsigned __int64  guest_cs; // VMXOFF 后恢复 CS
+        unsigned __int64  guest_ss; // VMXOFF 后恢复 SS
+        unsigned __int64  guest_cr0; // VMXOFF 后恢复有效 CR0
+        unsigned __int64  guest_cr4; // VMXOFF 后恢复有效 CR4
     }vmx_off_state; // VMXOFF 状态
 
     struct __vcpu_bitmaps
@@ -141,6 +159,15 @@ struct __vcpu // 每逻辑 CPU 的 VMM 状态
     CLIENT_ID Cid; //记录触发监视断点的guest的线程id
     unsigned __int64 breakpoint_detected; //记录触发的地址
 };
+
+static_assert(FIELD_OFFSET(__vcpu::__vmx_off_state, guest_rip) == 0x08, "VMXOFF guest RIP offset must match vm-exit.asm");
+static_assert(FIELD_OFFSET(__vcpu::__vmx_off_state, guest_rsp) == 0x10, "VMXOFF guest RSP offset must match vm-exit.asm");
+static_assert(FIELD_OFFSET(__vcpu::__vmx_off_state, guest_rflags) == 0x18, "VMXOFF guest RFLAGS offset must match vm-exit.asm");
+static_assert(FIELD_OFFSET(__vcpu::__vmx_off_state, guest_cs) == 0x20, "VMXOFF guest CS offset must match vm-exit.asm");
+static_assert(FIELD_OFFSET(__vcpu::__vmx_off_state, guest_ss) == 0x28, "VMXOFF guest SS offset must match vm-exit.asm");
+static_assert(FIELD_OFFSET(__vcpu::__vmx_off_state, guest_cr0) == 0x30, "VMXOFF guest CR0 offset must match vm-exit.asm");
+static_assert(FIELD_OFFSET(__vcpu::__vmx_off_state, guest_cr4) == 0x38, "VMXOFF guest CR4 offset must match vm-exit.asm");
+static_assert(sizeof(__vcpu::__vmx_off_state) == 0x40, "VMXOFF state size must match vm-exit.asm");
 
 struct __mtrr_info // MTRR 汇总状态
 {
