@@ -118,7 +118,24 @@ namespace hvgt
 		HookFunctionArgs args{ target_address, proxy_function, origin_function, __readcr3(), 0 };
 		KeGenericCallDpc(broadcast_hook_function, &args);
 
-		return static_cast<ULONG>(args.statuses) == KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS);
+		const ULONG processor_count = KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS);
+		const ULONG successful_hooks = static_cast<ULONG>(args.statuses);
+		if (successful_hooks == processor_count)
+		{
+			return true;
+		}
+
+		if (successful_hooks != 0)
+		{
+			UnHookFunctionArgs rollback_args{ false, target_address, __readcr3(), 0 };
+			KeGenericCallDpc(broadcast_unhook_function, &rollback_args);
+		}
+		if (origin_function != nullptr)
+		{
+			*origin_function = nullptr;
+		}
+
+		return false;
 	}
 
 	// 默认参数保持兼容，这样旧调用点不需要改。

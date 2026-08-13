@@ -49,6 +49,6 @@ void StartProcess()
 	std::wstring filename = FileSystem::GetModuleDirectory(NULL);
 	if (!filename.empty())
 	{
-		StartProcess_internal(filename, L"UnrealDbg.aes", L"");
+		StartProcess_internal(filename, L"UnrealDbgHostCli.exe", L"");
 	}
 }

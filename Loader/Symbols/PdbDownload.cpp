@@ -174,7 +174,7 @@ bool DownloadSymbol_internal(const std::wstring& szModulePath, const std::wstrin
         char age[3]{ 0 };
         _itoa_s(pdb_info->Age, age, 10);
 
-        std::wstring filename = FileSystem::GetModuleDirectory(NULL) + _T("SymbolTool\\Config.ini");
+        std::wstring filename = FileSystem::GetModuleDirectory(NULL) + _T("Config.ini");
         //char szBuf[MAX_PATH] = { 0 };
         //sprintf(szBuf, "符号服务器: %s\n", Common::wideStringToString(filename).c_str());
         //OutputDebugStringA(szBuf);

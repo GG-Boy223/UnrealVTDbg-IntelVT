@@ -38,7 +38,10 @@ ULONG GenCall32V(IN PUCHAR pBuf, IN PVOID pFn, IN INT argc, IN va_list vl)
 
     if (argc > 0)
     {
-        pArgBuf = (PULONG)ExAllocatePoolWithTag(PagedPool, argc * sizeof(ULONG), BB_POOL_TAG);
+        pArgBuf = static_cast<PULONG>(ExAllocatePool2(
+            POOL_FLAG_PAGED,
+            static_cast<SIZE_T>(argc) * sizeof(ULONG),
+            BB_POOL_TAG));
         if (pArgBuf == NULL)
             //DbgBreakPoint();
             return 0;

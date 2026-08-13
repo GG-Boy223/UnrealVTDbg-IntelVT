@@ -1,10 +1,10 @@
 ﻿#include "EptBuildInternal.h"
+#include <Ring0/Hvm/EptCoveragePolicy.h>
 
 namespace ept
 {
-	static constexpr unsigned __int64 ept_pdpt_coverage = 0x40000000ull; // 1GB
-	static constexpr unsigned __int32 ept_default_pdpt_count = EPT_PD_COUNT;
-	static constexpr unsigned __int32 ept_max_pdpt_count = 512u * 512u;
+	static constexpr unsigned __int32 ept_default_pdpt_count = coverage_policy::minimum_pdpte_count;
+	static_assert(EPT_PD_COUNT == ept_default_pdpt_count, "Embedded EPT table must match the minimum coverage policy");
 
 	static bool add_overflow_u64(unsigned __int64 left, unsigned __int64 right, unsigned __int64& result)
 	{
@@ -14,34 +14,32 @@ namespace ept
 
 	static unsigned __int32 round_up_pdpt_count(unsigned __int64 highest_physical_end)
 	{
-		if (highest_physical_end == 0)
+		const auto calculation = coverage_policy::calculate(highest_physical_end);
+		switch (calculation.calculation_status)
 		{
-			outFile("[信息][EPT覆盖范围] 未获取到物理内存范围，使用默认PDPT数量=%u", ept_default_pdpt_count);
-			return ept_default_pdpt_count;
-		}
-
-		if (highest_physical_end > MAXULONG64 - (ept_pdpt_coverage - 1))
-		{
+		case coverage_policy::status::ok:
+			outFile("[信息][EPT覆盖范围] 物理地址上界=0x%llX 所需PDPT数量=%u",
+				highest_physical_end,
+				calculation.pdpte_count);
+			return calculation.pdpte_count;
+		case coverage_policy::status::missing_physical_ranges:
+			LogError("EPT identity map cannot be sized without physical memory ranges");
+			outFile("[失败][EPT覆盖范围] 缺少有效物理内存上界");
+			return 0;
+		case coverage_policy::status::arithmetic_overflow:
 			LogError("EPT identity map size overflow: highest_end=0x%llX", highest_physical_end);
 			outFile("[失败][EPT覆盖范围] 物理地址上界计算溢出：HighestEnd=0x%llX", highest_physical_end);
 			return 0;
-		}
-
-		unsigned __int64 required = (highest_physical_end + ept_pdpt_coverage - 1) >> 30;
-		if (required < ept_default_pdpt_count)
-		{
-			required = ept_default_pdpt_count;
-		}
-
-		if (required > ept_max_pdpt_count)
-		{
-			LogError("EPT identity map exceeds 4-level EPT limit: %llu PDPT entries", required);
-			outFile("[失败][EPT覆盖范围] 所需PDPT数量超过4级EPT上限：Required=%llu Max=%u", required, ept_max_pdpt_count);
+		case coverage_policy::status::exceeds_four_level_limit:
+			LogError("EPT identity map exceeds the 4-level EPT limit: highest_end=0x%llX", highest_physical_end);
+			outFile("[失败][EPT覆盖范围] 物理地址上界超过4级EPT限制：HighestEnd=0x%llX MaxPDPT=%u",
+				highest_physical_end,
+				coverage_policy::maximum_pdpte_count);
+			return 0;
+		default:
+			LogError("Unknown EPT coverage policy status");
 			return 0;
 		}
-
-		outFile("[信息][EPT覆盖范围] 物理地址上界=0x%llX 所需PDPT数量=%llu", highest_physical_end, required);
-		return static_cast<unsigned __int32>(required);
 	}
 
 	static bool cache_physical_memory_ranges(__ept_state& ept_state, unsigned __int64& highest_physical_end)
@@ -50,8 +48,8 @@ namespace ept
 		PPHYSICAL_MEMORY_RANGE ranges = MmGetPhysicalMemoryRanges();
 		if (ranges == nullptr)
 		{
-			LogError("MmGetPhysicalMemoryRanges failed, using default 512GB EPT map");
-			outFile("[信息][EPT覆盖范围] MmGetPhysicalMemoryRanges失败，使用默认PDPT数量=%u", ept_default_pdpt_count);
+			LogError("MmGetPhysicalMemoryRanges failed; refusing unsafe MTRR-only EPT map");
+			outFile("[失败][EPT覆盖范围] MmGetPhysicalMemoryRanges失败，拒绝把未知RAM/MMIO范围按MTRR-only映射");
 			return false;
 		}
 
@@ -63,7 +61,7 @@ namespace ept
 		if (range_count == 0)
 		{
 			ExFreePool(ranges);
-			outFile("[信息][EPT覆盖范围] 物理内存范围为空，使用默认PDPT数量=%u", ept_default_pdpt_count);
+			outFile("[失败][EPT覆盖范围] 物理内存范围为空，无法安全区分RAM与MMIO");
 			return false;
 		}
 
@@ -73,7 +71,7 @@ namespace ept
 		{
 			ExFreePool(ranges);
 			LogError("Failed to cache physical memory ranges");
-			outFile("[信息][EPT覆盖范围] RAM范围缓存分配失败，保留旧MTRR-only内存类型策略");
+			outFile("[失败][EPT覆盖范围] RAM范围缓存分配失败，拒绝退回不安全的MTRR-only策略");
 			return false;
 		}
 
@@ -111,7 +109,7 @@ namespace ept
 		// PPHYSICAL_MEMORY_RANGE ranges = MmGetPhysicalMemoryRanges(); // 旧逻辑：只临时读取最高RAM地址，后续EPT类型无法区分MMIO空洞。
 		if (!cache_physical_memory_ranges(ept_state, highest_physical_end))
 		{
-			return ept_default_pdpt_count;
+			return 0;
 		}
 
 		return round_up_pdpt_count(highest_physical_end);
@@ -223,7 +221,7 @@ namespace ept
 
 		if (ept_state.physical_memory_ranges == nullptr || ept_state.physical_memory_range_count == 0)
 		{
-			return true; // 没有RAM缓存时保持旧行为：只按MTRR判断，不新增拒绝条件。
+			return false; // 未知范围按非RAM处理；初始化阶段正常情况下会在此前直接失败。
 		}
 
 		unsigned __int64 end = 0;

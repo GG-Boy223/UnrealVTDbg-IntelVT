@@ -1,4 +1,5 @@
 ﻿#include "HypervisorInternal.h"
+#include <Ring0/Hvm/VmxCapabilityPolicy.h>
 
 namespace hv
 {
@@ -11,6 +12,60 @@ namespace hv
         __cpuid_info cpuid = { 0 }; // 初始化 CPUID 结果缓存
         __cpuid(&cpuid.cpu_info[0], 1); // 读取 CPUID 叶 1，获取 CPU 特性标志
         return cpuid.cpuid_eax_01.feature_information_ecx.virtual_machine_extensions; // 返回 VMX 位，标识是否支持 VT-x
+    }
+
+    bool required_vmx_capabilities_supported()
+    {
+        __vmx_basic_msr vmx_basic = { 0 };
+        vmx_basic.all = __readmsr(IA32_VMX_BASIC);
+
+        __msr primary_controls = { 0 };
+        primary_controls.all = __readmsr(
+            vmx_basic.true_controls ? IA32_VMX_TRUE_PROCBASED_CTLS : IA32_VMX_PROCBASED_CTLS);
+        const unsigned __int32 missing_primary =
+            capability_policy::missing_primary_controls(primary_controls.high);
+        if (missing_primary != 0)
+        {
+            LogError("Required VMX primary controls are unavailable: missing=0x%X allowed1=0x%X",
+                missing_primary,
+                primary_controls.high);
+            outFile("[失败][VMX能力] 缺少次级控制激活能力：Missing=0x%X Allowed1=0x%X",
+                missing_primary,
+                primary_controls.high);
+            return false;
+        }
+
+        __msr secondary_controls = { 0 };
+        secondary_controls.all = __readmsr(IA32_VMX_PROCBASED_CTLS2);
+        const unsigned __int32 missing_secondary =
+            capability_policy::missing_secondary_controls(secondary_controls.high);
+        if (missing_secondary != 0)
+        {
+            LogError("Required VMX secondary controls are unavailable: missing=0x%X allowed1=0x%X",
+                missing_secondary,
+                secondary_controls.high);
+            outFile("[失败][VMX能力] 缺少EPT/VPID次级控制：Missing=0x%X Allowed1=0x%X",
+                missing_secondary,
+                secondary_controls.high);
+            return false;
+        }
+
+        const unsigned __int64 capabilities = __readmsr(IA32_VMX_EPT_VPID_CAP);
+        const unsigned __int64 missing_capabilities =
+            capability_policy::missing_ept_vpid_capabilities(capabilities);
+        if (missing_capabilities != 0)
+        {
+            LogError("Required EPT/VPID capabilities are unavailable: missing=0x%llX cap=0x%llX",
+                missing_capabilities,
+                capabilities);
+            outFile("[失败][VMX能力] EPT/VPID能力不完整：Missing=0x%llX CAP=0x%llX",
+                missing_capabilities,
+                capabilities);
+            return false;
+        }
+
+        outFile("[成功][VMX能力] EPT/VPID能力检查通过：CAP=0x%llX", capabilities);
+        return true;
     }
 
     /// <summary>

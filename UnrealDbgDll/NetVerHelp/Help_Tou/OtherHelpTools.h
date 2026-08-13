@@ -1,7 +1,7 @@
 #pragma once
 #ifndef OtherHelp_H_
 #define OtherHelp_H_
-#include <afxinet.h>
+#include <Windows.h>
 #include <string>
 #include <list>
 #include<locale.h>

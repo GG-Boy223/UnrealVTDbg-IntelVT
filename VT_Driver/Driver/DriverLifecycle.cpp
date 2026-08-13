@@ -129,6 +129,13 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
         }
         outFile("[成功] VMX虚拟化支持检查通过");
 
+        if (!hv::required_vmx_capabilities_supported())
+        {
+            outFile("[失败] 当前处理器缺少本实现所需的EPT/VPID能力");
+            outDebug("Required EPT/VPID capabilities are not supported.\n");
+            return STATUS_NOT_SUPPORTED;
+        }
+
         outFile("---------- 阶段3：保存Guest初始全局状态 ----------");
         hv::InitGlobalVariables(); // 初始化全局虚拟化相关状态与数据，保证后续流程依赖的全局值有效
         outFile("[成功] Guest初始寄存器：CR0=0x%llX CR3=0x%llX CR4=0x%llX", g_guest_cr0, g_guest_cr3, g_guest_cr4);

@@ -1,5 +1,6 @@
 # Visual Studio 本地配置（全局忽略）
 .vs/
+.auto-index-mcp/
 
 # Visual Studio user/local files
 *.user

@@ -131,7 +131,6 @@ namespace Help
 			oJson.Get((const char*)_xor_("data"), result.data);
 		}
 		head.clear();
-		http.~CHttpRequestTool();
 
 #if USE_VMP
 		VMProtectEnd();

@@ -73,6 +73,12 @@ namespace hv
 
     bool enter_vmx_operation(vmxon& vmxon_region)
     {
+        if (!required_vmx_capabilities_supported())
+        {
+            outFile("[失败][VMXON] 当前逻辑处理器缺少所需EPT/VPID能力");
+            return false;
+        }
+
         ia32_vmx_basic_register vmx_basic; // VMX 基本能力结构
         vmx_basic.flags = __readmsr(IA32_VMX_BASIC); // 读取 VMX 基本能力
 
@@ -94,9 +100,7 @@ namespace hv
             return false;
         }
 
-        _mm_mfence();
-        invept_all_contexts_func();
-        outFile("[成功][VMXON] VMXON执行完成，已执行全局INVEPT：VMXON_PA=0x%llX", vmxon_phys);
+        outFile("[成功][VMXON] VMXON执行完成：VMXON_PA=0x%llX", vmxon_phys);
 
         return true;
     }

@@ -15,6 +15,10 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DbgkSysWin11", "DbgkSysWin1
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "VT_Driver", "VT_Driver\VT_Driver.vcxproj", "{B41C66E0-04F8-4049-B41F-5A0D15B1DAD7}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UnrealDbgHostCore", "UnrealDbgHostCore\UnrealDbgHostCore.vcxproj", "{7C83A7D1-EB92-4D52-A55E-7D366B6BBEE6}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UnrealDbgHostCli", "UnrealDbgHostCli\UnrealDbgHostCli.vcxproj", "{D9BA7537-1C68-48A0-BB42-C267D8C81807}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|ARM = Debug|ARM
@@ -327,6 +331,10 @@ Global
 		{B41C66E0-04F8-4049-B41F-5A0D15B1DAD7}.Win7 Debug|x86.ActiveCfg = Debug|Win32
 		{B41C66E0-04F8-4049-B41F-5A0D15B1DAD7}.Win7 Debug|x86.Build.0 = Debug|Win32
 		{B41C66E0-04F8-4049-B41F-5A0D15B1DAD7}.Win7 Debug|x86.Deploy.0 = Debug|Win32
+		{7C83A7D1-EB92-4D52-A55E-7D366B6BBEE6}.Release|x64.ActiveCfg = Release|x64
+		{7C83A7D1-EB92-4D52-A55E-7D366B6BBEE6}.Release|x64.Build.0 = Release|x64
+		{D9BA7537-1C68-48A0-BB42-C267D8C81807}.Release|x64.ActiveCfg = Release|x64
+		{D9BA7537-1C68-48A0-BB42-C267D8C81807}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

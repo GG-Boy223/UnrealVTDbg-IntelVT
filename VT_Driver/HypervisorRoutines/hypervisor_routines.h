@@ -21,6 +21,11 @@ namespace hv // Hypervisor 低层例程命名空间
 	bool virtualization_support(); // 检查 CPU 是否支持 VT-x（VMX）虚拟化
 
 	/// <summary>
+	/// Check capabilities required by the current EPT/VPID implementation.
+	/// </summary>
+	bool required_vmx_capabilities_supported();
+
+	/// <summary>
 	/// Disable vmx operation
 	/// </summary>
 	/// <returns></returns>

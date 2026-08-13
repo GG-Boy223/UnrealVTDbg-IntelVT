@@ -58,6 +58,8 @@ namespace
 		case vmx_fatal_vm_entry_failure:
 		case vmx_fatal_triple_fault:
 		case vmx_fatal_missing_vcpu:
+		case vmx_fatal_unhandled_ept_violation:
+		case vmx_fatal_ept_misconfiguration:
 			return true;
 		default:
 			return false;

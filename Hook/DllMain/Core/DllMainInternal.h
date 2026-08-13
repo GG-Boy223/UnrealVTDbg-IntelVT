@@ -6,6 +6,9 @@
 #include "../../Globals.h"
 #include "../../Log/Log.h"
 #include <new>
+#ifndef UNREALVTDBG_NO_VMP_SDK_IMPORT
+#define UNREALVTDBG_NO_VMP_SDK_IMPORT
+#endif
 #include "../../../Common/VMProtect/vmp.h"
 
 namespace HookDllMainInternal

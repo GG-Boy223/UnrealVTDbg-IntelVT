@@ -8,6 +8,8 @@ enum vmx_fatal_reason : unsigned __int64
     vmx_fatal_vm_entry_failure = 4,
     vmx_fatal_triple_fault = 5,
     vmx_fatal_missing_vcpu = 6,
+    vmx_fatal_unhandled_ept_violation = 7,
+    vmx_fatal_ept_misconfiguration = 8,
 };
 
 extern "C" __declspec(noreturn)
