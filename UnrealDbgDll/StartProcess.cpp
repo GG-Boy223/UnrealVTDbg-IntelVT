@@ -111,8 +111,18 @@ namespace
 		return remaining > MAXDWORD ? MAXDWORD : static_cast<DWORD>(remaining);
 	}
 
-	bool WaitForDebuggerInputIdle(HANDLE process, ULONGLONG deadline)
+	bool WaitForDebuggerInitialization(
+		HANDLE process,
+		ULONGLONG deadline,
+		bool* shouldResuspendMainThread)
 	{
+		if (shouldResuspendMainThread == nullptr)
+		{
+			SetLastError(ERROR_INVALID_PARAMETER);
+			return false;
+		}
+
+		*shouldResuspendMainThread = false;
 		for (;;)
 		{
 			DWORD const processWait = WaitForSingleObject(process, 0);
@@ -137,10 +147,21 @@ namespace
 			DWORD const idleWait = WaitForInputIdle(process, waitSlice);
 			if (idleWait == 0)
 			{
+				*shouldResuspendMainThread = true;
 				return true;
 			}
 			if (idleWait == WAIT_FAILED)
 			{
+				DWORD const waitError = GetLastError();
+				if (waitError == ERROR_NOT_GUI_PROCESS)
+				{
+					// Console and headless processes have no GUI input-idle state. Keep
+					// the primary thread runnable while the loader serializes DLL startup.
+					SetLastError(ERROR_SUCCESS);
+					return true;
+				}
+
+				SetLastError(waitError);
 				return false;
 			}
 		}
@@ -269,19 +290,26 @@ BOOL StartProcess(TCHAR* szExe, TCHAR* sPath)
 			break;
 		}
 
-		if (!WaitForDebuggerInputIdle(processInformation.hProcess, launchDeadline))
+		bool shouldResuspendMainThread = false;
+		if (!WaitForDebuggerInitialization(
+			processInformation.hProcess,
+			launchDeadline,
+			&shouldResuspendMainThread))
 		{
 			logger.outDebug(_T("调试器初始化等待失败！(error:%lu)"), GetLastError());
 			break;
 		}
 
-		DWORD const suspendCount = SuspendThread(processInformation.hThread);
-		if (suspendCount != 0)
+		if (shouldResuspendMainThread)
 		{
-			logger.outDebug(_T("调试器初始化线程重新挂起失败！(count:%lu error:%lu)"),
-				suspendCount,
-				suspendCount == static_cast<DWORD>(-1) ? GetLastError() : ERROR_INVALID_STATE);
-			break;
+			DWORD const suspendCount = SuspendThread(processInformation.hThread);
+			if (suspendCount != 0)
+			{
+				logger.outDebug(_T("调试器初始化线程重新挂起失败！(count:%lu error:%lu)"),
+					suspendCount,
+					suspendCount == static_cast<DWORD>(-1) ? GetLastError() : ERROR_INVALID_STATE);
+				break;
+			}
 		}
 
 		std::wstring const readyEventName = BuildHookReadyEventName(processInformation.dwProcessId);
@@ -333,18 +361,21 @@ BOOL StartProcess(TCHAR* szExe, TCHAR* sPath)
 			break;
 		}
 
-		DWORD const previousSuspendCount = ResumeThread(processInformation.hThread);
-		if (previousSuspendCount != 1)
+		if (shouldResuspendMainThread)
 		{
-			if (previousSuspendCount == static_cast<DWORD>(-1))
+			DWORD const previousSuspendCount = ResumeThread(processInformation.hThread);
+			if (previousSuspendCount != 1)
 			{
-				logger.outDebug(_T("调试器主线程恢复失败！(error:%lu)"), GetLastError());
+				if (previousSuspendCount == static_cast<DWORD>(-1))
+				{
+					logger.outDebug(_T("调试器主线程恢复失败！(error:%lu)"), GetLastError());
+				}
+				else
+				{
+					logger.outDebug(_T("调试器主线程挂起计数异常！(count:%lu)"), previousSuspendCount);
+				}
+				break;
 			}
-			else
-			{
-				logger.outDebug(_T("调试器主线程挂起计数异常！(count:%lu)"), previousSuspendCount);
-			}
-			break;
 		}
 
 		result = TRUE;
