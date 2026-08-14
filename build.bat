@@ -12,7 +12,7 @@ echo [build] vswhere.exe was not found: %VSWHERE%
 exit /b 1
 
 :vswhere_found
-"%VSWHERE%" -latest -products * -requires Microsoft.Component.MSBuild -property installationPath > "%VSWHERE_RESULT%"
+"%VSWHERE%" -latest -version "[17.0,18.0)" -products * -requires Microsoft.Component.MSBuild Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath > "%VSWHERE_RESULT%"
 if errorlevel 1 (
     del /q "%VSWHERE_RESULT%" >nul 2>nul
     exit /b 1
@@ -98,6 +98,15 @@ if /I "%~1"=="dll" (
     copy /Y "%ROOT%UnrealDbgDll\VMProtectSDK64.dll" "%OUT_DIR%\VMProtectSDK64.dll" >nul
     if errorlevel 1 exit /b 1
     echo [build] DLL artifact: %OUT_DIR%\UnrealDbgDll.dll
+    exit /b 0
+)
+
+if /I "%~1"=="solution" (
+    echo [build] Building UnrealDbg.sln Release x64...
+    msbuild "%ROOT%UnrealDbg.sln" /m /t:Build /p:Configuration=Release /p:Platform=x64 /p:VcpkgEnabled=false
+    if errorlevel 1 exit /b 1
+    call :verify_host
+    if errorlevel 1 exit /b 1
     exit /b 0
 )
 

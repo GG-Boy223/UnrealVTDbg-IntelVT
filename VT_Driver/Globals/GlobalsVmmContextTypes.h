@@ -175,7 +175,6 @@ struct __mtrr_info // MTRR 汇总状态
     __mtrr_range_descriptor memory_range[345]; // 容量是架构上限，不通过截断或跳过掩盖平台差异
     unsigned __int32 enabled_memory_ranges; // 有效范围数量
     unsigned __int8 default_memory_type; // 默认内存类型
-    mtrr_data mtrrs; // MTRR 详细信息
 };
 
 struct __vmm_context // 全局 VMM 上下文

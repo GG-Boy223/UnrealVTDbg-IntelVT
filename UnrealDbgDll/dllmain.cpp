@@ -572,18 +572,21 @@ BOOL Initialize_F3(ULONG64 key)   //初始化驱动 key用户  驱动对比
 	if (!_Initialize(processPath.c_str()))  //加载驱动
 	{
         logger.outDebug(_xor_(L"驱动初始化失败"));
+        (void)UnInitialize();
         return FALSE;
 	}
 
     if (!InitSymbolsTable(key))
     {
         logger.outDebug(_xor_(L"符号表初始化失败"));
+        (void)UnInitialize();
         return FALSE;
     }
 
     if (!SendDebuggerDataToDriver(GetCurrentProcessId()))
     {
         logger.outDebug(_xor_(L"宿主调试器登记失败"));
+        (void)UnInitialize();
         return FALSE;
     }
 

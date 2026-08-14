@@ -11,6 +11,44 @@ namespace unrealdbg::host::detail
         constexpr char kGetFileVersionExport[] = "GetFileVersion";
         constexpr char kBlockGameResumeThreadExport[] = "TL_BlockGameResumeThread";
 
+        using InitializeThunk = BOOL(__stdcall*)(std::uint64_t);
+        using StartProcessThunk = BOOL(__stdcall*)(wchar_t*, wchar_t*);
+
+        BOOL InvokeInitialize(
+            const InitializeThunk function,
+            const std::uint64_t key,
+            DWORD* exception_code) noexcept
+        {
+            __try
+            {
+                return function(key);
+            }
+            __except (
+                exception_code != nullptr ? (*exception_code = ::GetExceptionCode()) : 0,
+                EXCEPTION_EXECUTE_HANDLER)
+            {
+                return FALSE;
+            }
+        }
+
+        BOOL InvokeStartProcess(
+            const StartProcessThunk function,
+            wchar_t* debugger_path,
+            wchar_t* runtime_directory,
+            DWORD* exception_code) noexcept
+        {
+            __try
+            {
+                return function(debugger_path, runtime_directory);
+            }
+            __except (
+                exception_code != nullptr ? (*exception_code = ::GetExceptionCode()) : 0,
+                EXCEPTION_EXECUTE_HANDLER)
+            {
+                return FALSE;
+            }
+        }
+
         template <typename Function>
         bool ResolveExport(
             const HMODULE module,
@@ -161,13 +199,17 @@ namespace unrealdbg::host::detail
             }
 
             ::SetLastError(ERROR_SUCCESS);
-            if (initialize_(key) == FALSE)
+            DWORD exception_code = 0;
+            if (InvokeInitialize(initialize_, key, &exception_code) == FALSE)
             {
                 const DWORD error = ::GetLastError();
                 return Failure(
                     LegacyAdapterError::CallFailed,
                     L"Initialize_F3 returned failure"
-                        + (error == ERROR_SUCCESS
+                        + (exception_code != 0
+                            ? std::wstring(L" (SEH exception ")
+                                + std::to_wstring(exception_code) + L")."
+                            : error == ERROR_SUCCESS
                             ? std::wstring(L".")
                             : std::wstring(L" (Win32 error ")
                                 + std::to_wstring(error) + L")."));
@@ -199,15 +241,21 @@ namespace unrealdbg::host::detail
             std::wstring runtime_directory_buffer = runtime_directory.native();
 
             ::SetLastError(ERROR_SUCCESS);
-            if (start_process_(
+            DWORD exception_code = 0;
+            if (InvokeStartProcess(
+                start_process_,
                 debugger_path_buffer.data(),
-                runtime_directory_buffer.data()) == FALSE)
+                runtime_directory_buffer.data(),
+                &exception_code) == FALSE)
             {
                 const DWORD error = ::GetLastError();
                 return Failure(
                     LegacyAdapterError::CallFailed,
                     L"StartProcess returned failure"
-                        + (error == ERROR_SUCCESS
+                        + (exception_code != 0
+                            ? std::wstring(L" (SEH exception ")
+                                + std::to_wstring(exception_code) + L")."
+                            : error == ERROR_SUCCESS
                             ? std::wstring(L".")
                             : std::wstring(L" (Win32 error ")
                                 + std::to_wstring(error) + L")."));

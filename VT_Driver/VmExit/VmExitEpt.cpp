@@ -88,6 +88,28 @@ void vmexit_ept_violation_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 			{
 				if (hooked_page_info->Options == EPTO_VIRTUAL_BREAKPOINT)
 				{
+					// 普通 EXECUTE watch 没有 fake page；放行当前指令并用 MTF 恢复组合权限。
+					if (hooked_page_info->changed_entry.page_frame_number == 0)
+					{
+						int bpType = 0;
+						if (ept::ept_handleWatchEvent(
+							vcpu,
+							ept_violation,
+							hooked_page_info,
+							guest_physical_adddress,
+							bpType))
+						{
+							if (!hv::mark_pending_mtf_page(vcpu, hooked_page_info))
+							{
+								return;
+							}
+							_mm_mfence();
+							invept_single_context_func(vcpu->ept_state->ept_pointer->all);
+							return;
+						}
+						break;
+					}
+
 					//交换物理页面并刷新tlb
 					ept::swap_pml1_and_invalidate_tlb(*vcpu->ept_state, // 原理：交换 EPT PML1 条目并失效 TLB；作用：让权限变更立即生效；结果：访问规则更新
 						hooked_page_info->entry_address,

@@ -16,7 +16,6 @@ namespace hv::capability_policy
         (1ull << 32) | // INVVPID instruction
         (1ull << 40) | // individual-address INVVPID
         (1ull << 41) | // single-context INVVPID
-        (1ull << 42) | // all-context INVVPID
         (1ull << 43);  // single-context retaining globals INVVPID
 
     constexpr unsigned __int32 missing_primary_controls(unsigned __int32 allowed1)

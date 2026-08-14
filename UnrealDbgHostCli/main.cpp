@@ -498,12 +498,26 @@ int wmain(const int argc, wchar_t* argv[])
 
         if (argc == 2)
         {
-            return static_cast<int>(DispatchCommand(runtime, argv[1], {}));
+            const ExitCode result = DispatchCommand(runtime, argv[1], {});
+            if (result == ExitCode::Success &&
+                NormalizeCommand(Trim(argv[1])) == L"init")
+            {
+                WriteLine(L"Runtime must remain resident; entering interactive mode.");
+                return static_cast<int>(RunInteractive(runtime));
+            }
+            return static_cast<int>(result);
         }
 
         if (argc == 3)
         {
-            return static_cast<int>(DispatchCommand(runtime, argv[1], argv[2]));
+            const ExitCode result = DispatchCommand(runtime, argv[1], argv[2]);
+            if (result == ExitCode::Success &&
+                NormalizeCommand(Trim(argv[1])) == L"launch")
+            {
+                WriteLine(L"Runtime must remain resident; entering interactive mode.");
+                return static_cast<int>(RunInteractive(runtime));
+            }
+            return static_cast<int>(result);
         }
 
         PrintUsage();

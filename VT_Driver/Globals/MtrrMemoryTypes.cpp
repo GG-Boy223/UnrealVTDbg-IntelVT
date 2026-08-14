@@ -163,7 +163,6 @@ namespace hv
         // TODO: completely virtualize the guest MTRRs
         // 完全虚拟化guest MTRR
         auto const mtrrs = read_mtrr_data(); // 获取当前 MTRR 配置
-        g_vmm_context.mtrr_info.mtrrs = mtrrs; // runtime split 必须使用与本次刷新相同的快照，不能继续沿用启动时数据。
 
         for (size_t i = 0; i < ept_state.mapped_pdpte_count; ++i)
         {

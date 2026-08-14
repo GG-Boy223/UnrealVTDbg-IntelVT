@@ -13,6 +13,7 @@ typedef int(__stdcall* PFN_OUTDEBUG)(const TCHAR* _Format, ...);
 PFN_LOADNT pfnLoadNT;
 PFN_UNLOADNT pfnUnloadNT;
 PFN_OUTDEBUG outDebug;
+HMODULE g_aiHelperModule;
 
 HANDLE g_hGeneralDriverDevice = INVALID_HANDLE_VALUE;
 
@@ -119,20 +120,34 @@ BOOL InitializeDevice(const std::wstring DriveImagePath)
 }
 
 //初始化接口
-BOOL InitInterface()
+BOOL InitInterface(const std::wstring& runtimePath)
 {
-    HMODULE AIHelperMod = LoadLibrary(_xor_(L"AIHelper.dll"));
-    if (!AIHelperMod)
+    if (g_aiHelperModule != nullptr)
+    {
+        return pfnLoadNT != nullptr && pfnUnloadNT != nullptr && outDebug != nullptr;
+    }
+
+    const std::wstring aiHelperPath = runtimePath + _xor_(L"AIHelper.dll");
+    g_aiHelperModule = LoadLibraryExW(
+        aiHelperPath.c_str(),
+        nullptr,
+        LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
+    if (!g_aiHelperModule)
     {
         ::MessageBox(NULL, (L"没有找到 AIHelper.dll"), (L"错误信息:"), MB_ICONWARNING);
         return FALSE;
     }
-    pfnLoadNT = (PFN_LOADNT)GetProcAddress(AIHelperMod,     _xor_("LoadNT"));
-    pfnUnloadNT = (PFN_UNLOADNT)GetProcAddress(AIHelperMod, _xor_("UnloadNT"));
-    outDebug = (PFN_OUTDEBUG)GetProcAddress(AIHelperMod,    _xor_("outDebug"));
+    pfnLoadNT = (PFN_LOADNT)GetProcAddress(g_aiHelperModule,     _xor_("LoadNT"));
+    pfnUnloadNT = (PFN_UNLOADNT)GetProcAddress(g_aiHelperModule, _xor_("UnloadNT"));
+    outDebug = (PFN_OUTDEBUG)GetProcAddress(g_aiHelperModule,    _xor_("outDebug"));
 
     if (pfnLoadNT == nullptr || pfnUnloadNT == nullptr || outDebug == nullptr)
     {
+        FreeLibrary(g_aiHelperModule);
+        g_aiHelperModule = nullptr;
+        pfnLoadNT = nullptr;
+        pfnUnloadNT = nullptr;
+        outDebug = nullptr;
         ::MessageBox(NULL, (L"AIHelper.dll 接口不完整"), _xor_(L"错误信息:"), MB_ICONWARNING);
         return FALSE;
     }
@@ -146,7 +161,7 @@ BOOL _Initialize(const TCHAR* sPath)
     std::wstring sDrivePath(sPath);
     if (!sDrivePath.empty())
     {
-        if (InitInterface())
+        if (InitInterface(sDrivePath))
         {
             boInit = InitializeDevice(sDrivePath);
         }

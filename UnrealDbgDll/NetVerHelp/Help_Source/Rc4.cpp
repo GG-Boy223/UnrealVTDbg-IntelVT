@@ -4,9 +4,9 @@
 #include "../Help_Tou/Rc4.h"
 namespace Help
 {
-	char* Rc4::Encrypt(const char* szSource, const char* szPassWord) // 加密，返回加密结果
+	std::string Rc4::Encrypt(const char* szSource, const char* szPassWord) // 加密，返回加密结果
 	{
-		if (szSource == NULL || szPassWord == NULL) return NULL;
+		if (szSource == NULL || szPassWord == NULL) return {};
 
 		const size_t source_length = strlen(szSource);
 		const size_t password_length = strlen(szPassWord);
@@ -14,7 +14,7 @@ namespace Help
 			password_length == 0 ||
 			password_length > static_cast<size_t>((std::numeric_limits<int>::max)()))
 		{
-			return NULL;
+			return {};
 		}
 
 		unsigned char* ret = new unsigned char[source_length == 0 ? 1 : source_length];
@@ -29,19 +29,25 @@ namespace Help
 			&ret_len) == NULL)
 		{
 			delete[] ret;
-			return NULL;
+			return {};
 		}
 
-		char* ret2 = ByteToHex(ret, ret_len);
-
+		char* encoded = ByteToHex(ret, ret_len);
 		delete[] ret;
-		return ret2;
+		if (encoded == nullptr)
+		{
+			return {};
+		}
+
+		std::string result(encoded);
+		delete[] encoded;
+		return result;
 	}
 
-	char* Rc4::Decrypt(const char* szSource, const char* szPassWord) // 解密，返回解密结果
+	std::string Rc4::Decrypt(const char* szSource, const char* szPassWord) // 解密，返回解密结果
 	{
 		if (szSource == NULL || (strlen(szSource) % 2 != 0) || szPassWord == NULL)
-			return NULL;
+			return {};
 
 		const size_t source_length = strlen(szSource);
 		const size_t password_length = strlen(szPassWord);
@@ -49,13 +55,13 @@ namespace Help
 			password_length == 0 ||
 			password_length > static_cast<size_t>((std::numeric_limits<int>::max)()))
 		{
-			return NULL;
+			return {};
 		}
 
 		unsigned char* src = HexToByte(szSource);
 		if (src == NULL)
 		{
-			return NULL;
+			return {};
 		}
 
 		const size_t decoded_length = source_length / 2;
@@ -75,14 +81,17 @@ namespace Help
 		{
 			delete[] src;
 			delete[] ret;
-			return NULL;
+			return {};
 		}
 
 		delete[] src;
 
 		ret[ret_len] = '\0';
-
-		return (char*)ret;
+		std::string result(
+			reinterpret_cast<const char*>(ret),
+			static_cast<size_t>(ret_len));
+		delete[] ret;
+		return result;
 	}
 
 	int Rc4::RC4(const unsigned char* data, int data_len, const unsigned char* key, int key_len, unsigned char* out, int* out_len)
@@ -150,10 +159,11 @@ namespace Help
 	// 把字节码转为十六进制码，一个字节两个十六进制，内部为字符串分配空间
 	char* Rc4::ByteToHex(const unsigned char* vByte, const int vLen)
 	{
-		if (!vByte)
+		if (!vByte || vLen < 0)
 			return NULL;
 
-		char* tmp = new char[vLen * 2 + 1]; // 一个字节两个十六进制码，最后要多一个'/0'
+		const size_t output_length = static_cast<size_t>(vLen) * 2;
+		char* tmp = new char[output_length + 1]; // 一个字节两个十六进制码，最后要多一个'/0'
 
 		int tmp2;
 		for (int i = 0; i < vLen; i++)
@@ -164,7 +174,7 @@ namespace Help
 			tmp[i * 2 + 1] = (char)(tmp2 + ((tmp2 > 9) ? 'A' - 10 : '0'));
 		}
 
-		tmp[vLen * 2] = '\0';
+		tmp[output_length] = '\0';
 		return tmp;
 	}
 

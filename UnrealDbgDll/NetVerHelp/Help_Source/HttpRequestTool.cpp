@@ -15,6 +15,7 @@ namespace Help
         constexpr DWORD kConnectTimeoutMs = 10'000;
         constexpr DWORD kSendTimeoutMs = 10'000;
         constexpr DWORD kMinimumReceiveTimeoutMs = 30'000;
+        constexpr std::size_t kMaximumResponseBytes = 16u * 1024u * 1024u;
 
         class InternetHandle final
         {
@@ -413,6 +414,11 @@ namespace Help
                 if (bytes_read == 0)
                 {
                     break;
+                }
+                if (static_cast<std::size_t>(bytes_read) >
+                    kMaximumResponseBytes - response.size())
+                {
+                    return {};
                 }
                 response.append(buffer.data(), static_cast<std::size_t>(bytes_read));
             }

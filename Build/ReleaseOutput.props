@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>$(MSBuildThisFileDirectory)..\bin\x64\Release\</OutDir>
+    <IntDir>$(MSBuildThisFileDirectory)..\obj\$(MSBuildProjectName)\x64\Release\</IntDir>
+    <SignMode>Off</SignMode>
+  </PropertyGroup>
+</Project>

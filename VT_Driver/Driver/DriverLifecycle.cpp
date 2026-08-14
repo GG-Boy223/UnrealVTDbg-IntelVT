@@ -16,6 +16,14 @@ namespace
     }
 #endif
 
+    NTSTATUS DriverEntryFailure(const NTSTATUS status)
+    {
+#ifdef _DEBUG_Key_Log
+        StopInitOffsetLogThread();
+#endif
+        return status;
+    }
+
     bool IsAnyVcpuActive()
     {
         if (g_vmm_context.vcpu == nullptr || g_vmm_context.processor_count == 0)
@@ -125,7 +133,7 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
         {
             outFile("[失败] 当前处理器不支持或未开启VMX虚拟化");
             outDebug("VMX operation is not supported on this processor.\n");
-            return STATUS_UNSUCCESSFUL; // 返回失败状态
+            return DriverEntryFailure(STATUS_UNSUCCESSFUL); // 返回失败状态
         }
         outFile("[成功] VMX虚拟化支持检查通过");
 
@@ -133,7 +141,7 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
         {
             outFile("[失败] 当前处理器缺少本实现所需的EPT/VPID能力");
             outDebug("Required EPT/VPID capabilities are not supported.\n");
-            return STATUS_NOT_SUPPORTED;
+            return DriverEntryFailure(STATUS_NOT_SUPPORTED);
         }
 
         outFile("---------- 阶段3：保存Guest初始全局状态 ----------");
@@ -147,7 +155,7 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
             free_vmm_context(); // 释放VMM上下文和已分配资源
             outDebug("VMM 初始化失败"); // 输出初始化失败提示
             outFile("========== VT加载失败：VMM初始化失败 ==========");
-            return STATUS_UNSUCCESSFUL; // 返回失败状态
+            return DriverEntryFailure(STATUS_UNSUCCESSFUL); // 返回失败状态
         }
         outFile("[成功] VMM初始化完成，所有目标CPU已进入VT链路");
         outDebug("驱动加载成功!!!\n"); // 输出驱动加载成功提示
@@ -159,5 +167,5 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
         outDebug("驱动加载失败!!!\n"); // 输出驱动加载失败提示
         outFile("========== VT加载失败：内核符号初始化失败 ==========");
     }
-    return nStatus; // 返回最终状态给系统
+    return NT_SUCCESS(nStatus) ? nStatus : DriverEntryFailure(nStatus); // 返回最终状态给系统
 }

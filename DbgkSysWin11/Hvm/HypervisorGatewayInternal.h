@@ -14,6 +14,9 @@ namespace hvgt
 		unsigned __int64 current_cr3;
 		volatile SHORT statuses;
 		volatile LONG transaction_status;
+		volatile LONG* committed_processors;
+		ULONG committed_processor_count;
+		volatile SHORT rollback_statuses;
 	};
 
 	// 专用于普通 vmcall 广播的参数结构。
@@ -56,6 +59,7 @@ namespace hvgt
 	void broadcast_get_hide_software_breakpoint(KDPC* Dpc, PVOID DeferredContext, PVOID SystemArgument1, PVOID SystemArgument2);
 	void broadcast_set_hide_software_breakpoint(KDPC* Dpc, PVOID DeferredContext, PVOID SystemArgument1, PVOID SystemArgument2);
 	void broadcast_hook_function(KDPC* Dpc, PVOID DeferredContext, PVOID SystemArgument1, PVOID SystemArgument2);
+	void broadcast_rollback_hook_function(KDPC* Dpc, PVOID DeferredContext, PVOID SystemArgument1, PVOID SystemArgument2);
 	void broadcast_unhook_function(KDPC* Dpc, PVOID DeferredContext, PVOID SystemArgument1, PVOID SystemArgument2);
 	void broadcast_vmcall(KDPC* Dpc, PVOID DeferredContext, PVOID SystemArgument1, PVOID SystemArgument2);
 	void broadcast_test_vmcall(KDPC* Dpc, PVOID DeferredContext, PVOID SystemArgument1, PVOID SystemArgument2);

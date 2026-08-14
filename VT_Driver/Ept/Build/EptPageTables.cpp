@@ -472,7 +472,6 @@ namespace ept
 		// MTRR data for setting memory types
 		// 用于设置内存类型的 MTRR 数据
 		auto const mtrrs = hv::read_mtrr_data();
-		g_vmm_context.mtrr_info.mtrrs = mtrrs;
 		for (unsigned __int32 i = 0; i < required_pdpt_count; i++)
 		{
 			for (int j = 0; j < 512; j++)

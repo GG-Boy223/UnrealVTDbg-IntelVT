@@ -19,6 +19,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UnrealDbgHostCore", "Unreal
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UnrealDbgHostCli", "UnrealDbgHostCli\UnrealDbgHostCli.vcxproj", "{D9BA7537-1C68-48A0-BB42-C267D8C81807}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "EptCapabilityPolicyTests", "Tests\EptCapabilityPolicyTests\EptCapabilityPolicyTests.vcxproj", "{A3F93B56-94F4-49C7-BF77-227D154132D1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|ARM = Debug|ARM
@@ -335,6 +337,8 @@ Global
 		{7C83A7D1-EB92-4D52-A55E-7D366B6BBEE6}.Release|x64.Build.0 = Release|x64
 		{D9BA7537-1C68-48A0-BB42-C267D8C81807}.Release|x64.ActiveCfg = Release|x64
 		{D9BA7537-1C68-48A0-BB42-C267D8C81807}.Release|x64.Build.0 = Release|x64
+		{A3F93B56-94F4-49C7-BF77-227D154132D1}.Release|x64.ActiveCfg = Release|x64
+		{A3F93B56-94F4-49C7-BF77-227D154132D1}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

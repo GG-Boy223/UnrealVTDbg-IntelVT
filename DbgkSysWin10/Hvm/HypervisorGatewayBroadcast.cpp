@@ -197,8 +197,9 @@ namespace hvgt
 	{
 		const auto args = reinterpret_cast<HookFunctionArgs*>(DeferredContext);
 
-		if (args != nullptr &&
-			SafeVmCallEx(VMCALL_EPT_RIP_HOOK,
+		if (args != nullptr)
+		{
+			const bool hook_succeeded = SafeVmCallEx(VMCALL_EPT_RIP_HOOK,
 				(unsigned __int64)args->target_address,
 				(unsigned __int64)args->proxy_function,
 				(unsigned __int64)args->origin_function,
@@ -207,9 +208,59 @@ namespace hvgt
 				0,
 				0,
 				0,
-				0))
+				0);
+			if (hook_succeeded)
+			{
+				PROCESSOR_NUMBER processor_number = {};
+				KeGetCurrentProcessorNumberEx(&processor_number);
+				const ULONG processor_index = KeGetProcessorIndexFromNumber(&processor_number);
+				if (args->committed_processors != nullptr &&
+					processor_index < args->committed_processor_count)
+				{
+					InterlockedExchange(&args->committed_processors[processor_index], 1);
+					InterlockedIncrement16(&args->statuses);
+				}
+				else
+				{
+					(void)SafeVmCall(
+						VMCALL_EPT_UNHOOK_FUNCTION,
+						false,
+						(unsigned __int64)args->target_address,
+						args->current_cr3);
+				}
+			}
+		}
+
+		SignalDpcDone(SystemArgument1, SystemArgument2);
+	}
+
+	void broadcast_rollback_hook_function(KDPC*, PVOID DeferredContext, PVOID SystemArgument1, PVOID SystemArgument2)
+	{
+		const auto args = reinterpret_cast<HookFunctionArgs*>(DeferredContext);
+		if (args != nullptr && args->committed_processors != nullptr)
 		{
-			InterlockedIncrement16(&args->statuses);
+			PROCESSOR_NUMBER processor_number = {};
+			KeGetCurrentProcessorNumberEx(&processor_number);
+			const ULONG processor_index = KeGetProcessorIndexFromNumber(&processor_number);
+			if (processor_index < args->committed_processor_count &&
+				InterlockedCompareExchange(
+					&args->committed_processors[processor_index],
+					0,
+					1) == 1)
+			{
+				if (SafeVmCall(
+					VMCALL_EPT_UNHOOK_FUNCTION,
+					false,
+					(unsigned __int64)args->target_address,
+					args->current_cr3))
+				{
+					InterlockedIncrement16(&args->rollback_statuses);
+				}
+				else
+				{
+					InterlockedExchange(&args->committed_processors[processor_index], 1);
+				}
+			}
 		}
 
 		SignalDpcDone(SystemArgument1, SystemArgument2);

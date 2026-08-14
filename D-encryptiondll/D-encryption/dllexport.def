@@ -1,4 +1,0 @@
-LIBRARY "D-encryption.dll"
-EXPORTS
-EncryptDataToFile @1
-DecryptDataFromFile @2

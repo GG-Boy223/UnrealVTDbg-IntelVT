@@ -3,12 +3,17 @@
 PROCESS_INFORMATION _StartProcess_(PSTARTUP_INFO pStartInfo)
 {
 	STARTUPINFO si = { 0 };
+	si.cb = sizeof(si);
 	PROCESS_INFORMATION pi = { 0 };
-	TCHAR szDllPath[256] = { 0 };
-	TCHAR* szExe = pStartInfo->szExe;
-	TCHAR* sPath = pStartInfo->sPath;
+	if (pStartInfo == nullptr)
+	{
+		SetLastError(ERROR_INVALID_PARAMETER);
+		return pi;
+	}
 
-	if (!CreateProcess(szExe,
+	TCHAR* szExe = pStartInfo->szExe;
+
+	if (!CreateProcessW(szExe,
 		pStartInfo->sCommandLine,
 		NULL,
 		NULL,
@@ -36,9 +41,18 @@ PROCESS_INFORMATION StartProcess_internal(std::wstring processPath, std::wstring
 	{
 		std::wstring exePath = processPath + procName;
 		STARTUP_INFO info = { 0 };
-		wcscpy(info.szExe, exePath.c_str());
-		wcscpy(info.sPath, processPath.c_str());
-		wcscpy(info.sCommandLine, sCommandLine.c_str());
+		if (exePath.size() >= _countof(info.szExe) ||
+			processPath.size() >= _countof(info.sPath) ||
+			sCommandLine.size() >= _countof(info.sCommandLine))
+		{
+			SetLastError(ERROR_FILENAME_EXCED_RANGE);
+			Common::ReportSeriousError("%s[%d] 启动路径过长", __func__, __LINE__);
+			return pi;
+		}
+
+		wcscpy_s(info.szExe, exePath.c_str());
+		wcscpy_s(info.sPath, processPath.c_str());
+		wcscpy_s(info.sCommandLine, sCommandLine.c_str());
 		pi = _StartProcess_(&info);
 	}
 	return pi;
@@ -49,6 +63,15 @@ void StartProcess()
 	std::wstring filename = FileSystem::GetModuleDirectory(NULL);
 	if (!filename.empty())
 	{
-		StartProcess_internal(filename, L"UnrealDbgHostCli.exe", L"");
+		PROCESS_INFORMATION process =
+			StartProcess_internal(filename, L"UnrealDbgHostCli.exe", L"");
+		if (process.hThread != nullptr)
+		{
+			CloseHandle(process.hThread);
+		}
+		if (process.hProcess != nullptr)
+		{
+			CloseHandle(process.hProcess);
+		}
 	}
 }

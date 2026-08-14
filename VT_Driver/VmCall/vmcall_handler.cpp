@@ -267,27 +267,26 @@ void vmexit_vmcall_handler(__vcpu* vcpu)
 	}
 	case VMCALL_EPT_RIP_HOOK:
 	{
+		spinlock::lock(&eptWatchTransaction_lock);
 		status = ept::vmcall_hook_function(*vcpu->ept_state, 
 			(void*)vmcall_parameter1, 
 			(void*)vmcall_parameter2, 
 			(void**)vmcall_parameter3,
 			vmcall_parameter4);
+		spinlock::unlock(&eptWatchTransaction_lock);
 
 		break;
 	}
 	case VMCALL_EPT_HOOK_FUNCTION:  //执行ept hook
 	{
-		//unsigned __int64 old_cr3 = hv::swap_context(vmcall_parameter4);
-
-		status = ept::hook_function(*vcpu->ept_state, (void*)vmcall_parameter1, (void*)vmcall_parameter2, (void**)vmcall_parameter3);
-
-		//hv::restore_context(old_cr3);
-
+		// 旧通用 hook 路径尚未按 RIP_HOOK 的校验/回滚语义重做。
+		// 这里不能先真正挂钩再把 status 改成 false，否则会留下半安装状态。
 		status = false;
 		break;
 	}
 	case VMCALL_EPT_UNHOOK_FUNCTION:  //关闭ept hook
 	{
+		spinlock::lock(&eptWatchTransaction_lock);
 		// 旧项目保留的禁用路径：unhook 前后通过 vmcall_parameter3 临时切换 CR3。
 		// 为什么注释：当前 unhook 只依赖物理页和当前 EPT 状态，不需要切换来宾地址空间；切换 CR3 反而会让错误恢复更复杂。
 		// 放开的好处：旧版按来宾 CR3 解释虚拟地址的 unhook 模式可复用。
@@ -308,6 +307,7 @@ void vmexit_vmcall_handler(__vcpu* vcpu)
 			// Page physciall address
 			status = ept::unhook_function(*vcpu->ept_state, vmcall_parameter2);
 		}
+		spinlock::unlock(&eptWatchTransaction_lock);
 
 		//hv::restore_context(old_cr3);
 

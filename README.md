@@ -106,9 +106,14 @@ build.bat host
 :: C++ 宿主与 Loader
 build.bat launcher
 
+:: 验证 UnrealDbg.sln 的 Release|x64 配置
+build.bat solution
+
 :: 全部 Release 目标
 build.bat
 ```
+
+`Release|x64` 是当前受支持的统一配置；solution 中其余旧配置仅为历史兼容，尚未纳入新的宿主链验收。
 
 驱动默认使用 `SignMode=Off` 完成可重复编译；实际部署必须另行完成符合目标系统策略的签名。
 
