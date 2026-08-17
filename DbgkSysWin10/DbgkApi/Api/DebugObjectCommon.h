@@ -4,7 +4,7 @@
 
 // 调试对象初始化/反初始化
 NTSTATUS DbgkInitialize();
-VOID DbgkUnInitialize();
+NTSTATUS DbgkUnInitialize();
 
 // 调试进程列表管理
 BOOLEAN InsertDebuggerList(PDEBUGGER_TABLE_ENTRY Debugger);

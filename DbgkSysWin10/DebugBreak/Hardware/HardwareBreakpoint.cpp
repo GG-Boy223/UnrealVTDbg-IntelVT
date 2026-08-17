@@ -1,4 +1,4 @@
-﻿#include "../Core/DebugBreakInternal.h"
+#include "../Core/DebugBreakInternal.h"
 
 // 调整说明：旧硬件断点路径会在 KeStackAttachProcess 后强读目标地址、再 _disable/_enable 读取 CR3，并在 attach 状态内执行 VMCALL；CE 查找地址访问时异常频繁，容易造成 APC_INDEX_MISMATCH。
 // 旧实现先保留在这里，方便回溯和对照；当前版本不再编译这段逻辑。
@@ -50,12 +50,15 @@ void SetHardwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
     PBREAKPOINT_RECORD output = (PBREAKPOINT_RECORD)pIrp->AssociatedIrp.SystemBuffer; //内核的缓冲区，输入输出都用的这个
     RtlZeroMemory(output, sizeof(BREAKPOINT_RECORD));
 
-    //分配明文缓存区
-    BYTE* aucPlainText = allocate_pool<BYTE*>(AlignUserDataToBlowfishBlock(user.uSize));
-    DecryptData((PVOID)user.pUserData, aucPlainText);
-
-    // 计算明文缓冲区中的结构体数量
-    size_t numElements = user.uSize / sizeof(BREAKPOINT_RECORD);
+    size_t numElements = 0;
+    UCHAR* aucPlainText = AllocateAndDecryptUserRecords(
+        user,
+        sizeof(BREAKPOINT_RECORD),
+        &numElements);
+    if (aucPlainText == nullptr)
+    {
+        return;
+    }
 
     // 遍历明文缓冲区中的结构体
     for (size_t i = 0; i < numElements; i++)
@@ -100,12 +103,15 @@ void RemoveHardwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
     DWORD* output = (DWORD*)pIrp->AssociatedIrp.SystemBuffer; //内核的缓冲区，输入输出都用的这个
     RtlZeroMemory(output, sizeof(DWORD));
 
-    //分配明文缓存区
-    BYTE* aucPlainText = allocate_pool<BYTE*>(AlignUserDataToBlowfishBlock(user.uSize));
-    DecryptData((PVOID)user.pUserData, aucPlainText);
-
-    // 计算明文缓冲区中的结构体数量
-    size_t numElements = user.uSize / sizeof(BREAKPOINT_RECORD);
+    size_t numElements = 0;
+    UCHAR* aucPlainText = AllocateAndDecryptUserRecords(
+        user,
+        sizeof(BREAKPOINT_RECORD),
+        &numElements);
+    if (aucPlainText == nullptr)
+    {
+        return;
+    }
 
     // 遍历明文缓冲区中的结构体
     for (size_t i = 0; i < numElements; i++)

@@ -9,6 +9,7 @@ namespace ept
 	//读取隐形软件断点
 	bool get_hide_software_breakpoint(__ept_state& ept_state, PVT_BREAK_POINT vmcallinfo);
 	bool hide_cc_breakpoint(__ept_state& ept_state, VT_BREAK_POINT vmcallinfo, unsigned __int64 physical_address, unsigned __int64 Type);
+	bool commit_hide_cc_breakpoint(__ept_state& ept_state, unsigned __int64 virtual_address, unsigned __int64 physical_address);
 	//设置隐形软件断点
 	bool set_hide_software_breakpoint(PVT_BREAK_POINT vmcallinfo);
 
@@ -17,7 +18,7 @@ namespace ept
 	void apply_active_watch_permissions_locked(__ept_hooked_page_info* hooked_page_info, int ignoredID);
 	bool ept_watch_activate_internal(__ept_state& ept_state, unsigned __int64 physical_address, unsigned __int64 Type);
 	//设置ept监视
-	bool ept_watch_activate(VT_BREAK_POINT vmcallinfo, unsigned __int64 Type, int* outID, int& errorCode);
+	bool ept_watch_activate(VT_BREAK_POINT vmcallinfo, unsigned __int64 Type, PVT_BREAK_POINT guest_request, int& errorCode);
 	bool ept_watch_deactivate_internal(__vcpu* vcpu, __ept_state& ept_state, unsigned __int64 VirtualAddress, unsigned __int64 physical_address, unsigned __int64 Type,
 		int bpType, unsigned char OriginalByte, int has, int ignoredID);
 	//取消监视断点
@@ -39,4 +40,6 @@ namespace ept
 	// Watch 事件处理
 	bool ept_handleWatchEvent(__vcpu* vcpu, __ept_violation ept_violation, __ept_hooked_page_info* hooked_page_info,
 		unsigned __int64 guest_physical_adddress, int& bpType);
+	bool ept_handle_int3_execute(__vcpu* vcpu, __ept_hooked_page_info* hooked_page_info,
+		unsigned __int64 guest_physical_address);
 }

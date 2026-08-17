@@ -1,26 +1,26 @@
-﻿#include "DebugObjectCommonInternal.h"
+#include "DebugObjectCommonInternal.h"
+#include "../../../Common/Ring0/Lifecycle/DbgkRundownPolicy.h"
 
 namespace
 {
-    const LONG kDbgkRuntimeDrainWaitLimit = 200;
+    volatile LONG g_DbgkCloseProcedureOwned = 0;
 
     VOID WaitForDbgkStateOpsDrain()
     {
         LARGE_INTEGER interval = { 0 };
         interval.QuadPart = -10 * 1000 * 100;
+        ULONG waitSamples = 0;
 
-        for (LONG i = 0; i < kDbgkRuntimeDrainWaitLimit; ++i)
+        while (InterlockedCompareExchange(&g_DbgkActiveRuntimeCallCount, 0, 0) != 0)
         {
-            if (InterlockedCompareExchange(&g_DbgkActiveRuntimeCallCount, 0, 0) == 0)
-            {
-                //是我们自己的调试器要创建线程，则直接返回不走线程回调
-                return;
-            }
-
             KeDelayExecutionThread(KernelMode, FALSE, &interval);
+            waitSamples++;
+            if ((waitSamples % 100) == 0)
+            {
+                outLog("Dbgk state teardown is waiting for active callbacks: %d.",
+                    InterlockedCompareExchange(&g_DbgkActiveRuntimeCallCount, 0, 0));
+            }
         }
-
-        outLog("DbgkUnInitialize: wait for active runtime callbacks timeout.");
     }
 
     NTSTATUS InstallDbgkCloseProcedure()
@@ -38,36 +38,82 @@ namespace
                 g_DbgkOriginalCloseProcedure = currentCloseProcedure;
             }
 
+            if (currentCloseProcedure == (PVOID)DbgkpCloseObject &&
+                InterlockedCompareExchange(&g_DbgkCloseProcedureOwned, 0, 0) == 0)
+            {
+                return STATUS_INVALID_DEVICE_STATE;
+            }
+
+            InterlockedExchange(&g_DbgkCloseProcedureOwned, 1);
             Hvm_DbgkDebugObjectType->TypeInfo.CloseProcedure = (PVOID)DbgkpCloseObject;
+            KeMemoryBarrier();
+            if (Hvm_DbgkDebugObjectType->TypeInfo.CloseProcedure != (PVOID)DbgkpCloseObject)
+            {
+                return STATUS_DATA_ERROR;
+            }
             return STATUS_SUCCESS;
         }
         __except (EXCEPTION_EXECUTE_HANDLER)
         {
-            Hvm_DbgkDebugObjectType = NULL;
-            return STATUS_UNSUCCESSFUL;
+            return STATUS_ACCESS_VIOLATION;
         }
     }
 
-    VOID RestoreDbgkCloseProcedure()
+    NTSTATUS RestoreDbgkCloseProcedure()
     {
-        if (Hvm_DbgkDebugObjectType == NULL)
+        const bool callbackOwned =
+            InterlockedCompareExchange(&g_DbgkCloseProcedureOwned, 0, 0) != 0;
+        if (!callbackOwned)
         {
-            //是我们自己的调试器要创建线程，则直接返回不走线程回调
-            return;
+            return STATUS_SUCCESS;
         }
 
+        PVOID currentCloseProcedure = NULL;
+        bool callbackReadable = false;
         __try
         {
-            if (Hvm_DbgkDebugObjectType->TypeInfo.CloseProcedure == (PVOID)DbgkpCloseObject)
-            {
-                Hvm_DbgkDebugObjectType->TypeInfo.CloseProcedure = g_DbgkOriginalCloseProcedure;
-            }
+            currentCloseProcedure = Hvm_DbgkDebugObjectType != NULL ?
+                Hvm_DbgkDebugObjectType->TypeInfo.CloseProcedure : NULL;
+            callbackReadable = Hvm_DbgkDebugObjectType != NULL;
         }
         __except (EXCEPTION_EXECUTE_HANDLER)
         {
+            return STATUS_ACCESS_VIOLATION;
         }
 
+        const auto action = dbgk::rundown_policy::SelectRestoreAction(
+            callbackOwned,
+            Hvm_DbgkDebugObjectType != NULL,
+            callbackReadable,
+            reinterpret_cast<std::uintptr_t>(currentCloseProcedure),
+            reinterpret_cast<std::uintptr_t>((PVOID)DbgkpCloseObject));
+        if (action == dbgk::rundown_policy::restore_action::fail_stop)
+        {
+            return STATUS_INVALID_DEVICE_STATE;
+        }
+
+        if (action == dbgk::rundown_policy::restore_action::write_original)
+        {
+            __try
+            {
+                Hvm_DbgkDebugObjectType->TypeInfo.CloseProcedure =
+                    g_DbgkOriginalCloseProcedure;
+                KeMemoryBarrier();
+                if (Hvm_DbgkDebugObjectType->TypeInfo.CloseProcedure !=
+                    g_DbgkOriginalCloseProcedure)
+                {
+                    return STATUS_DATA_ERROR;
+                }
+            }
+            __except (EXCEPTION_EXECUTE_HANDLER)
+            {
+                return STATUS_ACCESS_VIOLATION;
+            }
+        }
+
+        InterlockedExchange(&g_DbgkCloseProcedureOwned, 0);
         g_DbgkOriginalCloseProcedure = NULL;
+        return STATUS_SUCCESS;
     }
 
     VOID ReleaseListEntries(MY_LIST* List, PFAST_MUTEX Mutex)
@@ -136,6 +182,8 @@ NTSTATUS DbgkInitialize()
     Status = ObCreateObjectType(&Name, &ObjectTypeInitializer, NULL, &Hvm_DbgkDebugObjectType);
     if (NT_SUCCESS(Status))
     {
+        g_DbgkOriginalCloseProcedure = NULL;
+        InterlockedExchange(&g_DbgkCloseProcedureOwned, 1);
         return STATUS_SUCCESS;
     }
 
@@ -158,7 +206,6 @@ NTSTATUS DbgkInitialize()
     // /* Check if we failed */
     if (!NT_SUCCESS(Status))
     {
-        Hvm_DbgkDebugObjectType = NULL;
         // /* Return status */
         return Status;
     }
@@ -171,7 +218,18 @@ VOID DbgkUnInitialize()
 {
     PAGED_CODE();
 
-    RestoreDbgkCloseProcedure();
+    const NTSTATUS restoreStatus = RestoreDbgkCloseProcedure();
+    if (!NT_SUCCESS(restoreStatus))
+    {
+        outLog("Dbgk close callback restoration failed: 0x%X.", restoreStatus);
+        KeBugCheckEx(
+            0x00020002,
+            0x4442474B,
+            static_cast<ULONG_PTR>(restoreStatus),
+            reinterpret_cast<ULONG_PTR>(Hvm_DbgkDebugObjectType),
+            reinterpret_cast<ULONG_PTR>(g_DbgkOriginalCloseProcedure));
+    }
+
     QueueDebugProcessListForUnload();
     DetachDebugProcessUnloadList();
     WaitForDbgkStateOpsDrain();

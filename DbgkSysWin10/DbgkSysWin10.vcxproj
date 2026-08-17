@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -196,7 +196,7 @@
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_WIN10_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>$(MSBuildProjectDirectory)\..\Common\Ring0\SymbolicAccessKM.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Wdmsec.lib;$(MSBuildProjectDirectory)\..\Common\Ring0\SymbolicAccessKM.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <DriverSign>
       <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
@@ -210,7 +210,7 @@
       <PreprocessorDefinitions>DEBUG;_CRT_SECURE_NO_WARNINGS;_WIN10_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>$(MSBuildProjectDirectory)\..\Common\Ring0\SymbolicAccessKM.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Wdmsec.lib;$(MSBuildProjectDirectory)\..\Common\Ring0\SymbolicAccessKM.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <DriverSign>
       <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
@@ -224,7 +224,7 @@
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_WIN7_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>$(MSBuildProjectDirectory)\..\Common\Ring0\SymbolicAccessKM.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Wdmsec.lib;$(MSBuildProjectDirectory)\..\Common\Ring0\SymbolicAccessKM.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <DriverSign>
       <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
@@ -240,7 +240,7 @@
       </AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>$(MSBuildProjectDirectory)\..\Common\Ring0\SymbolicAccessKM.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Wdmsec.lib;$(MSBuildProjectDirectory)\..\Common\Ring0\SymbolicAccessKM.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <DriverSign>
       <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
@@ -256,7 +256,7 @@
       <LanguageStandard_C>stdc11</LanguageStandard_C>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>$(MSBuildProjectDirectory)\..\Common\Ring0\SymbolicAccessKM.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Wdmsec.lib;$(MSBuildProjectDirectory)\..\Common\Ring0\SymbolicAccessKM.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(MSBuildProjectDirectory)\..\Common\Ring0;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <DriverSign>
@@ -320,6 +320,9 @@
     <ClCompile Include="Core\IoctlHandlers\DebuggerInfoHandlers.cpp" />
     <ClCompile Include="Core\IoctlHandlers\IoctlUserData.cpp" />
     <ClCompile Include="Core\IoctlHandlers\ProtectListHandlers.cpp" />
+    <ClCompile Include="Cr3\Cr3Candidate.cpp" />
+    <ClCompile Include="Cr3\Cr3Probe.cpp" />
+    <ClCompile Include="Cr3\Cr3Resolver.cpp" />
     <ClCompile Include="DebugBreak\Core\DebugBreakCore.cpp" />
     <ClCompile Include="DebugBreak\Hardware\HardwareBreakpoint.cpp" />
     <ClCompile Include="DebugBreak\Software\SoftwareBreakpoint.cpp" />
@@ -335,6 +338,7 @@
     <ClCompile Include="Hooks\EptHook\Core\EptHookWin32k.cpp" />
     <ClCompile Include="Hvm\HypervisorGatewayApi.cpp" />
     <ClCompile Include="Hvm\HypervisorGatewayBroadcast.cpp" />
+    <ClCompile Include="Hvm\HypervisorGatewayBroadcastSupport.cpp" />
     <ClCompile Include="Init\Symbolic\InitNtoskrnl.cpp" />
     <ClCompile Include="Init\Symbolic\InitSymbolic.cpp" />
     <ClCompile Include="Init\Symbolic\InitWin32kbase.cpp" />
@@ -388,6 +392,8 @@
     <ClInclude Include="Core\DebugEvents\DebugEventsCommon.h" />
     <ClInclude Include="Core\IoctlDispatchInternal.h" />
     <ClInclude Include="Core\IoctlHandlers\IoctlHandlerCommon.h" />
+    <ClInclude Include="Cr3\Cr3Internal.h" />
+    <ClInclude Include="Cr3\Cr3Resolver.h" />
     <ClInclude Include="..\Common\Shared\DriverProtocol.h" />
     <ClInclude Include="..\Common\Shared\IOCTLs.h" />
     <ClInclude Include="..\Common\Shared\SharedStruct.h" />

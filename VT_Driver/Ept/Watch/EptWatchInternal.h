@@ -12,6 +12,7 @@
 #include "../../vmx.h"
 #include "../../hypervisor_routines.h"
 #include "../../Vmcs/VmcsApi.h"
+#include "../../Cr3/Cr3Tracker.h"
 
 namespace ept
 {

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "../Driver.h"
 #include "../Globals.h"
@@ -55,6 +55,7 @@ namespace hvgt
 	void broadcast_vmoff(KDPC* Dpc, PVOID DeferredContext, PVOID SystemArgument1, PVOID SystemArgument2);
 	void broadcast_invept_all_contexts(KDPC* Dpc, PVOID DeferredContext, PVOID SystemArgument1, PVOID SystemArgument2);
 	void broadcast_invept_single_context(KDPC* Dpc, PVOID DeferredContext, PVOID SystemArgument1, PVOID SystemArgument2);
+	void broadcast_sync_cr3_exit_policy(KDPC* Dpc, PVOID DeferredContext, PVOID SystemArgument1, PVOID SystemArgument2);
 	void broadcast_read_ept_fake_page_memory(KDPC* Dpc, PVOID DeferredContext, PVOID SystemArgument1, PVOID SystemArgument2);
 	void broadcast_get_hide_software_breakpoint(KDPC* Dpc, PVOID DeferredContext, PVOID SystemArgument1, PVOID SystemArgument2);
 	void broadcast_set_hide_software_breakpoint(KDPC* Dpc, PVOID DeferredContext, PVOID SystemArgument1, PVOID SystemArgument2);

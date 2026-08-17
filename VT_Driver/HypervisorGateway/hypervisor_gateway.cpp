@@ -1,4 +1,4 @@
-﻿#include "Driver.h" // 引入驱动核心头文件：提供内核类型、宏、调试输出等基础定义，保证本文件可调用内核 API
+#include "Driver.h" // 引入驱动核心头文件：提供内核类型、宏、调试输出等基础定义，保证本文件可调用内核 API
 #include "hypervisor_gateway.h" // 引入网关层头文件：确保这里实现的函数与对外声明完全一致
 #include "AsmCallset.h" // 引入汇编封装：提供 __vm_call / __vm_call_ex 等 VMX 指令的 C++ 包装
 #include "vmcall_reason.h" // 引入 VMCALL 命令编号：告诉 Hypervisor 执行哪一种具体操作
@@ -8,24 +8,6 @@
 
 namespace hvgt // Hypervisor Gateway：普通内核线程调用 Hypervisor 的“桥梁层”
 {
-	bool IsVmoffRequired(unsigned int processor_index)
-	{
-		return g_vmm_context.vcpu != nullptr &&
-			processor_index < g_vmm_context.processor_count &&
-			g_vmm_context.vcpu[processor_index].vcpu_status.vmm_launched != 0;
-	}
-
-	void MarkVmoffCompleted(unsigned int processor_index)
-	{
-		if (g_vmm_context.vcpu == nullptr || processor_index >= g_vmm_context.processor_count)
-		{
-			return;
-		}
-
-		g_vmm_context.vcpu[processor_index].vcpu_status.vmm_launched = 0;
-		g_vmm_context.vcpu[processor_index].vcpu_status.vmx_on = 0;
-		g_vmm_context.vcpu[processor_index].vmx_off_state.vmx_off_executed = 0;
-	}
 
 	// 这里的参数结构体用于在“所有 CPU 上执行 Hook”时传参。
 	// 初学者理解：Hook 不是只在当前 CPU 生效，而是每个 CPU 都有自己的缓存和执行路径，
@@ -48,18 +30,6 @@ namespace hvgt // Hypervisor Gateway：普通内核线程调用 Hypervisor 的�
 		unsigned __int64 current_cr3; // 当前 CR3：保证 Hypervisor 在正确的地址空间操作
 		volatile SHORT statuses; // 成功计数：每个 CPU 成功后原子 +1
 	};
-
-	// DPC 回调：在每个 CPU 上执行 VMXOFF。
-	// 初学者理解：VMXOFF 是“退出虚拟化模式”的指令，必须每个 CPU 都执行，否则系统仍在 VMX 模式。
-	void broadcast_vmoff(KDPC* Dpc, PVOID DeferredContext, PVOID SystemArgument1, PVOID SystemArgument2)
-	{
-		UNREFERENCED_PARAMETER(Dpc); // 不使用 DPC 参数，避免编译器警告
-		UNREFERENCED_PARAMETER(DeferredContext); // 不使用上下文参数
-
-		__vm_call(VMCALL_VMXOFF, 0, 0, 0); // 发送 VMCALL：让 Hypervisor 在当前 CPU 执行 VMXOFF
-		KeSignalCallDpcSynchronize(SystemArgument2); // 通知内核：本 CPU 到达同步点（用于保证所有 CPU 同步）
-		KeSignalCallDpcDone(SystemArgument1); // 通知内核：本 CPU 的 DPC 任务已完成
-	}
 
 	// DPC 回调：在每个 CPU 上刷新“所有 EPT 上下文”。
 	// 初学者理解：EPT 是地址映射缓存，改了 EPT 表必须刷新，否则 CPU 继续用旧缓存。
@@ -163,82 +133,6 @@ namespace hvgt // Hypervisor Gateway：普通内核线程调用 Hypervisor 的�
 
 		KeSignalCallDpcSynchronize(SystemArgument2); // 同步通知
 		KeSignalCallDpcDone(SystemArgument1); // 完成通知
-	}
-
-	// 让所有 CPU 退出 VMX 模式。
-	// 初学者理解：VMX 模式是 CPU 的虚拟化状态，必须逐 CPU 退出，否则系统不稳定。
-	bool vmoff(unsigned __int32 processor_count)
-	{
-		//KeGenericCallDpc(broadcast_vmoff, NULL); // 备选方案：直接广播 DPC
-
-		// 切换 CPU 亲和力只能在低 IRQL 生效，所以这里先断言 IRQL 合法。
-		NT_ASSERT(KeGetCurrentIrql() <= APC_LEVEL); // 确保当前 IRQL <= APC_LEVEL
-		if (KeGetCurrentIrql() > APC_LEVEL)
-		{
-			outDebug("VMXOFF 失败：当前 IRQL 过高，无法安全切换 CPU 亲和性。\n");
-			return false;
-		}
-		if (processor_count != 0 && g_vmm_context.vcpu == nullptr)
-		{
-			return false;
-		}
-
-		unsigned int safe_processor_count = processor_count;
-		bool all_completed = processor_count <= g_vmm_context.processor_count;
-		if (g_vmm_context.processor_count < safe_processor_count)
-		{
-			safe_processor_count = g_vmm_context.processor_count;
-		}
-
-		// 逐个 CPU 切换亲和力并执行 VMCALL_VMXOFF
-		for (unsigned int iter = 0; iter < safe_processor_count; iter++)
-		{
-			if (!IsVmoffRequired(iter))
-			{
-				if (g_vmm_context.vcpu[iter].vcpu_status.vmx_on != 0)
-				{
-					all_completed = false;
-					outDebug("VMXOFF 无法通过VMCALL处理未启动VCPU：CPU=%u VmxOn=%llu\n",
-						iter,
-						g_vmm_context.vcpu[iter].vcpu_status.vmx_on);
-				}
-				continue;
-			}
-
-			GROUP_AFFINITY orig_affinity = {};
-			KeSetSystemGroupAffinityThread(&g_vmm_context.vcpu[iter].processor_affinity, &orig_affinity); // 绑定当前线程到指定 CPU
-			bool vmoff_completed = false;
-			__try {
-				vmoff_completed = __vm_call(VMCALL_VMXOFF, 0, 0, 0); // 只有VMCALL返回成功才允许释放该CPU资源
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
-			{
-				// 捕获异常，避免单个 CPU 出错导致系统崩溃
-				// VMCALL_VMXOFF可能在目标CPU已经退出/状态不一致时触发异常；记录后继续处理其他CPU，避免卸载路径放大为全局崩溃。
-				outDebug("VMCALL_VMXOFF 异常：CPU=%u Code=0x%X\n", iter, GetExceptionCode());
-				all_completed = false;
-			}
-			KeRevertToUserGroupAffinityThread(&orig_affinity); // 恢复原始亲和力
-
-			auto const& vcpu = g_vmm_context.vcpu[iter];
-			if (vmoff_completed &&
-				vcpu.vcpu_status.vmm_launched == 0 &&
-				vcpu.vmx_off_state.vmx_off_executed != 0)
-			{
-				MarkVmoffCompleted(iter);
-			}
-			else
-			{
-				all_completed = false;
-				outDebug("VMCALL_VMXOFF 未确认完成：CPU=%u Return=%u Launched=%llu Executed=%llu\n",
-					iter,
-					vmoff_completed ? 1u : 0u,
-					vcpu.vcpu_status.vmm_launched,
-					vcpu.vmx_off_state.vmx_off_executed);
-			}
-		}
-
-		return all_completed;
 	}
 
 	// 刷新 EPT 映射缓存。

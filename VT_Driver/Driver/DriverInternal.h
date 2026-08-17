@@ -15,3 +15,4 @@
 #include "../Vmcs/VmcsApi.h"
 #include "../vmcall_reason.h"
 #include "../VmExit/VmxFatal.h"
+#include "../Cr3/Cr3Tracker.h"

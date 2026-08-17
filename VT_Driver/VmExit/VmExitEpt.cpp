@@ -110,12 +110,14 @@ void vmexit_ept_violation_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 						break;
 					}
 
-					//交换物理页面并刷新tlb
-					ept::swap_pml1_and_invalidate_tlb(*vcpu->ept_state, // 原理：交换 EPT PML1 条目并失效 TLB；作用：让权限变更立即生效；结果：访问规则更新
-						hooked_page_info->entry_address,
-						hooked_page_info->changed_entry,
-						invept_type::invept_single_context);
-					return;
+					if (ept::ept_handle_int3_execute(
+						vcpu,
+						hooked_page_info,
+						guest_physical_adddress))
+					{
+						return;
+					}
+					break;
 				}
 
 				if (hooked_page_info->Options == EPTO_HOOK_FUNCTION) // 原理：函数钩子需要在执行/读写时切换页权限；作用：区分钩子类型；结果：进入函数钩子处理

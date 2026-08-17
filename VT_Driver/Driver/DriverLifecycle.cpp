@@ -1,4 +1,4 @@
-﻿#include "DriverInternal.h"
+#include "DriverInternal.h"
 
 namespace
 {
@@ -18,13 +18,14 @@ namespace
 
     NTSTATUS DriverEntryFailure(const NTSTATUS status)
     {
+        Cr3TrackerStopWorker();
 #ifdef _DEBUG_Key_Log
         StopInitOffsetLogThread();
 #endif
         return status;
     }
 
-    bool IsAnyVcpuActive()
+    bool AreAllVcpusLaunched()
     {
         if (g_vmm_context.vcpu == nullptr || g_vmm_context.processor_count == 0)
         {
@@ -33,14 +34,13 @@ namespace
 
         for (unsigned int i = 0; i < g_vmm_context.processor_count; ++i)
         {
-            if (g_vmm_context.vcpu[i].vcpu_status.vmm_launched != 0 ||
-                g_vmm_context.vcpu[i].vcpu_status.vmx_on != 0)
+            if (g_vmm_context.vcpu[i].vcpu_status.vmm_launched == 0)
             {
-                return true;
+                return false;
             }
         }
 
-        return false;
+        return true;
     }
 }
 
@@ -53,8 +53,20 @@ VOID Unload(PDRIVER_OBJECT DriverObject) // 驱动卸载入口，释放虚拟化
     StopInitOffsetLogThread(); // 先停止驱动内线程，避免卸载后线程继续执行已卸载代码
 #endif
 
-    if (IsAnyVcpuActive())
+    Cr3TrackerStopWorker();
+
+    const auto lifecycle_state = g_vmm_context.lifecycle_state;
+    if (lifecycle_state == hv::vmm_release_policy::lifecycle_state::running)
     {
+        if (!AreAllVcpusLaunched())
+        {
+            vmx_fatal_error(
+                vmx_fatal_vmxoff_broadcast,
+                g_vmm_context.processor_count,
+                static_cast<unsigned __int64>(lifecycle_state));
+        }
+
+        g_vmm_context.lifecycle_state = hv::vmm_release_policy::lifecycle_state::stopping;
         if (!hvgt::ept_unhook())
         {
             outDebug("EPT 反向解绑未完全成功，继续执行 VMXOFF 清理。\n");
@@ -67,9 +79,20 @@ VOID Unload(PDRIVER_OBJECT DriverObject) // 驱动卸载入口，释放虚拟化
                 g_vmm_context.processor_count,
                 0);
         }
+
+        g_vmm_context.lifecycle_state = hv::vmm_release_policy::lifecycle_state::stopped;
+    }
+    else if (lifecycle_state == hv::vmm_release_policy::lifecycle_state::stopping)
+    {
+        vmx_fatal_error(
+            vmx_fatal_vmxoff_broadcast,
+            g_vmm_context.processor_count,
+            static_cast<unsigned __int64>(lifecycle_state));
     }
 
-    hv::disable_vmx_operation(); // 关闭全局VMX使能，防止后续路径误用VMX指令
+    hv::disable_vmx_operation(); // 关闭当前CPU的VMX使能，其他CPU已由受检VMXOFF恢复来宾CR4
+    Cr3TrackerDumpTelemetry();
+    Cr3TrackerReset();
     free_vmm_context(); // 释放VMM上下文与相关内存
 
     KdPrint(("Driver Unload!!!\n")); // 输出卸载完成提示
@@ -88,6 +111,7 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
 
     g_vt_driver_image_base = DriverObject->DriverStart; // 记录驱动镜像范围，后续补映射Host关键代码页，不作为VT进入条件。
     g_vt_driver_image_size = DriverObject->DriverSize;
+    Cr3TrackerReset();
     outFile("[信息][DriverEntry] VT驱动镜像：Base=0x%p Size=0x%llX",
         g_vt_driver_image_base,
         g_vt_driver_image_size);

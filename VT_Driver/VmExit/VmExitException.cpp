@@ -1,4 +1,4 @@
-﻿#include "VmExitException.h"
+#include "VmExitException.h"
 
 void vmexit_unimplemented(__vcpu* vcpu) // 未实现 VM-exit 的兜底处理，向 guest 注入 #GP 避免静默继续。
 {
@@ -67,7 +67,7 @@ void vmexit_nmi_window_handler(__vcpu* vcpu) // 在 guest 解除 NMI blocking �
 //		if (hooked_page_info->Options == EPTO_VIRTUAL_BREAKPOINT) // 钩子类型：虚拟断点（读/写/执行监控）
 //			spinlock::lock(&eptWatchList_lock); // 加锁保护监视列表，避免并发修改
 //			int ID = hooked_page_info->ID; // 取得监视条目 ID，用于索引 watchlist
-//			if ((ID == -1) || (!ept_watch_entry_is_active(eptWatchList[ID]))) // 若 ID 无效或条目未启用
+//			if ((ID == -1) || (!ept_watch_entry_is_effective(eptWatchList[ID]))) // 若 ID 无效或条目未启用
 //			{
 //				CleanUp(vcpu, hooked_page_info); // 清理钩子状态，避免残留
 //				spinlock::unlock(&eptWatchList_lock); // 释放锁
@@ -139,7 +139,7 @@ void vmexit_monitor_trap_flag_handler(__vcpu* vcpu) // MTF 单步窗口结束后
 	{
 		spinlock::lock(&eptWatchList_lock); // watch 列表是共享状态，MTF 恢复时必须持锁检查 ID 有效性。
 		int ID = hooked_page_info->ID; // 取出 watch ID，后续访问 eptWatchList 前做边界/状态检查。
-		if ((ID == -1) || (!ept_watch_entry_is_active(eptWatchList[ID])))
+		if ((ID == -1) || (!ept_watch_entry_owns_hardware(eptWatchList[ID])))
 		{
 			CleanUp(vcpu, hooked_page_info); // watch 已删除或 ID 无效时清理 hook 临时状态。
 			spinlock::unlock(&eptWatchList_lock); // 异常返回前释放锁，避免全局 watch 死锁。
@@ -196,87 +196,6 @@ void vmexit_monitor_trap_flag_handler(__vcpu* vcpu) // MTF 单步窗口结束后
 		CleanUp(vcpu, hooked_page_info); // watch 恢复完成后清理一次性命中状态。
 		spinlock::unlock(&eptWatchList_lock); // 释放全局 watch 列表锁。
 	}
-}
-
-//处理 int3 断点中断（调试异常的一种表现形式）
-unsigned __int32 handler_breakpoint(__ept_state& ept_state, __vmexit_interrupt_info interrupt_info) // 处理 EPT hook 页上的 #BP，决定交给 guest 还是跳转 hook handler。
-{
-	sLog("\n"); // 记录 #BP 处理路径。
-	unsigned __int64 guest_rip = hv::vmread(GUEST_RIP); // 当前 guest RIP 用于匹配 hook 函数入口。
-	const unsigned __int64 guest_cr3 = hv::vmread(GUEST_CR3);
-	unsigned __int64 physical_address = hv::get_physical_address(guest_cr3, (PVOID)guest_rip); // VMX Root 必须按 Guest CR3 翻译 Guest RIP，不能使用 Host 当前地址空间的 MmGetPhysicalAddress。
-
-	PLIST_ENTRY current = &ept_state.hooked_page_list; // 从 EPT state 的 hook 页链表头开始遍历。
-	while (&ept_state.hooked_page_list != current->Flink) // 遍历链表直到回到表头
-	{
-		current = current->Flink; // 移动到下一个 hook 页节点。
-		__ept_hooked_page_info* hooked_page_info = CONTAINING_RECORD(current, __ept_hooked_page_info, hooked_page_list); // 从 LIST_ENTRY 还原 hook 页结构。
-
-		if (hooked_page_info->pfn_of_hooked_page == GET_PFN(physical_address))
-		{
-			PLIST_ENTRY current_hooked_function = &hooked_page_info->hooked_functions_list; // 只在 PFN 匹配的页内遍历 hook 函数。
-			while (&hooked_page_info->hooked_functions_list != current_hooked_function->Flink) // 逐个检查每个函数钩子
-			{
-				current_hooked_function = current_hooked_function->Flink; // 移动到下一个函数 hook 记录。
-				__ept_hooked_function_info* hooked_function_info = CONTAINING_RECORD(current_hooked_function, __ept_hooked_function_info, hooked_function_list); // 还原函数 hook 信息。
-
-				if (hooked_function_info->virtual_address == (PVOID)guest_rip)
-				{
-					if (hooked_function_info->breakpoint_address == guest_rip)
-					{
-						return 1; // 命中真实断点地址，保留给 guest/调试器处理。
-					}
-					else
-					{
-						hv::vmwrite(GUEST_RIP, hooked_function_info->handler_function); // 将 guest RIP 改到 hook handler，实现 EPT inline hook。
-						return 2; // 返回 2 表示已重定向执行流。
-					}
-				}
-			}
-		}
-	}
-	return 1; // 未匹配 hook 记录时按普通 #BP 处理。
-}
-
-//处理int1
-//处理 int1（#DB 单步/调试异常）
-unsigned __int32 handler_debug(__ept_state& ept_state, __vmexit_interrupt_info interrupt_info) // 处理 EPT hook 页上的 #DB，逻辑与 #BP 匹配路径一致。
-{
-	sLog("\n"); // 记录 #DB 处理路径。
-	unsigned __int64 guest_rip = hv::vmread(GUEST_RIP); // 读取当前 guest RIP。
-	const unsigned __int64 guest_cr3 = hv::vmread(GUEST_CR3);
-	unsigned __int64 physical_address = hv::get_physical_address(guest_cr3, (PVOID)guest_rip); // 使用 Guest 页表完成 GVA->GPA，避免 HOST_CR3 下错误解析用户地址。
-
-	PLIST_ENTRY current = &ept_state.hooked_page_list; // 从钩子页链表头开始遍历
-	while (&ept_state.hooked_page_list != current->Flink) // 遍历链表直到回到表头
-	{
-		current = current->Flink;
-		__ept_hooked_page_info* hooked_page_info = CONTAINING_RECORD(current, __ept_hooked_page_info, hooked_page_list);
-
-		if (hooked_page_info->pfn_of_hooked_page == GET_PFN(physical_address))
-		{
-			PLIST_ENTRY current_hooked_function = &hooked_page_info->hooked_functions_list;
-			while (&hooked_page_info->hooked_functions_list != current_hooked_function->Flink) // 逐个检查每个函数钩子
-			{
-				current_hooked_function = current_hooked_function->Flink; // 移动到下一个函数钩子节点
-				__ept_hooked_function_info* hooked_function_info = CONTAINING_RECORD(current_hooked_function, __ept_hooked_function_info, hooked_function_list); // 取得函数钩子信息
-
-				if (hooked_function_info->virtual_address == (PVOID)guest_rip)
-				{
-					if (hooked_function_info->breakpoint_address == guest_rip)
-					{
-						return 1; // 命中断点地址时保留原调试异常。
-					}
-					else
-					{
-						hv::vmwrite(GUEST_RIP, hooked_function_info->handler_function); // 非断点地址命中 hook 函数时重定向到 handler。
-						return 2; // 已改写执行流。
-					}
-				}
-			}
-		}
-	}
-	return 1; // 未匹配时按普通 #DB 继续处理。
 }
 
 //cpu重启信号

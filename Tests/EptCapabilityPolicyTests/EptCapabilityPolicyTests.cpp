@@ -1,7 +1,10 @@
 #include "pch.h"
 
+#include <Ring0/Hvm/Cr3ExitPolicy.h>
 #include <Ring0/Hvm/EptCoveragePolicy.h>
 #include <Ring0/Hvm/MtrrTypePolicy.h>
+#include <Ring0/Hvm/VmcallDispatchPolicy.h>
+#include <Ring0/Hvm/VmmReleasePolicy.h>
 #include <Ring0/Hvm/VmxCapabilityPolicy.h>
 
 namespace
@@ -18,8 +21,66 @@ namespace
     }
 }
 
+int RunLifecyclePolicyTests();
+
 int main()
 {
+    failures += RunLifecyclePolicyTests();
+
+    using namespace hv::cr3_exit_policy;
+
+    const std::uint32_t unrelatedPrimaryControls = 0xa5a50000u;
+    expect((Apply(unrelatedPrimaryControls, false) &
+        (kCr3LoadExiting | kCr3StoreExiting)) == 0,
+        "inactive CR3 observation must not cause CR3 VM-exits");
+    expect((Apply(unrelatedPrimaryControls, true) & kCr3LoadExiting) != 0,
+        "active CR3 observation must enable CR3-load exiting");
+    expect((Apply(unrelatedPrimaryControls, true) & kCr3StoreExiting) == 0,
+        "CR3-store exiting must remain disabled without a consumer");
+    expect(SelectTargetSlot(0, 3) == 0,
+        "an empty CR3 target set must fill the first slot");
+    expect(SelectTargetSlot(3, 2) == 3,
+        "a partial CR3 target set must fill its next free slot");
+    expect(SelectTargetSlot(kTargetCapacity, 5) == 1,
+        "a full CR3 target set must rotate through its four slots");
+    expect(AdvanceTargetCursor(0, 0) == 1,
+        "adding the first target must increase the target count");
+    expect(AdvanceTargetCursor(kTargetCapacity, 3) == 0,
+        "a full CR3 target set must wrap its replacement cursor");
+
+    using hv::vmcall_dispatch_policy::IsEptMutation;
+    expect(IsEptMutation(VMCALL_WATCH_WRITES),
+        "watch installation must use the serialized cross-CPU transaction");
+    expect(IsEptMutation(VMCALL_WATCH_DELETE),
+        "watch removal must use the serialized cross-CPU transaction");
+    expect(!IsEptMutation(VMCALL_READ_SOFTWARE_BREAKPOINT),
+        "read-only breakpoint queries must remain single-CPU operations");
+    expect(!IsEptMutation(VMCALL_SYNC_CR3_EXIT_POLICY),
+        "CR3 policy synchronization owns its dedicated cross-CPU broadcast");
+
+    using hv::vmm_release_policy::CanRelease;
+    using hv::vmm_release_policy::IsVcpuQuiescent;
+    using hv::vmm_release_policy::lifecycle_state;
+
+    expect(IsVcpuQuiescent(0, 0, 0),
+        "a fully stopped VCPU must be releasable");
+    expect(!IsVcpuQuiescent(1, 0, 0),
+        "a VMXON VCPU must retain its resources");
+    expect(!IsVcpuQuiescent(0, 1, 0),
+        "a launched VCPU must retain its resources");
+    expect(!IsVcpuQuiescent(0, 0, 1),
+        "a pending VMXOFF handshake must retain its resources");
+    expect(CanRelease(lifecycle_state::allocated, true),
+        "partially allocated resources may be rolled back before launch");
+    expect(!CanRelease(lifecycle_state::running, true),
+        "running ownership must not be released even if stale flags look idle");
+    expect(!CanRelease(lifecycle_state::stopping, true),
+        "stopping ownership must wait for the explicit stopped transition");
+    expect(CanRelease(lifecycle_state::stopped, true),
+        "stopped ownership with quiescent VCPUs must be releasable");
+    expect(!CanRelease(lifecycle_state::stopped, false),
+        "active VCPU state must block release after a premature stopped transition");
+
     using namespace hv::capability_policy;
 
     expect(is_supported(

@@ -1,4 +1,4 @@
-﻿#include "../Core/DebugBreakInternal.h"
+#include "../Core/DebugBreakInternal.h"
 
 // 调整说明：旧软件断点添加路径同样在 attach 状态内探测目标地址并关中断，异常路径不利于保持 APC/attach 平衡。
 // 旧实现先保留在这里，方便回溯和对照；当前版本不再编译这段逻辑。
@@ -27,12 +27,15 @@ void SetSoftwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
     PVT_BREAK_POINT output = (PVT_BREAK_POINT)pIrp->AssociatedIrp.SystemBuffer; //内核的缓冲区，输入输出都用的这个
     RtlZeroMemory(output, sizeof(VT_BREAK_POINT));
 
-    //分配明文缓存区
-    BYTE* aucPlainText = allocate_pool<BYTE*>(AlignUserDataToBlowfishBlock(user.uSize));
-    DecryptData((PVOID)user.pUserData, aucPlainText);
-
-    // 计算明文缓冲区中的结构体数量
-    size_t numElements = user.uSize / sizeof(VT_BREAK_POINT);
+    size_t numElements = 0;
+    UCHAR* aucPlainText = AllocateAndDecryptUserRecords(
+        user,
+        sizeof(VT_BREAK_POINT),
+        &numElements);
+    if (aucPlainText == nullptr)
+    {
+        return;
+    }
 
     // 遍历明文缓冲区中的结构体
     for (size_t i = 0; i < numElements; i++)
@@ -77,12 +80,15 @@ void RemoveSoftwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
     DWORD* output = (DWORD*)pIrp->AssociatedIrp.SystemBuffer; //内核的缓冲区，输入输出都用的这个
     RtlZeroMemory(output, sizeof(DWORD));
 
-    //分配明文缓存区
-    BYTE* aucPlainText = allocate_pool<BYTE*>(AlignUserDataToBlowfishBlock(user.uSize));
-    DecryptData((PVOID)user.pUserData, aucPlainText);
-
-    // 计算明文缓冲区中的结构体数量
-    size_t numElements = user.uSize / sizeof(VT_BREAK_POINT);
+    size_t numElements = 0;
+    UCHAR* aucPlainText = AllocateAndDecryptUserRecords(
+        user,
+        sizeof(VT_BREAK_POINT),
+        &numElements);
+    if (aucPlainText == nullptr)
+    {
+        return;
+    }
 
     // 遍历明文缓冲区中的结构体
     for (size_t i = 0; i < numElements; i++)
@@ -136,12 +142,15 @@ void ReadSoftwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
     PVT_BREAK_POINT output = (PVT_BREAK_POINT)pIrp->AssociatedIrp.SystemBuffer; //内核的缓冲区，输入输出都用的这个
     RtlZeroMemory(output, sizeof(VT_BREAK_POINT));
 
-    //分配明文缓存区
-    BYTE* aucPlainText = allocate_pool<BYTE*>(AlignUserDataToBlowfishBlock(user.uSize));
-    DecryptData((PVOID)user.pUserData, aucPlainText);
-
-    // 计算明文缓冲区中的结构体数量
-    size_t numElements = user.uSize / sizeof(VT_BREAK_POINT);
+    size_t numElements = 0;
+    UCHAR* aucPlainText = AllocateAndDecryptUserRecords(
+        user,
+        sizeof(VT_BREAK_POINT),
+        &numElements);
+    if (aucPlainText == nullptr)
+    {
+        return;
+    }
 
     // 遍历明文缓冲区中的结构体
     for (size_t i = 0; i < numElements; i++)

@@ -1,4 +1,4 @@
-﻿#include "../Driver.h"
+#include "../Driver.h"
 #include "AsmCallset.h"
 #include "vmcall_reason.h"
 #include "../ntapi.h"
@@ -34,6 +34,16 @@ namespace hvgt
 		{
 			KeGenericCallDpc(broadcast_invept_single_context, NULL);
 		}
+	}
+
+	bool synchronize_cr3_exit_policy()
+	{
+		volatile SHORT statuses = 0;
+		KeGenericCallDpc(
+			broadcast_sync_cr3_exit_policy,
+			const_cast<SHORT*>(&statuses));
+		return static_cast<ULONG>(statuses) ==
+			KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS);
 	}
 
 	/// <summary>

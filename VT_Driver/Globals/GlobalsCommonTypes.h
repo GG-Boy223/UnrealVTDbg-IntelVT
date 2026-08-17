@@ -1,7 +1,8 @@
-﻿#pragma once
+#pragma once
 
 #include "GlobalsConstants.h"
 #include "GlobalsMacros.h"
+#include "../../Common/Ring0/Lifecycle/EptWatchTransactionPolicy.h"
 
 // 前向声明
 namespace pool_manager
@@ -45,17 +46,33 @@ typedef struct // EPT 监视断点条目（描述一个监视点）
     int Size; // 断点覆盖的字节数
     int inuse; // EPT_WATCH_ENTRY_STATE：区分预留、生效和删除事务
     int bpType; //断点类型 3=int3  1=debugreg
+    int GroupId; // 多页 watch 的根句柄；删除任一成员时撤销整组
+    int Cr3TrackerId; // CR3 shuffle 跟踪器槽位，watch 生命周期持有一份引用
     unsigned char OriginalByte; // 原始字节（int3 断点恢复用）
 } EPTWatchEntry, * PEPTWatchEntry; // 定义监视条目与指针类型
 
 inline bool ept_watch_entry_is_reserved(EPTWatchEntry const& entry)
 {
-    return entry.inuse != EPT_WATCH_FREE;
+    return ept::watch_transaction_policy::IsReserved(
+        static_cast<ept::watch_transaction_policy::state>(entry.inuse));
 }
 
 inline bool ept_watch_entry_is_active(EPTWatchEntry const& entry)
 {
-    return entry.inuse == EPT_WATCH_ACTIVE;
+    return ept::watch_transaction_policy::IsPublished(
+        static_cast<ept::watch_transaction_policy::state>(entry.inuse));
+}
+
+inline bool ept_watch_entry_is_effective(EPTWatchEntry const& entry)
+{
+    return ept::watch_transaction_policy::ContributesPermissions(
+        static_cast<ept::watch_transaction_policy::state>(entry.inuse));
+}
+
+inline bool ept_watch_entry_owns_hardware(EPTWatchEntry const& entry)
+{
+    return ept::watch_transaction_policy::OwnsHardware(
+        static_cast<ept::watch_transaction_policy::state>(entry.inuse));
 }
 
 typedef volatile struct _criticalSection // 自定义自旋锁式临界区结构

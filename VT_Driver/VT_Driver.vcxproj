@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -200,16 +200,22 @@
     <ClCompile Include="Driver\DriverGuestCommands.cpp" />
     <ClCompile Include="Driver\DriverInitOffset.cpp" />
     <ClCompile Include="Driver\DriverLifecycle.cpp" />
+    <ClCompile Include="Cr3\Cr3Tracker.cpp" />
+    <ClCompile Include="Cr3\Cr3TrackerAddressing.cpp" />
+    <ClCompile Include="Cr3\Cr3TrackerTargets.cpp" />
+    <ClCompile Include="Cr3\Cr3TrackerWorker.cpp" />
     <ClCompile Include="Driver\VtLoadLog.cpp" />
     <ClCompile Include="Tables\gdt.cpp" />
     <ClCompile Include="Globals\Globals.cpp" />
     <ClCompile Include="Globals\GuestMemory.cpp" />
     <ClCompile Include="Globals\GuestThreadState.cpp" />
+    <ClCompile Include="Globals\GuestWatchState.cpp" />
     <ClCompile Include="Globals\HostTables.cpp" />
     <ClCompile Include="Globals\MtfPendingState.cpp" />
     <ClCompile Include="Globals\MtrrMemoryTypes.cpp" />
     <ClCompile Include="Globals\VmxState.cpp" />
     <ClCompile Include="HypervisorGateway\hypervisor_gateway.cpp" />
+    <ClCompile Include="HypervisorGateway\HypervisorGatewayShutdown.cpp" />
     <ClCompile Include="HypervisorRoutines\HypervisorBitmaps.cpp" />
     <ClCompile Include="HypervisorRoutines\HypervisorContext.cpp" />
     <ClCompile Include="HypervisorRoutines\HypervisorInterrupts.cpp" />
@@ -226,6 +232,7 @@
     <ClCompile Include="PoolManager\PoolLifecycle.cpp" />
     <ClCompile Include="PoolManager\PoolRequests.cpp" />
     <ClCompile Include="Sync\spinlock.cpp" />
+    <ClCompile Include="VmCall\VmcallDispatch.cpp" />
     <ClCompile Include="VmCall\vmcall_handler.cpp" />
     <ClCompile Include="Vmcs\VmcsControls.cpp" />
     <ClCompile Include="Vmcs\VmcsFill.cpp" />
@@ -242,11 +249,13 @@
     <ClCompile Include="VmExit\VmExitEventInjection.cpp" />
     <ClCompile Include="VmExit\VmExitException.cpp" />
     <ClCompile Include="VmExit\VmExitControl.cpp" />
+    <ClCompile Include="VmExit\VmExitDebugRegisters.cpp" />
     <ClCompile Include="VmExit\VmExitInstruction.cpp" />
     <ClCompile Include="VmExit\VmExitEpt.cpp" />
     <ClCompile Include="VmExit\VmExitMsr.cpp" />
     <ClCompile Include="VmExit\VmExitIo.cpp" />
     <ClCompile Include="VmExit\VmExitCommon.cpp" />
+    <ClCompile Include="VmExit\VmExitTelemetry.cpp" />
     <!-- Ept module -->
     <ClCompile Include="Ept\EptCommon.cpp" />
     <ClCompile Include="Ept\EptMtrr.cpp" />
@@ -255,10 +264,12 @@
     <ClCompile Include="Ept\Build\EptRuntimeSplit.cpp" />
     <ClCompile Include="Ept\EptSync.cpp" />
     <ClCompile Include="Ept\Watch\EptWatchActivation.cpp" />
+    <ClCompile Include="Ept\Watch\EptWatchPageInstall.cpp" />
     <ClCompile Include="Ept\Watch\EptWatchBreakpointInstall.cpp" />
     <ClCompile Include="Ept\Watch\EptWatchBreakpoints.cpp" />
     <ClCompile Include="Ept\Watch\EptWatchDeactivate.cpp" />
     <ClCompile Include="Ept\Watch\EptWatchEvents.cpp" />
+    <ClCompile Include="Ept\Watch\EptWatchInt3Execute.cpp" />
     <ClCompile Include="Ept\Watch\EptWatchQuery.cpp" />
     <ClCompile Include="Ept\Hook\Instruction\EptHookInstruction.cpp" />
     <ClCompile Include="Ept\Hook\Instruction\EptHookFakePageMemory.cpp" />
@@ -295,10 +306,12 @@
     <ClInclude Include="Sync\spinlock.h" />
     <ClInclude Include="Tables\gdt.h" />
     <ClInclude Include="Tables\idt.h" />
+    <ClInclude Include="VmCall\VmcallDispatch.h" />
     <ClInclude Include="VmCall\vmcall_handler.h" />
     <ClInclude Include="VmExit\vmexit_handler.h" />
     <ClInclude Include="Vmm\vmm.h" />
     <ClInclude Include="AllocateMem.h" />
+    <ClInclude Include="ASM\vm-exit-context.inc" />
     <ClInclude Include="AsmCallset.h" />
     <ClInclude Include="Driver\Driver.h" />
     <ClInclude Include="Driver\DriverInternal.h" />
@@ -351,6 +364,7 @@
     <ClInclude Include="VmExit\VmExitMsr.h" />
     <ClInclude Include="VmExit\VmExitIo.h" />
     <ClInclude Include="VmExit\VmExitCommon.h" />
+    <ClInclude Include="VmExit\VmExitTelemetry.h" />
     <!-- Ept 头文件 (6个) -->
     <ClInclude Include="Ept\EptCommon.h" />
     <ClInclude Include="Ept\EptMtrr.h" />
@@ -362,6 +376,8 @@
     <ClInclude Include="Ept\Watch\EptWatchInternal.h" />
     <!-- Globals 头文件 -->
     <ClInclude Include="Globals\GlobalsCommonTypes.h" />
+    <ClInclude Include="Cr3\Cr3Tracker.h" />
+    <ClInclude Include="Cr3\Cr3TrackerInternal.h" />
     <ClInclude Include="Globals\GlobalsConstants.h" />
     <ClInclude Include="Globals\GlobalsEptHookTypes.h" />
     <ClInclude Include="Globals\GlobalsEptPageTypes.h" />

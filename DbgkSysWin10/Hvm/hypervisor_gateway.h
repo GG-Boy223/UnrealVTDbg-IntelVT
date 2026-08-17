@@ -16,6 +16,7 @@ namespace hvgt
 	/// </summary>
 	/// <param name="invept_all"> If true invalidates all contexts otherway invalidate only single context (currently hv doesn't use more than 1 context)</param>
 	void invept(bool invept_all);
+	bool synchronize_cr3_exit_policy();
 
 	/// <summary>
 	/// Set/Unset presence of hypervisor
@@ -45,12 +46,12 @@ namespace hvgt
 	/// <returns> status </returns>
 	bool hook_function(void* target_address, void* proxy_function, void** origin_function);
 
-	//¹ã²¥¸øËùÓĞÂß¼­´¦ÀíÆ÷
+	//å¹¿æ’­ç»™æ‰€æœ‰é€»è¾‘å¤„ç†å™¨
 	//bool vmcall(PVOID vmcallinfo);
 
 
-	// vmcallinfo ÈÔÈ»×ß rdx£¬parameter2/parameter3 ·Ö±ğ×ß r8/r9¡£
-   // ÕâÀï¸øÄ¬ÈÏÖµÊÇÎªÁË²»Ó°ÏìÏÖÓĞÆäËüµ÷ÓÃµã¡£
+	// vmcallinfo ä»ç„¶èµ° rdxï¼Œparameter2/parameter3 åˆ†åˆ«èµ° r8/r9ã€‚
+   // è¿™é‡Œç»™é»˜è®¤å€¼æ˜¯ä¸ºäº†ä¸å½±å“ç°æœ‰å…¶å®ƒè°ƒç”¨ç‚¹ã€‚
 	bool vmcall(PVOID vmcallinfo, unsigned __int64 parameter2 = 0, unsigned __int64 parameter3 = 0);
 	
 	
@@ -66,13 +67,13 @@ namespace hvgt
 	/// <returns> status </returns>
 	bool send_irp_perform_allocation();
 
-	//¶ÁeptÎ±Ò³ÄÚ´æ
+	//è¯»eptä¼ªé¡µå†…å­˜
 	bool read_ept_fake_page_memory(void* target_address, void* buffer, unsigned __int64 buffer_size);
 
-	//¶ÁÈ¡ÒşĞÎÈí¼ş¶Ïµã
+	//è¯»å–éšå½¢è½¯ä»¶æ–­ç‚¹
 	bool get_hide_software_breakpoint(void* target_address, void* buffer, unsigned __int64 buffer_size);
 
-	//ÉèÖÃÒşĞÎÈí¼ş¶Ïµã
+	//è®¾ç½®éšå½¢è½¯ä»¶æ–­ç‚¹
 	bool set_hide_software_breakpoint(MDL_MAP* map_table, void* buffer, unsigned __int64 buffer_size);
 }
 

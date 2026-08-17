@@ -1,4 +1,4 @@
-﻿#include "VmcsInternal.h"
+#include "VmcsInternal.h"
 
 // 填充来宾状态字段（guest-state）
 void fill_vmcs_guest_fields(__vcpu* vcpu, void* guest_rsp) // 填充来宾字段
@@ -59,10 +59,16 @@ void fill_vmcs_guest_fields(__vcpu* vcpu, void* guest_rsp) // 填充来宾字段
     hv::vmwrite<unsigned __int64>(GUEST_CR0, __readcr0()); // 来宾 CR0
     hv::vmwrite<unsigned __int64>(CR0_READ_SHADOW, __readcr0()); // CR0 读影子
     hv::vmwrite<unsigned __int64>(CR0_GUEST_HOST_MASK, 0xFFFFFFFF'FFFFFFFF);
-    hv::vmwrite<unsigned __int64>(GUEST_CR3, __readcr3()); // 来宾 CR3
-    // 设置 CR3 target 规则，允许系统进程 CR3 不触发 VM-exit
-    hv::vmwrite<unsigned __int64>(CR3_TARGET_COUNT, 1); // 仅 1 个目标值
-    hv::vmwrite<unsigned __int64>(CR3_TARGET_VALUE0, hv::get_system_directory_table_base()); // 系统进程 CR3
+    const unsigned __int64 initialCr3 = __readcr3();
+    hv::vmwrite<unsigned __int64>(GUEST_CR3, initialCr3);
+    hv::vmwrite<unsigned __int64>(CR3_TARGET_COUNT, 0);
+    hv::vmwrite<unsigned __int64>(CR3_TARGET_VALUE0, 0);
+    hv::vmwrite<unsigned __int64>(CR3_TARGET_VALUE1, 0);
+    hv::vmwrite<unsigned __int64>(CR3_TARGET_VALUE2, 0);
+    hv::vmwrite<unsigned __int64>(CR3_TARGET_VALUE3, 0);
+    RtlZeroMemory(vcpu->cr3_target_values, sizeof(vcpu->cr3_target_values));
+    vcpu->cr3_target_count = 0;
+    vcpu->cr3_target_cursor = 0;
     hv::vmwrite<unsigned __int64>(GUEST_CR4, __readcr4()); // 来宾 CR4
     hv::vmwrite<unsigned __int64>(CR4_READ_SHADOW, __readcr4() & ~0x2000); // CR4 影子值（屏蔽 VMXE）
     hv::vmwrite<unsigned __int64>(CR4_GUEST_HOST_MASK, 0x2000); // 仅监视 VMXE 位

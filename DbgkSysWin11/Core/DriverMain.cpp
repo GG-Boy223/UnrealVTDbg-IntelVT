@@ -1,4 +1,4 @@
-﻿#include "../Driver.h"
+#include "../Driver.h"
 #include "../ntos/inc/ntosdef.h"
 #include "../ntos/inc/ketypes.h"
 #include "../ntos/inc/amd64.h"
@@ -19,6 +19,8 @@
 #include "../ntos/inc/psp.h"
 #include "../Globals.h"
 #include "../DbgkApi/DbgkApi.h"
+#include "../Cr3/Cr3Resolver.h"
+#include <wdmsec.h>
 #include "../Protect/Callbacks.h"
 #include "../../Common/Encrypt/Blowfish/Blowfish.h"
 #include "../ntos/inc/ke.h"
@@ -45,44 +47,30 @@ PWCHAR PassProcessList[12] = {
 
 namespace
 {
-    const LONG kDbgkUnloadWaitLimit = 200;
+    const GUID kDbgkDeviceClassGuid =
+    { 0x8d72cb34, 0xe7b0, 0x4d53, { 0x99, 0x4f, 0x43, 0x5b, 0x20, 0xd7, 0xb9, 0x1a } };
 
     LONG ReadDbgkActiveIoctlCount()
     {
         return InterlockedCompareExchange(&g_DbgkActiveIoctlCount, 0, 0);
     }
 
-    bool IsDbgkDriverUnloading()
-    {
-        return InterlockedCompareExchange(&g_DbgkDriverUnloading, 0, 0) != 0;
-    }
-
     void WaitForDbgkIoctlDrain()
     {
         LARGE_INTEGER interval = { 0 };
         interval.QuadPart = -10 * 1000 * 100;
-        LONG zeroSamples = 0;
+        ULONG waitSamples = 0;
 
-        for (LONG i = 0; i < kDbgkUnloadWaitLimit; i++)
+        while (ReadDbgkActiveIoctlCount() != 0)
         {
-            if (ReadDbgkActiveIoctlCount() == 0)
-            {
-                zeroSamples++;
-                if (zeroSamples >= 2)
-                {
-                    //是我们自己的调试器要创建线程，则直接返回不走线程回调
-                    return;
-                }
-            }
-            else
-            {
-                zeroSamples = 0;
-            }
-
             KeDelayExecutionThread(KernelMode, FALSE, &interval);
+            waitSamples++;
+            if ((waitSamples % 100) == 0)
+            {
+                outLog("Dbgk unload is waiting for active IOCTL requests: %d.",
+                    ReadDbgkActiveIoctlCount());
+            }
         }
-
-        outLog("卸载等待 IOCTL 完成超时，强制继续.");
     }
 }
 
@@ -92,6 +80,7 @@ VOID Unload(PDRIVER_OBJECT DriverObject)
     UNREFERENCED_PARAMETER(DriverObject);
 
     InterlockedExchange(&g_DbgkDriverUnloading, 1);
+    _RemoveDevice(DriverObject);
     WaitForDbgkIoctlDrain();
 
     // 旧项目保留代码：卸载保护模块，内部原设计对应 UnCallbacks/进程保护回调清理。
@@ -103,7 +92,7 @@ VOID Unload(PDRIVER_OBJECT DriverObject)
     //UnloadProtect();
     RemoveHooks();
     DbgkUnInitialize();
-    _RemoveDevice(DriverObject);
+    Cr3ResolverReset();
     DbgPrint("Driver Unload!!!\n");
 }
 
@@ -162,8 +151,16 @@ NTSTATUS CreateDevice(IN PDRIVER_OBJECT pDriver_Object)
     UNICODE_STRING devName;
     RtlInitUnicodeString(&devName, L"\\Device\\DbgkSysDevice");
 
-    //创建设备
-    ntStatus = IoCreateDevice(pDriver_Object,sizeof(DEVICE_EXTENSION),&devName,FILE_DEVICE_UNKNOWN,0,FALSE,&pDevObj);
+    ntStatus = IoCreateDeviceSecure(
+        pDriver_Object,
+        sizeof(DEVICE_EXTENSION),
+        &devName,
+        FILE_DEVICE_UNKNOWN,
+        FILE_DEVICE_SECURE_OPEN,
+        FALSE,
+        &SDDL_DEVOBJ_SYS_ALL_ADM_ALL,
+        &kDbgkDeviceClassGuid,
+        &pDevObj);
 
     if (!NT_SUCCESS(ntStatus))
     {
@@ -219,48 +216,20 @@ VOID _RemoveDevice(IN PDRIVER_OBJECT pDriver_Object)
 
 NTSTATUS InitDispatchRoutin(IN PDEVICE_OBJECT pDevObj, IN PIRP pIrp)
 {
-    NTSTATUS ntStatus = STATUS_SUCCESS; // 统一返回状态。
-    //得到当前堆栈
+    UNREFERENCED_PARAMETER(pDevObj);
+
     PIO_STACK_LOCATION stack = IoGetCurrentIrpStackLocation(pIrp);
-    //得到输入缓冲区大小
-    ULONG cbin = stack->Parameters.DeviceIoControl.InputBufferLength;
-    //得到输出缓冲区大小
-    ULONG cbout = stack->Parameters.DeviceIoControl.OutputBufferLength;
-    //得到IOCTL码
-    ULONG code = stack->Parameters.DeviceIoControl.IoControlCode;
+    NTSTATUS status = STATUS_SUCCESS;
+    if (stack->MajorFunction == IRP_MJ_CREATE &&
+        DbgkIsDriverRuntimeUnloading())
+    {
+        status = STATUS_DELETE_PENDING;
+    }
 
-    //switch (code)
-    //{
-    //case IOCTL_READ:
-    //{
-    //    //PVOID pBuffer = pIrp->AssociatedIrp.SystemBuffer;
-    //    PUser_Data pBuffer = pIrp->AssociatedIrp.SystemBuffer;
-    //    KdPrint(("Pid:%d\n", pBuffer->Pid));
-    //    KdPrint(("pAddress:0x%08X\n", pBuffer->pAddress));
-    //    //KdPrint(("%d\n", pIrp->MdlAddress));
-    //    KdPrint(("User Addr:0x%08X\n", MmGetMdlVirtualAddress(pIrp->MdlAddress)));
-    //    POutput_Data pRtnAddr = MmGetSystemAddressForMdlSafe(pIrp->MdlAddress, NormalPagePriority);
-    //    KdPrint(("MdlAddr:0x%08X\n", pRtnAddr));
-    //    //memmove(pRtnAddr, pBuffer, cbout);
-    //    ReadFunc((HANDLE)pBuffer->Pid, (PVOID)pBuffer->pAddress, &pRtnAddr->Value);
-    //    break;
-    //}
-    //default:
-    //{
-    //    ntStatus = STATUS_INVALID_VARIANT;
-    //    break;
-    //}
-    //}
-
-    pIrp->IoStatus.Status = ntStatus;
-    pIrp->IoStatus.Information = cbin;
+    pIrp->IoStatus.Status = status;
+    pIrp->IoStatus.Information = 0;
     IoCompleteRequest(pIrp, IO_NO_INCREMENT);
-    //        }
-    //    }
-    //}
-    //__except (EXCEPTION_EXECUTE_HANDLER) {
-    //    return ntStatus;
-    return ntStatus;
+    return status;
 }
 
 ////初始化保护
@@ -285,6 +254,7 @@ VOID InitGlobalVariable(PDRIVER_OBJECT DriverObject)
     InterlockedExchange(&g_DbgkDriverUnloading, 0);
     InterlockedExchange(&g_DbgkActiveIoctlCount, 0);
     InterlockedExchange(&g_DbgkActiveRuntimeCallCount, 0);
+    Cr3ResolverReset();
     ExInitializeFastMutex(&LongFlagsMutex);
     InitializeList(&g_ProtectFileObjList.list_entry, &g_ProtectFileObjList.Mutex);
     InitializeList(&g_ProtectWndObjList.list_entry, &g_ProtectWndObjList.Mutex);

@@ -1,4 +1,4 @@
-﻿#include "GlobalsInternal.h"
+#include "GlobalsInternal.h"
 
 namespace hv
 {
@@ -79,7 +79,7 @@ namespace hv
         if (request.WatchId >= 0 && request.WatchId < EPTWATCHLISTSIZE)
         {
             spinlock::lock(&eptWatchList_lock);
-            if (ept_watch_entry_is_active(eptWatchList[request.WatchId]) &&
+            if (ept_watch_entry_is_effective(eptWatchList[request.WatchId]) &&
                 eptWatchList[request.WatchId].PhysicalAddress != NULL)
             {
                 target_pfn = GET_PFN(eptWatchList[request.WatchId].PhysicalAddress);
@@ -270,45 +270,4 @@ namespace hv
         return false;
     }
 
-    //向guest注入#DB事件
-    void inject_single_step(__vcpu* vcpu)
-    {
-        //guest的模式如果是内核就不注入#DB
-        int kernelmode = hv::get_guest_cpl() == 0; // 判断 CPL，内核态不注入以避免内核断点风险
-        if (!kernelmode)
-        {
-            PCLIENT_ID Cid = GuestCurrentThreadCid(); // 获取当前线程 ID
-            if (Cid == nullptr)
-            {
-                // 方案 2：Cid 还没从 Win10 sys 下发过来时，不继续记录线程 ID，
-                // 也不继续走后续依赖该字段的逻辑，避免把 ETHREAD 地址误当成 CLIENT_ID。
-                outDebug("跳过 inject_single_step：ETHREAD.Cid 尚未就绪。\n");
-                vcpu->Cid = { 0 };
-                vcpu->breakpoint_detected = NULL;
-                return;
-            }
-
-            vcpu->Cid.UniqueThread = Cid->UniqueThread; //记录当前guest的线程id
-            hv::inject_interruption(EXCEPTION_VECTOR_SINGLE_STEP, INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, false); // 注入单步异常到来宾
-        }
-        else
-        {
-            vcpu->Cid = { 0 };
-            vcpu->breakpoint_detected = NULL;
-        }
-    }
-
-    //获取空闲的id
-    int getIdleWatchID()
-    {
-        int i; // 循环索引
-        for (i = 0; i < EPTWATCHLISTSIZE; i++)
-        {
-            if (!ept_watch_entry_is_reserved(eptWatchList[i])) // 事务中的槽位也不可重复分配
-            {
-                return i; //返回空闲 ID
-            }
-        }
-        return -1; // 没有空闲项
-    }
 }

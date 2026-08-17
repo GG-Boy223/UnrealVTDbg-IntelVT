@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="Source Files">
@@ -64,6 +64,12 @@
     </Filter>
     <Filter Include="Header Files\VmExit">
       <UniqueIdentifier>{044bb8b2-f714-4d30-93fd-16f292a55c7a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Cr3">
+      <UniqueIdentifier>{77b98944-610a-4fb9-a080-05eaf79cc638}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Cr3">
+      <UniqueIdentifier>{267dc8e3-1996-4866-a2ea-1beaf6b52f42}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files\Ept">
       <UniqueIdentifier>{e8b5769d-8aef-4e31-a743-3f1d9eb1e212}</UniqueIdentifier>
@@ -172,6 +178,9 @@
     <ClCompile Include="Globals\GuestThreadState.cpp">
       <Filter>Source Files\Globals</Filter>
     </ClCompile>
+    <ClCompile Include="Globals\GuestWatchState.cpp">
+      <Filter>Source Files\Globals</Filter>
+    </ClCompile>
     <ClCompile Include="Globals\MtfPendingState.cpp">
       <Filter>Source Files\Globals</Filter>
     </ClCompile>
@@ -203,6 +212,9 @@
       <Filter>Source Files\HypervisorRoutines</Filter>
     </ClCompile>
     <ClCompile Include="VmCall\vmcall_handler.cpp">
+      <Filter>Source Files\VmCall</Filter>
+    </ClCompile>
+    <ClCompile Include="VmCall\VmcallDispatch.cpp">
       <Filter>Source Files\VmCall</Filter>
     </ClCompile>
     <ClCompile Include="Invalidation\invalid_ept.cpp">
@@ -241,7 +253,22 @@
     <ClCompile Include="Driver\VtLoadLog.cpp">
       <Filter>Source Files\Driver</Filter>
     </ClCompile>
+    <ClCompile Include="Cr3\Cr3Tracker.cpp">
+      <Filter>Source Files\Cr3</Filter>
+    </ClCompile>
+    <ClCompile Include="Cr3\Cr3TrackerAddressing.cpp">
+      <Filter>Source Files\Cr3</Filter>
+    </ClCompile>
+    <ClCompile Include="Cr3\Cr3TrackerTargets.cpp">
+      <Filter>Source Files\Cr3</Filter>
+    </ClCompile>
+    <ClCompile Include="Cr3\Cr3TrackerWorker.cpp">
+      <Filter>Source Files\Cr3</Filter>
+    </ClCompile>
     <ClCompile Include="HypervisorGateway\hypervisor_gateway.cpp">
+      <Filter>Source Files\HypervisorGateway</Filter>
+    </ClCompile>
+    <ClCompile Include="HypervisorGateway\HypervisorGatewayShutdown.cpp">
       <Filter>Source Files\HypervisorGateway</Filter>
     </ClCompile>
     <ClCompile Include="Tables\idt.cpp">
@@ -292,6 +319,9 @@
     <ClCompile Include="VmExit\VmExitControl.cpp">
       <Filter>Source Files\VmExit</Filter>
     </ClCompile>
+    <ClCompile Include="VmExit\VmExitDebugRegisters.cpp">
+      <Filter>Source Files\VmExit</Filter>
+    </ClCompile>
     <ClCompile Include="VmExit\VmExitInstruction.cpp">
       <Filter>Source Files\VmExit</Filter>
     </ClCompile>
@@ -305,6 +335,9 @@
       <Filter>Source Files\VmExit</Filter>
     </ClCompile>
     <ClCompile Include="VmExit\VmExitCommon.cpp">
+      <Filter>Source Files\VmExit</Filter>
+    </ClCompile>
+    <ClCompile Include="VmExit\VmExitTelemetry.cpp">
       <Filter>Source Files\VmExit</Filter>
     </ClCompile>
     <ClCompile Include="Ept\EptCommon.cpp">
@@ -328,6 +361,9 @@
     <ClCompile Include="Ept\Watch\EptWatchActivation.cpp">
       <Filter>Source Files\Ept\Watch</Filter>
     </ClCompile>
+    <ClCompile Include="Ept\Watch\EptWatchPageInstall.cpp">
+      <Filter>Source Files\Ept\Watch</Filter>
+    </ClCompile>
     <ClCompile Include="Ept\Watch\EptWatchBreakpointInstall.cpp">
       <Filter>Source Files\Ept\Watch</Filter>
     </ClCompile>
@@ -338,6 +374,9 @@
       <Filter>Source Files\Ept\Watch</Filter>
     </ClCompile>
     <ClCompile Include="Ept\Watch\EptWatchEvents.cpp">
+      <Filter>Source Files\Ept\Watch</Filter>
+    </ClCompile>
+    <ClCompile Include="Ept\Watch\EptWatchInt3Execute.cpp">
       <Filter>Source Files\Ept\Watch</Filter>
     </ClCompile>
     <ClCompile Include="Ept\Watch\EptWatchQuery.cpp">
@@ -459,6 +498,9 @@
     <ClInclude Include="VmCall\vmcall_handler.h">
       <Filter>Header Files\VmCall</Filter>
     </ClInclude>
+    <ClInclude Include="VmCall\VmcallDispatch.h">
+      <Filter>Header Files\VmCall</Filter>
+    </ClInclude>
     <ClInclude Include="interrupt.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -481,6 +523,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ASM\AsmCallset.h">
+      <Filter>Header Files\ASM</Filter>
+    </ClInclude>
+    <ClInclude Include="ASM\vm-exit-context.inc">
       <Filter>Header Files\ASM</Filter>
     </ClInclude>
     <ClInclude Include="segment.h">
@@ -588,6 +633,9 @@
     <ClInclude Include="VmExit\VmExitDispatcher.h">
       <Filter>Header Files\VmExit</Filter>
     </ClInclude>
+    <ClInclude Include="VmExit\VmExitTelemetry.h">
+      <Filter>Header Files\VmExit</Filter>
+    </ClInclude>
     <ClInclude Include="VmExit\VmExitException.h">
       <Filter>Header Files\VmExit</Filter>
     </ClInclude>
@@ -668,6 +716,12 @@
     </ClInclude>
     <ClInclude Include="Globals\GlobalsVmmContextTypes.h">
       <Filter>Header Files\Globals</Filter>
+    </ClInclude>
+    <ClInclude Include="Cr3\Cr3Tracker.h">
+      <Filter>Header Files\Cr3</Filter>
+    </ClInclude>
+    <ClInclude Include="Cr3\Cr3TrackerInternal.h">
+      <Filter>Header Files\Cr3</Filter>
     </ClInclude>
     <ClInclude Include="Globals\GlobalsVmxMtrrTypes.h">
       <Filter>Header Files\Globals</Filter>

@@ -1,73 +1,4 @@
-﻿#include "VmExitControl.h"
-
-void vmexit_mov_dr_handler(__vcpu* vcpu)
-{
-	__exit_qualification_dr qual = { vcpu->vmexit_info.qualification };
-	unsigned dr = (unsigned)qual.debug_register_number;
-	unsigned gpr = (unsigned)qual.gp_register;
-
-	if (qual.access_direction == 0) // mov to DRx
-	{
-		const uint64_t value = hv::read_guest_gpr(vcpu->vmexit_info.guest_registers, gpr);
-
-		switch (dr)
-		{
-		case 0: __writedr(0, value); break;
-		case 1: __writedr(1, value); break;
-		case 2: __writedr(2, value); break;
-		case 3: __writedr(3, value); break;
-		case 6:
-		{
-			__dr6 dr6; dr6.all = value;
-			dr6.reserved_1 = 0xFF;
-			dr6.reserved_2 = 0;
-			dr6.reserved_3 = 0x7FFF;
-			__writedr(6, dr6.all);
-			break;
-		}
-		case 7:
-		{
-			__dr7 dr7; dr7.all = value;
-			dr7.reserved_1 = 1;
-			dr7.reserved_2 = 0;
-			dr7.reserved_3 = 0;
-			__writedr(7, dr7.all);
-			hv::vmwrite(GUEST_DR7, dr7.all);
-			break;
-		}
-		default:
-			//hv::inject_interruption(EXCEPTION_VECTOR_UNDEFINED_OPCODE,
-			//	INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, true);
-			//adjust_rip(vcpu);
-			hv::inject_interruption(EXCEPTION_VECTOR_UNDEFINED_OPCODE,
-				INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, false);
-			return;
-		}
-	}
-	else
-	{
-		uint64_t value = 0;
-		switch (dr)
-		{
-		case 0: value = __readdr(0); break;
-		case 1: value = __readdr(1); break;
-		case 2: value = __readdr(2); break;
-		case 3: value = __readdr(3); break;
-		case 6: value = __readdr(6); break;
-		case 7: value = hv::vmread(GUEST_DR7); break;
-		default:
-			//hv::inject_interruption(EXCEPTION_VECTOR_UNDEFINED_OPCODE,
-			//	INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, true);
-			//adjust_rip(vcpu);
-			hv::inject_interruption(EXCEPTION_VECTOR_UNDEFINED_OPCODE,
-				INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, false);
-			return;
-		}
-		hv::write_guest_gpr(vcpu->vmexit_info.guest_registers, gpr, value);
-	}
-
-	adjust_rip(vcpu);
-}
+#include "VmExitControl.h"
 
 //处理 MOV 到 CR3：解析来宾写入值，识别 PCID 的不刷新语义，校验物理地址保留位，并按需刷新 TLB
 bool mov_to_cr3_handler(__vcpu* vcpu, unsigned __int64 guest_cr3) // vcpu=当前虚拟CPU状态；guest_cr3=来宾请求写入的 CR3 原始值
@@ -104,6 +35,8 @@ bool mov_to_cr3_handler(__vcpu* vcpu, unsigned __int64 guest_cr3) // vcpu=当前
 	}
 
 	hv::vmwrite(GUEST_CR3, new_cr3.flags);
+	Cr3TrackerPublishCandidate(vcpu, new_cr3.flags);
+	Cr3TrackerRememberTarget(vcpu, new_cr3.flags);
 	return true; // 原理：走到此处表示写入成功；作用：通知上层继续执行；结果：返回成功
 }
 

@@ -1,4 +1,4 @@
-﻿#include "DriverInternal.h"
+#include "DriverInternal.h"
 
 PCLIENT_ID GuestCurrentThreadCid() // 计算来宾当前线程的CLIENT_ID地址，便于识别触发事件的线程
 {
@@ -24,17 +24,10 @@ bool SetBreakpoint(PVT_BREAK_POINT vmcallinfo, unsigned __int64 Type) // 在来�
         return false;
     }
 
-    int outID = -1; // 输出的监视点ID
-    if (ept::ept_watch_activate(tmp_vmcallinfo, Type, &outID, errorCode)) // 通过EPT拦截实现断点，避免软件断点被检测
-    {
-        tmp_vmcallinfo.watchid = outID; // 回填监视点ID给来宾
-
-        if (sizeof(VT_BREAK_POINT) != hv::write_guest_virtual_memory(vmcallinfo, &tmp_vmcallinfo, sizeof(VT_BREAK_POINT))) // 写回结果到来宾
-        {
-            return false;
-        }
-        return true;
-    }
+	if (ept::ept_watch_activate(tmp_vmcallinfo, Type, vmcallinfo, errorCode)) // 通过EPT拦截实现断点，避免软件断点被检测
+	{
+		return true;
+	}
     else
     {
         tmp_vmcallinfo.errorCode = errorCode; // 回填失败错误码

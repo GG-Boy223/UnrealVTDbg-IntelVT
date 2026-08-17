@@ -1,4 +1,6 @@
-﻿#include "DebugBreakInternal.h"
+#include "DebugBreakInternal.h"
+#include "../../Hvm/hypervisor_gateway.h"
+#include "../../../Common/Ring0/Hvm/VmcallDispatchPolicy.h"
 
 bool vmcall_internal(PVOID vmcallinfo)
 {
@@ -21,75 +23,42 @@ bool vmcall_internal(PVOID vmcallinfo)
 //只会向当前逻辑处理器发送请求
 bool current_vmcall(PVOID vmcallinfo)
 {
-    return vmcall_internal(vmcallinfo);
-}
-
-// 捕获目标进程 CR3 的公共 helper。
-// 调整原因：CE 查找地址访问会频繁设置/删除监视点，旧路径在 attach 状态内探测目标地址并关中断，异常时容易留下 APC/attach 状态不平衡。
-static VOID AttachProcessForCr3(PEPROCESS Process, KAPC_STATE* ApcState)
-{
-    if (Original_KeStackAttachProcess != NULL)
+    if (vmcallinfo == nullptr)
     {
-        Original_KeStackAttachProcess((PRKPROCESS)Process, ApcState);
-        //是我们自己的调试器要创建线程，则直接返回不走线程回调
-        return;
+        return false;
     }
 
-    KeStackAttachProcess((PRKPROCESS)Process, ApcState);
+    unsigned __int64 command = 0;
+    __try
+    {
+        command = reinterpret_cast<PVMCALLINFO>(vmcallinfo)->command;
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        return false;
+    }
+
+    return hv::vmcall_dispatch_policy::IsEptMutation(command) ?
+        hvgt::vmcall(vmcallinfo) :
+        vmcall_internal(vmcallinfo);
 }
 
 NTSTATUS CaptureProcessCr3(unsigned long pid, unsigned __int64 fallbackCr3, unsigned __int64* capturedCr3)
 {
-    if (capturedCr3 == NULL)
+    if (capturedCr3 == NULL || pid == 0)
     {
         return STATUS_INVALID_PARAMETER;
     }
 
-    *capturedCr3 = fallbackCr3;
-    // *capturedCr3 = fallbackCr3;
-    if (pid == 0)
-    {
-        return fallbackCr3 != 0 ? STATUS_SUCCESS : STATUS_INVALID_PARAMETER;
-    }
-
-    PEPROCESS Process = NULL;
-    NTSTATUS status = PsLookupProcessByProcessId((HANDLE)(ULONG_PTR)pid, &Process);
+    *capturedCr3 = 0;
+    PEPROCESS process = NULL;
+    NTSTATUS status = PsLookupProcessByProcessId((HANDLE)(ULONG_PTR)pid, &process);
     if (!NT_SUCCESS(status))
     {
-        return fallbackCr3 != 0 ? STATUS_SUCCESS : status;
+        return status;
     }
 
-    BOOLEAN attached = FALSE;
-    KAPC_STATE ApcState;
-    RtlZeroMemory(&ApcState, sizeof(ApcState));
-
-    __try
-    {
-        __try
-        {
-            AttachProcessForCr3(Process, &ApcState);
-            attached = TRUE;
-            *capturedCr3 = __readcr3();
-        }
-        __finally
-        {
-            if (attached)
-            {
-                KeUnstackDetachProcess(&ApcState);
-            }
-        }
-    }
-    __except (status = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
-    {
-        outToFile("\xBB\xF1\xC8\xA1\xC4\xBF\xB1\xEA" "CR3\xCA\xB1\xB7\xA2\xC9\xFA\xD2\xEC\xB3\xA3 (error: 0x%X)", status);
-    }
-
-    ObDereferenceObject(Process); //释放进程对象
-
-    if (*capturedCr3 == 0 && fallbackCr3 != 0)
-    {
-        *capturedCr3 = fallbackCr3;
-    }
-
-    return *capturedCr3 != 0 ? STATUS_SUCCESS : status;
+    status = Cr3ResolveProcess(process, fallbackCr3, capturedCr3);
+    ObDereferenceObject(process);
+    return status;
 }

@@ -1,4 +1,4 @@
-﻿#include "EptWatchInternal.h"
+#include "EptWatchInternal.h"
 
 namespace ept
 {
@@ -157,7 +157,31 @@ namespace ept
 			return pageWatchId;
 		}
 
-		return -1; // 没有空闲项
+		for (int i = 0; i < EPTWATCHLISTSIZE; i++)
+		{
+			if (ept_watch_entry_is_active(eptWatchList[i]) ||
+				!ept_watch_entry_owns_hardware(eptWatchList[i]) ||
+				GET_PFN(eptWatchList[i].PhysicalAddress) != pfn)
+			{
+				continue;
+			}
+
+			if (eptWatchList[i].bpType == 3)
+			{
+				if (ept_violation.read_access || ept_violation.write_access)
+				{
+					return i;
+				}
+				continue;
+			}
+
+			if (is_watch_access_match(eptWatchList[i], ept_violation))
+			{
+				return i;
+			}
+		}
+
+		return -1;
 	}
 
 	bool ept_handleWatchEvent(__vcpu* vcpu, __ept_violation ept_violation, __ept_hooked_page_info* hooked_page_info,
@@ -189,6 +213,22 @@ namespace ept
 			}
 
 			hooked_page_info->last_watch_id = ID;
+
+			if (!ept_watch_entry_is_active(eptWatchList[ID]))
+			{
+				hooked_page_info->last_watch_id = -1;
+				if (eptWatchList[ID].bpType == 3)
+				{
+					bpType = 3;
+					hooked_page_info->ID = ID;
+					spinlock::unlock(&eptWatchList_lock);
+					return true;
+				}
+
+				RestoreEptPageProperties(hooked_page_info, ID);
+				spinlock::unlock(&eptWatchList_lock);
+				return true;
+			}
 
 			if (eptWatchList[ID].bpType == 3) //int3
 			{

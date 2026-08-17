@@ -2,6 +2,7 @@
 
 #include "../../Driver.h"
 #include "../../../Common/Ring0/UserDataPayload.h"
+#include "../../Core/IoctlHandlers/IoctlHandlerCommon.h"
 #include "../../ntos/inc/ntosdef.h"
 #include "../../ntos/inc/ketypes.h"
 #include "../../ntos/inc/amd64.h"
@@ -24,6 +25,7 @@
 #include "../../Hvm/AsmCallset.h"
 #include "../../Hvm/vmcall_reason.h"
 #include "../DebugBreak.h"
+#include "../../Cr3/Cr3Resolver.h"
 
 bool current_vmcall(PVOID vmcallinfo);
 NTSTATUS CaptureProcessCr3(unsigned long pid, unsigned __int64 fallbackCr3, unsigned __int64* capturedCr3);

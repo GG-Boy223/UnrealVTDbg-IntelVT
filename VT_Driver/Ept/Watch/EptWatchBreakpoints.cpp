@@ -146,10 +146,7 @@ namespace ept
 						}
 					}
 
-					//写入cc断点
-					int offset = vmcallinfo.VirtualAddress & 0xFFF;
-					hooked_page_info->fake_page_contents[offset] = 0xCC;
-					// Installing 条目尚未对 VM-exit 可见，但本 VCPU 的 EPT commit 必须立即包含 INT3 执行权限。
+					// 安装阶段只准备 fake page 与 EPT 权限；0xCC 在来宾收到 watch ID 后统一提交。
 					apply_active_watch_permissions_locked(hooked_page_info, -1);
 					hooked_page_info->entry_address->execute = 0;
 
@@ -251,11 +248,36 @@ namespace ept
 			return false;
 		}
 
-		//写入cc断点
-		int offset = vmcallinfo.VirtualAddress & 0xFFF;
-		hooked_page_info->fake_page_contents[offset] = 0xCC;
 		ept_split_ref_inc(hooked_page_info->owner_split);
 		InsertHeadList(&ept_state.hooked_page_list, &hooked_page_info->hooked_page_list);
 		return true;
+	}
+
+	bool commit_hide_cc_breakpoint(
+		__ept_state& ept_state,
+		unsigned __int64 virtual_address,
+		unsigned __int64 physical_address)
+	{
+		PLIST_ENTRY current = &ept_state.hooked_page_list;
+		while (&ept_state.hooked_page_list != current->Flink)
+		{
+			current = current->Flink;
+			__ept_hooked_page_info* hooked_page_info = CONTAINING_RECORD(
+				current,
+				__ept_hooked_page_info,
+				hooked_page_list);
+
+			if (hooked_page_info->pfn_of_hooked_page != GET_PFN(physical_address) ||
+				hooked_page_info->Options != EPTO_VIRTUAL_BREAKPOINT)
+			{
+				continue;
+			}
+
+			const int offset = static_cast<int>(virtual_address & 0xFFF);
+			hooked_page_info->fake_page_contents[offset] = 0xCC;
+			return true;
+		}
+
+		return false;
 	}
 }

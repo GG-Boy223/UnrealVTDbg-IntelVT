@@ -1,4 +1,4 @@
-﻿#include "../Driver.h"
+#include "../Driver.h"
 #include "../poolmanager.h"
 #include "../Globals.h"
 #include "../mtrr.h"
@@ -22,9 +22,9 @@ namespace ept
 		}
 
 		unsigned int count = static_cast<unsigned int>(requested_count);
-		if (count > g_vmm_context.processor_count)
+		if (count != g_vmm_context.processor_count)
 		{
-			count = g_vmm_context.processor_count;
+			return 0;
 		}
 
 		return count;
