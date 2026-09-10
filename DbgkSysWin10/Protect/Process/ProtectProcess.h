@@ -1,12 +1,12 @@
-#pragma once
+ï»¿#pragma once
 
 #ifndef _PROTECT_PROCESS_H
 #define _PROTECT_PROCESS_H
 
-//ÊÇ°×Ãûµ¥½ø³Ì
-NTSTATUS IsWhiteListProcess(_In_ HANDLE ProcessHandle,  //Òª¶ÁÈ¡µÄÄ¿±ê½ø³Ì
+//æ˜¯ç™½åå•è¿›ç¨‹
+NTSTATUS IsWhiteListProcess(_In_ HANDLE ProcessHandle,  //è¦è¯»å–çš„ç›®æ ‡è¿›ç¨‹
     _In_opt_ PVOID BaseAddress,
-    _Out_opt_ PVOID Buffer, //Êä³ö»º³åÇø
+    _Out_opt_ PVOID Buffer, //è¾“å‡ºç¼“å†²åŒº
     _In_ SIZE_T BufferSize,
     _Out_opt_ PSIZE_T NumberOfBytesRead);
 

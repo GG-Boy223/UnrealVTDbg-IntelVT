@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #ifndef In_getCalculateArgs_H_
 #define In_getCalculateArgs_H_
 #include <string>
@@ -6,15 +6,15 @@
 using namespace std;
 namespace Model
 {
-	// »ñÈ¡Ô¶³ÌËã·¨Èë²Î
+	// è·å–è¿œç¨‹ç®—æ³•å…¥å‚
 	class In_getCalculateArgs :public In_DataBaseArgs
 	{
 	public:
-		//µÇÂ¼ÁîÅÆ(±ØÌî)
+		//ç™»å½•ä»¤ç‰Œ(å¿…å¡«)
 		string token;
-		// Ëã·¨ID(ºóÌ¨->·ÀÆÆ¹ÜÀí->Ô¶³ÌËã·¨ÁĞ±í->Ëã·¨ID)
+		// ç®—æ³•ID(åå°->é˜²ç ´ç®¡ç†->è¿œç¨‹ç®—æ³•åˆ—è¡¨->ç®—æ³•ID)
 		string calculateid;
-		//ÇëÇó×ª·¢µØÖ·Ìá½»µÄ²ÎÊı(²ÎÊı¸ñÊ½Ê¾Àı£ºargs1=value1&args2=value2)
+		//è¯·æ±‚è½¬å‘åœ°å€æäº¤çš„å‚æ•°(å‚æ•°æ ¼å¼ç¤ºä¾‹ï¼šargs1=value1&args2=value2)
 		string requestargs;
 	};
 }

@@ -1,4 +1,4 @@
-#include "../Driver.h"
+﻿#include "../Driver.h"
 #include "../ntos/inc/mmtypes.h"
 #include "../ntos/inc/ntdbg.h"
 #include "../ntos/inc/ketypes.h"
@@ -18,7 +18,7 @@
 
 #define _Altitude_ L"321000"
 
-//�ڱ��������б��в���pid  ����Ƿ��Ǳ������Ľ���
+//在保护对象列表中查找pid  检测是否是被保护的进程
 //BOOLEAN IsProtectProcess(HANDLE ProcessId)
 //{
 //	IsDebugger();
@@ -39,7 +39,7 @@
 //		{
 //			if (ProcessId == (HANDLE)protect_entry->dwProcessId)
 //			{
-//				//�Ǳ����Ľ��̶���
+//				//是保护的进程对象
 //				boIs = TRUE;
 //				break;
 //			}
@@ -53,7 +53,7 @@
 //}
 
 
-//�̻߳ص�
+//线程回调
 //OB_PREOP_CALLBACK_STATUS preThreadCallback(PVOID RegistrationContext, POB_PRE_OPERATION_INFORMATION pOperationInformation)
 //{
 //	UNREFERENCED_PARAMETER(RegistrationContext);
@@ -61,7 +61,7 @@
 //	{
 //		//PrintProcessName(PsGetCurrentProcess());
 //
-//		//��ȡ��ǰ���ý���
+//		//获取当前调用进程
 //		UNICODE_STRING ImageFileName, PassImage;
 //		NTSTATUS Status = GetProcessName(PsGetCurrentProcess(), &ImageFileName);
 //		if (NT_SUCCESS(Status))
@@ -71,13 +71,13 @@
 //				RtlInitUnicodeString(&PassImage, PassProcessList[i]);
 //				if (RtlEqualUnicodeString(&ImageFileName, &PassImage, TRUE))
 //				{
-//					//�����ǰ��������̾��˳�
+//					//发现是白名单进程就退出
 //					return OB_PREOP_SUCCESS;
 //				}
 //			}
 //		}
 //
-//		if (pOperationInformation->Operation == OB_OPERATION_HANDLE_CREATE)  //�򿪾��
+//		if (pOperationInformation->Operation == OB_OPERATION_HANDLE_CREATE)  //打开句柄
 //		{
 //			if ((pOperationInformation->Parameters->CreateHandleInformation.OriginalDesiredAccess & THREAD_SUSPEND_RESUME) == THREAD_SUSPEND_RESUME)
 //			{
@@ -89,7 +89,7 @@
 //			//	pOperationInformation->Parameters->CreateHandleInformation.DesiredAccess &= ~THREAD_GET_CONTEXT;
 //			//}
 //		}
-//		else if (pOperationInformation->Operation == OB_OPERATION_HANDLE_DUPLICATE)  //���ƾ��
+//		else if (pOperationInformation->Operation == OB_OPERATION_HANDLE_DUPLICATE)  //复制句柄
 //		{
 //			if ((pOperationInformation->Parameters->DuplicateHandleInformation.OriginalDesiredAccess & THREAD_SUSPEND_RESUME) == THREAD_SUSPEND_RESUME)
 //			{
@@ -101,7 +101,7 @@
 //}
 
 
-//ע��˱��������޷�����FindWindow
+//注意此保护方案无法拦截FindWindow
 OB_PREOP_CALLBACK_STATUS preProcessCallback(PVOID RegistrationContext, POB_PRE_OPERATION_INFORMATION pOperationInformation)
 {
     DbgkRuntimeCallGuard runtimeGuard;
@@ -113,7 +113,7 @@ OB_PREOP_CALLBACK_STATUS preProcessCallback(PVOID RegistrationContext, POB_PRE_O
 	UNREFERENCED_PARAMETER(RegistrationContext);
 	if (IsDebugger((PEPROCESS)pOperationInformation->Object))
 	{
-		if (pOperationInformation->Operation == OB_OPERATION_HANDLE_CREATE)  //�򿪾��
+		if (pOperationInformation->Operation == OB_OPERATION_HANDLE_CREATE)  //打开句柄
 		{
 			if ((pOperationInformation->Parameters->CreateHandleInformation.OriginalDesiredAccess & PROCESS_VM_READ) == PROCESS_VM_READ)
 			{
@@ -124,7 +124,7 @@ OB_PREOP_CALLBACK_STATUS preProcessCallback(PVOID RegistrationContext, POB_PRE_O
 				pOperationInformation->Parameters->CreateHandleInformation.DesiredAccess &= ~PROCESS_VM_WRITE;
 			}
 		}
-		else if (pOperationInformation->Operation == OB_OPERATION_HANDLE_DUPLICATE)  //���ƾ��
+		else if (pOperationInformation->Operation == OB_OPERATION_HANDLE_DUPLICATE)  //复制句柄
 		{
 			if ((pOperationInformation->Parameters->DuplicateHandleInformation.OriginalDesiredAccess & PROCESS_VM_READ) == PROCESS_VM_READ)
 			{
@@ -139,7 +139,7 @@ OB_PREOP_CALLBACK_STATUS preProcessCallback(PVOID RegistrationContext, POB_PRE_O
 	return OB_PREOP_SUCCESS;
 }
 
-//���ý��̻ص�
+//设置进程回调
 VOID SetProcessCallbacks(IN PDRIVER_OBJECT pDriver_Object)
 {
 	NTSTATUS Status; // eax
@@ -148,7 +148,7 @@ VOID SetProcessCallbacks(IN PDRIVER_OBJECT pDriver_Object)
 
 	PLDR_DATA_TABLE_ENTRY ldr;
 	ldr = (PLDR_DATA_TABLE_ENTRY)pDriver_Object->DriverSection;
-	ldr->Flags |= 0x20;//����������ʱ����жϴ�ֵ������������ǩ�����У�����0x20���ɡ����򽫵���ʧ�� 
+	ldr->Flags |= 0x20;//加载驱动的时候会判断此值。必须有特殊签名才行，增加0x20即可。否则将调用失败 
 
 	oor.ObjectType = PsProcessType;
 	oor.Operations = OB_OPERATION_HANDLE_CREATE | OB_OPERATION_HANDLE_DUPLICATE;
@@ -169,7 +169,7 @@ VOID SetProcessCallbacks(IN PDRIVER_OBJECT pDriver_Object)
 	}
 }
 
-//ж�ؽ��̻ص�
+//卸载进程回调
 VOID UnProcessCallbacks()
 {
 	ASSERT(g_obProcessHandle);

@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #ifndef NetworkVerHelp_H
 #define NetworkVerHelp_H
 //#define _CRT_SECURE_NO_WARNINGS
@@ -38,7 +38,7 @@
 #include "Md5.h"
 
 
-#define USE_VMP        1   // 0 = ¹Ø±Õ£¬1 = ¿ªÆô
+#define USE_VMP        1   // 0 = å…³é—­ï¼Œ1 = å¼€å¯
 
 #if  USE_VMP
 	#include "../../../Common/VMProtect/VMProtectSDK.h"
@@ -48,7 +48,7 @@
 	#pragma comment(lib,"VMProtectSDK32.lib")
 	#endif
 
-#endif // ! ¿ªÆôvmp
+#endif // ! å¼€å¯vmp
 
 
 
@@ -57,25 +57,25 @@ namespace Help
 {
 
 	/// <summary>
-	/// //Èí¼ş³õÊ¼»¯µÄ½á¹û¶ÔÏó
+	/// //è½¯ä»¶åˆå§‹åŒ–çš„ç»“æœå¯¹è±¡
 	/// </summary>
 	extern  Model::Out_iniSoftInfo iniSoftInfoData;
 
 	/// <summary>
-	/// »ñÈ¡»úÆ÷ÂëµÄÊµÌåÀà
+	/// è·å–æœºå™¨ç çš„å®ä½“ç±»
 	/// </summary>
 	class NetworkVerHelp
 	{
 	public:
 
 		/// <summary>
-		/// //»ñÈ¡Ê±¼ä´Á
+		/// //è·å–æ—¶é—´æˆ³
 		/// </summary>
 		/// <returns></returns>
 		static	__int64 GetTimeStamp();
 
 		/// <summary>
-		/// //»ñÈ¡»úÆ÷Âë
+		/// //è·å–æœºå™¨ç 
 		/// </summary>
 		/// <returns></returns>
 		static string GetMac();
@@ -83,69 +83,69 @@ namespace Help
 
 
 		/// <summary>
-		/// //json×Ö·û´®×ª»ù´¡·µ»ØÀàĞÍ
+		/// //jsonå­—ç¬¦ä¸²è½¬åŸºç¡€è¿”å›ç±»å‹
 		/// </summary>
 		/// <param name="data"></param>
 		/// <returns></returns>
 		static Model::Out_DataBaseArgs ConvertOutDataBaseArgs(string data);
 
-		//³õÊ¼»¯Èí¼ş·µµÄjsonDataÊı¾İ×ª»¯³É¶ÔÏó
+		//åˆå§‹åŒ–è½¯ä»¶è¿”çš„jsonDataæ•°æ®è½¬åŒ–æˆå¯¹è±¡
 		static Model::Out_iniSoftInfo ConvertIniSoftInfoData(string data);
 
-		//µÇÂ¼µÄjsonDataÊı¾İ×ª»¯³É¶ÔÏó
+		//ç™»å½•çš„jsonDataæ•°æ®è½¬åŒ–æˆå¯¹è±¡
 		static Model::Out_Login ConvertLoginData(string data);
 
 
 
-		//½«ĞÄÌøÊı¾İ×ª»¯³É¶ÔÏó
+		//å°†å¿ƒè·³æ•°æ®è½¬åŒ–æˆå¯¹è±¡
 		static Model::Out_heartBeat ConvertHeartBeat(string data);
 
-		//»»°ódaga½á¹û×ª»¯³É¶ÔÏó
+		//æ¢ç»‘dagaç»“æœè½¬åŒ–æˆå¯¹è±¡
 		static Model::Out_unbundMacArgs ConvertUnbundMac(string data);
 
-		//¿¨ÃÜÏêÇé½á¹û×ª¶ÔÏó
+		//å¡å¯†è¯¦æƒ…ç»“æœè½¬å¯¹è±¡
 		static Model::Out_cardDetail ConvertCardDetail(string data);
 
 
 
 
 
-		//³õÊ¼»¯Èí¼ş
+		//åˆå§‹åŒ–è½¯ä»¶
 		static Model::Result GetIniSoftInfo(Model::In_IniSoftInfoArgs dataArgs, Model::PlatformType _platformtypeid, string _encryptKey,
 			string _signSalt, Model::EncryptType _encrypttypeid, string _softcode, string _platformUserCode);
 
-		//µÇÂ¼³É¹¦ºó£¬¿ªÊ¼ĞÄÌø(ĞÄÌø¼ä¸ôÊ±¼ä²»ÄÜĞ¡ÓÚ5·ÖÖÓ)
+		//ç™»å½•æˆåŠŸåï¼Œå¼€å§‹å¿ƒè·³(å¿ƒè·³é—´éš”æ—¶é—´ä¸èƒ½å°äº5åˆ†é’Ÿ)
 		static Model::Result GetHeartBeat(Model::In_HeartBeatArgs dataArgs);
 
 
 
 		/// <summary>
-		/// ¿¨ÃÜµÇÂ¼
+		/// å¡å¯†ç™»å½•
 		/// </summary>
 		/// <param name="dataArgs"></param>
 		/// <returns></returns>
 		static Model::Result GetLoginByCard(Model::In_CardLoginArgs dataArgs);
 
 		/// <summary>
-		/// //¿¨ÃÜÏêÇé
+		/// //å¡å¯†è¯¦æƒ…
 		/// </summary>
 		/// <param name="dataArgs"></param>
 		/// <returns></returns>
 		static Model::Result GeCardDetail(Model::In_cardDetailArgs dataArgs);
 
-		//ÍË³öµÇÂ¼
+		//é€€å‡ºç™»å½•
 		static Model::Result GeLoginOut(Model::In_LoginOutArgs dataArgs);
 
-		//½â°ó»úÆ÷Âë(Èç¹ûÈí¼şÉèÖÃ½â°ó¿Û³ıÏàÓ¦µÄÊ±¼ä»òµãÊı£¬ÄÇÃ´½â°ó³É¹¦ºó»á×Ô¶¯¿Û³ı)
+		//è§£ç»‘æœºå™¨ç (å¦‚æœè½¯ä»¶è®¾ç½®è§£ç»‘æ‰£é™¤ç›¸åº”çš„æ—¶é—´æˆ–ç‚¹æ•°ï¼Œé‚£ä¹ˆè§£ç»‘æˆåŠŸåä¼šè‡ªåŠ¨æ‰£é™¤)
 		static Model::Result unbundMac(Model::In_unbundMacArgs dataArgs);
 
-		//½ûÓÃ»¹ÊÇÉ¾³ı£ºµ¥Âë»òÕËºÅ
+		//ç¦ç”¨è¿˜æ˜¯åˆ é™¤ï¼šå•ç æˆ–è´¦å·
 		static Model::Result DisableCardOrAccount(Model::In_DisableCardOrAccountArgs dataArgs);
 
 
 	private:
 		static Model::Result getReqResult(string address, string PostJsonData, CJsonObject oJson);
-		//ÇëÇó½Ó¿Ú»ñÈ¡Êı¾İ
+		//è¯·æ±‚æ¥å£è·å–æ•°æ®
 		static Model::Result GetRequestResult(Model::BusinessType businessType, string data);
 
 		static string GBKToUTF8(const char* strGBK);

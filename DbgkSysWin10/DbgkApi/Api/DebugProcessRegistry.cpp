@@ -43,51 +43,51 @@ BOOLEAN LookupDebugTargetProcessObject(_EPROCESS* Process, PDEBUG_OBJECT* DebugO
     return result;
 }
 
-BOOLEAN DetachDebugTargetProcessObject(_EPROCESS* Process, PDEBUG_OBJECT DebugObject, PBOOLEAN DebugObjectReferenced)
-{
-    if (DebugObjectReferenced == NULL)
-    {
-        return FALSE;
-    }
-
-    *DebugObjectReferenced = FALSE;
-    if (Process == NULL || DebugObject == NULL || KeGetCurrentIrql() > APC_LEVEL)
-    {
-        return FALSE;
-    }
-
-    PDEBUG_PROCESS detachedEntry = NULL;
-    ExAcquireFastMutex(&g_DebugProcessList.Mutex);
-    PLIST_ENTRY listHead = &g_DebugProcessList.list_entry.ListHead;
-    for (PLIST_ENTRY current = listHead->Flink; current != listHead; current = current->Flink)
-    {
-        PDEBUG_PROCESS entry = CONTAINING_RECORD(current, DEBUG_PROCESS, list_entry);
-        if (entry->Process == Process && entry->DebugObject == DebugObject)
-        {
-            RemoveEntryList(current);
-            if (g_DebugProcessList.list_entry.Count != 0)
-            {
-                g_DebugProcessList.list_entry.Count--;
-            }
-
-            *DebugObjectReferenced = entry->DebugObjectReferenced;
-            entry->Process = NULL;
-            entry->DebugObject = NULL;
-            entry->DebugObjectReferenced = FALSE;
-            detachedEntry = entry;
-            break;
-        }
-    }
-    ExReleaseFastMutex(&g_DebugProcessList.Mutex);
-
-    if (detachedEntry != NULL)
-    {
-        free_pool(detachedEntry);
-        return TRUE;
-    }
-
-    return FALSE;
-}
+//BOOLEAN DetachDebugTargetProcessObject(_EPROCESS* Process, PDEBUG_OBJECT DebugObject, PBOOLEAN DebugObjectReferenced)
+//{
+//    if (DebugObjectReferenced == NULL)
+//    {
+//        return FALSE;
+//    }
+//
+//    *DebugObjectReferenced = FALSE;
+//    if (Process == NULL || DebugObject == NULL || KeGetCurrentIrql() > APC_LEVEL)
+//    {
+//        return FALSE;
+//    }
+//
+//    PDEBUG_PROCESS detachedEntry = NULL;
+//    ExAcquireFastMutex(&g_DebugProcessList.Mutex);
+//    PLIST_ENTRY listHead = &g_DebugProcessList.list_entry.ListHead;
+//    for (PLIST_ENTRY current = listHead->Flink; current != listHead; current = current->Flink)
+//    {
+//        PDEBUG_PROCESS entry = CONTAINING_RECORD(current, DEBUG_PROCESS, list_entry);
+//        if (entry->Process == Process && entry->DebugObject == DebugObject)
+//        {
+//            RemoveEntryList(current);
+//            if (g_DebugProcessList.list_entry.Count != 0)
+//            {
+//                g_DebugProcessList.list_entry.Count--;
+//            }
+//
+//            *DebugObjectReferenced = entry->DebugObjectReferenced;
+//            entry->Process = NULL;
+//            entry->DebugObject = NULL;
+//            entry->DebugObjectReferenced = FALSE;
+//            detachedEntry = entry;
+//            break;
+//        }
+//    }
+//    ExReleaseFastMutex(&g_DebugProcessList.Mutex);
+//
+//    if (detachedEntry != NULL)
+//    {
+//        free_pool(detachedEntry);
+//        return TRUE;
+//    }
+//
+//    return FALSE;
+//}
 
 BOOLEAN InsertDebuggerList(PDEBUGGER_TABLE_ENTRY Debugger)
 {

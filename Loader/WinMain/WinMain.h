@@ -28,7 +28,7 @@
 
 #define USER_PROGRESS_BAR  WM_USER + 1
 
-//∆Ù∂Ø–≈œ¢
+//启动信息
 typedef struct _STARTUP_INFO
 {
 	TCHAR szExe[256];

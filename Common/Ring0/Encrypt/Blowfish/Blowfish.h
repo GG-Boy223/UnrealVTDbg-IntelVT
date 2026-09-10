@@ -1,15 +1,15 @@
-#pragma once
+ï»¿#pragma once
 
 #ifndef _BLOWFISH_H
 #define _BLOWFISH_H
 
-#define ECB 0  //µç×ÓÃÜÂë±¾
-#define CBC 1  //¼ÓÃÜ¿éÁ´
-#define CFB 2  //¼ÓÃÜ·´À¡
+#define ECB 0  //ç”µå­å¯†ç æœ¬
+#define CBC 1  //åŠ å¯†å—é“¾
+#define CFB 2  //åŠ å¯†åé¦ˆ
 #define MAX_KEY_SIZE 56
-#define MAX_PBLOCK_SIZE 18     //PºĞ´óĞ¡
-#define MAX_SBLOCK_XSIZE 4     //SºĞºá´óĞ¡
-#define MAX_SBLOCK_YSIZE 256   //SºĞÁĞ´óĞ¡
+#define MAX_PBLOCK_SIZE 18     //Pç›’å¤§å°
+#define MAX_SBLOCK_XSIZE 4     //Sç›’æ¨ªå¤§å°
+#define MAX_SBLOCK_YSIZE 256   //Sç›’åˆ—å¤§å°
 
 /*Block Structure*/
 typedef struct {

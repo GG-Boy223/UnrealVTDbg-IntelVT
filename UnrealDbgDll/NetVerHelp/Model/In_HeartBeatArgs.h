@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #ifndef In_HeartBeatArgs_H_
 #define In_HeartBeatArgs_H_
 #include <string>
@@ -6,15 +6,15 @@
 using namespace std;
 namespace Model
 {
-	// ĞÄÌøÈë²Î
+	// å¿ƒè·³å…¥å‚
 	class In_HeartBeatArgs : public In_DataBaseArgs
 	{
 	public:
-		//µÇÂ¼ÁîÅÆ(±ØÌî)
+		//ç™»å½•ä»¤ç‰Œ(å¿…å¡«)
 		string token;
-		//ĞÄÌøKey,Ã¿´ÎĞÄÌø´ËÖµ¶¼»á±ä
+		//å¿ƒè·³Key,æ¯æ¬¡å¿ƒè·³æ­¤å€¼éƒ½ä¼šå˜
 		string heartbeatkey;
-		// ¿¨ÃÜ»òÕËºÅ(±ØÌî)
+		// å¡å¯†æˆ–è´¦å·(å¿…å¡«)
 		string cardnumorusername;
 	};
 }

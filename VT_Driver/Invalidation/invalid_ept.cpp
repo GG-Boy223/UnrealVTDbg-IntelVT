@@ -1,19 +1,19 @@
-#include "Driver.h"        // Çı¶¯»ù´¡Í·ÎÄ¼ş£¬Ìá¹©ÄÚºË/ÀàĞÍ/ºê¶¨Òå
-#include "invalid_ept.h"   // INVEPT ÃèÊö·ûÓë½Ó¿ÚÉùÃ÷
-#include "AsmCallset.h"    // »ã±à·â×°µÄ INVEPT Ö¸Áîµ÷ÓÃ
+ï»¿#include "Driver.h"        // é©±åŠ¨åŸºç¡€å¤´æ–‡ä»¶ï¼Œæä¾›å†…æ ¸/ç±»å‹/å®å®šä¹‰
+#include "invalid_ept.h"   // INVEPT æè¿°ç¬¦ä¸æ¥å£å£°æ˜
+#include "AsmCallset.h"    // æ±‡ç¼–å°è£…çš„ INVEPT æŒ‡ä»¤è°ƒç”¨
 
-// Ë¢ĞÂÈ«²¿ EPT ÉÏÏÂÎÄ£¨ËùÓĞÂß¼­´¦ÀíÆ÷£©
-void invept_all_contexts_func() // ¹©ÉÏ²ãÍ³Ò»Ë¢ĞÂ EPT »º´æµÄÈë¿Ú£¬È·±£ËùÓĞ EPT Ó³Éä±ä»¯ÉúĞ§
+// åˆ·æ–°å…¨éƒ¨ EPT ä¸Šä¸‹æ–‡ï¼ˆæ‰€æœ‰é€»è¾‘å¤„ç†å™¨ï¼‰
+void invept_all_contexts_func() // ä¾›ä¸Šå±‚ç»Ÿä¸€åˆ·æ–° EPT ç¼“å­˜çš„å…¥å£ï¼Œç¡®ä¿æ‰€æœ‰ EPT æ˜ å°„å˜åŒ–ç”Ÿæ•ˆ
 {
-    __invept_descriptor descriptor = { 0 }; // ÃèÊö·ûÖÃÁã£¬·ûºÏ INVEPT(all-context) µÄ¸ñÊ½ÒªÇó
-    __invept(invept_all_context, &descriptor); // Ö´ĞĞ INVEPT(all-context)£¬Çå¿ÕËùÓĞ EPT ÅÉÉú»º´æ
+    __invept_descriptor descriptor = { 0 }; // æè¿°ç¬¦ç½®é›¶ï¼Œç¬¦åˆ INVEPT(all-context) çš„æ ¼å¼è¦æ±‚
+    __invept(invept_all_context, &descriptor); // æ‰§è¡Œ INVEPT(all-context)ï¼Œæ¸…ç©ºæ‰€æœ‰ EPT æ´¾ç”Ÿç¼“å­˜
 }
 
-// Ë¢ĞÂÖ¸¶¨ EPTP µÄÉÏÏÂÎÄ£¨µ¥Ò»ÉÏÏÂÎÄÎŞĞ§»¯£©
-void invept_single_context_func(unsigned __int64 ept_pointer) // ½öË¢ĞÂÄ³¸ö EPTP£¬±ÜÃâÈ«¾ÖÊ§Ğ§µ¼ÖÂµÄĞÔÄÜ¿ªÏú
+// åˆ·æ–°æŒ‡å®š EPTP çš„ä¸Šä¸‹æ–‡ï¼ˆå•ä¸€ä¸Šä¸‹æ–‡æ— æ•ˆåŒ–ï¼‰
+void invept_single_context_func(unsigned __int64 ept_pointer) // ä»…åˆ·æ–°æŸä¸ª EPTPï¼Œé¿å…å…¨å±€å¤±æ•ˆå¯¼è‡´çš„æ€§èƒ½å¼€é”€
 {
-    __invept_descriptor descriptor = { 0 }; // ³õÊ¼»¯ÃèÊö·û£¬±ÜÃâ²ĞÁôÎ»µ¼ÖÂ #GP Òì³£
-    descriptor.ept_pointer = ept_pointer; // Ö¸¶¨ÒªÊ§Ğ§µÄ EPTP£¨À´×Ôµ±Ç° VCPU µÄ EPT ×´Ì¬£©
-    descriptor.reserved = 0; // ±£ÁôÎ»±ØĞëÎª 0£¬Âú×ãÖ¸ÁîÔ¼Êø
-    __invept(invept_single_context, &descriptor); // ½öÎŞĞ§»¯¸Ã EPTP ÉÏÏÂÎÄ£¬¼ÓËÙË¢ĞÂÇÒ¼õĞ¡ÈÅ¶¯
+    __invept_descriptor descriptor = { 0 }; // åˆå§‹åŒ–æè¿°ç¬¦ï¼Œé¿å…æ®‹ç•™ä½å¯¼è‡´ #GP å¼‚å¸¸
+    descriptor.ept_pointer = ept_pointer; // æŒ‡å®šè¦å¤±æ•ˆçš„ EPTPï¼ˆæ¥è‡ªå½“å‰ VCPU çš„ EPT çŠ¶æ€ï¼‰
+    descriptor.reserved = 0; // ä¿ç•™ä½å¿…é¡»ä¸º 0ï¼Œæ»¡è¶³æŒ‡ä»¤çº¦æŸ
+    __invept(invept_single_context, &descriptor); // ä»…æ— æ•ˆåŒ–è¯¥ EPTP ä¸Šä¸‹æ–‡ï¼ŒåŠ é€Ÿåˆ·æ–°ä¸”å‡å°æ‰°åŠ¨
 }

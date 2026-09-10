@@ -1,15 +1,15 @@
-#pragma once
+ï»¿#pragma once
 
 #ifndef _CALLBACKS_H
 #define _CALLBACKS_H
 
-//×¢Òâ´Ë±£»¤·½°¸ÎŞ·¨À¹½ØFindWindow
+//æ³¨æ„æ­¤ä¿æŠ¤æ–¹æ¡ˆæ— æ³•æ‹¦æˆªFindWindow
 OB_PREOP_CALLBACK_STATUS preProcessCallback(PVOID RegistrationContext, POB_PRE_OPERATION_INFORMATION pOperationInformation);
 
-//ÉèÖÃ½ø³Ì»Øµ÷
+//è®¾ç½®è¿›ç¨‹å›è°ƒ
 VOID SetProcessCallbacks(IN PDRIVER_OBJECT pDriver_Object);
 
-//Ğ¶ÔØ½ø³Ì»Øµ÷
+//å¸è½½è¿›ç¨‹å›è°ƒ
 VOID UnProcessCallbacks();
 
 

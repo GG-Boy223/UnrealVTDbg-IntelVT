@@ -1,4 +1,4 @@
-#include "../../Driver.h"
+ï»¿#include "../../Driver.h"
 #include "../../ntos/inc/mmtypes.h"
 #include "../../ntos/inc/ntdbg.h"
 #include "../../ntos/inc/ketypes.h"
@@ -16,7 +16,7 @@
 #include "../../DbgkApi/DbgkApi.h"
 #include "BypassFindWnd.h"
 
-//ÊÇ±»±£»¤µÄ´°¿Ú
+//æ˜¯è¢«ä¿æŠ¤çš„çª—å£
 BOOLEAN IsProtectWnd(PUNICODE_STRING WindowName)
 {
     PLIST_ENTRY ListHead, NextEntry;

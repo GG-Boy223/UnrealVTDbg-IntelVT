@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #ifndef _ALLOCATEMEM_H
 #define _ALLOCATEMEM_H

@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #ifndef In_CreateCardArgs_H_
 #define In_CreateCardArgs_H_
 #include <string>
@@ -6,21 +6,21 @@
 using namespace std;
 namespace Model
 {
-	// Éú³É¿¨ÃÜÈë²Î
+	// ç”Ÿæˆå¡å¯†å…¥å‚
 	class In_CreateCardArgs :public In_DataBaseArgs
 	{
 	public:
-		// ¿¨ÃÜÇ°×º(1.Ö»ÄÜÌîĞ´Êı×Ö»ò×ÖÄ¸ 2.³¤¶È²»ÄÜ´óÓÚ4)£¬¿ÉÑ¡
+		// å¡å¯†å‰ç¼€(1.åªèƒ½å¡«å†™æ•°å­—æˆ–å­—æ¯ 2.é•¿åº¦ä¸èƒ½å¤§äº4)ï¼Œå¯é€‰
 		string prefix;
-		// qq(¿ÉÑ¡)
+		// qq(å¯é€‰)
 		string qq;
-		// wx(¿ÉÑ¡)
+		// wx(å¯é€‰)
 		string wx;
-		// Ö§¸¶±¦(¿ÉÑ¡)
+		// æ”¯ä»˜å®(å¯é€‰)
 		string alipay;
-		// µç»°(¿ÉÑ¡)
+		// ç”µè¯(å¯é€‰)
 		string tel;
-		// ÓÊÏä(¿ÉÑ¡)
+		// é‚®ç®±(å¯é€‰)
 		string email;
 	};
 }

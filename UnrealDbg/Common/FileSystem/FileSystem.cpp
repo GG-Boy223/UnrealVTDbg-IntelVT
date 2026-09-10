@@ -1,4 +1,4 @@
-#include <Windows.h>
+ï»¿#include <Windows.h>
 #include <string>
 #include <fstream>
 #include <vector>
@@ -7,25 +7,25 @@
 
 namespace FileSystem
 {
-    //´´½¨iniÎÄ¼ş
+    //åˆ›å»ºiniæ–‡ä»¶
     void CreateIniFile(const std::wstring& filename)
     {
         std::wofstream file(filename);
         file.close();
     }
 
-    //É¾³ıiniÎÄ¼ş
+    //åˆ é™¤iniæ–‡ä»¶
     bool DeleteIniFile(const std::wstring& filename)
     {
         if (_wremove(filename.c_str()) == 0) {
-            return true; // ³É¹¦É¾³ıÎÄ¼ş
+            return true; // æˆåŠŸåˆ é™¤æ–‡ä»¶
         }
         else {
-            return false; // É¾³ıÎÄ¼şÊ§°Ü
+            return false; // åˆ é™¤æ–‡ä»¶å¤±è´¥
         }
     }
 
-    //±éÀúÖ¸¶¨Ä¿Â¼ÏÂµÄÎÄ¼ş
+    //éå†æŒ‡å®šç›®å½•ä¸‹çš„æ–‡ä»¶
     std::vector<std::wstring> TraverseDirectory(const std::wstring& directoryPath)
     {
         std::vector<std::wstring> files;
@@ -97,7 +97,7 @@ namespace FileSystem
         return L"";
     }
 
-    //»ñÈ¡×ÔÉíÄ£¿éÃû³Æ
+    //è·å–è‡ªèº«æ¨¡å—åç§°
     std::string GetSelfModuleName()
     {
         HMODULE hModule = NULL;
@@ -114,7 +114,7 @@ namespace FileSystem
                 std::string moduleName = fullPath.substr(pos + 1);
                 if (moduleName.empty())
                 {
-                    ::MessageBox(NULL, _T("¶¨Î»Ä£¿éÊ§°Ü!"), _T("´íÎó:"), MB_ICONWARNING);
+                    ::MessageBox(NULL, _T("å®šä½æ¨¡å—å¤±è´¥!"), _T("é”™è¯¯:"), MB_ICONWARNING);
                 }
                 else
                 {

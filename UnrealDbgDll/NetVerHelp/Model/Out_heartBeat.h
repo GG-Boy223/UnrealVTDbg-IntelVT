@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #ifndef Out_heartBeat_H_
 #define Out_heartBeat_H_
 #include <string>
@@ -6,16 +6,16 @@
 using namespace std;
 namespace Model
 {
-	//ĞÄÌø³ö²Î
+	//å¿ƒè·³å‡ºå‚
 	class Out_heartBeat :public Out_DataBaseArgs
 	{
 	public:
-		//ĞÄÌøKey,Ã¿´ÎĞÄÌø´ËÖµ¶¼»á±ä
+		//å¿ƒè·³Key,æ¯æ¬¡å¿ƒè·³æ­¤å€¼éƒ½ä¼šå˜
 		string	heartbeatkey;
-		//ÕËºÅ»ò¿¨ÃÜµ½ÆÚÊ±¼ä
+		//è´¦å·æˆ–å¡å¯†åˆ°æœŸæ—¶é—´
 		string endtime;
 
-		//ÕËºÅ»ò¿¨ÃÜÊ£ÓàµãÊı
+		//è´¦å·æˆ–å¡å¯†å‰©ä½™ç‚¹æ•°
 		int surpluspointvalue;
 	};
 }

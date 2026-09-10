@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #ifndef _LOGGER_H
 #define _LOGGER_H
@@ -32,7 +32,7 @@ public:
 
     //void _outDebug(TCHAR* sText)
     //{
-    //    // Ïß³ÌÍ¬²½£ºÊ¹ÓÃ»¥³âËø±£»¤ÁÙ½çÇø
+    //    // çº¿ç¨‹åŒæ­¥ï¼šä½¿ç”¨äº’æ–¥é”ä¿æŠ¤ä¸´ç•ŒåŒº
     //    std::lock_guard<std::mutex> lock(mutex);
     //    TCHAR szBuf[1024] = { 0 };
 
@@ -52,7 +52,7 @@ public:
 
     void _outDebug(TCHAR* sText)
     {
-        // Ïß³ÌÍ¬²½£ºÊ¹ÓÃ»¥³âËø±£»¤ÁÙ½çÇø
+        // çº¿ç¨‹åŒæ­¥ï¼šä½¿ç”¨äº’æ–¥é”ä¿æŠ¤ä¸´ç•ŒåŒº
         std::lock_guard<std::mutex> lock(mutex);
         TCHAR szBuf[1024] = { 0 };
 
@@ -76,7 +76,7 @@ public:
         }
         catch (...)
         {
-            ::MessageBox(NULL, _T("¶¨Î»²»µ½PrintLogÈë¿Ú!"), _T("´íÎó:"), MB_ICONWARNING);
+            ::MessageBox(NULL, _T("å®šä½ä¸åˆ°PrintLogå…¥å£!"), _T("é”™è¯¯:"), MB_ICONWARNING);
         }
     }
 
@@ -95,12 +95,12 @@ public:
         }
         __except (1)
         {
-            ::MessageBox(NULL, _T("ÈÕÖ¾»º³åÇøÒç³ö!"), _T("Õ»Òç³ö"), MB_ICONWARNING);
+            ::MessageBox(NULL, _T("æ—¥å¿—ç¼“å†²åŒºæº¢å‡º!"), _T("æ ˆæº¢å‡º"), MB_ICONWARNING);
         }
         return 0;
     }
 
-    ////Ó¢ÎÄÈÕÆÚ
+    ////è‹±æ–‡æ—¥æœŸ
     //void Log(const std::string& message) {
     //    if (logFile.is_open()) {
     //        std::time_t now = std::time(nullptr);
@@ -113,7 +113,7 @@ public:
     //}
 
     void Log(const char* format, ...) {
-        // Ïß³ÌÍ¬²½£ºÊ¹ÓÃ»¥³âËø±£»¤ÁÙ½çÇø
+        // çº¿ç¨‹åŒæ­¥ï¼šä½¿ç”¨äº’æ–¥é”ä¿æŠ¤ä¸´ç•ŒåŒº
         std::lock_guard<std::mutex> lock(mutex);
 
         if (logFile.is_open()) {
@@ -121,7 +121,7 @@ public:
             std::tm* localTime = std::localtime(&now);
 
             char buffer[100];
-            std::strftime(buffer, sizeof(buffer), "%YÄê%mÔÂ%dÈÕ %H:%M:%S", localTime);
+            std::strftime(buffer, sizeof(buffer), "%Yå¹´%mæœˆ%dæ—¥ %H:%M:%S", localTime);
 
             //std::string logMessage = "[" + std::string(buffer) + "] " + format;
 
@@ -138,7 +138,7 @@ public:
 
             std::string logMessage = oss.str();
             logFile << logMessage << std::endl;
-            logFile.flush();  //½«»º³åÇøÖĞµÄÊı¾İÁ¢¼´Ë¢ĞÂµ½´ÅÅÌ£¬È·±£Êı¾İĞ´ÈëÎÄ¼ş¡£
+            logFile.flush();  //å°†ç¼“å†²åŒºä¸­çš„æ•°æ®ç«‹å³åˆ·æ–°åˆ°ç£ç›˜ï¼Œç¡®ä¿æ•°æ®å†™å…¥æ–‡ä»¶ã€‚
             //OutputDebugStringA(logMessage.c_str());
         }
     }
@@ -147,7 +147,7 @@ private:
     std::ofstream logFile;
     std::string filename;
     std::wstring m_modName;
-    std::mutex mutex; // »¥³âËø
+    std::mutex mutex; // äº’æ–¥é”
 };
 
 #endif // !_LOGGER_H

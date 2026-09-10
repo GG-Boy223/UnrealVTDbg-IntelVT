@@ -1,4 +1,4 @@
-#include <iostream>
+ï»¿#include <iostream>
 #include <Windows.h>
 #include <string>
 #include <codecvt>
@@ -17,34 +17,34 @@
 namespace Common
 {
 
-	HANDLE hMutex;// ·À¶à¿ª
+	HANDLE hMutex;// é˜²å¤šå¼€
 	bool isIntel = false;
 	bool isAMD = false;
-	std::mutex mutex; // »¥³âËø
+	std::mutex mutex; // äº’æ–¥é”
 
-	//string×ªwstring
+	//stringè½¬wstring
 	std::wstring stringToWideString(const std::string& narrowStr)
 	{
-		// »ñÈ¡¿í×Ö·û×Ö·û´®µÄ³¤¶È£¨°üÀ¨¿ÕÖÕÖ¹·û£©
+		// è·å–å®½å­—ç¬¦å­—ç¬¦ä¸²çš„é•¿åº¦ï¼ˆåŒ…æ‹¬ç©ºç»ˆæ­¢ç¬¦ï¼‰
 		int wideStrLength = MultiByteToWideChar(CP_UTF8, 0, narrowStr.c_str(), -1, nullptr, 0);
 
-		// ·ÖÅäÄÚ´æÀ´´æ´¢¿í×Ö·û×Ö·û´®
+		// åˆ†é…å†…å­˜æ¥å­˜å‚¨å®½å­—ç¬¦å­—ç¬¦ä¸²
 		wchar_t* wideStr = new wchar_t[wideStrLength];
 
-		// ½«Õ­×Ö·û×ª»»Îª¿í×Ö·û
+		// å°†çª„å­—ç¬¦è½¬æ¢ä¸ºå®½å­—ç¬¦
 		MultiByteToWideChar(CP_UTF8, 0, narrowStr.c_str(), -1, wideStr, wideStrLength);
 
-		// ´´½¨ std::wstring ¶ÔÏó
+		// åˆ›å»º std::wstring å¯¹è±¡
 		std::wstring result(wideStr);
 
-		// ÊÍ·ÅÄÚ´æ
+		// é‡Šæ”¾å†…å­˜
 		delete[] wideStr;
 
 		return result;
 	}
 
-	//wstring×ªstring
-	//×¢Òâ: ÔÚWindowsÏÂ½«utf16×ªutf8µÄstd::stringÊÇÎŞ·¨Õı³£ÏÔÊ¾ÖĞÎÄµÄ
+	//wstringè½¬string
+	//æ³¨æ„: åœ¨Windowsä¸‹å°†utf16è½¬utf8çš„std::stringæ˜¯æ— æ³•æ­£å¸¸æ˜¾ç¤ºä¸­æ–‡çš„
 	std::string wideStringToString(const std::wstring& wideStr)
 	{
 		int bufferSize = WideCharToMultiByte(CP_UTF8, 0, wideStr.c_str(), -1, nullptr, 0, nullptr, nullptr);
@@ -53,8 +53,8 @@ namespace Common
 		return str;
 	}
 
-	//wstring×ª±¾µØstring
-	//×¢Òâ: ±¾µØansi¿ÉÒÔÏÔÊ¾ÖĞÎÄ£¬µ«Çë²»ÒªÔÙÍøÂçÄÚÈİ´«ÊäÖĞÊ¹ÓÃËü£¬ÒòÎª²»Í¬¼ÆËã»ú±¾µØ´úÂëÒ³²»ÏàÍ¬.
+	//wstringè½¬æœ¬åœ°string
+	//æ³¨æ„: æœ¬åœ°ansiå¯ä»¥æ˜¾ç¤ºä¸­æ–‡ï¼Œä½†è¯·ä¸è¦å†ç½‘ç»œå†…å®¹ä¼ è¾“ä¸­ä½¿ç”¨å®ƒï¼Œå› ä¸ºä¸åŒè®¡ç®—æœºæœ¬åœ°ä»£ç é¡µä¸ç›¸åŒ.
 	std::string wideStringToString2(const std::wstring& wideStr)
 	{
 		int bufferSize = WideCharToMultiByte(CP_ACP, 0, wideStr.c_str(), -1, nullptr, 0, nullptr, nullptr);
@@ -63,46 +63,46 @@ namespace Common
 		return str;
 	}
 
-	//wchar_t*×ªstring
+	//wchar_t*è½¬string
 	std::string wcharToString(const wchar_t* str)
 	{
 		std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
 		return converter.to_bytes(str);
 	}
 
-	//wchar_t*×ªwstring
+	//wchar_t*è½¬wstring
 	std::wstring wcharToWideString(const wchar_t* wcharStr)
 	{
-		// Ê¹ÓÃ¹¹Ôìº¯Êı½« wchar_t* ×ª»»Îª std::wstring
+		// ä½¿ç”¨æ„é€ å‡½æ•°å°† wchar_t* è½¬æ¢ä¸º std::wstring
 		std::wstring wideStr(wcharStr);
 
 		return wideStr;
 	}
 
-	//char*×ªwchar_t*
+	//char*è½¬wchar_t*
 	std::wstring ConvertCharToWchar(const char* charStr)
 	{
-		const int charStrLength = strlen(charStr) + 1; // char ×Ö·û´®µÄ³¤¶È£¨°üÀ¨ null ÖÕÖ¹·û£©
+		const int charStrLength = strlen(charStr) + 1; // char å­—ç¬¦ä¸²çš„é•¿åº¦ï¼ˆåŒ…æ‹¬ null ç»ˆæ­¢ç¬¦ï¼‰
 
-		// ¼ÆËã wchar_t ×Ö·û´®ËùĞèµÄ»º³åÇø´óĞ¡
+		// è®¡ç®— wchar_t å­—ç¬¦ä¸²æ‰€éœ€çš„ç¼“å†²åŒºå¤§å°
 		const int wcharStrSize = MultiByteToWideChar(CP_UTF8, 0, charStr, charStrLength, nullptr, 0);
 
-		// ·ÖÅä wchar_t »º³åÇø
+		// åˆ†é… wchar_t ç¼“å†²åŒº
 		wchar_t* wcharStr = new wchar_t[wcharStrSize];
 
-		// Ö´ĞĞ×ª»»
+		// æ‰§è¡Œè½¬æ¢
 		MultiByteToWideChar(CP_UTF8, 0, charStr, charStrLength, wcharStr, wcharStrSize);
 
-		// ½« wchar_t ×Ö·û´®·â×°µ½ std::wstring ÀàĞÍ
+		// å°† wchar_t å­—ç¬¦ä¸²å°è£…åˆ° std::wstring ç±»å‹
 		std::wstring result(wcharStr);
 
-		// ÊÍ·ÅÄÚ´æ
+		// é‡Šæ”¾å†…å­˜
 		delete[] wcharStr;
 
 		return result;
 	}
 
-	//gbk×ªutf8
+	//gbkè½¬utf8
 	std::string GbkToUTF8(const std::string& gbkString)
 	{
 		int bufferSize = MultiByteToWideChar(CP_ACP, 0, gbkString.c_str(), -1, nullptr, 0);
@@ -116,7 +116,7 @@ namespace Common
 		return utf8String;
 	}
 
-	//gbk×ªutf8
+	//gbkè½¬utf8
 	//std::string GbkToUTF8(const std::string& gbkString)
 	//{
 	//	int bufferSize = MultiByteToWideChar(CP_ACP, 0, gbkString.c_str(), -1, nullptr, 0);
@@ -130,13 +130,13 @@ namespace Common
 	//	return utf8String;
 	//}
 
-	// ½« utf8 ±àÂëµÄ×Ö·û´®×ª»»Îª GBK ±àÂë
+	// å°† utf8 ç¼–ç çš„å­—ç¬¦ä¸²è½¬æ¢ä¸º GBK ç¼–ç 
 	std::string utf8ToGbk(const std::string& utf8String)
 	{
 		int bufferSize = MultiByteToWideChar(CP_UTF8, 0, utf8String.c_str(), -1, nullptr, 0);
 		if (bufferSize == 0)
 		{
-			// ×ª»»Ê§°Ü£¬¿ÉÒÔ¸ù¾İÊµ¼ÊÇé¿ö½øĞĞ´íÎó´¦Àí
+			// è½¬æ¢å¤±è´¥ï¼Œå¯ä»¥æ ¹æ®å®é™…æƒ…å†µè¿›è¡Œé”™è¯¯å¤„ç†
 			return "";
 		}
 
@@ -146,7 +146,7 @@ namespace Common
 		bufferSize = WideCharToMultiByte(CP_ACP, 0, wideString.c_str(), -1, nullptr, 0, nullptr, nullptr);
 		if (bufferSize == 0)
 		{
-			// ×ª»»Ê§°Ü£¬¿ÉÒÔ¸ù¾İÊµ¼ÊÇé¿ö½øĞĞ´íÎó´¦Àí
+			// è½¬æ¢å¤±è´¥ï¼Œå¯ä»¥æ ¹æ®å®é™…æƒ…å†µè¿›è¡Œé”™è¯¯å¤„ç†
 			return "";
 		}
 
@@ -156,7 +156,7 @@ namespace Common
 		return gbkString;
 	}
 
-	// ½« utf8 ±àÂëµÄ×Ö·û´®×ª»»Îª Unicode ±àÂë
+	// å°† utf8 ç¼–ç çš„å­—ç¬¦ä¸²è½¬æ¢ä¸º Unicode ç¼–ç 
 	std::wstring utf8ToUnicode(const std::string& utf8String)
 	{
 		int bufferSize = MultiByteToWideChar(CP_UTF8, 0, utf8String.c_str(), -1, nullptr, 0);
@@ -165,78 +165,78 @@ namespace Common
 		return unicodeString;
 	}
 
-	//±¾µØ´úÂëÒ³×ªstd::wstring
+	//æœ¬åœ°ä»£ç é¡µè½¬std::wstring
 	std::wstring ConvertLocalCodePageToWideString(const std::string& str)
 	{
 		int wideStrLen = MultiByteToWideChar(CP_ACP, 0, str.c_str(), -1, nullptr, 0);
 		if (wideStrLen == 0)
 		{
-			// ×ª»»Ê§°Ü£¬¿ÉÒÔ¸ù¾İÊµ¼ÊÇé¿ö´¦Àí´íÎó
+			// è½¬æ¢å¤±è´¥ï¼Œå¯ä»¥æ ¹æ®å®é™…æƒ…å†µå¤„ç†é”™è¯¯
 			return L"";
 		}
 
 		std::wstring wideStr(wideStrLen, L'\0');
 		if (MultiByteToWideChar(CP_ACP, 0, str.c_str(), -1, &wideStr[0], wideStrLen) == 0)
 		{
-			// ×ª»»Ê§°Ü£¬¿ÉÒÔ¸ù¾İÊµ¼ÊÇé¿ö´¦Àí´íÎó
+			// è½¬æ¢å¤±è´¥ï¼Œå¯ä»¥æ ¹æ®å®é™…æƒ…å†µå¤„ç†é”™è¯¯
 			return L"";
 		}
 
-		// È¥µôÄ©Î²µÄ¿Õ×Ö·û
+		// å»æ‰æœ«å°¾çš„ç©ºå­—ç¬¦
 		wideStr.resize(wideStrLen - 1);
 
 		return wideStr;
 	}
 
-	//±¾µØ´úÂëÒ³×ªstd::string
+	//æœ¬åœ°ä»£ç é¡µè½¬std::string
 	std::string LocalCodePageToUtf8(const std::string& localString)
 	{
 		int wideCharLength = MultiByteToWideChar(CP_ACP, 0, localString.c_str(), -1, nullptr, 0);
 		if (wideCharLength == 0) {
-			// ×ª»»Ê§°Ü
+			// è½¬æ¢å¤±è´¥
 			return "";
 		}
 
 		std::wstring wideString(wideCharLength, L'\0');
 		if (MultiByteToWideChar(CP_ACP, 0, localString.c_str(), -1, &wideString[0], wideCharLength) == 0) {
-			// ×ª»»Ê§°Ü
+			// è½¬æ¢å¤±è´¥
 			return "";
 		}
 
 		int utf8Length = WideCharToMultiByte(CP_UTF8, 0, wideString.c_str(), -1, nullptr, 0, nullptr, nullptr);
 		if (utf8Length == 0) {
-			// ×ª»»Ê§°Ü
+			// è½¬æ¢å¤±è´¥
 			return "";
 		}
 
 		std::string utf8String(utf8Length, '\0');
 		if (WideCharToMultiByte(CP_UTF8, 0, wideString.c_str(), -1, &utf8String[0], utf8Length, nullptr, nullptr) == 0) {
-			// ×ª»»Ê§°Ü
+			// è½¬æ¢å¤±è´¥
 			return "";
 		}
 
 		return utf8String;
 	}
 
-	//Unicode×ªUtf8
+	//Unicodeè½¬Utf8
 	std::string UnicodeToUtf8(const std::wstring& unicodeString)
 	{
 		int utf8Length = WideCharToMultiByte(CP_UTF8, 0, unicodeString.c_str(), -1, nullptr, 0, nullptr, nullptr);
 		if (utf8Length == 0) {
-			// ×ª»»Ê§°Ü
+			// è½¬æ¢å¤±è´¥
 			return "";
 		}
 
 		std::string utf8String(utf8Length, '\0');
 		if (WideCharToMultiByte(CP_UTF8, 0, unicodeString.c_str(), -1, &utf8String[0], utf8Length, nullptr, nullptr) == 0) {
-			// ×ª»»Ê§°Ü
+			// è½¬æ¢å¤±è´¥
 			return "";
 		}
 
 		return utf8String;
 	}
 
-	//Éú³É16Î»Ëæ»ú×Ö·û´®
+	//ç”Ÿæˆ16ä½éšæœºå­—ç¬¦ä¸²
 	std::string generateRandomString()
 	{
 		const std::string characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -255,7 +255,7 @@ namespace Common
 		return randomString;
 	}
 
-	//×Ö·û´®½ØÈ¡
+	//å­—ç¬¦ä¸²æˆªå–
 	std::string truncateString(const std::string& input, int length)
 	{
 		if (length >= input.length())
@@ -268,7 +268,7 @@ namespace Common
 		}
 	}
 
-	//½ØÈ¡×Ö·û´® ºÍÊ£Óà×Ö·û´®
+	//æˆªå–å­—ç¬¦ä¸² å’Œå‰©ä½™å­—ç¬¦ä¸²
 	std::tuple<std::string, std::string> truncateString2(const std::string& input, int length)
 	{
 		if (length >= input.length())
@@ -281,7 +281,7 @@ namespace Common
 		}
 	}
 
-	//½«string×ªĞ¡Ğ´
+	//å°†stringè½¬å°å†™
 	std::string ToLowerWindows(const std::string& str)
 	{
 		std::string lowerStr(str);
@@ -290,7 +290,7 @@ namespace Common
 		return lowerStr;
 	}
 
-	//½«wstring×ªĞ¡Ğ´
+	//å°†wstringè½¬å°å†™
 	std::wstring ToLowerWindows(const std::wstring& str)
 	{
 		std::wstring lowerStr(str);
@@ -299,22 +299,22 @@ namespace Common
 		return lowerStr;
 	}
 
-	//Ã¶¾Ù½ø³Ì
+	//æšä¸¾è¿›ç¨‹
 	std::vector<ProcessInfo> EnumerateProcesses()
 	{
 		std::vector<ProcessInfo> processes;
 
-		// »ñÈ¡ÏµÍ³ÖĞËùÓĞ½ø³ÌµÄ¿ìÕÕ
+		// è·å–ç³»ç»Ÿä¸­æ‰€æœ‰è¿›ç¨‹çš„å¿«ç…§
 		HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 		if (hSnapshot == INVALID_HANDLE_VALUE)
 		{
-			// ·µ»Ø¿ÕÈİÆ÷
+			// è¿”å›ç©ºå®¹å™¨
 			return processes;
 		}
 
 		PROCESSENTRY32W processEntry = { sizeof(PROCESSENTRY32W) };
 
-		// Ã¶¾Ù½ø³Ì¿ìÕÕÖĞµÄ½ø³ÌĞÅÏ¢
+		// æšä¸¾è¿›ç¨‹å¿«ç…§ä¸­çš„è¿›ç¨‹ä¿¡æ¯
 		if (Process32First(hSnapshot, &processEntry))
 		{
 			do
@@ -323,7 +323,7 @@ namespace Common
 				process.processId = processEntry.th32ProcessID;
 				process.processName = processEntry.szExeFile;
 
-				// ´ò¿ª½ø³Ì
+				// æ‰“å¼€è¿›ç¨‹
 				HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processEntry.th32ProcessID);
 				if (hProcess != nullptr)
 				{
@@ -338,13 +338,13 @@ namespace Common
 			} while (Process32Next(hSnapshot, &processEntry));
 		}
 
-		// ¹Ø±Õ½ø³Ì¿ìÕÕ¾ä±ú
+		// å…³é—­è¿›ç¨‹å¿«ç…§å¥æŸ„
 		CloseHandle(hSnapshot);
 
 		return processes;
 	}
 
-	//¼ì²éÄ¿±ê½ø³ÌÊÇ·ñÕıÔÚÔËĞĞ
+	//æ£€æŸ¥ç›®æ ‡è¿›ç¨‹æ˜¯å¦æ­£åœ¨è¿è¡Œ
 	BOOL IsProcessRunning(const std::wstring& processName)
 	{
 		BOOL boRet = FALSE;
@@ -359,7 +359,7 @@ namespace Common
 				do
 				{
 					std::wstring currentProcessName = Common::ToLowerWindows(entry.szExeFile);
-					if (currentProcessName.find(Common::ToLowerWindows(processName)) != std::wstring::npos)  //²éÕÒ×Ó´®
+					if (currentProcessName.find(Common::ToLowerWindows(processName)) != std::wstring::npos)  //æŸ¥æ‰¾å­ä¸²
 					{
 						boRet = TRUE;
 						break;
@@ -371,7 +371,7 @@ namespace Common
 		return boRet;
 	}
 
-	//²éÕÒ´°¿ÚĞÅÏ¢
+	//æŸ¥æ‰¾çª—å£ä¿¡æ¯
 	BOOL FindWindowInfo(LPCWSTR lpClassName, LPCWSTR titleName)
 	{
 		if (FindWindow(lpClassName, titleName))
@@ -384,39 +384,39 @@ namespace Common
 		}
 	}
 
-	//ÖÕÖ¹½ø³Ì
+	//ç»ˆæ­¢è¿›ç¨‹
 	bool TerminateWindowsProcess(DWORD processId)
 	{
 		HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, processId);
 		if (hProcess == NULL)
 		{
-			// ´¦Àí´ò¿ª½ø³ÌÊ§°ÜµÄÇé¿ö
+			// å¤„ç†æ‰“å¼€è¿›ç¨‹å¤±è´¥çš„æƒ…å†µ
 			return false;
 		}
 
-		// ÖÕÖ¹½ø³Ì
+		// ç»ˆæ­¢è¿›ç¨‹
 		bool result = TerminateProcess(hProcess, 0);
 
-		// ¹Ø±Õ½ø³Ì¾ä±ú
+		// å…³é—­è¿›ç¨‹å¥æŸ„
 		CloseHandle(hProcess);
 
 		return result;
 	}
 
 
-	//µ¥ÀıÄ£Ê½
-	//·ÀÖ¹³ÌĞò¶à¿ª
+	//å•ä¾‹æ¨¡å¼
+	//é˜²æ­¢ç¨‹åºå¤šå¼€
 	BOOL SingletonPattern(const wchar_t* mutexName)
 	{
 		BOOL boRet = FALSE;
 
-		// ´´½¨»¥³âÌå
+		// åˆ›å»ºäº’æ–¥ä½“
 		hMutex = CreateMutexW(nullptr, TRUE, mutexName);
 
-		// ¼ì²é»¥³âÌåÊÇ·ñÒÑ´æÔÚ
+		// æ£€æŸ¥äº’æ–¥ä½“æ˜¯å¦å·²å­˜åœ¨
 		if (GetLastError() == ERROR_ALREADY_EXISTS)
 		{
-			// ¹Ø±Õ»¥³âÌå¾ä±ú²¢ÍË³ö³ÌĞò
+			// å…³é—­äº’æ–¥ä½“å¥æŸ„å¹¶é€€å‡ºç¨‹åº
 			CloseHandle(hMutex);
 		}
 		else
@@ -426,29 +426,29 @@ namespace Common
 		return boRet;
 	}
 
-	//ÍË³öµ¥Àı
+	//é€€å‡ºå•ä¾‹
 	void SingletonProgramEnd()
 	{
-		// ¹Ø±Õ»¥³âÌå¾ä±ú
+		// å…³é—­äº’æ–¥ä½“å¥æŸ„
 		if (hMutex)
 		{
 			CloseHandle(hMutex);
 		}		
 	}
 
-	//int×ªwstring
+	//intè½¬wstring
 	std::wstring IntToWString(int value)
 	{
 		return std::to_wstring(value);
 	}
 
-	//wstring×ªint
+	//wstringè½¬int
 	int WStringToInt(const std::wstring& str)
 	{
 		return std::stoi(str);
 	}
 
-	//È·ÈÏCPUĞÍºÅ
+	//ç¡®è®¤CPUå‹å·
 	void ConfirmCPUVendor()
 	{
 		std::array<int, 4> cpui;
@@ -516,13 +516,13 @@ namespace Common
 		return bRet;
 	}
 
-	//ÔİÍ£½ø³Ì
+	//æš‚åœè¿›ç¨‹
 	BOOL SuspendProcess(DWORD dwProcessID)
 	{
 		return xxx_Process(dwProcessID, TRUE);
 	}
 
-	//»Ö¸´½ø³Ì
+	//æ¢å¤è¿›ç¨‹
 	BOOL ResumeProcess(DWORD dwProcessID)
 	{
 		return xxx_Process(dwProcessID, FALSE);
@@ -530,7 +530,7 @@ namespace Common
 
 	void ReportSeriousError(const char* format, ...)
 	{
-		// Ïß³ÌÍ¬²½£ºÊ¹ÓÃ»¥³âËø±£»¤ÁÙ½çÇø
+		// çº¿ç¨‹åŒæ­¥ï¼šä½¿ç”¨äº’æ–¥é”ä¿æŠ¤ä¸´ç•ŒåŒº
 		std::lock_guard<std::mutex> lock(mutex);
 
 		va_list args;
@@ -545,7 +545,7 @@ namespace Common
 		std::string logMessage = oss.str();
 		if (!logMessage.empty())
 		{
-			MessageBoxA(NULL, logMessage.c_str(), "ÑÏÖØ´íÎó:", MB_ICONERROR | MB_SYSTEMMODAL);
+			MessageBoxA(NULL, logMessage.c_str(), "ä¸¥é‡é”™è¯¯:", MB_ICONERROR | MB_SYSTEMMODAL);
 		}		
 	}
 
@@ -554,7 +554,7 @@ namespace Common
 		HANDLE hFile = CreateFile(
 			path.c_str(),
 			GENERIC_READ,
-			0, // ²»¹²Ïí
+			0, // ä¸å…±äº«
 			NULL,
 			OPEN_EXISTING,
 			FILE_ATTRIBUTE_NORMAL,
@@ -563,14 +563,14 @@ namespace Common
 
 		if (hFile != INVALID_HANDLE_VALUE) {
 			CloseHandle(hFile);
-			return true; // ÎÄ¼ş´æÔÚ
+			return true; // æ–‡ä»¶å­˜åœ¨
 		}
 		else {
-			return false; // ÎÄ¼ş²»´æÔÚ
+			return false; // æ–‡ä»¶ä¸å­˜åœ¨
 		}
 	}
 
-	//»ñÈ¡ÏµÍ³°æ±¾ĞÅÏ¢
+	//è·å–ç³»ç»Ÿç‰ˆæœ¬ä¿¡æ¯
 	BOOL GetNtVersionNumbers(DWORD& dwMajorVer, DWORD& dwMinorVer, DWORD& dwBuildNumber)
 	{
 		BOOL bRet = FALSE;

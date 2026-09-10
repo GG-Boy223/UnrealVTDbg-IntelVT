@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #ifndef Result_H_
 #define Result_H_
 #include <string>
@@ -6,23 +6,23 @@ using namespace std;
 namespace Model
 {
 	/// <summary>
-	/// //½Ó¿Ú·µ»ØÀ´µÄÊı¾İ
+	/// //æ¥å£è¿”å›æ¥çš„æ•°æ®
 	/// </summary>
 	class  Result
 	{
 	public:
 		/// <summary>
-		/// //½Ó¿Ú·µ»ØÀ´µÄÏûÏ¢
+		/// //æ¥å£è¿”å›æ¥çš„æ¶ˆæ¯
 		/// </summary>
 		string msg;
 
 		/// <summary>
-		/// //½Ó¿Ú·µ»ØÒµÎñÀàĞÍµÄ¾ßÌåÊı¾İ
+		/// //æ¥å£è¿”å›ä¸šåŠ¡ç±»å‹çš„å…·ä½“æ•°æ®
 		/// </summary>
 		string data;
 
 		/// <summary>
-		/// //³É¹¦£º0  Ê§°Ü£º²»ÊÇ0¶¼ÊÇÊ§°Ü
+		/// //æˆåŠŸï¼š0  å¤±è´¥ï¼šä¸æ˜¯0éƒ½æ˜¯å¤±è´¥
 		/// </summary>
 		int code;
 

@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #ifndef Out_getRemoteVar_H_
 #define Out_getRemoteVar_H_
 #include <string>
@@ -8,11 +8,11 @@
 using namespace std;
 namespace Model
 {
-	//Ô¶³Ì±äÁ¿³ö²Î
+	//è¿œç¨‹å˜é‡å‡ºå‚
 	class Out_getRemoteVar :public Out_DataBaseArgs
 	{
 	public:
-		// ±äÁ¿Öµ
+		// å˜é‡å€¼
 		string varValue;
 	};
 }

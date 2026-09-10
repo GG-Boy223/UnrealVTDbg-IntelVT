@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #ifndef Out_iniSoftInfo_H_
 #define Out_iniSoftInfo_H_
 #include <string>
@@ -8,13 +8,13 @@
 using namespace std;
 namespace Model
 {
-	//Èí¼ş³õÊ¼»¯µÄdataÊı¾İ
+	//è½¯ä»¶åˆå§‹åŒ–çš„dataæ•°æ®
 	class  Out_iniSoftInfo :public Out_DataBaseArgs
 	{
 	public:
-		//³õÊ¼»¯Èí¼şKeyÖµ(Í¨¹ıÈí¼ş³õÊ¼»¯½Ó¿Ú¡¾iniSoftInfo¡¿»ñÈ¡)
+		//åˆå§‹åŒ–è½¯ä»¶Keyå€¼(é€šè¿‡è½¯ä»¶åˆå§‹åŒ–æ¥å£ã€iniSoftInfoã€‘è·å–)
 		string inisoftkey;
-		//Èí¼şĞÅÏ¢
+		//è½¯ä»¶ä¿¡æ¯
 		Out_softInfo softInfo;
 	};
 }

@@ -4,7 +4,7 @@
 
 VOID InitializeList(MY_LIST* list, PFAST_MUTEX FastMutex)
 {
-    //³õÊ¼»¯»¥³âËø
+    //初始化互斥锁
     ExInitializeFastMutex(FastMutex);
     InitializeListHead(&list->ListHead);
     list->Count = 0;

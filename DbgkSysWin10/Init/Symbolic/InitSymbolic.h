@@ -1,10 +1,10 @@
-#pragma once
+ï»¿#pragma once
 
 #ifndef _INIT_SYMBOLIC_H
 #define _INIT_SYMBOLIC_H
 
-// ÓÃÓÚ DbgkSysWin10 -> VT_Driver ³õÊ¼»¯ÎÕÊÖµÄ¹Ì¶¨Ğ£ÑéÖµ¡£
-// ÕâÀï¹ÊÒâ±£ÁôÎª¹²Ïí³£Á¿£¬¶ø²»ÊÇµ½´¦Ğ´Ä§Êı£¬·½±ãºóĞøÍ³Ò»ĞŞ¸Ä¡£
+// ç”¨äº DbgkSysWin10 -> VT_Driver åˆå§‹åŒ–æ¡æ‰‹çš„å›ºå®šæ ¡éªŒå€¼ã€‚
+// è¿™é‡Œæ•…æ„ä¿ç•™ä¸ºå…±äº«å¸¸é‡ï¼Œè€Œä¸æ˜¯åˆ°å¤„å†™é­”æ•°ï¼Œæ–¹ä¾¿åç»­ç»Ÿä¸€ä¿®æ”¹ã€‚
 
 
 VOID InitSymbolsTable(IN PUSER_DATA userData, IN PIRP pIrp);
@@ -13,13 +13,13 @@ BOOLEAN InitNtoskrnlSymbolsTable();
 BOOLEAN InitWin32kbaseSymbolsTable();
 BOOLEAN InitWin32kfullSymbolsTable();
 
-////½«ÄÚºË½á¹¹µÄÆ«ÒÆ·¢ËÍ¸øvt host
+////å°†å†…æ ¸ç»“æ„çš„åç§»å‘é€ç»™vt host
 //bool DispatchOffsetToHost();
 //
 //void CheckFunctionPointers();
 
-// ½«ÄÚºË½á¹¹µÄÆ«ÒÆ·¢ËÍ¸ø vt host¡£
-// verifyKey ÓÉÉÏ²ãÔÚĞ£Ñé³É¹¦ºó´«Èë£¬VT ²à»áÔÙ´ÎĞ£Ñé¡£
+// å°†å†…æ ¸ç»“æ„çš„åç§»å‘é€ç»™ vt hostã€‚
+// verifyKey ç”±ä¸Šå±‚åœ¨æ ¡éªŒæˆåŠŸåä¼ å…¥ï¼ŒVT ä¾§ä¼šå†æ¬¡æ ¡éªŒã€‚
 bool DispatchOffsetToHost(unsigned __int64 verifyKey);
 
 void CheckFunctionPointers();

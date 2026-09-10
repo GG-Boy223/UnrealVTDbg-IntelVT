@@ -1,9 +1,9 @@
-#pragma once
+ï»¿#pragma once
 
 #ifndef _DBGKAPI_H
 #define _DBGKAPI_H
 
-#define DBGK_EXCEPTIONPORT_MASK           7   //Òì³£¶Ë¿Ú
+#define DBGK_EXCEPTIONPORT_MASK           7   //å¼‚å¸¸ç«¯å£
 
 //
 // NtCreateDebugObject Flags
@@ -37,7 +37,7 @@ public:
     }
 };
 
-//µ÷ÊÔÆ÷ÔËĞĞºó Îªµ÷ÊÔÆ÷´´½¨µ÷ÊÔ¶ÔÏó
+//è°ƒè¯•å™¨è¿è¡Œå ä¸ºè°ƒè¯•å™¨åˆ›å»ºè°ƒè¯•å¯¹è±¡
 EXTERN_C
 NTSTATUS NtCreateDebugObject(OUT PHANDLE DebugHandle,
 	IN ACCESS_MASK DesiredAccess,
@@ -51,7 +51,7 @@ NtSetInformationDebugObject(
 	IN PVOID DebugInformation,
 	IN ULONG DebugInformationLength,
 	OUT PULONG ReturnLength OPTIONAL
-// __in PCONTEXT ThreadContext  /*´Ë²ÎÊıÊÇÓÃ»§²ãÌá¹©µÄ»º³åÇø*/
+// __in PCONTEXT ThreadContext  /*æ­¤å‚æ•°æ˜¯ç”¨æˆ·å±‚æä¾›çš„ç¼“å†²åŒº*/
 );
 
 EXTERN_C
@@ -117,7 +117,7 @@ NTSTATUS
 NtRemoveProcessDebug(
 	IN HANDLE ProcessHandle,
 	IN HANDLE DebugObjectHandle
-// __in PCONTEXT ThreadContext  /*´Ë²ÎÊıÊÇÓÃ»§²ãÌá¹©µÄ»º³åÇø*/
+// __in PCONTEXT ThreadContext  /*æ­¤å‚æ•°æ˜¯ç”¨æˆ·å±‚æä¾›çš„ç¼“å†²åŒº*/
 );
 
 EXTERN_C
@@ -139,7 +139,7 @@ EXTERN_C
 //    }
 //
 //    if (IsDebugger((PEPROCESS)PROCESS))
-//        //»ñÈ¡µ±Ç°µ÷ÓÃ½ø³Ì
+//        //è·å–å½“å‰è°ƒç”¨è¿›ç¨‹
 //        WCHAR SubStr[256] = { 0 };
 //        UNICODE_STRING ImageFileName, PassImage;
 //        NTSTATUS Status = GetProcessName(PsGetCurrentProcess(), &SubStr[0]);
@@ -151,7 +151,7 @@ EXTERN_C
 //                RtlInitUnicodeString(&PassImage, PassProcessList[i]);
 //                if (RtlEqualUnicodeString(&ImageFileName, &PassImage, TRUE))
 //                {
-//                    //·¢ÏÖÊÇ°×Ãûµ¥½ø³Ì¾Í·ÅĞĞ
+//                    //å‘ç°æ˜¯ç™½åå•è¿›ç¨‹å°±æ”¾è¡Œ
 //                    goto pass;
 //                }
 //            }
@@ -178,7 +178,7 @@ EXTERN_C
 //    }
 //
 //    if (IsDebugger((PEPROCESS)PROCESS))
-//        //»ñÈ¡µ±Ç°µ÷ÓÃ½ø³Ì
+//        //è·å–å½“å‰è°ƒç”¨è¿›ç¨‹
 //        WCHAR SubStr[256] = { 0 };
 //        UNICODE_STRING ImageFileName, PassImage;
 //        NTSTATUS Status = GetProcessName(PsGetCurrentProcess(), &SubStr[0]);
@@ -190,7 +190,7 @@ EXTERN_C
 //                RtlInitUnicodeString(&PassImage, PassProcessList[i]);
 //                if (RtlEqualUnicodeString(&ImageFileName, &PassImage, TRUE))
 //                {
-//                    //·¢ÏÖÊÇ°×Ãûµ¥½ø³Ì¾Í·ÅĞĞ
+//                    //å‘ç°æ˜¯ç™½åå•è¿›ç¨‹å°±æ”¾è¡Œ
 //                    goto pass;
 //                }
 //            }
@@ -245,7 +245,7 @@ EXTERN_C
 //    }
 //
 //    if (IsDebugger((PEPROCESS)PROCESS))
-//        //»ñÈ¡µ±Ç°µ÷ÓÃ½ø³Ì
+//        //è·å–å½“å‰è°ƒç”¨è¿›ç¨‹
 //        WCHAR SubStr[256] = { 0 };
 //        UNICODE_STRING ImageFileName, PassImage;
 //        NTSTATUS Status = GetProcessName(PsGetCurrentProcess(), &SubStr[0]);
@@ -257,7 +257,7 @@ EXTERN_C
 //                RtlInitUnicodeString(&PassImage, PassProcessList[i]);
 //                if (RtlEqualUnicodeString(&ImageFileName, &PassImage, TRUE))
 //                {
-//                    //·¢ÏÖÊÇ°×Ãûµ¥½ø³Ì¾Í·ÅĞĞ
+//                    //å‘ç°æ˜¯ç™½åå•è¿›ç¨‹å°±æ”¾è¡Œ
 //                    goto pass;
 //                }
 //            }
@@ -272,7 +272,7 @@ DbgkMapViewOfSection(IN _EPROCESS* Process,
 	IN ULONG SectionOffset,
 	IN ULONG_PTR ViewSize);
 
-//DLLĞ¶ÔØ
+//DLLå¸è½½
 EXTERN_C
 //pass:
 //VOID
@@ -289,7 +289,7 @@ EXTERN_C
 //    }
 //
 //    if (IsDebugger((PEPROCESS)PROCESS))
-//        //»ñÈ¡µ±Ç°µ÷ÓÃ½ø³Ì
+//        //è·å–å½“å‰è°ƒç”¨è¿›ç¨‹
 //        WCHAR SubStr[256] = { 0 };
 //        UNICODE_STRING ImageFileName, PassImage;
 //        NTSTATUS Status = GetProcessName(PsGetCurrentProcess(), &SubStr[0]);
@@ -301,7 +301,7 @@ EXTERN_C
 //                RtlInitUnicodeString(&PassImage, PassProcessList[i]);
 //                if (RtlEqualUnicodeString(&ImageFileName, &PassImage, TRUE))
 //                {
-//                    //·¢ÏÖÊÇ°×Ãûµ¥½ø³Ì¾Í·ÅĞĞ
+//                    //å‘ç°æ˜¯ç™½åå•è¿›ç¨‹å°±æ”¾è¡Œ
 //                    goto pass;
 //                }
 //            }
@@ -313,7 +313,7 @@ VOID
 DbgkUnMapViewOfSection(IN _EPROCESS* Process, IN PVOID BaseAddress);
 //
 //
-////ÉèÖÃµ÷ÊÔ¶ÔÏó
+////è®¾ç½®è°ƒè¯•å¯¹è±¡
 //BOOLEAN SetDebugTargetProcess(_EPROCESS* Process, PDEBUG_OBJECT DebugObject);
 //
 
@@ -333,7 +333,7 @@ EXTERN_C
 //    }
 //
 //    if (IsDebugger((PEPROCESS)PROCESS))
-//        //»ñÈ¡µ±Ç°µ÷ÓÃ½ø³Ì
+//        //è·å–å½“å‰è°ƒç”¨è¿›ç¨‹
 //        WCHAR SubStr[256] = { 0 };
 //        UNICODE_STRING ImageFileName, PassImage;
 //        NTSTATUS Status = GetProcessName(PsGetCurrentProcess(), &SubStr[0]);
@@ -345,7 +345,7 @@ EXTERN_C
 //                RtlInitUnicodeString(&PassImage, PassProcessList[i]);
 //                if (RtlEqualUnicodeString(&ImageFileName, &PassImage, TRUE))
 //                {
-//                    //·¢ÏÖÊÇ°×Ãûµ¥½ø³Ì¾Í·ÅĞĞ
+//                    //å‘ç°æ˜¯ç™½åå•è¿›ç¨‹å°±æ”¾è¡Œ
 //                    goto pass;
 //                }
 //            }
@@ -359,14 +359,14 @@ DbgkpCloseObject(
 	IN PVOID Object,
 	IN ACCESS_MASK GrantedAccess,
 	IN ULONG_PTR SystemHandleCount
-// __in PCONTEXT ThreadContext  /*´Ë²ÎÊıÊÇÓÃ»§²ãÌá¹©µÄ»º³åÇø*/
+// __in PCONTEXT ThreadContext  /*æ­¤å‚æ•°æ˜¯ç”¨æˆ·å±‚æä¾›çš„ç¼“å†²åŒº*/
 );
 
 VOID DeleteDebugProcess(PDEBUG_OBJECT DebugObject);
 
 POBJECT_TYPE GetDebugObjectType(UNICODE_STRING Name);
 
-//ÅĞ¶ÏÄ¿±ê½ø³ÌÊÇ·ñÊÇ±»µ÷ÊÔµÄ½ø³Ì
+//åˆ¤æ–­ç›®æ ‡è¿›ç¨‹æ˜¯å¦æ˜¯è¢«è°ƒè¯•çš„è¿›ç¨‹
 BOOLEAN IsDebugTargetProcess(IN _EPROCESS* Process,
 	OUT PDEBUG_PROCESS* DebugProcess);
 

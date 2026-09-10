@@ -122,12 +122,12 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
             outDebug("Vmm initialization failed");
             return STATUS_UNSUCCESSFUL;
         }
-        outDebug("�������سɹ�!!!\n");
+        outDebug("驱动加载成功!!!\n");
     }
     else
     {
         nStatus = STATUS_UNSUCCESSFUL;
-        outDebug("��������ʧ��!!!\n");
+        outDebug("驱动加载失败!!!\n");
     }
     return nStatus;
 }
@@ -320,3 +320,18 @@ typedef struct _DEBUG_EVENT
 - **游戏开发**：用于调试游戏驱动，突破游戏的反调试机制，帮助开发者快速定位和解决游戏中的问题。
 - **系统安全研究**：用于研究操作系统的内核机制和反调试技术，为系统安全防护提供参考。
 - **软件调试**：可用于调试其他需要突破反调试机制的软件，提高调试效率和成功率。
+
+## 六、源码编码与 VS2022 编译
+
+- C/C++ 源文件、头文件和资源脚本使用 **UTF-8 BOM**；纯 ASCII 文件可以保持无 BOM。根目录 `.editorconfig` 固定此规则，避免中文文件被保存成 MSVC 无法自动识别的无 BOM UTF-8。
+- MASM 的 `.asm` 文件保持 UTF-8 无 BOM；Delphi 文件保持原有 CP936 编码，不对整个目录进行统一转码。
+- 源码编码与运行时编码不同：MSVC 根据 BOM 识别源码，窄字符串使用 Windows 默认 ANSI 代码页，`L"中文"` 等宽字符串保持 UTF-16。中文 Windows 下默认 ANSI 代码页应为 **936（简体中文）**；ANSI 日志也应使用 CP936 查看。无需添加 `/utf-8`、`/source-charset` 或 `/execution-charset` 编译选项。
+- UTF-8 资源脚本中的 `#pragma code_page(65001)` 用于资源文本解析，不是 C/C++ 编译命令开关。
+
+VS2022 构建需要 v143 x64 工具链、MFC x86/x64 组件，以及 Windows SDK/WDK `10.0.26100.0`。在开发人员命令提示符中执行：
+
+```bat
+MSBuild.exe UnrealDbg.sln /m /t:Rebuild /p:Configuration=Release /p:Platform=x64
+```
+
+在 IDE 中选择 `Release | x64`，然后重新生成解决方案。`UnrealDbg.sln` 包含六个 C++ 项目；Delphi 项目不由 VS2022 编译。缺少 MFC 时，`UnrealDbgDll` 会报 `MSB8041`，这属于构建依赖问题，不应通过修改编码选项绕过。

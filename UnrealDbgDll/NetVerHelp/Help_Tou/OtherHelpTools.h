@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #ifndef OtherHelp_H_
 #define OtherHelp_H_
 #include <afxinet.h>
@@ -9,16 +9,16 @@ using namespace std;
 namespace OtherHelp
 {
 	/*
-	ÀàĞÍ×ª»»
+	ç±»å‹è½¬æ¢
 	*/
 	// /*
-	// ÀàĞÍ×ª»»
+	// ç±»å‹è½¬æ¢
 	// */
 	class OtherHelpTools
 	{
 	public:
 		/// <summary>
-		/// //string×ªwstring
+		/// //stringè½¬wstring
 		/// </summary>
 		/// <param name="s"></param>
 		/// <returns></returns>
@@ -26,12 +26,12 @@ namespace OtherHelp
 
 
 		/// <summary>
-		/// Ç¿ĞĞ½áÊø³ÌĞò
+		/// å¼ºè¡Œç»“æŸç¨‹åº
 		/// </summary>
 		static void TerminateApp();
 
 		/// <summary>
-		/// // LPVOID×ªCString
+		/// // LPVOIDè½¬CString
 		/// </summary>
 		/// <param name="lp"></param>
 		/// <returns></returns>

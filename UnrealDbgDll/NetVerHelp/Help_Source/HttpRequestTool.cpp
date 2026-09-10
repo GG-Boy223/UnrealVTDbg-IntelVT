@@ -1,10 +1,10 @@
-
+ï»¿
 //#define _CRT_SECURE_NO_WARNINGS
 #include "../Help_Tou/HttpRequestTools.h"
 
 namespace Help
 {
-#define BUFFER_SIZE   (4 * 1024)			// ½ÓÊÕÊı¾İbuffer size
+#define BUFFER_SIZE   (4 * 1024)			// æ¥æ”¶æ•°æ®buffer size
 #define NORMAL_CONNECT   INTERNET_FLAG_KEEP_CONNECTION
 #define SECURE_CONNECT   NORMAL_CONNECT | INTERNET_FLAG_SECURE
 #define NORMAL_REQUEST   INTERNET_FLAG_RELOAD | INTERNET_FLAG_DONT_CACHE
@@ -65,19 +65,19 @@ namespace Help
 		string strResponse = (const char*)_xor_("");
 		try
 		{
-			// 1. Ê×ÏÈµÃÉèÖÃ¸ö³¬Ê±±ê×¼°É
-			m_pSession->SetOption(INTERNET_OPTION_CONNECT_RETRIES, 1000 * 10);// Á¬½Ó³¬Ê±
-			m_pSession->SetOption(INTERNET_OPTION_CONNECT_TIMEOUT, 1000 * 10);// Á¬½Ó³¬Ê±
+			// 1. é¦–å…ˆå¾—è®¾ç½®ä¸ªè¶…æ—¶æ ‡å‡†å§
+			m_pSession->SetOption(INTERNET_OPTION_CONNECT_RETRIES, 1000 * 10);// è¿æ¥è¶…æ—¶
+			m_pSession->SetOption(INTERNET_OPTION_CONNECT_TIMEOUT, 1000 * 10);// è¿æ¥è¶…æ—¶
 
-			m_pSession->SetOption(INTERNET_OPTION_SEND_TIMEOUT, 1000 * 10);           //·¢ËÍ³¬Ê±
-			m_pSession->SetOption(INTERNET_OPTION_DATA_SEND_TIMEOUT, 1000 * 10);     //·¢ËÍ³¬Ê±
+			m_pSession->SetOption(INTERNET_OPTION_SEND_TIMEOUT, 1000 * 10);           //å‘é€è¶…æ—¶
+			m_pSession->SetOption(INTERNET_OPTION_DATA_SEND_TIMEOUT, 1000 * 10);     //å‘é€è¶…æ—¶
 
 			if (timeOut <= 1000 * 30)
 			{
 				timeOut = 1000 * 30;
 			}
-			m_pSession->SetOption(INTERNET_OPTION_DATA_RECEIVE_TIMEOUT, timeOut);  // ½ÓÊÕ³¬Ê±
-			m_pSession->SetOption(INTERNET_OPTION_RECEIVE_TIMEOUT, timeOut);       // ½ÓÊÕ³¬Ê±
+			m_pSession->SetOption(INTERNET_OPTION_DATA_RECEIVE_TIMEOUT, timeOut);  // æ¥æ”¶è¶…æ—¶
+			m_pSession->SetOption(INTERNET_OPTION_RECEIVE_TIMEOUT, timeOut);       // æ¥æ”¶è¶…æ—¶
 
 
 
@@ -117,11 +117,11 @@ namespace Help
 	{
 		string strResponse = (const char*)_xor_("");
 
-		// 1. ½âÎöURL×Ö·û´®£¬²¢·µ»Ø·şÎñÀàĞÍ
-		DWORD dwServiceType;					// ±íÃûInternetµÄ·şÎñÀàĞÍ£¬ÈçAFX_INET_SERVICE_HTTP
-		CString strServer;						// ½âÎö³öÀ´µÄÖ÷»ú×Ö·û´®
-		CString strObject;						// ½âÎö³öÀ´µÄURLÄÚÈİ×Ö·û´®
-		INTERNET_PORT nPort;					// ¶Ë¿ÚºÅ£¨ÓÉServer»òObject¶ÎÖ¸¶¨µÄ£©
+		// 1. è§£æURLå­—ç¬¦ä¸²ï¼Œå¹¶è¿”å›æœåŠ¡ç±»å‹
+		DWORD dwServiceType;					// è¡¨åInternetçš„æœåŠ¡ç±»å‹ï¼Œå¦‚AFX_INET_SERVICE_HTTP
+		CString strServer;						// è§£æå‡ºæ¥çš„ä¸»æœºå­—ç¬¦ä¸²
+		CString strObject;						// è§£æå‡ºæ¥çš„URLå†…å®¹å­—ç¬¦ä¸²
+		INTERNET_PORT nPort;					// ç«¯å£å·ï¼ˆç”±Serveræˆ–Objectæ®µæŒ‡å®šçš„ï¼‰
 
 		if (!AfxParseURL(strUrl, dwServiceType, strServer, strObject, nPort))
 		{
@@ -136,33 +136,33 @@ namespace Help
 
 		try
 		{
-			// 2. ÉèÖÃ³¬Ê±±ê×¼,³¬Ê±Ê±¼äµ¥Î»£ººÁÃë
-			m_pSession->SetOption(INTERNET_OPTION_CONNECT_RETRIES, 1000 * 10);// Á¬½Ó³¬Ê±
-			m_pSession->SetOption(INTERNET_OPTION_CONNECT_TIMEOUT, 1000 * 10);// Á¬½Ó³¬Ê±
+			// 2. è®¾ç½®è¶…æ—¶æ ‡å‡†,è¶…æ—¶æ—¶é—´å•ä½ï¼šæ¯«ç§’
+			m_pSession->SetOption(INTERNET_OPTION_CONNECT_RETRIES, 1000 * 10);// è¿æ¥è¶…æ—¶
+			m_pSession->SetOption(INTERNET_OPTION_CONNECT_TIMEOUT, 1000 * 10);// è¿æ¥è¶…æ—¶
 
-			m_pSession->SetOption(INTERNET_OPTION_SEND_TIMEOUT, 1000 * 10);           //·¢ËÍ³¬Ê±
-			m_pSession->SetOption(INTERNET_OPTION_DATA_SEND_TIMEOUT, 1000 * 10);     //·¢ËÍ³¬Ê±
+			m_pSession->SetOption(INTERNET_OPTION_SEND_TIMEOUT, 1000 * 10);           //å‘é€è¶…æ—¶
+			m_pSession->SetOption(INTERNET_OPTION_DATA_SEND_TIMEOUT, 1000 * 10);     //å‘é€è¶…æ—¶
 
 			if (timeOut <= 1000 * 30)
 			{
 				timeOut = 1000 * 30;
 			}
-			m_pSession->SetOption(INTERNET_OPTION_DATA_RECEIVE_TIMEOUT, timeOut);  // ½ÓÊÕ³¬Ê±
-			m_pSession->SetOption(INTERNET_OPTION_RECEIVE_TIMEOUT, timeOut);       // ½ÓÊÕ³¬Ê±
+			m_pSession->SetOption(INTERNET_OPTION_DATA_RECEIVE_TIMEOUT, timeOut);  // æ¥æ”¶è¶…æ—¶
+			m_pSession->SetOption(INTERNET_OPTION_RECEIVE_TIMEOUT, timeOut);       // æ¥æ”¶è¶…æ—¶
 
 
 
 
-			// 3. ÓÃÀ´¹ÜÀíHTTPÁ¬½Ó£¬²¢·µ»ØÒ»¸öCHttpConnection¶ÔÏó
+			// 3. ç”¨æ¥ç®¡ç†HTTPè¿æ¥ï¼Œå¹¶è¿”å›ä¸€ä¸ªCHttpConnectionå¯¹è±¡
 			m_pConnection = m_pSession->GetHttpConnection(strServer, dwServiceType ==
 				AFX_INET_SERVICE_HTTP ? NORMAL_CONNECT : SECURE_CONNECT, nPort);
 
 
-			// 4. ÓÃÀ´´ò¿ªHTTPÁ¬½Ó£¬²¢·µ»ØÒ»¸öÖ¸ÏòCHttpFile¶ÔÏóµÄÖ¸Õë_T("POST")
+			// 4. ç”¨æ¥æ‰“å¼€HTTPè¿æ¥ï¼Œå¹¶è¿”å›ä¸€ä¸ªæŒ‡å‘CHttpFileå¯¹è±¡çš„æŒ‡é’ˆ_T("POST")
 			m_pFile = m_pConnection->OpenRequest(CHttpConnection::HTTP_VERB_POST, strObject, NULL, 1, NULL, NULL,
 				(dwServiceType == AFX_INET_SERVICE_HTTP ? NORMAL_REQUEST : SECURE_REQUEST));
 
-			// 5. ¸øÇëÇóÌí¼ÓHeaders
+			// 5. ç»™è¯·æ±‚æ·»åŠ Headers
 			list<string>::iterator it;
 			for (it = head.begin(); it != head.end(); it++)
 			{
@@ -172,7 +172,7 @@ namespace Help
 			}
 
 
-			// 6. ÏòHTTP·şÎñÆ÷·¢ËÍÇëÇó,ĞèÒª½«²ÎÊı×ªÂëutf_8
+			// 6. å‘HTTPæœåŠ¡å™¨å‘é€è¯·æ±‚,éœ€è¦å°†å‚æ•°è½¬ç utf_8
 			if (m_strPostData.IsEmpty())
 			{
 				m_pFile->SendRequest(NULL, 0, (LPVOID)"", 0);
@@ -191,7 +191,7 @@ namespace Help
 				}
 			}
 
-			// 7. »ñÈ¡HTTPÇëÇóµÄ×´Ì¬Âë
+			// 7. è·å–HTTPè¯·æ±‚çš„çŠ¶æ€ç 
 			DWORD dwStatusCode = 0L;
 			m_pFile->QueryInfoStatusCode(dwStatusCode);
 			if (HTTP_STATUS_OK == dwStatusCode)

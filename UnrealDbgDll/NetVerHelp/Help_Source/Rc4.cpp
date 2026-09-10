@@ -1,9 +1,9 @@
-#pragma once
+ï»¿#pragma once
 #include <string.h>
 #include "../Help_Tou/Rc4.h"
 namespace Help
 {
-	char* Rc4::Encrypt(const char* szSource, const char* szPassWord) // ¼ÓÃÜ£¬·µ»Ø¼ÓÃÜ½á¹û
+	char* Rc4::Encrypt(const char* szSource, const char* szPassWord) // åŠ å¯†ï¼Œè¿”å›åŠ å¯†ç»“æœ
 	{
 		if (szSource == NULL || szPassWord == NULL) return NULL;
 
@@ -25,7 +25,7 @@ namespace Help
 		return ret2;
 	}
 
-	char* Rc4::Decrypt(const char* szSource, const char* szPassWord) // ½âÃÜ£¬·µ»Ø½âÃÜ½á¹û
+	char* Rc4::Decrypt(const char* szSource, const char* szPassWord) // è§£å¯†ï¼Œè¿”å›è§£å¯†ç»“æœ
 	{
 		if (szSource == NULL || (strlen(szSource) % 2 != 0) || szPassWord == NULL)
 			return NULL;
@@ -105,13 +105,13 @@ namespace Help
 		*b = swapByte;
 	}
 
-	// °Ñ×Ö½ÚÂë×ªÎªÊ®Áù½øÖÆÂë£¬Ò»¸ö×Ö½ÚÁ½¸öÊ®Áù½øÖÆ£¬ÄÚ²¿Îª×Ö·û´®·ÖÅä¿Õ¼ä
+	// æŠŠå­—èŠ‚ç è½¬ä¸ºåå…­è¿›åˆ¶ç ï¼Œä¸€ä¸ªå­—èŠ‚ä¸¤ä¸ªåå…­è¿›åˆ¶ï¼Œå†…éƒ¨ä¸ºå­—ç¬¦ä¸²åˆ†é…ç©ºé—´
 	char* Rc4::ByteToHex(const unsigned char* vByte, const int vLen)
 	{
 		if (!vByte)
 			return NULL;
 
-		char* tmp = new char[vLen * 2 + 1]; // Ò»¸ö×Ö½ÚÁ½¸öÊ®Áù½øÖÆÂë£¬×îºóÒª¶àÒ»¸ö'/0'
+		char* tmp = new char[vLen * 2 + 1]; // ä¸€ä¸ªå­—èŠ‚ä¸¤ä¸ªåå…­è¿›åˆ¶ç ï¼Œæœ€åè¦å¤šä¸€ä¸ª'/0'
 
 		int tmp2;
 		for (int i = 0; i < vLen; i++)
@@ -126,7 +126,7 @@ namespace Help
 		return tmp;
 	}
 
-	// °ÑÊ®Áù½øÖÆ×Ö·û´®£¬×ªÎª×Ö½ÚÂë£¬Ã¿Á½¸öÊ®Áù½øÖÆ×Ö·û×÷ÎªÒ»¸ö×Ö½Ú
+	// æŠŠåå…­è¿›åˆ¶å­—ç¬¦ä¸²ï¼Œè½¬ä¸ºå­—èŠ‚ç ï¼Œæ¯ä¸¤ä¸ªåå…­è¿›åˆ¶å­—ç¬¦ä½œä¸ºä¸€ä¸ªå­—èŠ‚
 	unsigned char* Rc4::HexToByte(const char* szHex)
 	{
 		if (!szHex)
@@ -137,7 +137,7 @@ namespace Help
 		if (iLen <= 0 || 0 != iLen % 2)
 			return NULL;
 
-		unsigned char* pbBuf = new unsigned char[iLen / 2];  // Êı¾İ»º³åÇø
+		unsigned char* pbBuf = new unsigned char[iLen / 2];  // æ•°æ®ç¼“å†²åŒº
 
 		int tmp1, tmp2;
 		for (int i = 0; i < iLen / 2; i++)

@@ -1,4 +1,4 @@
-// Microsoft Visual C++ generated resource script.
+ï»¿// Microsoft Visual C++ generated resource script.
 //
 #include "resource.h"
 
@@ -13,11 +13,11 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// ÖÐÎÄ(¼òÌå£¬ÖÐ¹ú) resources
+// ä¸­æ–‡(ç®€ä½“ï¼Œä¸­å›½) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
 LANGUAGE LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED
-#pragma code_page(936)
+#pragma code_page(65001)
 
 #ifdef APSTUDIO_INVOKED
 /////////////////////////////////////////////////////////////////////////////
@@ -54,7 +54,7 @@ END
 // remains consistent on all systems.
 IDI_ICON1               ICON                    "res\\UnrealDbg_Icon.ico"
 
-#endif    // ÖÐÎÄ(¼òÌå£¬ÖÐ¹ú) resources
+#endif    // ä¸­æ–‡(ç®€ä½“ï¼Œä¸­å›½) resources
 /////////////////////////////////////////////////////////////////////////////
 
 

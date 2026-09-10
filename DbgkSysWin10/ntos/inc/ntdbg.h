@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #ifndef _NTDBG_H
 #define _NTDBG_H
@@ -8,7 +8,7 @@
 //
 typedef enum _DBG_STATE
 {
-    DbgIdle = 0,  //µ÷ÊÔÆ÷¿ÕÏĞ×´Ì¬
+    DbgIdle = 0,  //è°ƒè¯•å™¨ç©ºé—²çŠ¶æ€
     DbgReplyPending = 1,
     DbgCreateThreadStateChange = 2,
     DbgCreateProcessStateChange = 3,
@@ -93,7 +93,7 @@ typedef struct _DBGKM_ERROR_MSG
 //
 typedef struct _DBGUI_WAIT_STATE_CHANGE
 {
-    DBG_STATE NewState;  //µ÷ÊÔÆ÷µÄ×´Ì¬
+    DBG_STATE NewState;  //è°ƒè¯•å™¨çš„çŠ¶æ€
     CLIENT_ID AppClientId;
     union
     {
@@ -172,12 +172,12 @@ typedef struct _DEBUG_EVENT
     LIST_ENTRY EventList;
     KEVENT ContinueEvent;
     CLIENT_ID ClientId;
-    _EPROCESS* Process;  //µÈ´ıµÄ½ø³Ì
-    _ETHREAD* Thread;    //µÈ´ıµÄÏß³Ì
-    NTSTATUS Status;  //×´Ì¬Âë
+    _EPROCESS* Process;  //ç­‰å¾…çš„è¿›ç¨‹
+    _ETHREAD* Thread;    //ç­‰å¾…çš„çº¿ç¨‹
+    NTSTATUS Status;  //çŠ¶æ€ç 
     ULONG Flags;
-    _ETHREAD* BackoutThread;  //Ä£ÄâÏß³ÌÍË³öÏûÏ¢
-    DBGKM_APIMSG ApiMsg;  //µ÷ÊÔÊÂ¼ş
+    _ETHREAD* BackoutThread;  //æ¨¡æ‹Ÿçº¿ç¨‹é€€å‡ºæ¶ˆæ¯
+    DBGKM_APIMSG ApiMsg;  //è°ƒè¯•äº‹ä»¶
 } DEBUG_EVENT, * PDEBUG_EVENT;
 
 

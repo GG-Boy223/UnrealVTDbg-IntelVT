@@ -28,7 +28,7 @@
 
 BOOL InitSymbolsTable(ULONG64 key);
 
-//¼ÓÔØ·ûºÅ±í
+//加载符号表
 BOOL LoadSymbolsTable(ULONG64 key);
 
 extern Logger logger;

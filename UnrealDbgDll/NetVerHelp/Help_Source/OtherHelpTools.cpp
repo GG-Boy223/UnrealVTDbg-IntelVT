@@ -1,4 +1,4 @@
-#pragma warning(disable: 4996)
+ï»¿#pragma warning(disable: 4996)
 #include "../Help_Tou/OtherHelpTools.h"
 #include "../../Crypter/xorstr.hpp"
 namespace OtherHelp
@@ -16,14 +16,14 @@ namespace OtherHelp
 	}
 
 
-	//Ç¿ĞĞ½áÊø³ÌĞò
+	//å¼ºè¡Œç»“æŸç¨‹åº
 	void OtherHelpTools::TerminateApp()
 	{
 		HANDLE hself = GetCurrentProcess();
 		TerminateProcess(hself, 0);
 	}
 
-	// LPVOID×ªCString
+	// LPVOIDè½¬CString
 	string OtherHelpTools::PVOIDToString(LPVOID lp)
 	{
 		return (char * &)lp;

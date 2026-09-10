@@ -1,14 +1,14 @@
-#pragma once
+ï»¿#pragma once
 #ifndef PlatformType_H_
 #define PlatformType_H_
 namespace Model
 {
-	//Æ½Ì¨ÀàĞÍ
+	//å¹³å°ç±»å‹
 	enum PlatformType
 	{
-		//ÍøÂçÑéÖ¤Æ½Ì¨
+		//ç½‘ç»œéªŒè¯å¹³å°
 		NetVer = 1,
-		//×Ô¶¯·¢»õÆ½Ì¨
+		//è‡ªåŠ¨å‘è´§å¹³å°
 		AutoGoods = 2,
 	};
 }

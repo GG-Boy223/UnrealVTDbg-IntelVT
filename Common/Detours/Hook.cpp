@@ -1,4 +1,4 @@
-#include <Windows.h>
+ï»¿#include <Windows.h>
 #include "detours.h"
 #include "Hook.h"
 
@@ -9,28 +9,28 @@
 #pragma comment(lib,"../Common/Detours/x86/detours.lib")
 #endif // _WIN64
 
-//°²×°hook
+//å®‰è£…hook
 void HookOn(_In_ PVOID* pfun, _In_ PVOID proxy_fun, _In_ HANDLE hThread)
 {
-	//ĞŞ¸ÄÄ¿±êÄÚ´æÒ³±£»¤ÊôĞÔ
+	//ä¿®æ”¹ç›®æ ‡å†…å­˜é¡µä¿æŠ¤å±æ€§
 	DetourTransactionBegin();
-	//ÔİÍ£Ä¿±êÏß³Ì
+	//æš‚åœç›®æ ‡çº¿ç¨‹
 	DetourUpdateThread(hThread);
-	//¿ªÊ¼hook
+	//å¼€å§‹hook
 	DetourAttach(pfun, proxy_fun);
-	//Ìá½»Ö´ĞĞ
+	//æäº¤æ‰§è¡Œ
 	DetourTransactionCommit();
 }
 
-//Ğ¶ÔØhook
+//å¸è½½hook
 void HookOff(_In_ PVOID* pfun, _In_ PVOID proxy_fun, _In_ HANDLE hThread)
 {
-	//ĞŞ¸ÄÄ¿±êÄÚ´æÒ³±£»¤ÊôĞÔ
+	//ä¿®æ”¹ç›®æ ‡å†…å­˜é¡µä¿æŠ¤å±æ€§
 	DetourTransactionBegin();
-	//ÔİÍ£Ä¿±êÏß³Ì
+	//æš‚åœç›®æ ‡çº¿ç¨‹
 	DetourUpdateThread(hThread);
-	//Ğ¶ÔØhook
+	//å¸è½½hook
 	DetourDetach(pfun, proxy_fun);
-	//Ìá½»Ö´ĞĞ
+	//æäº¤æ‰§è¡Œ
 	DetourTransactionCommit();
 }

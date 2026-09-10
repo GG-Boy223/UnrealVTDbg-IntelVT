@@ -1,10 +1,10 @@
-#include "../Driver.h"
+ï»¿#include "../Driver.h"
 #include "MyList.h"
 
-//³õÊ¼»¯»¥³âËøºÍÁĞ±í
+//åˆå§‹åŒ–äº’æ–¥é”å’Œåˆ—è¡¨
 VOID InitializeList(MY_LIST* list, PFAST_MUTEX FastMutex)
 {
-    //³õÊ¼»¯»¥³âËø
+    //åˆå§‹åŒ–äº’æ–¥é”
     ExInitializeFastMutex(FastMutex);
     InitializeListHead(&list->ListHead);
     list->Count = 0;

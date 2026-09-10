@@ -1,44 +1,44 @@
-#pragma once
+ï»¿#pragma once
 #ifndef Out_softInfo_H_
 #define Out_softInfo_H_
 #include <string>
 using namespace std;
 namespace Model
 {
-	//Èí¼şĞÅÏ¢
+	//è½¯ä»¶ä¿¡æ¯
 	class  Out_softInfo
 	{
 	public:
-		//Èí¼şÃû³Æ
+		//è½¯ä»¶åç§°
 		string softname;
-		//Èí¼ş×ÉÑ¯¹ÙÍø
+		//è½¯ä»¶å’¨è¯¢å®˜ç½‘
 		string consultwebsite;
 
-		//Èí¼ş×ÉÑ¯qq
+		//è½¯ä»¶å’¨è¯¢qq
 		string consultqq;
 
-		//Èí¼ş×ÉÑ¯Î¢ĞÅ
+		//è½¯ä»¶å’¨è¯¢å¾®ä¿¡
 		string consultwx;
 
-		//Èí¼ş×ÉÑ¯µç»°
+		//è½¯ä»¶å’¨è¯¢ç”µè¯
 		string consulttel;
-		// Èí¼şlogoÏÂÔØµØÖ·
+		// è½¯ä»¶logoä¸‹è½½åœ°å€
 		string logourl;
-		//¿ªÍ¨²âÊÔ¿¨ÃÜ»òÕËºÅ£ºNÌìÄÚÖ»ÄÜ¿ªÍ¨²âÊÔºÅµÄ×ÜÊıÁ¿
+		//å¼€é€šæµ‹è¯•å¡å¯†æˆ–è´¦å·ï¼šNå¤©å†…åªèƒ½å¼€é€šæµ‹è¯•å·çš„æ€»æ•°é‡
 		int opentestcount;
-		//¿ªÍ¨²âÊÔ¿¨ÃÜ»òÕËºÅ£ºÌìÊı
+		//å¼€é€šæµ‹è¯•å¡å¯†æˆ–è´¦å·ï¼šå¤©æ•°
 		int opentestday;
-		//¹«¸æ
+		//å…¬å‘Š
 		string notice;
-		//Èí¼ş»ù´¡Êı¾İ
+		//è½¯ä»¶åŸºç¡€æ•°æ®
 		string basedata;
-		//×îĞÂ°æ±¾ºÅ
+		//æœ€æ–°ç‰ˆæœ¬å·
 		string newversionnum;
-		//Èí¼şÏÂÔØµÄÍøÅÌµØÖ·
+		//è½¯ä»¶ä¸‹è½½çš„ç½‘ç›˜åœ°å€
 		string networkdiskurl;
-		//ÍøÅÌÌáÈ¡Âë
+		//ç½‘ç›˜æå–ç 
 		string diskpwd;
-		//ÊÇ·ñÇ¿ÖÆ¸üĞÂ  0£º²»Ç¿ÖÆ 1:Ç¿ÖÆ
+		//æ˜¯å¦å¼ºåˆ¶æ›´æ–°  0ï¼šä¸å¼ºåˆ¶ 1:å¼ºåˆ¶
 		int isforceupd;
 	};
 }

@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #ifndef ApiRequestArgs_H_
 #define ApiRequestArgs_H_
 #include <string>
@@ -8,32 +8,32 @@
 using namespace std;
 namespace Model
 {
-	//ÇëÇó½Ó¿ÚµÄÈë²Î
+	//è¯·æ±‚æ¥å£çš„å…¥å‚
 	class  ApiRequestArgs
 	{
 	public:
-		//ÒµÎñID(±ØÌî)
+		//ä¸šåŠ¡ID(å¿…å¡«)
 		BusinessType businessid;
-		//¼ÓÃÜ·½Ê½(±ØÌî)
+		//åŠ å¯†æ–¹å¼(å¿…å¡«)
 		EncryptType encrypttypeid;
-		// Æ½Ì¨ÓÃ»§Code(±ØÌî)
-		// ËµÃ÷£º¸öÈËÖĞĞÄÀïÃæ¿ÉÒÔ²é¿´µÃµ½¡£´úÀíÉÌµÄ»°£¬ÄÇÃ´ÔÚ£º´úÀí¹ÜÀí--¡·´úÀíÉÌÁĞ±í£¬¿ÉÒÔ²é¿´µÃµ½
+		// å¹³å°ç”¨æˆ·Code(å¿…å¡«)
+		// è¯´æ˜ï¼šä¸ªäººä¸­å¿ƒé‡Œé¢å¯ä»¥æŸ¥çœ‹å¾—åˆ°ã€‚ä»£ç†å•†çš„è¯ï¼Œé‚£ä¹ˆåœ¨ï¼šä»£ç†ç®¡ç†--ã€‹ä»£ç†å•†åˆ—è¡¨ï¼Œå¯ä»¥æŸ¥çœ‹å¾—åˆ°
 		string platformusercode;
-		//ÉÌÆ·Code(±ØÌî)
+		//å•†å“Code(å¿…å¡«)
 		string goodscode;
-		//³õÊ¼»¯Èí¼şKeyÖµ(Í¨¹ıÈí¼ş³õÊ¼»¯½Ó¿Ú¡¾iniSoftInfo¡¿»ñÈ¡£¬³ıÁË"Èí¼ş³õÊ¼»¯½Ó¿Ú"²»ĞèÒªÌîĞ´£¬ÆäËü½Ó¿Ú±ØÌîĞ´)
+		//åˆå§‹åŒ–è½¯ä»¶Keyå€¼(é€šè¿‡è½¯ä»¶åˆå§‹åŒ–æ¥å£ã€iniSoftInfoã€‘è·å–ï¼Œé™¤äº†"è½¯ä»¶åˆå§‹åŒ–æ¥å£"ä¸éœ€è¦å¡«å†™ï¼Œå…¶å®ƒæ¥å£å¿…å¡«å†™)
 		string inisoftkey;
-		//Ê±¼ä´Á(±ØÌî)
+		//æ—¶é—´æˆ³(å¿…å¡«)
 		__int64 timestamp;
-		//ÇëÇóµÄÊı¾İÀàJson×Ö·û´®(¾ßÌå²ÎÕÕAPIÎÄµµ)
+		//è¯·æ±‚çš„æ•°æ®ç±»Jsonå­—ç¬¦ä¸²(å…·ä½“å‚ç…§APIæ–‡æ¡£)
 		string data;
-		//Ç©Ãû
-		//×¢Òâ£º
-		//1.Èç¹ûÈí¼şÉèÖÃµÄÊÇ¡°ÎŞ¼ÓÃÜÍ¨Ñ¶¡±£¬ÄÇÃ´´ËÖµ¿ÉÒÔÎª¿Õ£¬Èç¹ûÉèÖÃµÄÊÇ¡°¼ÓÃÜÍ¨Ñ¶¡±£¬ÄÇÃ´´ËÖµ±ØÌîĞ´
-		//2.Ç©ÃûËã·¨£ºmd5(businessID+encrypttypeid+platformusercode+goodscode+inisoftkey+timestamp+data+signSalt+platformtypeid)
+		//ç­¾å
+		//æ³¨æ„ï¼š
+		//1.å¦‚æœè½¯ä»¶è®¾ç½®çš„æ˜¯â€œæ— åŠ å¯†é€šè®¯â€ï¼Œé‚£ä¹ˆæ­¤å€¼å¯ä»¥ä¸ºç©ºï¼Œå¦‚æœè®¾ç½®çš„æ˜¯â€œåŠ å¯†é€šè®¯â€ï¼Œé‚£ä¹ˆæ­¤å€¼å¿…å¡«å†™
+		//2.ç­¾åç®—æ³•ï¼šmd5(businessID+encrypttypeid+platformusercode+goodscode+inisoftkey+timestamp+data+signSalt+platformtypeid)
 		string sign;
 
-		//Æ½Ì¨ÀàĞÍ(±ØÌî) 1:ÍøÂçÑéÖ¤Æ½Ì¨  2:×Ô¶¯·¢»õÆ½Ì¨
+		//å¹³å°ç±»å‹(å¿…å¡«) 1:ç½‘ç»œéªŒè¯å¹³å°  2:è‡ªåŠ¨å‘è´§å¹³å°
 		PlatformType platformtypeid;
 	};
 

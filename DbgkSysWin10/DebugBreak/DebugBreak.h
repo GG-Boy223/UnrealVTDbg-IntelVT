@@ -1,18 +1,18 @@
-#pragma once
+ï»¿#pragma once
 
 #ifndef _DEBUG_BREAK_H
 #define _DEBUG_BREAK_H
 
-//ÉèÖÃÓ²¼þ¶Ïµã
+//è®¾ç½®ç¡¬ä»¶æ–­ç‚¹
 void SetHardwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp);
-//ÒÆ³ýÓ²¼þ¶Ïµã
+//ç§»é™¤ç¡¬ä»¶æ–­ç‚¹
 void RemoveHardwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp);
 
-//ÉèÖÃÈí¼þ¶Ïµã
+//è®¾ç½®è½¯ä»¶æ–­ç‚¹
 void SetSoftwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp);
-//ÒÆ³ýÈí¼þ¶Ïµã
+//ç§»é™¤è½¯ä»¶æ–­ç‚¹
 void RemoveSoftwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp);
-//¶Áint3¶Ïµã
+//è¯»int3æ–­ç‚¹
 void ReadSoftwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp);
 
 

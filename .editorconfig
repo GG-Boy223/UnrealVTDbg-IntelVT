@@ -1,0 +1,7 @@
+root = true
+
+[*.{c,cc,cpp,cxx,h,hpp,hxx,inl,ipp,rc,rc2}]
+charset = utf-8-bom
+
+[*.asm]
+charset = utf-8

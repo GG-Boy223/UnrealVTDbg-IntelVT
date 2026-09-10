@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #ifndef In_getRemoteVarArgs_H_
 #define In_getRemoteVarArgs_H_
 #include <string>
@@ -6,15 +6,15 @@
 using namespace std;
 namespace Model
 {
-	// »ñÈ¡Ô¶³Ì±äÁ¿Èë²Î
+	// è·å–è¿œç¨‹å˜é‡å…¥å‚
 	class In_getRemoteVarArgs :public In_DataBaseArgs
 	{
 	public:
-		//µÇÂ¼ÁîÅÆ(±ØÌî)
+		//ç™»å½•ä»¤ç‰Œ(å¿…å¡«)
 		string token;
-		// ¿¨ÃÜ»òÕËºÅ(±ØÌî)
+		// å¡å¯†æˆ–è´¦å·(å¿…å¡«)
 		string cardnumorusername;
-		//±äÁ¿Ãû³Æ(±ØÌî) Èç¹û±äÁ¿Ãû³ÆÎª¿ÕµÄ»°£¬ÄÇÃ´½Ó¿Ú·µ»ØÀ´µÄÊÇ´ËÈí¼şËùÓĞ±äÁ¿£¬·ñÔò¾ÍÊÇ´Ë±äÁ¿ÃûËùÒÔÓ¦µÄ±äÁ¿Öµ
+		//å˜é‡åç§°(å¿…å¡«) å¦‚æœå˜é‡åç§°ä¸ºç©ºçš„è¯ï¼Œé‚£ä¹ˆæ¥å£è¿”å›æ¥çš„æ˜¯æ­¤è½¯ä»¶æ‰€æœ‰å˜é‡ï¼Œå¦åˆ™å°±æ˜¯æ­¤å˜é‡åæ‰€ä»¥åº”çš„å˜é‡å€¼
 		string varname;
 	};
 }

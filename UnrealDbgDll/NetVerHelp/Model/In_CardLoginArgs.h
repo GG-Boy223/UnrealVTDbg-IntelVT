@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #ifndef In_CardLoginArgs_H_
 #define In_CardLoginArgs_H_
 #include <string>
@@ -6,13 +6,13 @@
 using namespace std;
 namespace Model
 {
-	/*ÇëÇóµÄÊı¾İÀà£º¿¨ÃÜµÇÂ¼*£¨µÇÂ½Àà£©*/
-	// /*ÇëÇóµÄÊı¾İÀà£º¿¨ÃÜµÇÂ¼*£¨µÇÂ½Àà£©*/
+	/*è¯·æ±‚çš„æ•°æ®ç±»ï¼šå¡å¯†ç™»å½•*ï¼ˆç™»é™†ç±»ï¼‰*/
+	// /*è¯·æ±‚çš„æ•°æ®ç±»ï¼šå¡å¯†ç™»å½•*ï¼ˆç™»é™†ç±»ï¼‰*/
 	class In_CardLoginArgs :public In_DataBaseArgs
 	{
 
 	public:
-		//¿¨ÃÜ(±ØÌî)
+		//å¡å¯†(å¿…å¡«)
 		string cardnum;
 	};
 }

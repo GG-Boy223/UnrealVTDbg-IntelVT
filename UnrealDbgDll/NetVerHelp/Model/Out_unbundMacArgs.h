@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #ifndef Out_unbundMacArgs_H_
 #define Out_unbundMacArgs_H_
 #include <string>
@@ -6,13 +6,13 @@
 using namespace std;
 namespace Model
 {
-	// ½â°ó»úÆ÷Âë³ö²Î
+	// è§£ç»‘æœºå™¨ç å‡ºå‚
 	class Out_unbundMacArgs :public Out_DataBaseArgs
 	{
 	public:
-		//ÕËºÅµ½ÆÚÊ±¼ä
+		//è´¦å·åˆ°æœŸæ—¶é—´
 		string endtime;
-		// Ê£ÓàµãÊı
+		// å‰©ä½™ç‚¹æ•°
 		int surpluspointvalue;
 	};
 }

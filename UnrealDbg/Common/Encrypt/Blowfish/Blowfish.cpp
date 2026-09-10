@@ -1,4 +1,4 @@
-#include <stdio.h>
+ï»¿#include <stdio.h>
 #include <string>
 #include <Windows.h>
 #include "../../VMProtect/vmp.h"
@@ -20,7 +20,7 @@ static void Hex2Char(char* szHex, unsigned char* rch);
 
 /*Initialization with a fixed string which consists of the hexadecimal digits of PI (less the initial 3)
   P-array, 18 32-bit subkeys*/
-//Ê¹ÓÃ¹Ì¶¨×Ö·û´®³õÊ¼»¯£¬¸Ã×Ö·û´®ÓÉPIµÄÊ®Áù½øÖÆÊı×Ö×é³É£¨¼õÈ¥³õÊ¼Öµ3£©PºĞ£¬18¸ö32Î»×ÓÃÜÔ¿
+//ä½¿ç”¨å›ºå®šå­—ç¬¦ä¸²åˆå§‹åŒ–ï¼Œè¯¥å­—ç¬¦ä¸²ç”±PIçš„åå…­è¿›åˆ¶æ•°å­—ç»„æˆï¼ˆå‡å»åˆå§‹å€¼3ï¼‰Pç›’ï¼Œ18ä¸ª32ä½å­å¯†é’¥
 const unsigned int scm_auiInitP[MAX_PBLOCK_SIZE] = {
 	0x243f6a88, 0x85a308d3, 0x13198a2e, 0x03707344,
 	0xa4093822, 0x299f31d0, 0x082efa98, 0xec4e6c89,
@@ -29,7 +29,7 @@ const unsigned int scm_auiInitP[MAX_PBLOCK_SIZE] = {
 	0x9216d5d9, 0x8979fb1b,
 };
 /*Four 32-bit S-boxes with 256 entries each*/
-//ËÄ¸ö32Î»SºĞ£¬Ã¿¸öSºĞÓĞ256¸öÌõÄ¿
+//å››ä¸ª32ä½Sç›’ï¼Œæ¯ä¸ªSç›’æœ‰256ä¸ªæ¡ç›®
 const unsigned int scm_auiInitS[MAX_SBLOCK_XSIZE][MAX_SBLOCK_YSIZE] = {
 	/*0*/
 	{0xd1310ba6, 0x98dfb5ac, 0x2ffd72db, 0xd01adfb7,
@@ -545,7 +545,7 @@ void HexStr2CharStr(unsigned char* pszHexStr, int iSize, unsigned char* pucCharS
 }
 /****************************************************************************************/
 /*Constructor - Initialize the P and S boxes for a given Key*/
-//ÊäÈëkey±ä»»sºĞ pºĞ
+//è¾“å…¥keyå˜æ¢sç›’ pç›’
 int BlowFishInit(Blowfish* blowfish, unsigned char* ucKey, size_t keysize)
 {
 	unsigned int i, j, k, n;
@@ -556,18 +556,18 @@ int BlowFishInit(Blowfish* blowfish, unsigned char* ucKey, size_t keysize)
 	SBlock block = { 0, 0 }; //all-zero block
 	if (keysize < 1) return -1;
 	/*Check the Key - the key length should be between 1 and 56 bytes*/
-	//¼ì²éÃÜÔ¿-ÃÜÔ¿³¤¶ÈÓ¦½éÓÚ1µ½56×Ö½ÚÖ®¼ä
+	//æ£€æŸ¥å¯†é’¥-å¯†é’¥é•¿åº¦åº”ä»‹äº1åˆ°56å­—èŠ‚ä¹‹é—´
 	if (keysize < 0 || keysize > MAX_KEY_SIZE) return -1;
 	memcpy(aucLocalKey, ucKey, keysize);
 	/*Reflexive Initialization of the Blowfish.
 	  Generating the Subkeys from the Key flood P and S boxes with PI*/
 
-	//BlowfishµÄ·´Éä³õÊ¼»¯¡£Ê¹ÓÃPI´ÓPºÍSºĞÉú³É×ÓÃÜÔ¿
+	//Blowfishçš„åå°„åˆå§‹åŒ–ã€‚ä½¿ç”¨PIä»På’ŒSç›’ç”Ÿæˆå­å¯†é’¥
 	memcpy(blowfish->m_auiP, scm_auiInitP, sizeof(blowfish->m_auiP));
 	memcpy(blowfish->m_auiS, scm_auiInitS, sizeof(blowfish->m_auiS));
 	/*Load P boxes with key bytes
 	  Repeatedly cycle through the key bits until the entire P array has been XORed with key bits*/
-	//¼ÓÔØ¾ßÓĞÃÜÔ¿×Ö½ÚµÄPºĞÔÚÃÜÔ¿Î»ÖĞÖØ¸´Ñ­»·£¬Ö±µ½Õû¸öPÕóÁĞÓëÃÜÔ¿Î»Òì»ò
+	//åŠ è½½å…·æœ‰å¯†é’¥å­—èŠ‚çš„Pç›’åœ¨å¯†é’¥ä½ä¸­é‡å¤å¾ªç¯ï¼Œç›´åˆ°æ•´ä¸ªPé˜µåˆ—ä¸å¯†é’¥ä½å¼‚æˆ–
 	for (i = 0; i < MAX_PBLOCK_SIZE; i++)
 	{
 		x = 0;
@@ -580,7 +580,7 @@ int BlowFishInit(Blowfish* blowfish, unsigned char* ucKey, size_t keysize)
 			if (iCount == keysize)
 			{
 				/*All bytes used, so recycle bytes*/
-				//ÒÑÊ¹ÓÃËùÓĞ×Ö½Ú£¬Òò´Ë»ØÊÕ×Ö½Ú
+				//å·²ä½¿ç”¨æ‰€æœ‰å­—èŠ‚ï¼Œå› æ­¤å›æ”¶å­—èŠ‚
 				iCount = 0;
 				p = aucLocalKey;
 			}
@@ -639,7 +639,7 @@ int Decrypt(Blowfish* blowfish, const unsigned char* in, size_t siz_i, unsigned 
 	return nRet;
 }
 
-//×Ö½ÚÁ÷×ª×Ö·ûÁ÷
+//å­—èŠ‚æµè½¬å­—ç¬¦æµ
 void HexToStr(const char* sSrc, char* sDest, int length)
 {
 	int  i;
@@ -653,7 +653,7 @@ void HexToStr(const char* sSrc, char* sDest, int length)
 	return;
 }
 
-//×Ö·ûÁ÷×ª×Ö½ÚÁ÷
+//å­—ç¬¦æµè½¬å­—èŠ‚æµ
 void StrToHex(const char* source, unsigned char* dest, int length)
 {
 	short i;
@@ -678,20 +678,20 @@ void StrToHex(const char* source, unsigned char* dest, int length)
 	}
 }
 
-//¼ÓÃÜº¯Êı
+//åŠ å¯†å‡½æ•°
 std::string EncryptData(const char* pAddr, SIZE_T size, const char* key)
 {
 	VMProtectBeginVirtualization("VMP");
 	Blowfish oBlowFish;
-	unsigned char aucKey[17];  //ÃÜÔ¿
-	BYTE* aucPlainText;  //Ã÷ÎÄ»º³åÇø
-	BYTE* aucCipherText; //ÃÜÎÄ»º³åÇø  ×¢Òâ: ±ØĞëÊÇÃ÷ÎÄ»º³åÇøµÄ2±¶
+	unsigned char aucKey[17];  //å¯†é’¥
+	BYTE* aucPlainText;  //æ˜æ–‡ç¼“å†²åŒº
+	BYTE* aucCipherText; //å¯†æ–‡ç¼“å†²åŒº  æ³¨æ„: å¿…é¡»æ˜¯æ˜æ–‡ç¼“å†²åŒºçš„2å€
 	//SIZE_T aucPlainTextLen;
 	SIZE_T aucCipherTextLen;
 	aucKey[16] = 0;
 	int nLen;
 
-	//Ò»×éÃ÷ÎÄ¶ÔÓ¦Ò»×ékey
+	//ä¸€ç»„æ˜æ–‡å¯¹åº”ä¸€ç»„key
 	strcpy((char*)aucKey, key);
 
 	//aucPlainTextLen = size * 2 + 1;
@@ -703,14 +703,14 @@ std::string EncryptData(const char* pAddr, SIZE_T size, const char* key)
 		nLen = size;
 	}
 	else {
-		//Ã÷ÎÄ³¤¶ÈÌ«Ğ¡À©´óÃ÷ÎÄ³¤¶È
+		//æ˜æ–‡é•¿åº¦å¤ªå°æ‰©å¤§æ˜æ–‡é•¿åº¦
 		nLen = size + 8 - size % 8;
 	}
 
 	aucPlainText = (BYTE*)pAddr;
-	aucCipherTextLen = nLen * 2 + 1; //ÒòÎª¼ÓÃÜºóÃÜÎÄÒª±ÈÃ÷ÎÄ³¤2±¶
+	aucCipherTextLen = nLen * 2 + 1; //å› ä¸ºåŠ å¯†åå¯†æ–‡è¦æ¯”æ˜æ–‡é•¿2å€
 	aucCipherText = new BYTE[aucCipherTextLen];
-	memset(aucCipherText, 0, aucCipherTextLen); //³õÊ¼»¯ÃÜÎÄ»º³åÇø		
+	memset(aucCipherText, 0, aucCipherTextLen); //åˆå§‹åŒ–å¯†æ–‡ç¼“å†²åŒº		
 	BlowFishInit(&oBlowFish, aucKey, 16);
 	Encrypt(&oBlowFish, aucPlainText, nLen, aucCipherText, aucCipherTextLen, ECB);
 
@@ -721,21 +721,21 @@ std::string EncryptData(const char* pAddr, SIZE_T size, const char* key)
 	return strCipher;	
 }
 
-//½âÃÜº¯Êı
+//è§£å¯†å‡½æ•°
 std::string DecryptData(const char* pInAddr, const char* key)
 {
 	VMProtectBeginVirtualization("VMP");
 	Blowfish oBlowFish;
-	unsigned char aucKey[17];  //ÃÜÔ¿
-	UCHAR* aucPlainText;  //Ã÷ÎÄ
+	unsigned char aucKey[17];  //å¯†é’¥
+	UCHAR* aucPlainText;  //æ˜æ–‡
 	size_t aucPlainTextLen = 0;
 	size_t aucCipherTextLen = 0;
 
-	//Ò»×éÃ÷ÎÄ¶ÔÓ¦Ò»×ékey
+	//ä¸€ç»„æ˜æ–‡å¯¹åº”ä¸€ç»„key
 	strcpy((char*)aucKey, key);
 	aucCipherTextLen = strlen(pInAddr);
-	aucPlainTextLen = aucCipherTextLen / 2 + 1;  //ÒòÎª¼ÓÃÜºóÃÜÎÄÒª±ÈÃ÷ÎÄ³¤2±¶
-	aucPlainText = new BYTE[aucPlainTextLen];  //·ÖÅäÃ÷ÎÄ»º³å
+	aucPlainTextLen = aucCipherTextLen / 2 + 1;  //å› ä¸ºåŠ å¯†åå¯†æ–‡è¦æ¯”æ˜æ–‡é•¿2å€
+	aucPlainText = new BYTE[aucPlainTextLen];  //åˆ†é…æ˜æ–‡ç¼“å†²
 	memset(aucPlainText, 0, aucPlainTextLen);
 
 	BlowFishInit(&oBlowFish, aucKey, 16);

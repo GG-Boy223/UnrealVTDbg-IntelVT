@@ -1,14 +1,14 @@
-#pragma once
+ï»¿#pragma once
 #ifndef DisableCardOrAccountType_H_
 #define DisableCardOrAccountType_H_
 namespace Model
 {
-	//½ûÓÃ»¹ÊÇÉ¾³ı£ºµ¥Âë»òÕËºÅ
+	//ç¦ç”¨è¿˜æ˜¯åˆ é™¤ï¼šå•ç æˆ–è´¦å·
 	enum DisableCardOrAccountType
 	{
-		// ½ûÓÃ
+		// ç¦ç”¨
 		Disable = 0,
-		//É¾³ı
+		//åˆ é™¤
 		Delete = 1,
 	};
 }

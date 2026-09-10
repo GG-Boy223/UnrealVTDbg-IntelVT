@@ -1,4 +1,4 @@
-#include <ntifs.h>
+ï»¿#include <ntifs.h>
 #include <ntstrsafe.h>
 #include "Blowfish.h"
 
@@ -21,7 +21,7 @@ static void Hex2Char(char* szHex, unsigned char* rch);
 
 /*Initialization with a fixed string which consists of the hexadecimal digits of PI (less the initial 3)
   P-array, 18 32-bit subkeys*/
-  //Ê¹ÓÃ¹Ì¶¨×Ö·û´®³õÊ¼»¯£¬¸Ã×Ö·û´®ÓÉPIµÄÊ®Áù½øÖÆÊı×Ö×é³É£¨¼õÈ¥³õÊ¼Öµ3£©PºĞ£¬18¸ö32Î»×ÓÃÜÔ¿
+  //ä½¿ç”¨å›ºå®šå­—ç¬¦ä¸²åˆå§‹åŒ–ï¼Œè¯¥å­—ç¬¦ä¸²ç”±PIçš„åå…­è¿›åˆ¶æ•°å­—ç»„æˆï¼ˆå‡å»åˆå§‹å€¼3ï¼‰Pç›’ï¼Œ18ä¸ª32ä½å­å¯†é’¥
 const unsigned int scm_auiInitP[MAX_PBLOCK_SIZE] = {
 	0x243f6a88, 0x85a308d3, 0x13198a2e, 0x03707344,
 	0xa4093822, 0x299f31d0, 0x082efa98, 0xec4e6c89,
@@ -30,7 +30,7 @@ const unsigned int scm_auiInitP[MAX_PBLOCK_SIZE] = {
 	0x9216d5d9, 0x8979fb1b,
 };
 /*Four 32-bit S-boxes with 256 entries each*/
-//ËÄ¸ö32Î»SºĞ£¬Ã¿¸öSºĞÓĞ256¸öÌõÄ¿
+//å››ä¸ª32ä½Sç›’ï¼Œæ¯ä¸ªSç›’æœ‰256ä¸ªæ¡ç›®
 const unsigned int scm_auiInitS[MAX_SBLOCK_XSIZE][MAX_SBLOCK_YSIZE] = {
 	/*0*/
 	{0xd1310ba6, 0x98dfb5ac, 0x2ffd72db, 0xd01adfb7,
@@ -546,7 +546,7 @@ VOID HexStr2CharStr(unsigned char* pszHexStr, ULONG iSize, unsigned char* pucCha
 }
 /****************************************************************************************/
 /*Constructor - Initialize the P and S boxes for a given Key*/
-//ÊäÈëkey±ä»»sºĞ pºĞ
+//è¾“å…¥keyå˜æ¢sç›’ pç›’
 ULONG BlowFishInit(Blowfish* blowfish, unsigned char* ucKey, size_t keysize)
 {
 	unsigned int i, j, k, n;
@@ -557,18 +557,18 @@ ULONG BlowFishInit(Blowfish* blowfish, unsigned char* ucKey, size_t keysize)
 	SBlock block = { 0, 0 }; //all-zero block
 	if (keysize < 1) return -1;
 	/*Check the Key - the key length should be between 1 and 56 bytes*/
-	//¼ì²éÃÜÔ¿-ÃÜÔ¿³¤¶ÈÓ¦½éÓÚ1µ½56×Ö½ÚÖ®¼ä
+	//æ£€æŸ¥å¯†é’¥-å¯†é’¥é•¿åº¦åº”ä»‹äº1åˆ°56å­—èŠ‚ä¹‹é—´
 	if (keysize > MAX_KEY_SIZE) return -1;
 	memcpy(aucLocalKey, ucKey, keysize);
 	/*Reflexive Initialization of the Blowfish.
 	  Generating the Subkeys from the Key flood P and S boxes with PI*/
 
-	  //BlowfishµÄ·´Éä³õÊ¼»¯¡£Ê¹ÓÃPI´ÓPºÍSºĞÉú³É×ÓÃÜÔ¿
+	  //Blowfishçš„åå°„åˆå§‹åŒ–ã€‚ä½¿ç”¨PIä»På’ŒSç›’ç”Ÿæˆå­å¯†é’¥
 	memcpy(blowfish->m_auiP, scm_auiInitP, sizeof(blowfish->m_auiP));
 	memcpy(blowfish->m_auiS, scm_auiInitS, sizeof(blowfish->m_auiS));
 	/*Load P boxes with key bytes
 	  Repeatedly cycle through the key bits until the entire P array has been XORed with key bits*/
-	  //¼ÓÔØ¾ßÓĞÃÜÔ¿×Ö½ÚµÄPºĞÔÚÃÜÔ¿Î»ÖĞÖØ¸´Ñ­»·£¬Ö±µ½Õû¸öPÕóÁĞÓëÃÜÔ¿Î»Òì»ò
+	  //åŠ è½½å…·æœ‰å¯†é’¥å­—èŠ‚çš„Pç›’åœ¨å¯†é’¥ä½ä¸­é‡å¤å¾ªç¯ï¼Œç›´åˆ°æ•´ä¸ªPé˜µåˆ—ä¸å¯†é’¥ä½å¼‚æˆ–
 	for (i = 0; i < MAX_PBLOCK_SIZE; i++)
 	{
 		x = 0;
@@ -581,7 +581,7 @@ ULONG BlowFishInit(Blowfish* blowfish, unsigned char* ucKey, size_t keysize)
 			if (iCount == keysize)
 			{
 				/*All bytes used, so recycle bytes*/
-				//ÒÑÊ¹ÓÃËùÓĞ×Ö½Ú£¬Òò´Ë»ØÊÕ×Ö½Ú
+				//å·²ä½¿ç”¨æ‰€æœ‰å­—èŠ‚ï¼Œå› æ­¤å›æ”¶å­—èŠ‚
 				iCount = 0;
 				p = aucLocalKey;
 			}
@@ -640,7 +640,7 @@ ULONG Decrypt(Blowfish* blowfish, const unsigned char* in, size_t siz_i, unsigne
 	return nRet;
 }
 
-//×Ö·ûÁ÷×ª×Ö½ÚÁ÷
+//å­—ç¬¦æµè½¬å­—èŠ‚æµ
 void StrToHex(const char* source, unsigned char* dest, int length)
 {
 	short i;
@@ -668,12 +668,12 @@ void StrToHex(const char* source, unsigned char* dest, int length)
 VOID DecryptData(PVOID pInAddr, PVOID pOutAddr, const char* key)
 {
 	Blowfish oBlowFish;
-	unsigned char aucKey[17];  //ÃÜÔ¿
-	UCHAR* aucPlainText;  //Ã÷ÎÄ
+	unsigned char aucKey[17];  //å¯†é’¥
+	UCHAR* aucPlainText;  //æ˜æ–‡
 	size_t aucPlainTextLen = 0;
 	size_t aucCipherTextLen = 0;
 
-	//Ò»×éÃ÷ÎÄ¶ÔÓ¦Ò»×ékey
+	//ä¸€ç»„æ˜æ–‡å¯¹åº”ä¸€ç»„key
 	RtlStringCbCopyA((NTSTRSAFE_PSTR)aucKey, sizeof(aucKey), key);
 	RtlStringCbLengthA((STRSAFE_PCNZCH)pInAddr, NTSTRSAFE_MAX_CCH * sizeof(char), &aucCipherTextLen);
 	aucPlainTextLen = aucCipherTextLen / 2 + 1;
@@ -727,9 +727,9 @@ VOID TestBlowfish()
 		{"0123456789ABCDEF", "0000000000000000"},
 		{"FEDCBA9876543210", "FFFFFFFFFFFFFFFF"}
 	};
-	unsigned char aucKey[17];  //ÃÜÔ¿
-	unsigned char aucPlainText[64];  //Ã÷ÎÄ
-	unsigned char aucCipherText[64]; //ÃÜÎÄ
+	unsigned char aucKey[17];  //å¯†é’¥
+	unsigned char aucPlainText[64];  //æ˜æ–‡
+	unsigned char aucCipherText[64]; //å¯†æ–‡
 	size_t aucPlainTextLen = 0;
 	size_t aucCipherTextLen = 0;
 	DbgPrint("Blowfish self-test debug break suppressed.\n");
@@ -737,10 +737,10 @@ VOID TestBlowfish()
 	{
 		Blowfish oBlowFish;
 		aucKey[16] = 0;
-		memset(aucPlainText, 0x00, sizeof(aucPlainText));  //³õÊ¼»¯Ã÷ÎÄ»º³åÇø
-		memset(aucCipherText, 0x00, sizeof(aucCipherText)); //³õÊ¼»¯ÃÜÎÄ»º³åÇø
+		memset(aucPlainText, 0x00, sizeof(aucPlainText));  //åˆå§‹åŒ–æ˜æ–‡ç¼“å†²åŒº
+		memset(aucCipherText, 0x00, sizeof(aucCipherText)); //åˆå§‹åŒ–å¯†æ–‡ç¼“å†²åŒº
 
-		//Ò»×éÃ÷ÎÄ¶ÔÓ¦Ò»×ékey
+		//ä¸€ç»„æ˜æ–‡å¯¹åº”ä¸€ç»„key
 		RtlStringCbCopyA((NTSTRSAFE_PSTR)aucKey, sizeof(aucKey), szData[i][0]);
 		RtlStringCbCopyA((NTSTRSAFE_PSTR)aucPlainText, sizeof(szData[i][1]), szData[i][1]);
 		BlowFishInit(&oBlowFish, aucKey, 16);

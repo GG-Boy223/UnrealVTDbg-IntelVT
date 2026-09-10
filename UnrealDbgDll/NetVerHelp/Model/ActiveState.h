@@ -1,14 +1,14 @@
-#pragma once
+ï»¿#pragma once
 #ifndef ActiveState_H_
 #define ActiveState_H_
 namespace Model
 {
-	//¼¤»î×´Ì¬
+	//æ¿€æ´»çŠ¶æ€
 	enum ActiveState
 	{
-		// Î´¼¤»î
+		// æœªæ¿€æ´»
 		NoActivation = 0,
-		//ÒÑ¼¤»î
+		//å·²æ¿€æ´»
 		Activation = 1
 	};
 }

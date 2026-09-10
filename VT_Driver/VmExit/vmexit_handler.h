@@ -1,273 +1,273 @@
-// ±¾Í·ÎÄ¼ş¶¨Òå VM-exit Ïà¹ØµÄÃ¶¾Ù¡¢Î»ÓòÓëº¯ÊıÉùÃ÷¡£
-// ×÷ÓÃ£ºµ±ĞéÄâ»úÍË³öÊ±£¬VMM Í¨¹ıÕâĞ©½á¹¹½âÎöÍË³öÔ­ÒòºÍÖ¸ÁîĞÅÏ¢£¬²¢×ö³ö´¦Àí¡£
-// Ô­Àí£ºCPU ÔÚ VM-exit Ê±»á°Ñ¡°ÍË³öÔ­Òò/Ö¸ÁîĞÅÏ¢/×Ê¸ñĞÅÏ¢¡±µÈĞ´Èë VMCS£¬
-//       ±¾ÎÄ¼şµÄ½á¹¹ÌåÓÃÓÚ°ÑÕâĞ©Î»Óò½âÎö³É¿É¶ÁµÄ×Ö¶Î¡£
+ï»¿// æœ¬å¤´æ–‡ä»¶å®šä¹‰ VM-exit ç›¸å…³çš„æšä¸¾ã€ä½åŸŸä¸å‡½æ•°å£°æ˜ã€‚
+// ä½œç”¨ï¼šå½“è™šæ‹Ÿæœºé€€å‡ºæ—¶ï¼ŒVMM é€šè¿‡è¿™äº›ç»“æ„è§£æé€€å‡ºåŸå› å’ŒæŒ‡ä»¤ä¿¡æ¯ï¼Œå¹¶åšå‡ºå¤„ç†ã€‚
+// åŸç†ï¼šCPU åœ¨ VM-exit æ—¶ä¼šæŠŠâ€œé€€å‡ºåŸå› /æŒ‡ä»¤ä¿¡æ¯/èµ„æ ¼ä¿¡æ¯â€ç­‰å†™å…¥ VMCSï¼Œ
+//       æœ¬æ–‡ä»¶çš„ç»“æ„ä½“ç”¨äºæŠŠè¿™äº›ä½åŸŸè§£ææˆå¯è¯»çš„å­—æ®µã€‚
 
-#pragma once                         // Ö»±àÒëÒ»´Î£¬±ÜÃâÖØ¸´°üº¬
+#pragma once                         // åªç¼–è¯‘ä¸€æ¬¡ï¼Œé¿å…é‡å¤åŒ…å«
 
-#ifndef _VMEXIT_HANDLER_H            // Èç¹û»¹Î´¶¨Òå¸Ãºê£¬½øÈë°üº¬±£»¤
-#define _VMEXIT_HANDLER_H            // ¶¨Òåºê£¬±ê¼Ç¸ÃÍ·ÎÄ¼şÒÑ°üº¬
+#ifndef _VMEXIT_HANDLER_H            // å¦‚æœè¿˜æœªå®šä¹‰è¯¥å®ï¼Œè¿›å…¥åŒ…å«ä¿æŠ¤
+#define _VMEXIT_HANDLER_H            // å®šä¹‰å®ï¼Œæ ‡è®°è¯¥å¤´æ–‡ä»¶å·²åŒ…å«
 
-// VM-exit ÍË³öÔ­ÒòÃ¶¾Ù
-// Ô­Àí£ºÓ²¼ş°Ñ VM-exit Ô­ÒòĞ´Èë VMCS µÄ VM_EXIT_REASON ×Ö¶Î£¬±¾Ã¶¾ÙÓÃÓÚ½âÊÍ¸ÃÖµ
-// ×÷ÓÃ£ºVMM ¸ù¾İÔ­Òò·Ö·¢´¦ÀíÂß¼­£¨ÀıÈç CPUID¡¢MSR¡¢EPT Î¥¹æµÈ£©
-enum __vm_exit_reason // VM-exit ÍË³öÔ­Òò
-{ // Ã¶¾Ù¿ªÊ¼
-	EXIT_REASON_EXCEPTION_NMI,                       // ÍË³öÔ­Òò£ºÒì³£»ò NMI
-	EXIT_REASON_EXTERNAL_INTERRUPT,                 // ÍË³öÔ­Òò£ºÍâ²¿ÖĞ¶Ï
-	EXIT_REASON_TRIPLE_FAULT,                       // ÍË³öÔ­Òò£ºÈıÖØ¹ÊÕÏ
-	EXIT_REASON_INIT_SIGNAL,                        // ÍË³öÔ­Òò£ºINIT ĞÅºÅ
-	EXIT_REASON_SIPI,                               // ÍË³öÔ­Òò£ºSIPI
-	EXIT_REASON_SMI,                                // ÍË³öÔ­Òò£ºSMI
-	EXIT_REASON_OTHER_SMI,                          // ÍË³öÔ­Òò£ºÆäËû SMI
-	EXIT_REASON_INTERRUPT_WINDOW,                   // ÍË³öÔ­Òò£ºÖĞ¶Ï´°¿Ú
-	EXIT_REASON_NMI_WINDOW,                         // ÍË³öÔ­Òò£ºNMI ´°¿Ú
-	EXIT_REASON_TASK_SWITCH,                        // ÍË³öÔ­Òò£ºÈÎÎñÇĞ»»
-	EXIT_REASON_CPUID,                              // ÍË³öÔ­Òò£ºÖ´ĞĞ CPUID
-	EXIT_REASON_GETSEC,                             // ÍË³öÔ­Òò£ºÖ´ĞĞ GETSEC
-	EXIT_REASON_HLT,                                // ÍË³öÔ­Òò£ºÖ´ĞĞ HLT
-	EXIT_REASON_INVD,                               // ÍË³öÔ­Òò£ºÖ´ĞĞ INVD
-	EXIT_REASON_INVLPG,                             // ÍË³öÔ­Òò£ºÖ´ĞĞ INVLPG
-	EXIT_REASON_RDPMC,                              // ÍË³öÔ­Òò£ºÖ´ĞĞ RDPMC
-	EXIT_REASON_RDTSC,                              // ÍË³öÔ­Òò£ºÖ´ĞĞ RDTSC
-	EXIT_REASON_RSM,                                // ÍË³öÔ­Òò£ºÖ´ĞĞ RSM
-	EXIT_REASON_VMCALL,                             // ÍË³öÔ­Òò£ºÖ´ĞĞ VMCALL
-	EXIT_REASON_VMCLEAR,                            // ÍË³öÔ­Òò£ºÖ´ĞĞ VMCLEAR
-	EXIT_REASON_VMLAUNCH,                           // ÍË³öÔ­Òò£ºÖ´ĞĞ VMLAUNCH
-	EXIT_REASON_VMPTRLD,                            // ÍË³öÔ­Òò£ºÖ´ĞĞ VMPTRLD
-	EXIT_REASON_VMPTRST,                            // ÍË³öÔ­Òò£ºÖ´ĞĞ VMPTRST
-	EXIT_REASON_VMREAD,                             // ÍË³öÔ­Òò£ºÖ´ĞĞ VMREAD
-	EXIT_REASON_VMRESUME,                           // ÍË³öÔ­Òò£ºÖ´ĞĞ VMRESUME
-	EXIT_REASON_VMWRITE,                            // ÍË³öÔ­Òò£ºÖ´ĞĞ VMWRITE
-	EXIT_REASON_VMXOFF,                             // ÍË³öÔ­Òò£ºÖ´ĞĞ VMXOFF
-	EXIT_REASON_VMXON,                              // ÍË³öÔ­Òò£ºÖ´ĞĞ VMXON
-	EXIT_REASON_CR_ACCESSES,                        // ÍË³öÔ­Òò£ºCR ¼Ä´æÆ÷·ÃÎÊ
-	EXIT_REASON_MOV_DR,                             // ÍË³öÔ­Òò£ºMOV DR
-	EXIT_REASON_IO_INSTRUCTION,                     // ÍË³öÔ­Òò£ºI/O Ö¸Áî
-	EXIT_REASON_RDMSR,                              // ÍË³öÔ­Òò£ºRDMSR
-	EXIT_REASON_WRMSR,                              // ÍË³öÔ­Òò£ºWRMSR
-	EXIT_REASON_VM_ENTRY_FAILURE_INVALID_GUEST_STATE, // ÍË³öÔ­Òò£ºVM-entry À´±ö×´Ì¬ÎŞĞ§
-	EXIT_REASON_VM_ENTRY_FAILURE_MSR_LODAING,       // ÍË³öÔ­Òò£ºVM-entry MSR ¼ÓÔØÊ§°Ü
-	EXIT_REASON_RESERVED1,                          // ±£ÁôÖµ
-	EXIT_REASON_MWAIT,                              // ÍË³öÔ­Òò£ºMWAIT
-	EXIT_REASON_MONITOR_TRAP_FLAG,                  // ÍË³öÔ­Òò£ºMTF ´¥·¢
-	EXIT_REASON_RESERVED2,                          // ±£ÁôÖµ
-	EXIT_REASON_MONITOR,                            // ÍË³öÔ­Òò£ºMONITOR
-	EXIT_REASON_PAUSE,                              // ÍË³öÔ­Òò£ºPAUSE
-	EXIT_REASON_VM_ENTRY_FAILURE_MACHINE_CHECK_EVENT, // ÍË³öÔ­Òò£ºVM-entry »úÆ÷¼ì²éÊ§°Ü
-	EXIT_REASON_RESERVED3,                          // ±£ÁôÖµ
-	EXIT_REASON_TPR_BELOW_THRESHOLD,                // ÍË³öÔ­Òò£ºTPR µÍÓÚãĞÖµ
-	EXIT_REASON_APIC_ACCESS,                        // ÍË³öÔ­Òò£ºAPIC ·ÃÎÊ
-	EXIT_REASON_VIRTUALIZED_EOI,                    // ÍË³öÔ­Òò£ºĞéÄâ»¯ EOI
-	EXIT_REASON_ACCESS_TO_GDTR_OR_IDTR,             // ÍË³öÔ­Òò£º·ÃÎÊ GDTR/IDTR
-	EXIT_REASON_ACCESS_TO_LDTR_OR_TR,               // ÍË³öÔ­Òò£º·ÃÎÊ LDTR/TR
-	EXIT_REASON_EPT_VIOLATION,                      // ÍË³öÔ­Òò£ºEPT Î¥¹æ
-	EXIT_REASON_EPT_MISCONFIGURATION,               // ÍË³öÔ­Òò£ºEPT ÅäÖÃ´íÎó
-	EXIT_REASON_INVEPT,                             // ÍË³öÔ­Òò£ºINVEPT
-	EXIT_REASON_RDTSCP,                             // ÍË³öÔ­Òò£ºRDTSCP
-	EXIT_REASON_VMX_PREEMPTION_TIMER_EXPIRED,       // ÍË³öÔ­Òò£ºVMX Ô¤ÇÀÕ¼¼ÆÊ±Æ÷µ½ÆÚ
-	EXIT_REASON_INVVPID,                            // ÍË³öÔ­Òò£ºINVVPID
-	EXIT_REASON_WBINVD,                             // ÍË³öÔ­Òò£ºWBINVD
-	EXIT_REASON_XSETBV,                             // ÍË³öÔ­Òò£ºXSETBV
-	EXIT_REASON_APIC_WRITE,                         // ÍË³öÔ­Òò£ºAPIC Ğ´
-	EXIT_REASON_RDRAND,                             // ÍË³öÔ­Òò£ºRDRAND
-	EXIT_REASON_INVPCID,                            // ÍË³öÔ­Òò£ºINVPCID
-	EXIT_REASON_VMFUNC,                             // ÍË³öÔ­Òò£ºVMFUNC
-	EXIT_REASON_ENCLS,                              // ÍË³öÔ­Òò£ºENCLS
-	EXIT_REASON_RDSEED,                             // ÍË³öÔ­Òò£ºRDSEED
-	EXIT_REASON_PAGE_MODIFICATION_LOG_FULL,         // ÍË³öÔ­Òò£ºPML Âú
-	EXIT_REASON_XSAVES,                             // ÍË³öÔ­Òò£ºXSAVES
-	EXIT_REASON_XRSTORS,                            // ÍË³öÔ­Òò£ºXRSTORS
-	EXIT_REASON_RESERVED4,                          // ±£ÁôÖµ
-	EXIT_REASON_SPP_RELATED_EVENT,                  // ÍË³öÔ­Òò£ºSPP Ïà¹ØÊÂ¼ş
-	EXIT_REASON_UMWAIT,                             // ÍË³öÔ­Òò£ºUMWAIT
-	EXIT_REASON_TPAUSE,                             // ÍË³öÔ­Òò£ºTPAUSE
-	EXIT_REASON_LAST                                // ÍË³öÔ­Òò£ºÃ¶¾Ù½áÊø±ê¼Ç
-}; // Ã¶¾Ù½áÊø
+// VM-exit é€€å‡ºåŸå› æšä¸¾
+// åŸç†ï¼šç¡¬ä»¶æŠŠ VM-exit åŸå› å†™å…¥ VMCS çš„ VM_EXIT_REASON å­—æ®µï¼Œæœ¬æšä¸¾ç”¨äºè§£é‡Šè¯¥å€¼
+// ä½œç”¨ï¼šVMM æ ¹æ®åŸå› åˆ†å‘å¤„ç†é€»è¾‘ï¼ˆä¾‹å¦‚ CPUIDã€MSRã€EPT è¿è§„ç­‰ï¼‰
+enum __vm_exit_reason // VM-exit é€€å‡ºåŸå› 
+{ // æšä¸¾å¼€å§‹
+	EXIT_REASON_EXCEPTION_NMI,                       // é€€å‡ºåŸå› ï¼šå¼‚å¸¸æˆ– NMI
+	EXIT_REASON_EXTERNAL_INTERRUPT,                 // é€€å‡ºåŸå› ï¼šå¤–éƒ¨ä¸­æ–­
+	EXIT_REASON_TRIPLE_FAULT,                       // é€€å‡ºåŸå› ï¼šä¸‰é‡æ•…éšœ
+	EXIT_REASON_INIT_SIGNAL,                        // é€€å‡ºåŸå› ï¼šINIT ä¿¡å·
+	EXIT_REASON_SIPI,                               // é€€å‡ºåŸå› ï¼šSIPI
+	EXIT_REASON_SMI,                                // é€€å‡ºåŸå› ï¼šSMI
+	EXIT_REASON_OTHER_SMI,                          // é€€å‡ºåŸå› ï¼šå…¶ä»– SMI
+	EXIT_REASON_INTERRUPT_WINDOW,                   // é€€å‡ºåŸå› ï¼šä¸­æ–­çª—å£
+	EXIT_REASON_NMI_WINDOW,                         // é€€å‡ºåŸå› ï¼šNMI çª—å£
+	EXIT_REASON_TASK_SWITCH,                        // é€€å‡ºåŸå› ï¼šä»»åŠ¡åˆ‡æ¢
+	EXIT_REASON_CPUID,                              // é€€å‡ºåŸå› ï¼šæ‰§è¡Œ CPUID
+	EXIT_REASON_GETSEC,                             // é€€å‡ºåŸå› ï¼šæ‰§è¡Œ GETSEC
+	EXIT_REASON_HLT,                                // é€€å‡ºåŸå› ï¼šæ‰§è¡Œ HLT
+	EXIT_REASON_INVD,                               // é€€å‡ºåŸå› ï¼šæ‰§è¡Œ INVD
+	EXIT_REASON_INVLPG,                             // é€€å‡ºåŸå› ï¼šæ‰§è¡Œ INVLPG
+	EXIT_REASON_RDPMC,                              // é€€å‡ºåŸå› ï¼šæ‰§è¡Œ RDPMC
+	EXIT_REASON_RDTSC,                              // é€€å‡ºåŸå› ï¼šæ‰§è¡Œ RDTSC
+	EXIT_REASON_RSM,                                // é€€å‡ºåŸå› ï¼šæ‰§è¡Œ RSM
+	EXIT_REASON_VMCALL,                             // é€€å‡ºåŸå› ï¼šæ‰§è¡Œ VMCALL
+	EXIT_REASON_VMCLEAR,                            // é€€å‡ºåŸå› ï¼šæ‰§è¡Œ VMCLEAR
+	EXIT_REASON_VMLAUNCH,                           // é€€å‡ºåŸå› ï¼šæ‰§è¡Œ VMLAUNCH
+	EXIT_REASON_VMPTRLD,                            // é€€å‡ºåŸå› ï¼šæ‰§è¡Œ VMPTRLD
+	EXIT_REASON_VMPTRST,                            // é€€å‡ºåŸå› ï¼šæ‰§è¡Œ VMPTRST
+	EXIT_REASON_VMREAD,                             // é€€å‡ºåŸå› ï¼šæ‰§è¡Œ VMREAD
+	EXIT_REASON_VMRESUME,                           // é€€å‡ºåŸå› ï¼šæ‰§è¡Œ VMRESUME
+	EXIT_REASON_VMWRITE,                            // é€€å‡ºåŸå› ï¼šæ‰§è¡Œ VMWRITE
+	EXIT_REASON_VMXOFF,                             // é€€å‡ºåŸå› ï¼šæ‰§è¡Œ VMXOFF
+	EXIT_REASON_VMXON,                              // é€€å‡ºåŸå› ï¼šæ‰§è¡Œ VMXON
+	EXIT_REASON_CR_ACCESSES,                        // é€€å‡ºåŸå› ï¼šCR å¯„å­˜å™¨è®¿é—®
+	EXIT_REASON_MOV_DR,                             // é€€å‡ºåŸå› ï¼šMOV DR
+	EXIT_REASON_IO_INSTRUCTION,                     // é€€å‡ºåŸå› ï¼šI/O æŒ‡ä»¤
+	EXIT_REASON_RDMSR,                              // é€€å‡ºåŸå› ï¼šRDMSR
+	EXIT_REASON_WRMSR,                              // é€€å‡ºåŸå› ï¼šWRMSR
+	EXIT_REASON_VM_ENTRY_FAILURE_INVALID_GUEST_STATE, // é€€å‡ºåŸå› ï¼šVM-entry æ¥å®¾çŠ¶æ€æ— æ•ˆ
+	EXIT_REASON_VM_ENTRY_FAILURE_MSR_LODAING,       // é€€å‡ºåŸå› ï¼šVM-entry MSR åŠ è½½å¤±è´¥
+	EXIT_REASON_RESERVED1,                          // ä¿ç•™å€¼
+	EXIT_REASON_MWAIT,                              // é€€å‡ºåŸå› ï¼šMWAIT
+	EXIT_REASON_MONITOR_TRAP_FLAG,                  // é€€å‡ºåŸå› ï¼šMTF è§¦å‘
+	EXIT_REASON_RESERVED2,                          // ä¿ç•™å€¼
+	EXIT_REASON_MONITOR,                            // é€€å‡ºåŸå› ï¼šMONITOR
+	EXIT_REASON_PAUSE,                              // é€€å‡ºåŸå› ï¼šPAUSE
+	EXIT_REASON_VM_ENTRY_FAILURE_MACHINE_CHECK_EVENT, // é€€å‡ºåŸå› ï¼šVM-entry æœºå™¨æ£€æŸ¥å¤±è´¥
+	EXIT_REASON_RESERVED3,                          // ä¿ç•™å€¼
+	EXIT_REASON_TPR_BELOW_THRESHOLD,                // é€€å‡ºåŸå› ï¼šTPR ä½äºé˜ˆå€¼
+	EXIT_REASON_APIC_ACCESS,                        // é€€å‡ºåŸå› ï¼šAPIC è®¿é—®
+	EXIT_REASON_VIRTUALIZED_EOI,                    // é€€å‡ºåŸå› ï¼šè™šæ‹ŸåŒ– EOI
+	EXIT_REASON_ACCESS_TO_GDTR_OR_IDTR,             // é€€å‡ºåŸå› ï¼šè®¿é—® GDTR/IDTR
+	EXIT_REASON_ACCESS_TO_LDTR_OR_TR,               // é€€å‡ºåŸå› ï¼šè®¿é—® LDTR/TR
+	EXIT_REASON_EPT_VIOLATION,                      // é€€å‡ºåŸå› ï¼šEPT è¿è§„
+	EXIT_REASON_EPT_MISCONFIGURATION,               // é€€å‡ºåŸå› ï¼šEPT é…ç½®é”™è¯¯
+	EXIT_REASON_INVEPT,                             // é€€å‡ºåŸå› ï¼šINVEPT
+	EXIT_REASON_RDTSCP,                             // é€€å‡ºåŸå› ï¼šRDTSCP
+	EXIT_REASON_VMX_PREEMPTION_TIMER_EXPIRED,       // é€€å‡ºåŸå› ï¼šVMX é¢„æŠ¢å è®¡æ—¶å™¨åˆ°æœŸ
+	EXIT_REASON_INVVPID,                            // é€€å‡ºåŸå› ï¼šINVVPID
+	EXIT_REASON_WBINVD,                             // é€€å‡ºåŸå› ï¼šWBINVD
+	EXIT_REASON_XSETBV,                             // é€€å‡ºåŸå› ï¼šXSETBV
+	EXIT_REASON_APIC_WRITE,                         // é€€å‡ºåŸå› ï¼šAPIC å†™
+	EXIT_REASON_RDRAND,                             // é€€å‡ºåŸå› ï¼šRDRAND
+	EXIT_REASON_INVPCID,                            // é€€å‡ºåŸå› ï¼šINVPCID
+	EXIT_REASON_VMFUNC,                             // é€€å‡ºåŸå› ï¼šVMFUNC
+	EXIT_REASON_ENCLS,                              // é€€å‡ºåŸå› ï¼šENCLS
+	EXIT_REASON_RDSEED,                             // é€€å‡ºåŸå› ï¼šRDSEED
+	EXIT_REASON_PAGE_MODIFICATION_LOG_FULL,         // é€€å‡ºåŸå› ï¼šPML æ»¡
+	EXIT_REASON_XSAVES,                             // é€€å‡ºåŸå› ï¼šXSAVES
+	EXIT_REASON_XRSTORS,                            // é€€å‡ºåŸå› ï¼šXRSTORS
+	EXIT_REASON_RESERVED4,                          // ä¿ç•™å€¼
+	EXIT_REASON_SPP_RELATED_EVENT,                  // é€€å‡ºåŸå› ï¼šSPP ç›¸å…³äº‹ä»¶
+	EXIT_REASON_UMWAIT,                             // é€€å‡ºåŸå› ï¼šUMWAIT
+	EXIT_REASON_TPAUSE,                             // é€€å‡ºåŸå› ï¼šTPAUSE
+	EXIT_REASON_LAST                                // é€€å‡ºåŸå› ï¼šæšä¸¾ç»“æŸæ ‡è®°
+}; // æšä¸¾ç»“æŸ
 
-// ±í 27-8£ºINS/OUTS Ö¸ÁîµÄ VM-exit Ö¸ÁîĞÅÏ¢¸ñÊ½
-union __vmexit_instruction_information1 // INS/OUTS Ïà¹ØÖ¸ÁîĞÅÏ¢
-{ // ÁªºÏÌå¿ªÊ¼
-	unsigned __int64 all; // Ô­Ê¼ 64 Î»Öµ
-	struct // Î»Óò½á¹¹
-	{ // ¶¨Òå¿é¿ªÊ¼
-		unsigned __int64 reserved1 : 7;     // ±£ÁôÎ»
-		unsigned __int64 address_size : 3; // µØÖ·´óĞ¡
-		unsigned __int64 reserved2 : 5;    // ±£ÁôÎ»
-		unsigned __int64 segment_register : 3; // ¶Î¼Ä´æÆ÷Ñ¡Ôñ
-		unsigned __int64 reserved3 : 14;   // ±£ÁôÎ»
-	}; // Î»Óò½áÊø
-}; // ÁªºÏÌå½áÊø
+// è¡¨ 27-8ï¼šINS/OUTS æŒ‡ä»¤çš„ VM-exit æŒ‡ä»¤ä¿¡æ¯æ ¼å¼
+union __vmexit_instruction_information1 // INS/OUTS ç›¸å…³æŒ‡ä»¤ä¿¡æ¯
+{ // è”åˆä½“å¼€å§‹
+	unsigned __int64 all; // åŸå§‹ 64 ä½å€¼
+	struct // ä½åŸŸç»“æ„
+	{ // å®šä¹‰å—å¼€å§‹
+		unsigned __int64 reserved1 : 7;     // ä¿ç•™ä½
+		unsigned __int64 address_size : 3; // åœ°å€å¤§å°
+		unsigned __int64 reserved2 : 5;    // ä¿ç•™ä½
+		unsigned __int64 segment_register : 3; // æ®µå¯„å­˜å™¨é€‰æ‹©
+		unsigned __int64 reserved3 : 14;   // ä¿ç•™ä½
+	}; // ä½åŸŸç»“æŸ
+}; // è”åˆä½“ç»“æŸ
 
-// ±í 27-9£ºINVEPT/INVPCID/INVVPID Ö¸ÁîµÄ VM-exit Ö¸ÁîĞÅÏ¢¸ñÊ½
-union __vmexit_instruction_information2 // INVEPT/INVPCID/INVVPID Ïà¹ØÖ¸ÁîĞÅÏ¢
-{ // ÁªºÏÌå¿ªÊ¼
-	unsigned __int64 all; // Ô­Ê¼ 64 Î»Öµ
-	struct // Î»Óò½á¹¹
-	{ // ¶¨Òå¿é¿ªÊ¼
-		unsigned __int64 scaling : 2;          // Ëõ·ÅÒò×Ó
-		unsigned __int64 reserved1 : 5;        // ±£ÁôÎ»
-		unsigned __int64 address_size : 3;     // µØÖ·´óĞ¡
-		unsigned __int64 reserved2 : 1;        // ±£ÁôÎ»
-		unsigned __int64 reserved3 : 4;        // ±£ÁôÎ»
-		unsigned __int64 segment_register : 3; // ¶Î¼Ä´æÆ÷
-		unsigned __int64 index_reg : 4;        // ±äÖ·¼Ä´æÆ÷
-		unsigned __int64 index_reg_invalid : 1;// ±äÖ·¼Ä´æÆ÷ÊÇ·ñÎŞĞ§
-		unsigned __int64 base_reg : 4;         // »ùÖ·¼Ä´æÆ÷
-		unsigned __int64 base_reg_invalid : 1; // »ùÖ·¼Ä´æÆ÷ÊÇ·ñÎŞĞ§
-		unsigned __int64 reg2 : 4;             // µÚ¶ş¼Ä´æÆ÷
-	}; // Î»Óò½áÊø
-}; // ÁªºÏÌå½áÊø
+// è¡¨ 27-9ï¼šINVEPT/INVPCID/INVVPID æŒ‡ä»¤çš„ VM-exit æŒ‡ä»¤ä¿¡æ¯æ ¼å¼
+union __vmexit_instruction_information2 // INVEPT/INVPCID/INVVPID ç›¸å…³æŒ‡ä»¤ä¿¡æ¯
+{ // è”åˆä½“å¼€å§‹
+	unsigned __int64 all; // åŸå§‹ 64 ä½å€¼
+	struct // ä½åŸŸç»“æ„
+	{ // å®šä¹‰å—å¼€å§‹
+		unsigned __int64 scaling : 2;          // ç¼©æ”¾å› å­
+		unsigned __int64 reserved1 : 5;        // ä¿ç•™ä½
+		unsigned __int64 address_size : 3;     // åœ°å€å¤§å°
+		unsigned __int64 reserved2 : 1;        // ä¿ç•™ä½
+		unsigned __int64 reserved3 : 4;        // ä¿ç•™ä½
+		unsigned __int64 segment_register : 3; // æ®µå¯„å­˜å™¨
+		unsigned __int64 index_reg : 4;        // å˜å€å¯„å­˜å™¨
+		unsigned __int64 index_reg_invalid : 1;// å˜å€å¯„å­˜å™¨æ˜¯å¦æ— æ•ˆ
+		unsigned __int64 base_reg : 4;         // åŸºå€å¯„å­˜å™¨
+		unsigned __int64 base_reg_invalid : 1; // åŸºå€å¯„å­˜å™¨æ˜¯å¦æ— æ•ˆ
+		unsigned __int64 reg2 : 4;             // ç¬¬äºŒå¯„å­˜å™¨
+	}; // ä½åŸŸç»“æŸ
+}; // è”åˆä½“ç»“æŸ
 
-// ±í 27-10£ºLIDT/LGDT/SIDT/SGDT Ö¸ÁîµÄ VM-exit Ö¸ÁîĞÅÏ¢¸ñÊ½
-union __vmexit_instruction_information3 // LIDT/LGDT/SIDT/SGDT Ïà¹ØÖ¸ÁîĞÅÏ¢
-{ // ÁªºÏÌå¿ªÊ¼
-	unsigned __int64 all; // Ô­Ê¼ 64 Î»Öµ
-	struct // Î»Óò½á¹¹
-	{ // ¶¨Òå¿é¿ªÊ¼
-		unsigned __int64 scaling : 2;          // Ëõ·ÅÒò×Ó
-		unsigned __int64 reserved1 : 5;        // ±£ÁôÎ»
-		unsigned __int64 address_size : 3;     // µØÖ·´óĞ¡
-		unsigned __int64 reserved2 : 1;        // ±£ÁôÎ»
-		unsigned __int64 operand_size : 1;     // ²Ù×÷Êı´óĞ¡
-		unsigned __int64 reserved3 : 3;        // ±£ÁôÎ»
-		unsigned __int64 segment_register : 3; // ¶Î¼Ä´æÆ÷
-		unsigned __int64 index_reg : 4;        // ±äÖ·¼Ä´æÆ÷
-		unsigned __int64 index_reg_invalid : 1;// ±äÖ·¼Ä´æÆ÷ÊÇ·ñÎŞĞ§
-		unsigned __int64 base_reg : 4;         // »ùÖ·¼Ä´æÆ÷
-		unsigned __int64 base_reg_invalid : 1; // »ùÖ·¼Ä´æÆ÷ÊÇ·ñÎŞĞ§
-		unsigned __int64 instruction_identity : 2; // Ö¸ÁîÀàĞÍ±êÊ¶
-		unsigned __int64 reserved4 : 2;        // ±£ÁôÎ»
-	}; // Î»Óò½áÊø
-}; // ÁªºÏÌå½áÊø
+// è¡¨ 27-10ï¼šLIDT/LGDT/SIDT/SGDT æŒ‡ä»¤çš„ VM-exit æŒ‡ä»¤ä¿¡æ¯æ ¼å¼
+union __vmexit_instruction_information3 // LIDT/LGDT/SIDT/SGDT ç›¸å…³æŒ‡ä»¤ä¿¡æ¯
+{ // è”åˆä½“å¼€å§‹
+	unsigned __int64 all; // åŸå§‹ 64 ä½å€¼
+	struct // ä½åŸŸç»“æ„
+	{ // å®šä¹‰å—å¼€å§‹
+		unsigned __int64 scaling : 2;          // ç¼©æ”¾å› å­
+		unsigned __int64 reserved1 : 5;        // ä¿ç•™ä½
+		unsigned __int64 address_size : 3;     // åœ°å€å¤§å°
+		unsigned __int64 reserved2 : 1;        // ä¿ç•™ä½
+		unsigned __int64 operand_size : 1;     // æ“ä½œæ•°å¤§å°
+		unsigned __int64 reserved3 : 3;        // ä¿ç•™ä½
+		unsigned __int64 segment_register : 3; // æ®µå¯„å­˜å™¨
+		unsigned __int64 index_reg : 4;        // å˜å€å¯„å­˜å™¨
+		unsigned __int64 index_reg_invalid : 1;// å˜å€å¯„å­˜å™¨æ˜¯å¦æ— æ•ˆ
+		unsigned __int64 base_reg : 4;         // åŸºå€å¯„å­˜å™¨
+		unsigned __int64 base_reg_invalid : 1; // åŸºå€å¯„å­˜å™¨æ˜¯å¦æ— æ•ˆ
+		unsigned __int64 instruction_identity : 2; // æŒ‡ä»¤ç±»å‹æ ‡è¯†
+		unsigned __int64 reserved4 : 2;        // ä¿ç•™ä½
+	}; // ä½åŸŸç»“æŸ
+}; // è”åˆä½“ç»“æŸ
 
-// ±í 27-11£ºLLDT/LTR/SLDT/STR Ö¸ÁîµÄ VM-exit Ö¸ÁîĞÅÏ¢¸ñÊ½
-union __vmexit_instruction_information4 // LLDT/LTR/SLDT/STR Ïà¹ØÖ¸ÁîĞÅÏ¢
-{ // ÁªºÏÌå¿ªÊ¼
-	unsigned __int64 all; // Ô­Ê¼ 64 Î»Öµ
-	struct // Î»Óò½á¹¹
-	{ // ¶¨Òå¿é¿ªÊ¼
-		unsigned __int64 scaling : 2;          // Ëõ·ÅÒò×Ó
-		unsigned __int64 reserved1 : 1;        // ±£ÁôÎ»
-		unsigned __int64 reg1 : 4;             // ¼Ä´æÆ÷ 1
-		unsigned __int64 address_size : 3;     // µØÖ·´óĞ¡
-		unsigned __int64 mem_reg : 1;          // ÄÚ´æ/¼Ä´æÆ÷Ñ¡Ôñ
-		unsigned __int64 reserved2 : 4;        // ±£ÁôÎ»
-		unsigned __int64 segment_register : 3; // ¶Î¼Ä´æÆ÷
-		unsigned __int64 index_reg : 4;        // ±äÖ·¼Ä´æÆ÷
-		unsigned __int64 index_reg_invalid : 1;// ±äÖ·¼Ä´æÆ÷ÊÇ·ñÎŞĞ§
-		unsigned __int64 base_reg : 4;         // »ùÖ·¼Ä´æÆ÷
-		unsigned __int64 base_reg_invalid : 1; // »ùÖ·¼Ä´æÆ÷ÊÇ·ñÎŞĞ§
-		unsigned __int64 instruction_identity : 2; // Ö¸ÁîÀàĞÍ±êÊ¶
-		unsigned __int64 reserved4 : 2;        // ±£ÁôÎ»
-	}; // Î»Óò½áÊø
-}; // ÁªºÏÌå½áÊø
+// è¡¨ 27-11ï¼šLLDT/LTR/SLDT/STR æŒ‡ä»¤çš„ VM-exit æŒ‡ä»¤ä¿¡æ¯æ ¼å¼
+union __vmexit_instruction_information4 // LLDT/LTR/SLDT/STR ç›¸å…³æŒ‡ä»¤ä¿¡æ¯
+{ // è”åˆä½“å¼€å§‹
+	unsigned __int64 all; // åŸå§‹ 64 ä½å€¼
+	struct // ä½åŸŸç»“æ„
+	{ // å®šä¹‰å—å¼€å§‹
+		unsigned __int64 scaling : 2;          // ç¼©æ”¾å› å­
+		unsigned __int64 reserved1 : 1;        // ä¿ç•™ä½
+		unsigned __int64 reg1 : 4;             // å¯„å­˜å™¨ 1
+		unsigned __int64 address_size : 3;     // åœ°å€å¤§å°
+		unsigned __int64 mem_reg : 1;          // å†…å­˜/å¯„å­˜å™¨é€‰æ‹©
+		unsigned __int64 reserved2 : 4;        // ä¿ç•™ä½
+		unsigned __int64 segment_register : 3; // æ®µå¯„å­˜å™¨
+		unsigned __int64 index_reg : 4;        // å˜å€å¯„å­˜å™¨
+		unsigned __int64 index_reg_invalid : 1;// å˜å€å¯„å­˜å™¨æ˜¯å¦æ— æ•ˆ
+		unsigned __int64 base_reg : 4;         // åŸºå€å¯„å­˜å™¨
+		unsigned __int64 base_reg_invalid : 1; // åŸºå€å¯„å­˜å™¨æ˜¯å¦æ— æ•ˆ
+		unsigned __int64 instruction_identity : 2; // æŒ‡ä»¤ç±»å‹æ ‡è¯†
+		unsigned __int64 reserved4 : 2;        // ä¿ç•™ä½
+	}; // ä½åŸŸç»“æŸ
+}; // è”åˆä½“ç»“æŸ
 
-// ±í 27-12£ºRDRAND/RDSEED/TPAUSE/UMWAIT Ö¸ÁîµÄ VM-exit Ö¸ÁîĞÅÏ¢¸ñÊ½
-union __vmexit_instruction_information5 // RDRAND/RDSEED/TPAUSE/UMWAIT Ïà¹ØÖ¸ÁîĞÅÏ¢
-{ // ÁªºÏÌå¿ªÊ¼
-	unsigned __int64 all; // Ô­Ê¼ 64 Î»Öµ
-	struct // Î»Óò½á¹¹
-	{ // ¶¨Òå¿é¿ªÊ¼
-		unsigned __int64 reserved1 : 3;        // ±£ÁôÎ»
-		unsigned __int64 operand_register : 4;// ²Ù×÷Êı¼Ä´æÆ÷
-		unsigned __int64 reserved2 : 4;        // ±£ÁôÎ»
-		unsigned __int64 operand_size : 2;     // ²Ù×÷Êı´óĞ¡
-		unsigned __int64 reserved3 : 19;       // ±£ÁôÎ»
-	}; // Î»Óò½áÊø
-}; // ÁªºÏÌå½áÊø
+// è¡¨ 27-12ï¼šRDRAND/RDSEED/TPAUSE/UMWAIT æŒ‡ä»¤çš„ VM-exit æŒ‡ä»¤ä¿¡æ¯æ ¼å¼
+union __vmexit_instruction_information5 // RDRAND/RDSEED/TPAUSE/UMWAIT ç›¸å…³æŒ‡ä»¤ä¿¡æ¯
+{ // è”åˆä½“å¼€å§‹
+	unsigned __int64 all; // åŸå§‹ 64 ä½å€¼
+	struct // ä½åŸŸç»“æ„
+	{ // å®šä¹‰å—å¼€å§‹
+		unsigned __int64 reserved1 : 3;        // ä¿ç•™ä½
+		unsigned __int64 operand_register : 4;// æ“ä½œæ•°å¯„å­˜å™¨
+		unsigned __int64 reserved2 : 4;        // ä¿ç•™ä½
+		unsigned __int64 operand_size : 2;     // æ“ä½œæ•°å¤§å°
+		unsigned __int64 reserved3 : 19;       // ä¿ç•™ä½
+	}; // ä½åŸŸç»“æŸ
+}; // è”åˆä½“ç»“æŸ
 
-// ±í 27-13£ºVMCLEAR/VMPTRLD/VMPTRST/VMXON/XRSTORS/XSAVES Ö¸ÁîµÄ VM-exit Ö¸ÁîĞÅÏ¢¸ñÊ½
-union __vmexit_instruction_information6 // VMCLEAR/VMPTRLD/VMXON/XSAVES Ïà¹ØÖ¸ÁîĞÅÏ¢
-{ // ÁªºÏÌå¿ªÊ¼
-	unsigned __int64 all; // Ô­Ê¼ 64 Î»Öµ
-	struct // Î»Óò½á¹¹
-	{ // ¶¨Òå¿é¿ªÊ¼
-		unsigned __int64 scaling : 2;          // Ëõ·ÅÒò×Ó
-		unsigned __int64 reserved1 : 5;        // ±£ÁôÎ»
-		unsigned __int64 address_size : 3;     // µØÖ·´óĞ¡
-		unsigned __int64 reserved2 : 1;        // ±£ÁôÎ»
-		unsigned __int64 reserved3 : 4;        // ±£ÁôÎ»
-		unsigned __int64 segment_register : 3; // ¶Î¼Ä´æÆ÷
-		unsigned __int64 index_reg : 4;        // ±äÖ·¼Ä´æÆ÷
-		unsigned __int64 index_reg_invalid : 1;// ±äÖ·¼Ä´æÆ÷ÊÇ·ñÎŞĞ§
-		unsigned __int64 base_reg : 4;         // »ùÖ·¼Ä´æÆ÷
-		unsigned __int64 base_reg_invalid : 1; // »ùÖ·¼Ä´æÆ÷ÊÇ·ñÎŞĞ§
-		unsigned __int64 instruction_identity : 2; // Ö¸ÁîÀàĞÍ±êÊ¶
-		unsigned __int64 reserved4 : 2;        // ±£ÁôÎ»
-	}; // Î»Óò½áÊø
-}; // ÁªºÏÌå½áÊø
+// è¡¨ 27-13ï¼šVMCLEAR/VMPTRLD/VMPTRST/VMXON/XRSTORS/XSAVES æŒ‡ä»¤çš„ VM-exit æŒ‡ä»¤ä¿¡æ¯æ ¼å¼
+union __vmexit_instruction_information6 // VMCLEAR/VMPTRLD/VMXON/XSAVES ç›¸å…³æŒ‡ä»¤ä¿¡æ¯
+{ // è”åˆä½“å¼€å§‹
+	unsigned __int64 all; // åŸå§‹ 64 ä½å€¼
+	struct // ä½åŸŸç»“æ„
+	{ // å®šä¹‰å—å¼€å§‹
+		unsigned __int64 scaling : 2;          // ç¼©æ”¾å› å­
+		unsigned __int64 reserved1 : 5;        // ä¿ç•™ä½
+		unsigned __int64 address_size : 3;     // åœ°å€å¤§å°
+		unsigned __int64 reserved2 : 1;        // ä¿ç•™ä½
+		unsigned __int64 reserved3 : 4;        // ä¿ç•™ä½
+		unsigned __int64 segment_register : 3; // æ®µå¯„å­˜å™¨
+		unsigned __int64 index_reg : 4;        // å˜å€å¯„å­˜å™¨
+		unsigned __int64 index_reg_invalid : 1;// å˜å€å¯„å­˜å™¨æ˜¯å¦æ— æ•ˆ
+		unsigned __int64 base_reg : 4;         // åŸºå€å¯„å­˜å™¨
+		unsigned __int64 base_reg_invalid : 1; // åŸºå€å¯„å­˜å™¨æ˜¯å¦æ— æ•ˆ
+		unsigned __int64 instruction_identity : 2; // æŒ‡ä»¤ç±»å‹æ ‡è¯†
+		unsigned __int64 reserved4 : 2;        // ä¿ç•™ä½
+	}; // ä½åŸŸç»“æŸ
+}; // è”åˆä½“ç»“æŸ
 
-// ±í 27-14£ºVMREAD/VMWRITE Ö¸ÁîµÄ VM-exit Ö¸ÁîĞÅÏ¢¸ñÊ½
-union __vmexit_instruction_information7 // VMREAD/VMWRITE Ïà¹ØÖ¸ÁîĞÅÏ¢
-{ // ÁªºÏÌå¿ªÊ¼
-	unsigned __int64 all; // Ô­Ê¼ 64 Î»Öµ
-	struct // Î»Óò½á¹¹
-	{ // ¶¨Òå¿é¿ªÊ¼
-		unsigned __int64 scaling : 2;          // Ëõ·ÅÒò×Ó
-		unsigned __int64 reserved1 : 1;        // ±£ÁôÎ»
-		unsigned __int64 reg1 : 4;             // ¼Ä´æÆ÷ 1
-		unsigned __int64 address_size : 3;     // µØÖ·´óĞ¡
-		unsigned __int64 mem_reg : 1;          // ÄÚ´æ/¼Ä´æÆ÷Ñ¡Ôñ
-		unsigned __int64 reserved2 : 4;        // ±£ÁôÎ»
-		unsigned __int64 segment_register : 3; // ¶Î¼Ä´æÆ÷
-		unsigned __int64 index_reg : 4;        // ±äÖ·¼Ä´æÆ÷
-		unsigned __int64 index_reg_invalid : 1;// ±äÖ·¼Ä´æÆ÷ÊÇ·ñÎŞĞ§
-		unsigned __int64 base_reg : 4;         // »ùÖ·¼Ä´æÆ÷
-		unsigned __int64 base_reg_invalid : 1; // »ùÖ·¼Ä´æÆ÷ÊÇ·ñÎŞĞ§
-		unsigned __int64 reg2 : 4;             // ¼Ä´æÆ÷ 2
-	}; // Î»Óò½áÊø
-}; // ÁªºÏÌå½áÊø
+// è¡¨ 27-14ï¼šVMREAD/VMWRITE æŒ‡ä»¤çš„ VM-exit æŒ‡ä»¤ä¿¡æ¯æ ¼å¼
+union __vmexit_instruction_information7 // VMREAD/VMWRITE ç›¸å…³æŒ‡ä»¤ä¿¡æ¯
+{ // è”åˆä½“å¼€å§‹
+	unsigned __int64 all; // åŸå§‹ 64 ä½å€¼
+	struct // ä½åŸŸç»“æ„
+	{ // å®šä¹‰å—å¼€å§‹
+		unsigned __int64 scaling : 2;          // ç¼©æ”¾å› å­
+		unsigned __int64 reserved1 : 1;        // ä¿ç•™ä½
+		unsigned __int64 reg1 : 4;             // å¯„å­˜å™¨ 1
+		unsigned __int64 address_size : 3;     // åœ°å€å¤§å°
+		unsigned __int64 mem_reg : 1;          // å†…å­˜/å¯„å­˜å™¨é€‰æ‹©
+		unsigned __int64 reserved2 : 4;        // ä¿ç•™ä½
+		unsigned __int64 segment_register : 3; // æ®µå¯„å­˜å™¨
+		unsigned __int64 index_reg : 4;        // å˜å€å¯„å­˜å™¨
+		unsigned __int64 index_reg_invalid : 1;// å˜å€å¯„å­˜å™¨æ˜¯å¦æ— æ•ˆ
+		unsigned __int64 base_reg : 4;         // åŸºå€å¯„å­˜å™¨
+		unsigned __int64 base_reg_invalid : 1; // åŸºå€å¯„å­˜å™¨æ˜¯å¦æ— æ•ˆ
+		unsigned __int64 reg2 : 4;             // å¯„å­˜å™¨ 2
+	}; // ä½åŸŸç»“æŸ
+}; // è”åˆä½“ç»“æŸ
 
-// ±í 27-5£ºI/O Ö¸ÁîµÄ Exit Qualification ¸ñÊ½
-union __exit_qualification_io // I/O Ö¸ÁîÍË³ö×Ê¸ñĞÅÏ¢
-{ // ÁªºÏÌå¿ªÊ¼
-	unsigned __int64 all; // Ô­Ê¼ 64 Î»Öµ
-	struct // Î»Óò½á¹¹
-	{ // ¶¨Òå¿é¿ªÊ¼
-		unsigned __int64 access_size : 3;      // ·ÃÎÊ¿í¶È£º1/2/4 ×Ö½Ú
-		unsigned __int64 direction : 1;        // ·½Ïò£º0=OUT£¬1=IN
-		unsigned __int64 string_instruction : 1; // ÊÇ·ñ×Ö·û´®Ö¸Áî
-		unsigned __int64 rep : 1;              // ÊÇ·ñ´ø REP Ç°×º
-		unsigned __int64 operand_encoding : 1; // ²Ù×÷ÊıÀ´Ô´£º0=DX£¬1=Á¢¼´Êı
-		unsigned __int64 reserved1 : 9;        // ±£ÁôÎ»
-		unsigned __int64 port_number : 16;     // I/O ¶Ë¿ÚºÅ
-		unsigned __int64 reserved2 : 32;       // ±£ÁôÎ»
-	}; // Î»Óò½áÊø
-}; // ÁªºÏÌå½áÊø
+// è¡¨ 27-5ï¼šI/O æŒ‡ä»¤çš„ Exit Qualification æ ¼å¼
+union __exit_qualification_io // I/O æŒ‡ä»¤é€€å‡ºèµ„æ ¼ä¿¡æ¯
+{ // è”åˆä½“å¼€å§‹
+	unsigned __int64 all; // åŸå§‹ 64 ä½å€¼
+	struct // ä½åŸŸç»“æ„
+	{ // å®šä¹‰å—å¼€å§‹
+		unsigned __int64 access_size : 3;      // è®¿é—®å®½åº¦ï¼š1/2/4 å­—èŠ‚
+		unsigned __int64 direction : 1;        // æ–¹å‘ï¼š0=OUTï¼Œ1=IN
+		unsigned __int64 string_instruction : 1; // æ˜¯å¦å­—ç¬¦ä¸²æŒ‡ä»¤
+		unsigned __int64 rep : 1;              // æ˜¯å¦å¸¦ REP å‰ç¼€
+		unsigned __int64 operand_encoding : 1; // æ“ä½œæ•°æ¥æºï¼š0=DXï¼Œ1=ç«‹å³æ•°
+		unsigned __int64 reserved1 : 9;        // ä¿ç•™ä½
+		unsigned __int64 port_number : 16;     // I/O ç«¯å£å·
+		unsigned __int64 reserved2 : 32;       // ä¿ç•™ä½
+	}; // ä½åŸŸç»“æŸ
+}; // è”åˆä½“ç»“æŸ
 
-// MOV DR Ïà¹ØµÄ Exit Qualification ¸ñÊ½
-union __exit_qualification_dr // MOV DR Ö¸ÁîÍË³ö×Ê¸ñĞÅÏ¢
-{ // ÁªºÏÌå¿ªÊ¼
-	unsigned __int64 all; // Ô­Ê¼ 64 Î»Öµ
-	struct // Î»Óò½á¹¹
-	{ // ¶¨Òå¿é¿ªÊ¼
-		unsigned __int64 debug_register_number : 3; // DR ¼Ä´æÆ÷±àºÅ
-		unsigned __int64 reserved1 : 1;             // ±£ÁôÎ»
-		unsigned __int64 access_direction : 1;      // ·½Ïò£º0=Ğ´ DR£¬1=¶Á DR
-		unsigned __int64 reserved2 : 3;             // ±£ÁôÎ»
-		unsigned __int64 gp_register : 4;           // Í¨ÓÃ¼Ä´æÆ÷±àºÅ
-		unsigned __int64 reserved3 : 52;            // ±£ÁôÎ»
-	}; // Î»Óò½áÊø
-}; // ÁªºÏÌå½áÊø
+// MOV DR ç›¸å…³çš„ Exit Qualification æ ¼å¼
+union __exit_qualification_dr // MOV DR æŒ‡ä»¤é€€å‡ºèµ„æ ¼ä¿¡æ¯
+{ // è”åˆä½“å¼€å§‹
+	unsigned __int64 all; // åŸå§‹ 64 ä½å€¼
+	struct // ä½åŸŸç»“æ„
+	{ // å®šä¹‰å—å¼€å§‹
+		unsigned __int64 debug_register_number : 3; // DR å¯„å­˜å™¨ç¼–å·
+		unsigned __int64 reserved1 : 1;             // ä¿ç•™ä½
+		unsigned __int64 access_direction : 1;      // æ–¹å‘ï¼š0=å†™ DRï¼Œ1=è¯» DR
+		unsigned __int64 reserved2 : 3;             // ä¿ç•™ä½
+		unsigned __int64 gp_register : 4;           // é€šç”¨å¯„å­˜å™¨ç¼–å·
+		unsigned __int64 reserved3 : 52;            // ä¿ç•™ä½
+	}; // ä½åŸŸç»“æŸ
+}; // è”åˆä½“ç»“æŸ
 
-EXTERN_C // ÉùÃ÷Íâ²¿ C ½Ó¿Ú£¬±ÜÃâ C++ Ãû×Ö¸Ä±à
-unsigned __int64 return_rsp_for_vmxoff(); // ·µ»Ø VMXOFF Ê±µÄ RSP
+EXTERN_C // å£°æ˜å¤–éƒ¨ C æ¥å£ï¼Œé¿å… C++ åå­—æ”¹ç¼–
+unsigned __int64 return_rsp_for_vmxoff(); // è¿”å› VMXOFF æ—¶çš„ RSP
 
-EXTERN_C // ÉùÃ÷Íâ²¿ C ½Ó¿Ú£¬±ÜÃâ C++ Ãû×Ö¸Ä±à
-unsigned __int64 return_rip_for_vmxoff(); // ·µ»Ø VMXOFF Ê±µÄ RIP
+EXTERN_C // å£°æ˜å¤–éƒ¨ C æ¥å£ï¼Œé¿å… C++ åå­—æ”¹ç¼–
+unsigned __int64 return_rip_for_vmxoff(); // è¿”å› VMXOFF æ—¶çš„ RIP
 
-EXTERN_C // ÉùÃ÷Íâ²¿ C ½Ó¿Ú£¬±ÜÃâ C++ Ãû×Ö¸Ä±à
-bool vmexit_handler(guest_context* guest_registers, PFXSAVE64 fxsave); // VM-exit Èë¿Úº¯Êı
+EXTERN_C // å£°æ˜å¤–éƒ¨ C æ¥å£ï¼Œé¿å… C++ åå­—æ”¹ç¼–
+bool vmexit_handler(guest_context* guest_registers, PFXSAVE64 fxsave); // VM-exit å…¥å£å‡½æ•°
 
-// µ÷Õû RIP Ö¸ÏòÏÂÒ»ÌõÖ¸Áî
-void adjust_rip(__vcpu* vcpu); // ¸üĞÂÀ´±ö RIP£¬Ìø¹ıÒÑÖ´ĞĞÖ¸Áî
+// è°ƒæ•´ RIP æŒ‡å‘ä¸‹ä¸€æ¡æŒ‡ä»¤
+void adjust_rip(__vcpu* vcpu); // æ›´æ–°æ¥å®¾ RIPï¼Œè·³è¿‡å·²æ‰§è¡ŒæŒ‡ä»¤
 
-void skip_instruction(); // Ö±½ÓÌø¹ıµ±Ç°Ö¸Áî
+void skip_instruction(); // ç›´æ¥è·³è¿‡å½“å‰æŒ‡ä»¤
 
-void dispatch_vm_exit(__vcpu* vcpu); // ¸ù¾İÍË³öÔ­Òò·Ö·¢´¦ÀíÂß¼­
+void dispatch_vm_exit(__vcpu* vcpu); // æ ¹æ®é€€å‡ºåŸå› åˆ†å‘å¤„ç†é€»è¾‘
 
-// »Ö¸´À´±ö×´Ì¬
-void RestoreGuest(); // ½«À´±ö¼Ä´æÆ÷×´Ì¬»Ö¸´µ½¼ÌĞøÖ´ĞĞ
+// æ¢å¤æ¥å®¾çŠ¶æ€
+void RestoreGuest(); // å°†æ¥å®¾å¯„å­˜å™¨çŠ¶æ€æ¢å¤åˆ°ç»§ç»­æ‰§è¡Œ
 
-#endif // !_VMEXIT_HANDLER_H        // ½áÊø°üº¬±£»¤
+#endif // !_VMEXIT_HANDLER_H        // ç»“æŸåŒ…å«ä¿æŠ¤

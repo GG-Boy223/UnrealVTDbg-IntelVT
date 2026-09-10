@@ -1,4 +1,4 @@
-#include "../Driver.h"
+ï»¿#include "../Driver.h"
 #include "../ntos/inc/mmtypes.h"
 #include "../ntos/inc/ntdbg.h"
 #include "../ntos/inc/ketypes.h"
@@ -47,21 +47,21 @@ NTSTATUS PspInsertProcess(IN PEPROCESS TargetProcess,
 
     CurrentThread = PsGetCurrentThread();
 
-    //ÊÇµ±Ç°½ø³Ìµ÷ÓÃPspCreateProcess ´´½¨×Ó½ø³Ì
-    //ËùÒÔÍ¨¹ıPsGetCurrentProcess µÃµ½µ±Ç°½ø³Ì ×÷ÎªParent
+    //æ˜¯å½“å‰è¿›ç¨‹è°ƒç”¨PspCreateProcess åˆ›å»ºå­è¿›ç¨‹
+    //æ‰€ä»¥é€šè¿‡PsGetCurrentProcess å¾—åˆ°å½“å‰è¿›ç¨‹ ä½œä¸ºParent
     Parent = PsGetCurrentProcess();
 
-    //ÏÂÃæµÄÕâ¶Î´úÂëÆäÊµÊÇTargetProcess->ObjectTable->UniqueProcessId = TargetProcess->UniqueProcessId;
+    //ä¸‹é¢çš„è¿™æ®µä»£ç å…¶å®æ˜¯TargetProcess->ObjectTable->UniqueProcessId = TargetProcess->UniqueProcessId;
     size_t ptr_ObjectTable = (size_t)TargetProcess + eprocess_offset::ObjectTable;
     size_t ptr_handle_table_UniqueProcessId = *(size_t*)ptr_ObjectTable + handle_table_offset::UniqueProcessId;
     size_t ptr_UniqueProcessId = (size_t)TargetProcess + eprocess_offset::UniqueProcessId;
     *(size_t*)ptr_handle_table_UniqueProcessId = *(size_t*)ptr_UniqueProcessId;    
 
-    //Ê¹ÓÃÁîÅÆ½øĞĞ×ÓÀà±ğÉó¼Æ
+    //ä½¿ç”¨ä»¤ç‰Œè¿›è¡Œå­ç±»åˆ«å®¡è®¡
     if (SeAuditingWithTokenForSubcategory(0x85, NULL))
     {
-        /*ÉóºË½ø³ÌµÄ´´½¨¡£µ÷ÓÃÕßÓĞÔğÈÎÈ·¶¨½ø³ÌÉóºËÊÇ·ñÕıÔÚ½øĞĞÖĞ¡£*/
-        // /*ÉóºË½ø³ÌµÄ´´½¨¡£µ÷ÓÃÕßÓĞÔğÈÎÈ·¶¨½ø³ÌÉóºËÊÇ·ñÕıÔÚ½øĞĞÖĞ¡£*/
+        /*å®¡æ ¸è¿›ç¨‹çš„åˆ›å»ºã€‚è°ƒç”¨è€…æœ‰è´£ä»»ç¡®å®šè¿›ç¨‹å®¡æ ¸æ˜¯å¦æ­£åœ¨è¿›è¡Œä¸­ã€‚*/
+        // /*å®¡æ ¸è¿›ç¨‹çš„åˆ›å»ºã€‚è°ƒç”¨è€…æœ‰è´£ä»»ç¡®å®šè¿›ç¨‹å®¡æ ¸æ˜¯å¦æ­£åœ¨è¿›è¡Œä¸­ã€‚*/
         SeAuditProcessCreation(TargetProcess, a7);
     }        
 
@@ -71,12 +71,12 @@ NTSTATUS PspInsertProcess(IN PEPROCESS TargetProcess,
         (!*(PEJOB*)ptr_ParentJob || (Status = PspImplicitAssignProcessToJob(*(PEJOB*)ptr_ParentJob, TargetProcess, Flags), Status >= 0)) &&
         (Status = PspInheritSyscallProvider(TargetProcess, ParentProcess), Status >= 0))
     {
-        //½«½ø³ÌÌí¼Óµ½»î¶¯½ø³ÌÁĞ±íÖĞ¡£
+        //å°†è¿›ç¨‹æ·»åŠ åˆ°æ´»åŠ¨è¿›ç¨‹åˆ—è¡¨ä¸­ã€‚
         PspLockProcessListExclusive(CurrentThread);
         size_t ptr_ActiveProcessLinks = (size_t)TargetProcess + eprocess_offset::ActiveProcessLinks;
         InsertTailList(PsActiveProcessHead, (PLIST_ENTRY)ptr_ActiveProcessLinks);
 
-        //ÃèÊöTargetProcess->SequenceNumber = ++PspProcessSequenceNumber;
+        //æè¿°TargetProcess->SequenceNumber = ++PspProcessSequenceNumber;
         size_t ptr_SequenceNumber = (size_t)TargetProcess + eprocess_offset::SequenceNumber;        
         *(size_t*)ptr_SequenceNumber = ++(*PspProcessSequenceNumber);
         // *(size_t*)ptr_SequenceNumber = ++(*PspProcessSequenceNumber);
@@ -86,7 +86,7 @@ NTSTATUS PspInsertProcess(IN PEPROCESS TargetProcess,
         PROCESSFLAGS ParentFlags = *(PROCESSFLAGS*)ptr_ParentFlags;
         if (ParentFlags.ProcessDelete)                    // Parent->Flags.ProcessDelete
         {
-            Status = STATUS_PROCESS_IS_TERMINATING;//½ø³ÌÕıÔÚÖÕÖ¹
+            Status = STATUS_PROCESS_IS_TERMINATING;//è¿›ç¨‹æ­£åœ¨ç»ˆæ­¢
         }
         else if (!DebugObjectHandle || (Status = ObReferenceObjectByHandle(
             DebugObjectHandle,
@@ -105,7 +105,7 @@ NTSTATUS PspInsertProcess(IN PEPROCESS TargetProcess,
             {
                 if (boCopyDebugPort && Flags & 2)
                 {
-                    //²»¼Ì³Ğµ÷ÊÔ¶Ë¿Ú
+                    //ä¸ç»§æ‰¿è°ƒè¯•ç«¯å£
                     size_t ptr_TargetFlags = (size_t)TargetProcess + eprocess_offset::Flags;
                     InterlockedOr((volatile LONG*)ptr_TargetFlags, 2u);// set NoDebugInherit
                 }                    
@@ -150,12 +150,12 @@ NTSTATUS PspInsertProcess(IN PEPROCESS TargetProcess,
                     {
                         ObDereferenceObjectWithTag(TargetProcess, 'rCsP');
 
-                        //ÃèÊöJob = TargetProcess->Job;
+                        //æè¿°Job = TargetProcess->Job;
                         size_t ptr_TargetJob = (size_t)TargetProcess + eprocess_offset::Job;
                         Job = *(PEJOB*)ptr_TargetJob;                        
                         if (!Job)
                         {
-                            //²»¼Ì³Ğµ÷ÊÔ¶Ë¿Ú
+                            //ä¸ç»§æ‰¿è°ƒè¯•ç«¯å£
                             size_t ptr_TargetFlags = (size_t)TargetProcess + eprocess_offset::Flags;
                             InterlockedOr((volatile LONG*)ptr_TargetFlags, 0x4000000u);// set ProcessInserted
                         LABEL_21:

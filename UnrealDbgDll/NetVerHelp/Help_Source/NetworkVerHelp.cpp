@@ -1,15 +1,15 @@
-#include "../Help_Tou/NetworkVerHelp.h"
+ï»¿#include "../Help_Tou/NetworkVerHelp.h"
 #include "../../Crypter/xorstr.hpp"
 #include <chrono>
 
 namespace Help
 {
 
-	//Èğ¿ÆÍøÂçÑéÖ¤£ºwww.rukeyz.com
+	//ç‘ç§‘ç½‘ç»œéªŒè¯ï¼šwww.rukeyz.com
 
 	static bool IsIniSoftInfo = false;
 
-	//Æ½Ì¨ÀàĞÍ  1:ÍøÂçÑéÖ¤Æ½Ì¨  2:×Ô¶¯·¢»õÆ½Ì¨
+	//å¹³å°ç±»å‹  1:ç½‘ç»œéªŒè¯å¹³å°  2:è‡ªåŠ¨å‘è´§å¹³å°
 	static Model::PlatformType platformtypeid;
 
 	static Model::In_HeartBeatArgs dataArgsTemp;
@@ -17,34 +17,34 @@ namespace Help
 	static string  endtimeTemp = (const char*)_xor_("");
 	static int	surpluspointvalueTemp = 0;
 
-	// ÍøÂçÑéÖ¤·şÎñÆ÷µØÖ·
+	// ç½‘ç»œéªŒè¯æœåŠ¡å™¨åœ°å€
 	static string ApiAddress = (const char*)_xor_("http://api.ruikeyz.com/NetVer/webapi");
 
-	//¶©µ¥²éÑ¯µØÖ·
+	//è®¢å•æŸ¥è¯¢åœ°å€
 	static string SearchOrderAddress;
 
-	// ¼ÓÃÜµÄkey
-	// ×¢Òâ£ºÈç¹ûÈí¼şÉèÖÃÁË¼ÓÃÜÍ¨Ñ¶£¬ÄÇÃ´´ËÖµ±ØÌî
+	// åŠ å¯†çš„key
+	// æ³¨æ„ï¼šå¦‚æœè½¯ä»¶è®¾ç½®äº†åŠ å¯†é€šè®¯ï¼Œé‚£ä¹ˆæ­¤å€¼å¿…å¡«
 	static string encryptKey;
 
-	// Ç©ÃûÑÎ(´Ë²ÎÊıÊÇÔÚÈí¼şÁĞ±íÀïÃæ½øĞĞÉèÖÃ)
-	// ×¢Òâ£ºÈç¹ûÈí¼şÉèÖÃÁË¼ÓÃÜÍ¨Ñ¶£¬ÄÇÃ´´ËÖµ±ØÌî
+	// ç­¾åç›(æ­¤å‚æ•°æ˜¯åœ¨è½¯ä»¶åˆ—è¡¨é‡Œé¢è¿›è¡Œè®¾ç½®)
+	// æ³¨æ„ï¼šå¦‚æœè½¯ä»¶è®¾ç½®äº†åŠ å¯†é€šè®¯ï¼Œé‚£ä¹ˆæ­¤å€¼å¿…å¡«
 	static string signSalt;
 
-	//ÇëÇó½Ó¿ÚÊ±£¬ÒµÎñÊı¾İdata²ÎÊı¼ÓÃÜÂëÍ¨Ñ¶ÀàĞÍ(´Ë²ÎÊıÊÇÔÚÈí¼şÁĞ±íÀïÃæ½øĞĞÉèÖÃ)
+	//è¯·æ±‚æ¥å£æ—¶ï¼Œä¸šåŠ¡æ•°æ®dataå‚æ•°åŠ å¯†ç é€šè®¯ç±»å‹(æ­¤å‚æ•°æ˜¯åœ¨è½¯ä»¶åˆ—è¡¨é‡Œé¢è¿›è¡Œè®¾ç½®)
 	static Model::EncryptType encrypttypeid;
 
-	//Èí¼ş¹ÜÀí-->Èí¼şÁĞ±í,ÀïÃæÕÒµ½Ïà¶ÔÓ¦µÄgoodscode,ÌîĞ´µ½´Ë´¦
+	//è½¯ä»¶ç®¡ç†-->è½¯ä»¶åˆ—è¡¨,é‡Œé¢æ‰¾åˆ°ç›¸å¯¹åº”çš„goodscode,å¡«å†™åˆ°æ­¤å¤„
 	static string goodscode;
 
-	// ¸öÈËÖĞĞÄÀïÃæ¿ÉÒÔ²é¿´µÃµ½¡£´úÀíÉÌµÄ»°£¬ÄÇÃ´ÔÚ£º´úÀí¹ÜÀí--¡·´úÀíÉÌÁĞ±í£¬¿ÉÒÔ²é¿´µÃµ½
-	// ×¢Òâ£ºÈç¹ûÊÇ×÷Õß×Ô¼º¾ÍÌîĞ´×Ô¼ºµÄplatformUserCode,Èç¹ûÊÇ´úÀíÉÌµÄ£¬µÃÌîĞ´´úÀíÉÌµÄCode
+	// ä¸ªäººä¸­å¿ƒé‡Œé¢å¯ä»¥æŸ¥çœ‹å¾—åˆ°ã€‚ä»£ç†å•†çš„è¯ï¼Œé‚£ä¹ˆåœ¨ï¼šä»£ç†ç®¡ç†--ã€‹ä»£ç†å•†åˆ—è¡¨ï¼Œå¯ä»¥æŸ¥çœ‹å¾—åˆ°
+	// æ³¨æ„ï¼šå¦‚æœæ˜¯ä½œè€…è‡ªå·±å°±å¡«å†™è‡ªå·±çš„platformUserCode,å¦‚æœæ˜¯ä»£ç†å•†çš„ï¼Œå¾—å¡«å†™ä»£ç†å•†çš„Code
 	static string platformUserCode;
 
-	//³õÊ¼»¯Èí¼şKeyÖµ(Í¨¹ıÈí¼ş³õÊ¼»¯½Ó¿Ú¡¾iniSoftInfo¡¿»ñÈ¡£¬³ıÁË"Èí¼ş³õÊ¼»¯½Ó¿Ú"²»ĞèÒªÌîĞ´£¬ÆäËü½Ó¿Ú±ØÌîĞ´)
+	//åˆå§‹åŒ–è½¯ä»¶Keyå€¼(é€šè¿‡è½¯ä»¶åˆå§‹åŒ–æ¥å£ã€iniSoftInfoã€‘è·å–ï¼Œé™¤äº†"è½¯ä»¶åˆå§‹åŒ–æ¥å£"ä¸éœ€è¦å¡«å†™ï¼Œå…¶å®ƒæ¥å£å¿…å¡«å†™)
 	static string inisoftkey;
 
-	//Èí¼ş³õÊ¼»¯µÄ½á¹û¶ÔÏó
+	//è½¯ä»¶åˆå§‹åŒ–çš„ç»“æœå¯¹è±¡
 	Model::Out_iniSoftInfo iniSoftInfoData;
 
 	//---------------------------------------------------------------------------------------------------
@@ -99,7 +99,7 @@ namespace Help
 	}
 
 
-	//»ñÈ¡Ê±¼ä´Á
+	//è·å–æ—¶é—´æˆ³
 	__int64 NetworkVerHelp::GetTimeStamp()
 	{
 		const auto now = std::chrono::system_clock::now();
@@ -109,14 +109,14 @@ namespace Help
 
 
 
-    //ÇëÇó½Ó¿Ú»ñÈ¡Êı¾İ
+    //è¯·æ±‚æ¥å£è·å–æ•°æ®
 	Model::Result NetworkVerHelp::getReqResult(string address, string PostJsonData, CJsonObject oJson) {
 #if USE_VMP
         VMProtectBegin("getReqResult");
 #endif
 		Model::Result result;
 		result.code = -999;
-		result.msg = (const char*)_xor_("·şÎñÆ÷·ÃÎÊÊ§°Ü£¬Äú±¾µØÍøÂç²»Ë³³©£¬Çë¼ì²éÏÂ£¨»òĞíÄúÓÃÁË´úÀíIPÁË£¬µ±Ê±µÄ´úÀíIP²»ÎÈ¶¨£¿£©");
+		result.msg = (const char*)_xor_("æœåŠ¡å™¨è®¿é—®å¤±è´¥ï¼Œæ‚¨æœ¬åœ°ç½‘ç»œä¸é¡ºç•…ï¼Œè¯·æ£€æŸ¥ä¸‹ï¼ˆæˆ–è®¸æ‚¨ç”¨äº†ä»£ç†IPäº†ï¼Œå½“æ—¶çš„ä»£ç†IPä¸ç¨³å®šï¼Ÿï¼‰");
 
 		CHttpRequestTool http;
 		list<string> head;
@@ -141,7 +141,7 @@ namespace Help
 
 	}
 
-	//ÇëÇó½Ó¿Ú»ñÈ¡Êı¾İ
+	//è¯·æ±‚æ¥å£è·å–æ•°æ®
 	Model::Result NetworkVerHelp::GetRequestResult(Model::BusinessType businessType, string data)
 	{
 #if USE_VMP
@@ -149,21 +149,21 @@ namespace Help
 #endif
 		Model::Result result;
 
-		string sign = (const char*)_xor_("");//µÇÂ¼³É¹¦ºó£¬²¢ÇÒÈí¼şÉèÖÃÁË¼ÓÃÜÂëÍ¨Ñ¶£¬ÄÇÃ´signÊÇ±ØÌîÏî
+		string sign = (const char*)_xor_("");//ç™»å½•æˆåŠŸåï¼Œå¹¶ä¸”è½¯ä»¶è®¾ç½®äº†åŠ å¯†ç é€šè®¯ï¼Œé‚£ä¹ˆsignæ˜¯å¿…å¡«é¡¹
 		__int64 TimeStamp = GetTimeStamp();
 		if (encrypttypeid != Model::EncryptType::NoEncrypt)
 		{
-			//Èç¹ûÈí¼şÉèÖÃÁË¼ÓÃÜÂëÍ¨Ñ¶
+			//å¦‚æœè½¯ä»¶è®¾ç½®äº†åŠ å¯†ç é€šè®¯
 			if (signSalt == (const char*)_xor_(""))
 			{
 				result.code = -999;
-				result.msg = (const char*)_xor_("Ç©ÃûÑÎ²»ÄÜÎª¿Õ£¡");
+				result.msg = (const char*)_xor_("ç­¾åç›ä¸èƒ½ä¸ºç©ºï¼");
 				return result;
 			}
 			if (encryptKey == (const char*)_xor_(""))
 			{
 				result.code = -999;
-				result.msg = (const char*)_xor_("¼ÓÃÜkey²»ÄÜÎª¿Õ£¡");
+				result.msg = (const char*)_xor_("åŠ å¯†keyä¸èƒ½ä¸ºç©ºï¼");
 				return result;
 			}
 		}
@@ -174,12 +174,12 @@ namespace Help
 			break;
 		case Model::RC4:
 			string	UTF8data = GBKToUTF8(data.c_str());
-			//Èç¹ûÈí¼şÉèÖÃÊÇ¼ÓÃÜÍ¨Ñ¶£¬ÄÇÃ´´Ë´¦ĞèÒª°Ñdata½âÃÜ³öÀ´
+			//å¦‚æœè½¯ä»¶è®¾ç½®æ˜¯åŠ å¯†é€šè®¯ï¼Œé‚£ä¹ˆæ­¤å¤„éœ€è¦æŠŠdataè§£å¯†å‡ºæ¥
 			string	UTF8encryptKey = GBKToUTF8(encryptKey.c_str());
 			Rc4 rc4;
 			data = rc4.Encrypt(UTF8data.c_str(), UTF8encryptKey.c_str());
 
-			//×¢Òâ¼ÓÃÜË³Ğò²»ÄÜ±ä:ÒµÎñÀàĞÍ+¼ÓÃÜÀàĞÍ+Æ½Ì¨ÓÃ»§Code+ÉÌÆ·Code+inisoftkey+Ê±¼ä´Á+ÒµÎñÊı¾İ+Ç©ÃûÑÎ+Æ½Ì¨ÀàĞÍ
+			//æ³¨æ„åŠ å¯†é¡ºåºä¸èƒ½å˜:ä¸šåŠ¡ç±»å‹+åŠ å¯†ç±»å‹+å¹³å°ç”¨æˆ·Code+å•†å“Code+inisoftkey+æ—¶é—´æˆ³+ä¸šåŠ¡æ•°æ®+ç­¾åç›+å¹³å°ç±»å‹
 			string signData = to_string(businessType) + to_string(encrypttypeid) + platformUserCode + goodscode
 				+ inisoftkey + to_string(TimeStamp) + data + signSalt + to_string(platformtypeid);
 			signData = GBKToUTF8(signData.c_str());
@@ -191,14 +191,14 @@ namespace Help
 
 
 		Model::ApiRequestArgs ApiArgs;
-		ApiArgs.businessid = businessType;//±ØÌî
-		ApiArgs.platformusercode = platformUserCode;//±ØÌî
-		ApiArgs.encrypttypeid = encrypttypeid;//±ØÌî
-		ApiArgs.goodscode = goodscode;//±ØÌî
-		ApiArgs.timestamp = TimeStamp;//±ØÌî
-		ApiArgs.data = data;//±ØÌî
-		ApiArgs.sign = sign;//µÇÂ¼³É¹¦ºó£¬²¢ÇÒÈí¼şÉèÖÃÁË¼ÓÃÜÂëÍ¨Ñ¶£¬ÄÇÃ´signÊÇ±ØÌîÏî£¬·ñÔò¿ÉÒÔÎª¿Õ
-		ApiArgs.platformtypeid = platformtypeid;//±ØÌî
+		ApiArgs.businessid = businessType;//å¿…å¡«
+		ApiArgs.platformusercode = platformUserCode;//å¿…å¡«
+		ApiArgs.encrypttypeid = encrypttypeid;//å¿…å¡«
+		ApiArgs.goodscode = goodscode;//å¿…å¡«
+		ApiArgs.timestamp = TimeStamp;//å¿…å¡«
+		ApiArgs.data = data;//å¿…å¡«
+		ApiArgs.sign = sign;//ç™»å½•æˆåŠŸåï¼Œå¹¶ä¸”è½¯ä»¶è®¾ç½®äº†åŠ å¯†ç é€šè®¯ï¼Œé‚£ä¹ˆsignæ˜¯å¿…å¡«é¡¹ï¼Œå¦åˆ™å¯ä»¥ä¸ºç©º
+		ApiArgs.platformtypeid = platformtypeid;//å¿…å¡«
 
 
 		CJsonObject oJson;
@@ -309,7 +309,7 @@ namespace Help
 		return result;
 	}
 
-	//json×Ö·û´®×ª»ù´¡·µ»ØÀàĞÍ
+	//jsonå­—ç¬¦ä¸²è½¬åŸºç¡€è¿”å›ç±»å‹
 	Model::Out_DataBaseArgs NetworkVerHelp::ConvertOutDataBaseArgs(string data)
 	{
 #if USE_VMP
@@ -318,13 +318,13 @@ namespace Help
 		Model::Out_DataBaseArgs result;
 		if (data == (const char*)_xor_(""))
 		{
-			throw exception((const char*)_xor_("data²»ÄÜÎª¿Õ£¡"));
+			throw exception((const char*)_xor_("dataä¸èƒ½ä¸ºç©ºï¼"));
 		}
 		if (encrypttypeid != Model::EncryptType::NoEncrypt)
 		{
 			if (encryptKey == (const char*)_xor_(""))
 			{
-				throw exception((const char*)_xor_("¼ÓÃÜkey²»ÄÜÎª¿Õ£¡"));
+				throw exception((const char*)_xor_("åŠ å¯†keyä¸èƒ½ä¸ºç©ºï¼"));
 			}
 
 			switch (encrypttypeid)
@@ -332,7 +332,7 @@ namespace Help
 			case Model::NoEncrypt:
 				break;
 			case Model::RC4:
-				//Èç¹ûÈí¼şÉèÖÃÊÇ¼ÓÃÜÍ¨Ñ¶£¬ÄÇÃ´´Ë´¦ĞèÒª°Ñdata½âÃÜ³öÀ´
+				//å¦‚æœè½¯ä»¶è®¾ç½®æ˜¯åŠ å¯†é€šè®¯ï¼Œé‚£ä¹ˆæ­¤å¤„éœ€è¦æŠŠdataè§£å¯†å‡ºæ¥
 				string	UTF8encryptKey = GBKToUTF8(encryptKey.c_str());
 				Rc4 rc4;
 				data = rc4.Decrypt(data.c_str(), UTF8encryptKey.c_str());
@@ -355,7 +355,7 @@ namespace Help
 
 	}
 
-	//³õÊ¼»¯Èí¼şÒµÎñÊı¾İ½á¹û×ª¶ÔÏó
+	//åˆå§‹åŒ–è½¯ä»¶ä¸šåŠ¡æ•°æ®ç»“æœè½¬å¯¹è±¡
 	Model::Out_iniSoftInfo NetworkVerHelp::ConvertIniSoftInfoData(string data)
 	{
 #if USE_VMP
@@ -364,13 +364,13 @@ namespace Help
 		Model::Out_iniSoftInfo result;
 		if (data == (const char*)_xor_(""))
 		{
-			throw exception((const char*)_xor_("data²»ÄÜÎª¿Õ£¡"));
+			throw exception((const char*)_xor_("dataä¸èƒ½ä¸ºç©ºï¼"));
 		}
 		if (encrypttypeid != Model::EncryptType::NoEncrypt)
 		{
 			if (encryptKey == (const char*)_xor_(""))
 			{
-				throw exception((const char*)_xor_("¼ÓÃÜkey²»ÄÜÎª¿Õ£¡"));
+				throw exception((const char*)_xor_("åŠ å¯†keyä¸èƒ½ä¸ºç©ºï¼"));
 			}
 
 			switch (encrypttypeid)
@@ -378,7 +378,7 @@ namespace Help
 			case Model::NoEncrypt:
 				break;
 			case Model::RC4:
-				//Èç¹ûÈí¼şÉèÖÃÊÇ¼ÓÃÜÍ¨Ñ¶£¬ÄÇÃ´´Ë´¦ĞèÒª°Ñdata½âÃÜ³öÀ´
+				//å¦‚æœè½¯ä»¶è®¾ç½®æ˜¯åŠ å¯†é€šè®¯ï¼Œé‚£ä¹ˆæ­¤å¤„éœ€è¦æŠŠdataè§£å¯†å‡ºæ¥
 				string	UTF8encryptKey = GBKToUTF8(encryptKey.c_str());
 				Rc4 rc4;
 				data = rc4.Decrypt(data.c_str(), UTF8encryptKey.c_str());
@@ -416,7 +416,7 @@ namespace Help
 
 	}
 
-	//µÇÂ¼ÒµÎñ½á¹û×ª×ª¶ÔÏó
+	//ç™»å½•ä¸šåŠ¡ç»“æœè½¬è½¬å¯¹è±¡
 	Model::Out_Login NetworkVerHelp::ConvertLoginData(string data)
 	{
 #if USE_VMP
@@ -425,13 +425,13 @@ namespace Help
 		Model::Out_Login result;
 		if (data == (const char*)_xor_(""))
 		{
-			throw exception((const char*)_xor_("data²»ÄÜÎª¿Õ£¡"));
+			throw exception((const char*)_xor_("dataä¸èƒ½ä¸ºç©ºï¼"));
 		}
 		if (encrypttypeid != Model::EncryptType::NoEncrypt)
 		{
 			if (encryptKey == (const char*)_xor_(""))
 			{
-				throw exception((const char*)_xor_("¼ÓÃÜkey²»ÄÜÎª¿Õ£¡"));
+				throw exception((const char*)_xor_("åŠ å¯†keyä¸èƒ½ä¸ºç©ºï¼"));
 			}
 
 			switch (encrypttypeid)
@@ -439,7 +439,7 @@ namespace Help
 			case Model::NoEncrypt:
 				break;
 			case Model::RC4:
-				//Èç¹ûÈí¼şÉèÖÃÊÇ¼ÓÃÜÍ¨Ñ¶£¬ÄÇÃ´´Ë´¦ĞèÒª°Ñdata½âÃÜ³öÀ´
+				//å¦‚æœè½¯ä»¶è®¾ç½®æ˜¯åŠ å¯†é€šè®¯ï¼Œé‚£ä¹ˆæ­¤å¤„éœ€è¦æŠŠdataè§£å¯†å‡ºæ¥
 				string	UTF8encryptKey = GBKToUTF8(encryptKey.c_str());
 				Rc4 rc4;
 				data = rc4.Decrypt(data.c_str(), UTF8encryptKey.c_str());
@@ -485,7 +485,7 @@ namespace Help
 
 	}
 
-	//ĞÄÌøÒµÎñ½á¹û×ª¶ÔÏó
+	//å¿ƒè·³ä¸šåŠ¡ç»“æœè½¬å¯¹è±¡
 	Model::Out_heartBeat NetworkVerHelp::ConvertHeartBeat(string data)
 	{
 #if USE_VMP
@@ -494,13 +494,13 @@ namespace Help
 		Model::Out_heartBeat result;
 		if (data == (const char*)_xor_(""))
 		{
-			throw exception((const char*)_xor_("data²»ÄÜÎª¿Õ£¡"));
+			throw exception((const char*)_xor_("dataä¸èƒ½ä¸ºç©ºï¼"));
 		}
 		if (encrypttypeid != Model::EncryptType::NoEncrypt)
 		{
 			if (encryptKey == (const char*)_xor_(""))
 			{
-				throw exception((const char*)_xor_("¼ÓÃÜkey²»ÄÜÎª¿Õ£¡"));
+				throw exception((const char*)_xor_("åŠ å¯†keyä¸èƒ½ä¸ºç©ºï¼"));
 			}
 
 			switch (encrypttypeid)
@@ -508,7 +508,7 @@ namespace Help
 			case Model::NoEncrypt:
 				break;
 			case Model::RC4:
-				//Èç¹ûÈí¼şÉèÖÃÊÇ¼ÓÃÜÍ¨Ñ¶£¬ÄÇÃ´´Ë´¦ĞèÒª°Ñdata½âÃÜ³öÀ´
+				//å¦‚æœè½¯ä»¶è®¾ç½®æ˜¯åŠ å¯†é€šè®¯ï¼Œé‚£ä¹ˆæ­¤å¤„éœ€è¦æŠŠdataè§£å¯†å‡ºæ¥
 				string	UTF8encryptKey = GBKToUTF8(encryptKey.c_str());
 				Rc4 rc4;
 				data = rc4.Decrypt(data.c_str(), UTF8encryptKey.c_str());
@@ -535,7 +535,7 @@ namespace Help
 
 
 
-	//¿¨ÃÜÏêÇé½á¹û×ª¶ÔÏó
+	//å¡å¯†è¯¦æƒ…ç»“æœè½¬å¯¹è±¡
 	Model::Out_cardDetail NetworkVerHelp::ConvertCardDetail(string data)
 	{
 #if USE_VMP
@@ -544,13 +544,13 @@ namespace Help
 		Model::Out_cardDetail result;
 		if (data == (const char*)_xor_(""))
 		{
-			throw exception((const char*)_xor_("data²»ÄÜÎª¿Õ£¡"));
+			throw exception((const char*)_xor_("dataä¸èƒ½ä¸ºç©ºï¼"));
 		}
 		if (encrypttypeid != Model::EncryptType::NoEncrypt)
 		{
 			if (encryptKey == (const char*)_xor_(""))
 			{
-				throw exception((const char*)_xor_("¼ÓÃÜkey²»ÄÜÎª¿Õ£¡"));
+				throw exception((const char*)_xor_("åŠ å¯†keyä¸èƒ½ä¸ºç©ºï¼"));
 			}
 
 			switch (encrypttypeid)
@@ -558,7 +558,7 @@ namespace Help
 			case Model::NoEncrypt:
 				break;
 			case Model::RC4:
-				//Èç¹ûÈí¼şÉèÖÃÊÇ¼ÓÃÜÍ¨Ñ¶£¬ÄÇÃ´´Ë´¦ĞèÒª°Ñdata½âÃÜ³öÀ´
+				//å¦‚æœè½¯ä»¶è®¾ç½®æ˜¯åŠ å¯†é€šè®¯ï¼Œé‚£ä¹ˆæ­¤å¤„éœ€è¦æŠŠdataè§£å¯†å‡ºæ¥
 				string	UTF8encryptKey = GBKToUTF8(encryptKey.c_str());
 				Rc4 rc4;
 				data = rc4.Decrypt(data.c_str(), UTF8encryptKey.c_str());
@@ -601,7 +601,7 @@ namespace Help
 
 	}
 
-	//³õÊ¼»¯Èí¼ş
+	//åˆå§‹åŒ–è½¯ä»¶
 	Model::Result NetworkVerHelp::GetIniSoftInfo(Model::In_IniSoftInfoArgs dataArgs, Model::PlatformType _platformtypeid, string _encryptKey,
 		string _signSalt, Model::EncryptType _encrypttypeid, string _goodscode, string _platformUserCode)
 	{
@@ -643,7 +643,7 @@ namespace Help
 				{
 				case Model::NetVer:
 					iniSoftInfoData = ConvertIniSoftInfoData(result.data);
-					inisoftkey = iniSoftInfoData.inisoftkey;//³õÊ¼»¯ÍêÈí¼şºó£¬°Ñ´ËKey±£ÁôÏÂÀ´£¬ÆäËü½Ó¿Ú´ËKey±ØÌîĞ´µÄ
+					inisoftkey = iniSoftInfoData.inisoftkey;//åˆå§‹åŒ–å®Œè½¯ä»¶åï¼ŒæŠŠæ­¤Keyä¿ç•™ä¸‹æ¥ï¼Œå…¶å®ƒæ¥å£æ­¤Keyå¿…å¡«å†™çš„
 					break;
 				}
 
@@ -653,7 +653,7 @@ namespace Help
 		}
 		else
 		{
-			result.msg = (const char*)_xor_("Èí¼şÒÑ³õÊ¼»¯¹ıÁË£¬²»ÄÜÔÙ´Î½øĞĞ³õÊ¼»¯");
+			result.msg = (const char*)_xor_("è½¯ä»¶å·²åˆå§‹åŒ–è¿‡äº†ï¼Œä¸èƒ½å†æ¬¡è¿›è¡Œåˆå§‹åŒ–");
 		}
 
 #if USE_VMP
@@ -663,7 +663,7 @@ namespace Help
 
 	}
 
-	//µÇÂ¼³É¹¦ºó£¬¿ªÊ¼ĞÄÌø(ĞÄÌø¼ä¸ôÊ±¼ä²»ÄÜĞ¡ÓÚ5·ÖÖÓ)
+	//ç™»å½•æˆåŠŸåï¼Œå¼€å§‹å¿ƒè·³(å¿ƒè·³é—´éš”æ—¶é—´ä¸èƒ½å°äº5åˆ†é’Ÿ)
 	Model::Result NetworkVerHelp::GetHeartBeat(Model::In_HeartBeatArgs dataArgs)
 	{
 #if USE_VMP
@@ -673,7 +673,7 @@ namespace Help
 		Model::Result result;
 		if (dataArgs.token == (const char*)_xor_(""))
 		{
-			throw exception((const char*)_xor_("tokenµÇÂ¼ÁîÅÆ²»ÄÜÎª¿Õ£¡"));
+			throw exception((const char*)_xor_("tokenç™»å½•ä»¤ç‰Œä¸èƒ½ä¸ºç©ºï¼"));
 		}
 		string data = (const char*)_xor_("");
 		CJsonObject oJson;
@@ -694,7 +694,7 @@ namespace Help
 		return result;
 	}
 
-	//¿¨ÃÜµÇÂ¼
+	//å¡å¯†ç™»å½•
 	Model::Result NetworkVerHelp::GetLoginByCard(Model::In_CardLoginArgs dataArgs)
 	{
 #if USE_VMP
@@ -718,7 +718,7 @@ namespace Help
 		return result;
 	}
 
-	//¿¨ÃÜÏêÇé
+	//å¡å¯†è¯¦æƒ…
 	Model::Result NetworkVerHelp::GeCardDetail(Model::In_cardDetailArgs dataArgs)
 	{
 #if USE_VMP
@@ -742,7 +742,7 @@ namespace Help
 	}
 
 
-	//ÍË³öµÇÂ¼
+	//é€€å‡ºç™»å½•
 	Model::Result NetworkVerHelp::GeLoginOut(Model::In_LoginOutArgs dataArgs)
 	{
 #if USE_VMP
@@ -752,7 +752,7 @@ namespace Help
 		string data = (const char*)_xor_("");
 		if (dataArgs.token == (const char*)_xor_(""))
 		{
-			throw exception((const char*)_xor_("tokenµÇÂ¼ÁîÅÆ²»ÄÜÎª¿Õ!"));
+			throw exception((const char*)_xor_("tokenç™»å½•ä»¤ç‰Œä¸èƒ½ä¸ºç©º!"));
 		}
 		CJsonObject oJson;
 		oJson.Add((const char*)_xor_("maccode"), dataArgs.maccode);
@@ -770,7 +770,7 @@ namespace Help
 
 	}
 
-	//½ûÓÃ»¹ÊÇÉ¾³ı£ºµ¥Âë»òÕËºÅ
+	//ç¦ç”¨è¿˜æ˜¯åˆ é™¤ï¼šå•ç æˆ–è´¦å·
 	Model::Result NetworkVerHelp::DisableCardOrAccount(Model::In_DisableCardOrAccountArgs dataArgs)
 	{
 #if USE_VMP
@@ -780,7 +780,7 @@ namespace Help
 		string data = (const char*)_xor_("");
 		if (dataArgs.token == (const char*)_xor_(""))
 		{
-			throw exception((const char*)_xor_("tokenµÇÂ¼ÁîÅÆ²»ÄÜÎª¿Õ£¡"));
+			throw exception((const char*)_xor_("tokenç™»å½•ä»¤ç‰Œä¸èƒ½ä¸ºç©ºï¼"));
 		}
 		CJsonObject oJson;
 		oJson.Add((const char*)_xor_("maccode"), dataArgs.maccode);

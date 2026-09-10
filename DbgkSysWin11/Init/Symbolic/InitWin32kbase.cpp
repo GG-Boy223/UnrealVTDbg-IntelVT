@@ -1,4 +1,4 @@
-#include "../../Driver.h"
+ï»¿#include "../../Driver.h"
 #include "../../ntos/inc/extypes.h"
 #include "../../ntos/inc/ketypes.h"
 #include "../../ntos/inc/ntosdef.h"
@@ -24,12 +24,12 @@
 
 BOOLEAN InitWin32kbaseSymbolsTable()
 {
-    //µ±Ç°Ïß³Ì±ØĞëÊÇguiÏß³Ì²ÅÄÜ·ÃÎÊwin32kµÄÄÚ´æ
+    //å½“å‰çº¿ç¨‹å¿…é¡»æ˜¯guiçº¿ç¨‹æ‰èƒ½è®¿é—®win32kçš„å†…å­˜
     symbolic_access::ModuleExtenderFactory extenderFactory{};
     const auto& moduleExtender = extenderFactory.Create(L"win32kbase.sys");
     if (!moduleExtender.has_value())
     {
-        outLog("win32kbase.sys ·ûºÅ³õÊ¼»¯Ê§°Ü..");
+        outLog("win32kbase.sys ç¬¦å·åˆå§‹åŒ–å¤±è´¥..");
         return FALSE;
     }
 
@@ -42,7 +42,7 @@ BOOLEAN InitWin32kbaseSymbolsTable()
 PWND NewValidateHwnd(_In_ HWND hwnd)
 {
     DbgkRuntimeCallGuard runtimeGuard;
-    //¸ù¾İ´°¿Ú¾ä±ú»ñµÃ´°¿Ú¶ÔÏó
+    //æ ¹æ®çª—å£å¥æŸ„è·å¾—çª—å£å¯¹è±¡
     PWND pwnd = Original_ValidateHwnd(hwnd);
     if (DbgkIsDriverRuntimeUnloading())
     {
@@ -51,16 +51,16 @@ PWND NewValidateHwnd(_In_ HWND hwnd)
 
     if (pwnd)
     {
-        //ÅĞ¶Ïµ±Ç°µ÷ÓÃÕßÊÇ·ñÊÇµ÷ÊÔÆ÷½ø³Ì
+        //åˆ¤æ–­å½“å‰è°ƒç”¨è€…æ˜¯å¦æ˜¯è°ƒè¯•å™¨è¿›ç¨‹
         if (!IsDebugger(PsGetCurrentProcess()))
         {
-            //¸ù¾İÏß³Ì¶ÔÏó»ñµÃ½ø³Ì¶ÔÏó
+            //æ ¹æ®çº¿ç¨‹å¯¹è±¡è·å¾—è¿›ç¨‹å¯¹è±¡
             PEPROCESS Process = PsGetThreadProcess((PETHREAD)pwnd->head.pti->pEThread);
 
-            //ÅĞ¶ÏÒª·ÃÎÊµÄÄ¿±ê´°¿ÚÊÇ·ñÊÇÎÒÃÇµ÷ÊÔÆ÷µÄ´°¿Ú
+            //åˆ¤æ–­è¦è®¿é—®çš„ç›®æ ‡çª—å£æ˜¯å¦æ˜¯æˆ‘ä»¬è°ƒè¯•å™¨çš„çª—å£
             if (IsDebugger(Process))
             {
-                //»ñÈ¡µ±Ç°µ÷ÓÃ½ø³Ì
+                //è·å–å½“å‰è°ƒç”¨è¿›ç¨‹
                 WCHAR SubStr[256] = { 0 };
                 UNICODE_STRING ImageFileName, PassImage;
                 NTSTATUS Status = GetProcessName(PsGetCurrentProcess(), &SubStr[0]);
@@ -72,12 +72,12 @@ PWND NewValidateHwnd(_In_ HWND hwnd)
                         RtlInitUnicodeString(&PassImage, PassProcessList[i]);
                         if (RtlEqualUnicodeString(&ImageFileName, &PassImage, TRUE))
                         {
-                            //·¢ÏÖÊÇ°×Ãûµ¥½ø³Ì¾Í·ÅĞĞ
+                            //å‘ç°æ˜¯ç™½åå•è¿›ç¨‹å°±æ”¾è¡Œ
                             goto pass;
                         }
                     }
 
-                    //Èç¹û·ÃÎÊµÄÊÇÎÒÃÇµ÷ÊÔÆ÷µÄ´°¿Ú£¬Ôò¾Ü¾ø·ÃÎÊ¡£
+                    //å¦‚æœè®¿é—®çš„æ˜¯æˆ‘ä»¬è°ƒè¯•å™¨çš„çª—å£ï¼Œåˆ™æ‹’ç»è®¿é—®ã€‚
                     pwnd = NULL;
 
                     //PrintProcessName((_EPROCESS*)PsGetCurrentProcess());

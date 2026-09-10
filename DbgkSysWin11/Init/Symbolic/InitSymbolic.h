@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #ifndef _INIT_SYMBOLIC_H
 #define _INIT_SYMBOLIC_H
@@ -9,12 +9,12 @@ BOOLEAN InitNtoskrnlSymbolsTable();
 BOOLEAN InitWin32kbaseSymbolsTable();
 BOOLEAN InitWin32kfullSymbolsTable();
 
-// ½«ÄÚºË½á¹¹Æ«ÒÆ·¢ËÍ¸ø vt host¡£
-// verifyKey ÎªÉÏ²ãÒÑ¾­Ğ£ÑéÍ¨¹ıµÄÎÕÊÖÖµ£»VT_Driver ²à»á×ö¶ş´ÎĞ£Ñé¡£
+// å°†å†…æ ¸ç»“æ„åç§»å‘é€ç»™ vt hostã€‚
+// verifyKey ä¸ºä¸Šå±‚å·²ç»æ ¡éªŒé€šè¿‡çš„æ¡æ‰‹å€¼ï¼›VT_Driver ä¾§ä¼šåšäºŒæ¬¡æ ¡éªŒã€‚
 bool DispatchOffsetToHost(unsigned __int64 verifyKey);
 
 
-//Dump¶ÔÏóÆ«ÒÆºÍº¯ÊıÖ¸Õë
+//Dumpå¯¹è±¡åç§»å’Œå‡½æ•°æŒ‡é’ˆ
 void DumpOffsetAndFuncPtr();
 
 void CheckFunctionPointers();

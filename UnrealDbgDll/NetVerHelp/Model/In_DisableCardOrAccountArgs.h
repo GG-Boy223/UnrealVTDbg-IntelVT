@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #ifndef DisableCardOrAccountArgs_H_
 #define DisableCardOrAccountArgs_H_
 #include <string>
@@ -7,15 +7,15 @@
 using namespace std;
 namespace Model
 {
-	// ½ûÓÃ»¹ÊÇÉ¾³ı£ºµ¥Âë»òÕËºÅ
+	// ç¦ç”¨è¿˜æ˜¯åˆ é™¤ï¼šå•ç æˆ–è´¦å·
 	class In_DisableCardOrAccountArgs :public In_DataBaseArgs
 	{
 	public:
-		//µÇÂ¼ÁîÅÆ(±ØÌî)
+		//ç™»å½•ä»¤ç‰Œ(å¿…å¡«)
 		string token;
-		// ¿¨ÃÜ»òÕËºÅ(±ØÌî)
+		// å¡å¯†æˆ–è´¦å·(å¿…å¡«)
 		string cardnumorusername;
-		//½ûÓÃ»¹ÊÇÉ¾³ı£ºµ¥Âë»òÕËºÅ(±ØÌî)
+		//ç¦ç”¨è¿˜æ˜¯åˆ é™¤ï¼šå•ç æˆ–è´¦å·(å¿…å¡«)
 		DisableCardOrAccountType disablecardoraccounttype;
 	};
 }

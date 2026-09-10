@@ -1,12 +1,12 @@
-#pragma once
+Ôªø#pragma once
 
 #ifndef _HOOK_H
 #define _HOOK_H
 
-//∞≤◊∞hook
+//ÂÆâË£Öhook
 void HookOn(_In_ PVOID* pfun, _In_ PVOID proxy_fun, _In_ HANDLE hThread);
 
-//–∂‘ÿhook
+//Âç∏ËΩΩhook
 void HookOff(_In_ PVOID* pfun, _In_ PVOID proxy_fun, _In_ HANDLE hThread);
 
 

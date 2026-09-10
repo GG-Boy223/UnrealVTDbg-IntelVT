@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #ifndef In_cardDetailArgs_H_
 #define In_cardDetailArgs_H_
 #include <string>
@@ -9,21 +9,21 @@ namespace Model
 {
 /**
 * @class In_cardDetailArgs
-* @brief ÕâÊÇÒ»¸öÓÃÓÚ´¦Àí¿¨ÃÜÏêÏ¸ĞÅÏ¢µÄÀà¡£
-* @details ´ËÀà¼Ì³Ğ×Ô In_DataBaseArgs£¬ÓÃÓÚ±íÊ¾¿¨Æ¬µÄÃÜÔ¿ĞÅÏ¢¡£
-* °üº¬Ò»¸ö¿¨ÃÜ£¨cardnum£©³ÉÔ±£¬ÕâÊÇ±ØÌîÏî¡£
+* @brief è¿™æ˜¯ä¸€ä¸ªç”¨äºå¤„ç†å¡å¯†è¯¦ç»†ä¿¡æ¯çš„ç±»ã€‚
+* @details æ­¤ç±»ç»§æ‰¿è‡ª In_DataBaseArgsï¼Œç”¨äºè¡¨ç¤ºå¡ç‰‡çš„å¯†é’¥ä¿¡æ¯ã€‚
+* åŒ…å«ä¸€ä¸ªå¡å¯†ï¼ˆcardnumï¼‰æˆå‘˜ï¼Œè¿™æ˜¯å¿…å¡«é¡¹ã€‚
 */
 	// /**
 	// * @class In_cardDetailArgs
-	// * @brief ÕâÊÇÒ»¸öÓÃÓÚ´¦Àí¿¨ÃÜÏêÏ¸ĞÅÏ¢µÄÀà¡£
-	// * @details ´ËÀà¼Ì³Ğ×Ô In_DataBaseArgs£¬ÓÃÓÚ±íÊ¾¿¨Æ¬µÄÃÜÔ¿ĞÅÏ¢¡£
-	// * °üº¬Ò»¸ö¿¨ÃÜ£¨cardnum£©³ÉÔ±£¬ÕâÊÇ±ØÌîÏî¡£
+	// * @brief è¿™æ˜¯ä¸€ä¸ªç”¨äºå¤„ç†å¡å¯†è¯¦ç»†ä¿¡æ¯çš„ç±»ã€‚
+	// * @details æ­¤ç±»ç»§æ‰¿è‡ª In_DataBaseArgsï¼Œç”¨äºè¡¨ç¤ºå¡ç‰‡çš„å¯†é’¥ä¿¡æ¯ã€‚
+	// * åŒ…å«ä¸€ä¸ªå¡å¯†ï¼ˆcardnumï¼‰æˆå‘˜ï¼Œè¿™æ˜¯å¿…å¡«é¡¹ã€‚
 	// */
 	class In_cardDetailArgs :public In_DataBaseArgs
 	{
 	public:
 		/// <summary>
-		///  ¿¨ÃÜ(±ØÌî)
+		///  å¡å¯†(å¿…å¡«)
 		/// </summary>
 		string cardnum;
 	};

@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #ifndef CHttpRequestTool_H_
 #define CHttpRequestTool_H_
 #include <afxinet.h>
@@ -17,88 +17,88 @@ namespace Help
 
 	public:
 		/**
-		 * @brief				-- Http Get ÇëÇó
-		 * @param url		-- input,ÇëÇóµÄurlµØÖ·
-		 * @param timeOut	-- ½ÓÊÕ·şÎñÆ÷Êı¾İµÄ³¬Ê±Ê±¼ä
-		 * @return				--- ÇëÇóµÄ½á¹û
+		 * @brief				-- Http Get è¯·æ±‚
+		 * @param url		-- input,è¯·æ±‚çš„urlåœ°å€
+		 * @param timeOut	-- æ¥æ”¶æœåŠ¡å™¨æ•°æ®çš„è¶…æ—¶æ—¶é—´
+		 * @return				--- è¯·æ±‚çš„ç»“æœ
 		 */
 		// /**
-		// * @brief				-- Http Get ÇëÇó
-		// * @param url		-- input,ÇëÇóµÄurlµØÖ·
-		// * @param timeOut	-- ½ÓÊÕ·şÎñÆ÷Êı¾İµÄ³¬Ê±Ê±¼ä
-		// * @return				--- ÇëÇóµÄ½á¹û
+		// * @brief				-- Http Get è¯·æ±‚
+		// * @param url		-- input,è¯·æ±‚çš„urlåœ°å€
+		// * @param timeOut	-- æ¥æ”¶æœåŠ¡å™¨æ•°æ®çš„è¶…æ—¶æ—¶é—´
+		// * @return				--- è¯·æ±‚çš„ç»“æœ
 		// */
 		string HttpGet(string url, int timeOut);
 
 		/**
-		 * @brief				-- Http Post ÇëÇó
-		 * @param url		-- input,ÇëÇóµÄurlµØÖ·
-		 * @param postData	-- PostµÄÄÚÈİ
-		 * @param head	-- Í·²¿
-		 * @param timeOut	-- ½ÓÊÕ·şÎñÆ÷Êı¾İµÄ³¬Ê±Ê±¼ä
-		 * @return				--- ÇëÇóµÄ½á¹û
+		 * @brief				-- Http Post è¯·æ±‚
+		 * @param url		-- input,è¯·æ±‚çš„urlåœ°å€
+		 * @param postData	-- Postçš„å†…å®¹
+		 * @param head	-- å¤´éƒ¨
+		 * @param timeOut	-- æ¥æ”¶æœåŠ¡å™¨æ•°æ®çš„è¶…æ—¶æ—¶é—´
+		 * @return				--- è¯·æ±‚çš„ç»“æœ
 		 */
 		// /**
-		// * @brief				-- Http Post ÇëÇó
-		// * @param url		-- input,ÇëÇóµÄurlµØÖ·
-		// * @param postData	-- PostµÄÄÚÈİ
-		// * @param head	-- Í·²¿
-		// * @param timeOut	-- ½ÓÊÕ·şÎñÆ÷Êı¾İµÄ³¬Ê±Ê±¼ä
-		// * @return				--- ÇëÇóµÄ½á¹û
+		// * @brief				-- Http Post è¯·æ±‚
+		// * @param url		-- input,è¯·æ±‚çš„urlåœ°å€
+		// * @param postData	-- Postçš„å†…å®¹
+		// * @param head	-- å¤´éƒ¨
+		// * @param timeOut	-- æ¥æ”¶æœåŠ¡å™¨æ•°æ®çš„è¶…æ—¶æ—¶é—´
+		// * @return				--- è¯·æ±‚çš„ç»“æœ
 		// */
 		string HttpPost(string url, string postData, list<string> head, int timeOut);
 
 
 	private:
 		/**
-		 * @brief				-- ½«url×ªÂëÎªutf_8
+		 * @brief				-- å°†urlè½¬ç ä¸ºutf_8
 		 * @param strText		-- CString reference
 		 */
 		// /**
-		// * @brief				-- ½«url×ªÂëÎªutf_8
+		// * @brief				-- å°†urlè½¬ç ä¸ºutf_8
 		// * @param strText		-- CString reference
 		// */
 		void ConvertUnicodeToUtf8(CString& strText);
 
 		/**
-		 * @brief				-- ½«»ñÈ¡µ½µÄÍøÒ³msg×ªÂëÎªUnicode
+		 * @brief				-- å°†è·å–åˆ°çš„ç½‘é¡µmsgè½¬ç ä¸ºUnicode
 		 * @param strText		-- string reference
 		 */
 		// /**
-		// * @brief				-- ½«»ñÈ¡µ½µÄÍøÒ³msg×ªÂëÎªUnicode
+		// * @brief				-- å°†è·å–åˆ°çš„ç½‘é¡µmsgè½¬ç ä¸ºUnicode
 		// * @param strText		-- string reference
 		// */
 		void ConvertUtf8ToUnicode(string& strText);
 
 		/**
-		 * @brief				-- Http Get ÇëÇó
-		 * @param strUrl		-- input,ÇëÇóµÄurlµØÖ·
-		 * @param timeOut	-- ½ÓÊÕ·şÎñÆ÷Êı¾İµÄ³¬Ê±Ê±¼ä
-		 * @return				-- ÇëÇóµÄ½á¹û
+		 * @brief				-- Http Get è¯·æ±‚
+		 * @param strUrl		-- input,è¯·æ±‚çš„urlåœ°å€
+		 * @param timeOut	-- æ¥æ”¶æœåŠ¡å™¨æ•°æ®çš„è¶…æ—¶æ—¶é—´
+		 * @return				-- è¯·æ±‚çš„ç»“æœ
 		 */
 		// /**
-		// * @brief				-- Http Get ÇëÇó
-		// * @param strUrl		-- input,ÇëÇóµÄurlµØÖ·
-		// * @param timeOut	-- ½ÓÊÕ·şÎñÆ÷Êı¾İµÄ³¬Ê±Ê±¼ä
-		// * @return				-- ÇëÇóµÄ½á¹û
+		// * @brief				-- Http Get è¯·æ±‚
+		// * @param strUrl		-- input,è¯·æ±‚çš„urlåœ°å€
+		// * @param timeOut	-- æ¥æ”¶æœåŠ¡å™¨æ•°æ®çš„è¶…æ—¶æ—¶é—´
+		// * @return				-- è¯·æ±‚çš„ç»“æœ
 		// */
 		string ExecuteGetRequest(CString strUrl, int timeOut);
 
 		/**
-		 * @brief				-- Http Post ÇëÇó
-		 * @param strUrl		-- input,ÇëÇóµÄurlµØÖ·
-		 * @param m_strPostData	-- PostµÄÄÚÈİ
-		 * @param head	-- Í·²¿
-		 * @param timeOut	-- ½ÓÊÕ·şÎñÆ÷Êı¾İµÄ³¬Ê±Ê±¼ä
-		 * @return				--- ÇëÇóµÄ½á¹û
+		 * @brief				-- Http Post è¯·æ±‚
+		 * @param strUrl		-- input,è¯·æ±‚çš„urlåœ°å€
+		 * @param m_strPostData	-- Postçš„å†…å®¹
+		 * @param head	-- å¤´éƒ¨
+		 * @param timeOut	-- æ¥æ”¶æœåŠ¡å™¨æ•°æ®çš„è¶…æ—¶æ—¶é—´
+		 * @return				--- è¯·æ±‚çš„ç»“æœ
 		 */
 		// /**
-		// * @brief				-- Http Post ÇëÇó
-		// * @param strUrl		-- input,ÇëÇóµÄurlµØÖ·
-		// * @param m_strPostData	-- PostµÄÄÚÈİ
-		// * @param head	-- Í·²¿
-		// * @param timeOut	-- ½ÓÊÕ·şÎñÆ÷Êı¾İµÄ³¬Ê±Ê±¼ä
-		// * @return				--- ÇëÇóµÄ½á¹û
+		// * @brief				-- Http Post è¯·æ±‚
+		// * @param strUrl		-- input,è¯·æ±‚çš„urlåœ°å€
+		// * @param m_strPostData	-- Postçš„å†…å®¹
+		// * @param head	-- å¤´éƒ¨
+		// * @param timeOut	-- æ¥æ”¶æœåŠ¡å™¨æ•°æ®çš„è¶…æ—¶æ—¶é—´
+		// * @return				--- è¯·æ±‚çš„ç»“æœ
 		// */
 		string ExecutePostRequest(CString strUrl, CString m_strPostData, list<string> head, int timeOut);
 

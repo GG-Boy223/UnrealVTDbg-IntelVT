@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #ifndef In_unbundMacArgs_H_
 #define In_unbundMacArgs_H_
 #include <string>
@@ -6,11 +6,11 @@
 using namespace std;
 namespace Model
 {
-	// ½â°ó»úÆ÷ÂëÈë²Î
+	// è§£ç»‘æœºå™¨ç å…¥å‚
 	class In_unbundMacArgs :public In_DataBaseArgs
 	{
 	public:
-		// ¿¨ÃÜ»òÕËºÅ(±ØÌî)
+		// å¡å¯†æˆ–è´¦å·(å¿…å¡«)
 		string cardnumorusername;
 	};
 }

@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #ifndef _HYPERVISOR_GATEWAY_H
 #define _HYPERVISOR_GATEWAY_H
@@ -62,7 +62,7 @@ namespace hvgt
 	/// <returns> status </returns>
 	bool test_vmcall();
 
-	//²âÊÔVTÇı¶¯ÊÇ·ñ¼ÓÔØ
+	//æµ‹è¯•VTé©±åŠ¨æ˜¯å¦åŠ è½½
 	NTSTATUS TestVMM();
 
 	/// <summary>
@@ -71,10 +71,10 @@ namespace hvgt
 	/// <returns> status </returns>
 	bool send_irp_perform_allocation();
 
-	//¶ÁÈ¡ÒşĞÎÈí¼ş¶Ïµã
+	//è¯»å–éšå½¢è½¯ä»¶æ–­ç‚¹
 	bool get_hide_software_breakpoint(void* target_address, void* buffer, unsigned __int64 buffer_size);
 
-	//ÉèÖÃÒşĞÎÈí¼ş¶Ïµã
+	//è®¾ç½®éšå½¢è½¯ä»¶æ–­ç‚¹
 	bool set_hide_software_breakpoint(void* target_address, void* buffer, unsigned __int64 buffer_size);
 }
 

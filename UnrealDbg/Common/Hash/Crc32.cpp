@@ -1,12 +1,12 @@
-#include <iostream>
+ï»¿#include <iostream>
 #include <Windows.h>
 #include "../VMProtect/vmp.h"
 #include "Crc32.h"
 
 ////////////////////////////////////////////////////////////////
-// ¼ÆËã×Ö·û´®µÄCRC32Öµ
-// ²ÎÊý£ºÓû¼ÆËãCRC32Öµ×Ö·û´®µÄÊ×µØÖ·ºÍ´óÐ¡
-// ·µ»ØÖµ: ·µ»ØCRC32Öµ
+// è®¡ç®—å­—ç¬¦ä¸²çš„CRC32å€¼
+// å‚æ•°ï¼šæ¬²è®¡ç®—CRC32å€¼å­—ç¬¦ä¸²çš„é¦–åœ°å€å’Œå¤§å°
+// è¿”å›žå€¼: è¿”å›žCRC32å€¼
 
 DWORD CRC32(BYTE* first_ptr, DWORD Size)
 {
@@ -14,7 +14,7 @@ DWORD CRC32(BYTE* first_ptr, DWORD Size)
 
 	DWORD crcTable[256], crcTmp1;
 
-	//¶¯Ì¬Éú³ÉCRC-32±í
+	//åŠ¨æ€ç”ŸæˆCRC-32è¡¨
 	for (int i = 0; i < 256; i++)
 	{
 		crcTmp1 = i;
@@ -26,7 +26,7 @@ DWORD CRC32(BYTE* first_ptr, DWORD Size)
 
 		crcTable[i] = crcTmp1;
 	}
-	//¼ÆËãCRC32Öµ
+	//è®¡ç®—CRC32å€¼
 	DWORD crcTmp2 = 0xFFFFFFFF;
 	while (Size--)
 	{

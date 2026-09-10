@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #ifndef Out_getCalculate_H_
 #define Out_getCalculate_H_
 #include <string>
@@ -6,11 +6,11 @@
 using namespace std;
 namespace Model
 {
-	//Ô¶³ÌËã·¨³ö²Î
+	//è¿œç¨‹ç®—æ³•å‡ºå‚
 	class Out_getCalculate :public Out_DataBaseArgs
 	{
 	public:
-		// Ô¶³ÌËã·¨×ª·¢µØÖ··µ»ØµÄÊı¾İ
+		// è¿œç¨‹ç®—æ³•è½¬å‘åœ°å€è¿”å›çš„æ•°æ®
 		string calculateresult;
 	};
 }

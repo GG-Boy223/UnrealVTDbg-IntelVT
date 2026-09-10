@@ -46,6 +46,7 @@
     <ConfigurationType>Driver</ConfigurationType>
     <DriverType>WDM</DriverType>
     <Driver_SpectreMitigation>false</Driver_SpectreMitigation>
+    <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <TargetVersion>Windows10</TargetVersion>

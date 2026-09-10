@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #ifndef _LOG_FILE_H
 #define _LOG_FILE_H

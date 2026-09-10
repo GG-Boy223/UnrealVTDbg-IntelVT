@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #ifndef _DRIVER_H
 #define _DRIVER_H
@@ -241,9 +241,9 @@ static const LARGE_INTEGER __emptyLargeInteger = { {0, 0} };
 #define DEBUG_ALL_ACCESS     (STANDARD_RIGHTS_REQUIRED|SYNCHRONIZE|DEBUG_READ_EVENT|DEBUG_PROCESS_ASSIGN|\
                               DEBUG_SET_INFORMATION|DEBUG_QUERY_INFORMATION)
 
-//µ÷ÊÔ¶ÔÏóÊôĞÔ
-#define DEBUG_OBJECT_DELETE_PENDING (0x1)  //µ÷ÊÔ¶ÔÏó´¦ÓÚÉ¾³ı¹ÒÆğ×´Ì¬
-#define DEBUG_OBJECT_KILL_ON_CLOSE  (0x2)  //¹Ø±ÕÊ±ÖÕÖ¹ËùÓĞµ÷ÊÔµÄ½ø³Ì
+//è°ƒè¯•å¯¹è±¡å±æ€§
+#define DEBUG_OBJECT_DELETE_PENDING (0x1)  //è°ƒè¯•å¯¹è±¡å¤„äºåˆ é™¤æŒ‚èµ·çŠ¶æ€
+#define DEBUG_OBJECT_KILL_ON_CLOSE  (0x2)  //å…³é—­æ—¶ç»ˆæ­¢æ‰€æœ‰è°ƒè¯•çš„è¿›ç¨‹
 
 //
 // These define the Debug Masks Supported
@@ -353,16 +353,16 @@ if ((Address) >= (HANDLE * const)MM_USER_PROBE_ADDRESS) {                \
 
 typedef struct _DEVICE_EXTENSION {
     PDEVICE_OBJECT pDevice;
-    UNICODE_STRING ustrDeviceName;	//Éè±¸Ãû³Æ
-    UNICODE_STRING ustrSymLinkName;	//·ûºÅÁ´½ÓÃû
-    PUCHAR buffer;//»º³åÇø
-    ULONG file_length;//Ä£ÄâµÄÎÄ¼ş³¤¶È£¬±ØĞëĞ¡ÓÚMAX_FILE_LENGTH
+    UNICODE_STRING ustrDeviceName;	//è®¾å¤‡åç§°
+    UNICODE_STRING ustrSymLinkName;	//ç¬¦å·é“¾æ¥å
+    PUCHAR buffer;//ç¼“å†²åŒº
+    ULONG file_length;//æ¨¡æ‹Ÿçš„æ–‡ä»¶é•¿åº¦ï¼Œå¿…é¡»å°äºMAX_FILE_LENGTH
 } DEVICE_EXTENSION, * PDEVICE_EXTENSION;
 
 
 
-VOID WP_OFF(); //¹Ø±ÕĞ´±£»¤
-VOID WP_ON(); //¿ªÆôĞ´±£»¤
+VOID WP_OFF(); //å…³é—­å†™ä¿æŠ¤
+VOID WP_ON(); //å¼€å¯å†™ä¿æŠ¤
 
 EXTERN_C
 BOOLEAN SafeCopyMemory(PVOID pDest, PVOID pSrc, ULONG dwSize);
@@ -371,25 +371,25 @@ LONG
 ExSystemExceptionFilter(VOID);
 
 
-/**************************** Íâ²¿µ¼Èëº¯Êı ****************************/
+/**************************** å¤–éƒ¨å¯¼å…¥å‡½æ•° ****************************/
 
 EXTERN_C ULONG64
 __readgsqword(
     _In_ ULONG Offset
-// __in PCONTEXT ThreadContext  /*´Ë²ÎÊıÊÇÓÃ»§²ãÌá¹©µÄ»º³åÇø*/
+// __in PCONTEXT ThreadContext  /*æ­¤å‚æ•°æ˜¯ç”¨æˆ·å±‚æä¾›çš„ç¼“å†²åŒº*/
 );
 
-//¸ù¾İ¶ÔÏó»ñµÃ¾ä±ú
+//æ ¹æ®å¯¹è±¡è·å¾—å¥æŸ„
 EXTERN_C
 NTSYSAPI
 PACCESS_TOKEN
 NTAPI
 PsReferencePrimaryToken(
     __inout PEPROCESS Process
-// __in PCONTEXT ThreadContext  /*´Ë²ÎÊıÊÇÓÃ»§²ãÌá¹©µÄ»º³åÇø*/
+// __in PCONTEXT ThreadContext  /*æ­¤å‚æ•°æ˜¯ç”¨æˆ·å±‚æä¾›çš„ç¼“å†²åŒº*/
 );
 
-//¸ù¾İ¶ÔÏó»ñµÃ¾ä±ú
+//æ ¹æ®å¯¹è±¡è·å¾—å¥æŸ„
 EXTERN_C
 NTSYSAPI
 NTSTATUS
@@ -399,10 +399,10 @@ ZwFreeVirtualMemory(
     __inout PVOID* BaseAddress,
     __inout PSIZE_T RegionSize,
     __in ULONG FreeType
-// __in PCONTEXT ThreadContext  /*´Ë²ÎÊıÊÇÓÃ»§²ãÌá¹©µÄ»º³åÇø*/
+// __in PCONTEXT ThreadContext  /*æ­¤å‚æ•°æ˜¯ç”¨æˆ·å±‚æä¾›çš„ç¼“å†²åŒº*/
 );
 
-//¸ù¾İ¶ÔÏó»ñµÃ¾ä±ú
+//æ ¹æ®å¯¹è±¡è·å¾—å¥æŸ„
 EXTERN_C
 NTSYSAPI
 NTSTATUS
@@ -422,17 +422,17 @@ NTAPI
 ZwFlushInstructionCache(IN HANDLE 	ProcessHandle,
     IN PVOID 	BaseAddress,
     IN ULONG 	NumberOfBytesToFlush
-// __in PCONTEXT ThreadContext  /*´Ë²ÎÊıÊÇÓÃ»§²ãÌá¹©µÄ»º³åÇø*/
+// __in PCONTEXT ThreadContext  /*æ­¤å‚æ•°æ˜¯ç”¨æˆ·å±‚æä¾›çš„ç¼“å†²åŒº*/
 );
 
-//¸ù¾İ¶ÔÏó»ñµÃ¾ä±ú
+//æ ¹æ®å¯¹è±¡è·å¾—å¥æŸ„
 EXTERN_C
 NTSYSAPI
 VOID
 NTAPI
 ExRaiseException(IN PEXCEPTION_RECORD ExceptionRecord);
 
-//µ¼Èëº¯Êı
+//å¯¼å…¥å‡½æ•°
 EXTERN_C
 NTSYSAPI
 NTSTATUS
@@ -463,7 +463,7 @@ NTKERNELAPI
 VOID
 FASTCALL ExfAcquirePushLockShared(
     __inout PEX_PUSH_LOCK PushLock
-// __in PCONTEXT ThreadContext  /*´Ë²ÎÊıÊÇÓÃ»§²ãÌá¹©µÄ»º³åÇø*/
+// __in PCONTEXT ThreadContext  /*æ­¤å‚æ•°æ˜¯ç”¨æˆ·å±‚æä¾›çš„ç¼“å†²åŒº*/
 );
 
 EXTERN_C
@@ -471,7 +471,7 @@ NTKERNELAPI
 VOID
 FASTCALL ExfReleasePushLockShared(
     __inout PEX_PUSH_LOCK PushLock
-// __in PCONTEXT ThreadContext  /*´Ë²ÎÊıÊÇÓÃ»§²ãÌá¹©µÄ»º³åÇø*/
+// __in PCONTEXT ThreadContext  /*æ­¤å‚æ•°æ˜¯ç”¨æˆ·å±‚æä¾›çš„ç¼“å†²åŒº*/
 );
 
 EXTERN_C
@@ -480,7 +480,7 @@ VOID
 FASTCALL
 ExfAcquirePushLockExclusive(
     __inout PEX_PUSH_LOCK PushLock
-// __in PCONTEXT ThreadContext  /*´Ë²ÎÊıÊÇÓÃ»§²ãÌá¹©µÄ»º³åÇø*/
+// __in PCONTEXT ThreadContext  /*æ­¤å‚æ•°æ˜¯ç”¨æˆ·å±‚æä¾›çš„ç¼“å†²åŒº*/
 );
 
 EXTERN_C
@@ -489,7 +489,7 @@ VOID
 FASTCALL
 ExfReleasePushLockExclusive(
     __inout PEX_PUSH_LOCK PushLock
-// __in PCONTEXT ThreadContext  /*´Ë²ÎÊıÊÇÓÃ»§²ãÌá¹©µÄ»º³åÇø*/
+// __in PCONTEXT ThreadContext  /*æ­¤å‚æ•°æ˜¯ç”¨æˆ·å±‚æä¾›çš„ç¼“å†²åŒº*/
 );
 
 EXTERN_C
@@ -498,7 +498,7 @@ VOID
 FASTCALL
 ExfTryToWakePushLock(
     __inout PEX_PUSH_LOCK PushLock
-// __in PCONTEXT ThreadContext  /*´Ë²ÎÊıÊÇÓÃ»§²ãÌá¹©µÄ»º³åÇø*/
+// __in PCONTEXT ThreadContext  /*æ­¤å‚æ•°æ˜¯ç”¨æˆ·å±‚æä¾›çš„ç¼“å†²åŒº*/
 );
 
 
@@ -506,20 +506,20 @@ NTSTATUS
 PsSuspendThread(
     IN _ETHREAD* Thread,
     OUT PULONG PreviousSuspendCount OPTIONAL
-// __in PCONTEXT ThreadContext  /*´Ë²ÎÊıÊÇÓÃ»§²ãÌá¹©µÄ»º³åÇø*/
+// __in PCONTEXT ThreadContext  /*æ­¤å‚æ•°æ˜¯ç”¨æˆ·å±‚æä¾›çš„ç¼“å†²åŒº*/
 );
 
 NTSTATUS
 PsResumeThread(
     IN _ETHREAD* Thread,
     OUT PULONG PreviousSuspendCount OPTIONAL
-// __in PCONTEXT ThreadContext  /*´Ë²ÎÊıÊÇÓÃ»§²ãÌá¹©µÄ»º³åÇø*/
+// __in PCONTEXT ThreadContext  /*æ­¤å‚æ•°æ˜¯ç”¨æˆ·å±‚æä¾›çš„ç¼“å†²åŒº*/
 );
 
-//´´½¨Éè±¸ ·ûºÅÁ´½ÓµÈ
+//åˆ›å»ºè®¾å¤‡ ç¬¦å·é“¾æ¥ç­‰
 NTSTATUS CreateDevice(IN PDRIVER_OBJECT pDriver_Object);
 
-//É¾³ıÉè±¸
+//åˆ é™¤è®¾å¤‡
 VOID _RemoveDevice(IN PDRIVER_OBJECT pDriver_Object);
 
 NTSTATUS InitDispatchRoutin(IN PDEVICE_OBJECT pDevObj, IN PIRP pIrp);
@@ -530,12 +530,12 @@ NTSTATUS HandlerDispatchRoutin(IN PDEVICE_OBJECT pDevObj, IN PIRP pIrp);
 //
 //VOID InitWindowList(PPROTECT_OBJECT_DATA pProtectObj);
 //
-//³õÊ¼»¯±£»¤ÁĞ±í
+//åˆå§‹åŒ–ä¿æŠ¤åˆ—è¡¨
 VOID InitProtectList(IN PUSER_DATA userData, IN PIRP pIrp);
 
 VOID InitDebuggerState(PDEBUGGER_STATE pDbgState);
 
-//³õÊ¼»¯µ÷ÊÔÆ÷ÁĞ±í
+//åˆå§‹åŒ–è°ƒè¯•å™¨åˆ—è¡¨
 VOID InitDebuggerInfo(IN PUSER_DATA userData);
 
 VOID VerifyHookClient(IN PUSER_DATA userData, IN PIRP pIrp);
@@ -544,10 +544,10 @@ VOID InitSymbolicVariable();
 
 VOID InitGlobalVariable(PDRIVER_OBJECT DriverObject);
 
-//ÅĞ¶ÏÄ¿±ê½ø³ÌÊÇ·ñÊÇÎÒÃÇ×Ô¼º
+//åˆ¤æ–­ç›®æ ‡è¿›ç¨‹æ˜¯å¦æ˜¯æˆ‘ä»¬è‡ªå·±
 BOOLEAN IsSelf(PEPROCESS Process);
 
-//ÅĞ¶ÏÄ¿±ê½ø³ÌÊÇ·ñÊÇÎÒÃÇ×Ô¼ºµÄµ÷ÊÔÆ÷
+//åˆ¤æ–­ç›®æ ‡è¿›ç¨‹æ˜¯å¦æ˜¯æˆ‘ä»¬è‡ªå·±çš„è°ƒè¯•å™¨
 BOOLEAN IsDebugger(PEPROCESS Process);
 
 BOOLEAN IsProtectTargetProcess(_EPROCESS* Process);
@@ -564,15 +564,15 @@ ProxyDbgkOpenProcessDebugPort(
     IN PEPROCESS Process,
     IN KPROCESSOR_MODE PreviousMode,
     OUT HANDLE* pHandle
-// __in PCONTEXT ThreadContext  /*´Ë²ÎÊıÊÇÓÃ»§²ãÌá¹©µÄ»º³åÇø*/
+// __in PCONTEXT ThreadContext  /*æ­¤å‚æ•°æ˜¯ç”¨æˆ·å±‚æä¾›çš„ç¼“å†²åŒº*/
 );
 
 void CreateRemoteThread(IN PUSER_DATA userData);
 
-//³õÊ¼»¯±£»¤
+//åˆå§‹åŒ–ä¿æŠ¤
 VOID InitProtect(IN PDRIVER_OBJECT DriverObject);
 
-//Ğ¶ÔØ±£»¤
+//å¸è½½ä¿æŠ¤
 VOID UnloadProtect();
 
 
@@ -608,8 +608,8 @@ NTSTATUS NewObReferenceObjectByHandleWithTag(HANDLE Handle,
     PVOID* Object,
     __int64 a7);
 
-//ObReferenceObjectByHandleÓëObReferenceObjectByHandleWithTagº¯ÊıÄÚ²¿
-//¶¼µ÷ÓÃµÄObpReferenceObjectByHandleWithTag
+//ObReferenceObjectByHandleä¸ObReferenceObjectByHandleWithTagå‡½æ•°å†…éƒ¨
+//éƒ½è°ƒç”¨çš„ObpReferenceObjectByHandleWithTag
 NTSTATUS NewObpReferenceObjectByHandleWithTag(HANDLE Handle,
     ACCESS_MASK DesiredAccess,
     POBJECT_TYPE ObjectType,
@@ -621,13 +621,13 @@ NTSTATUS NewObpReferenceObjectByHandleWithTag(HANDLE Handle,
 
 LONG_PTR NewObfDereferenceObject(
     _In_ PVOID Object
-// __in PCONTEXT ThreadContext  /*´Ë²ÎÊıÊÇÓÃ»§²ãÌá¹©µÄ»º³åÇø*/
+// __in PCONTEXT ThreadContext  /*æ­¤å‚æ•°æ˜¯ç”¨æˆ·å±‚æä¾›çš„ç¼“å†²åŒº*/
 );
 
 LONG_PTR NewObfDereferenceObjectWithTag(
     _In_ PVOID Object,
     _In_ ULONG Tag
-// __in PCONTEXT ThreadContext  /*´Ë²ÎÊıÊÇÓÃ»§²ãÌá¹©µÄ»º³åÇø*/
+// __in PCONTEXT ThreadContext  /*æ­¤å‚æ•°æ˜¯ç”¨æˆ·å±‚æä¾›çš„ç¼“å†²åŒº*/
 );
 
 NTSTATUS NewNtOpenProcess(PHANDLE ProcessHandle,
@@ -635,9 +635,9 @@ NTSTATUS NewNtOpenProcess(PHANDLE ProcessHandle,
     POBJECT_ATTRIBUTES ObjectAttributes,
     PCLIENT_ID ClientId);
 
-//Èç¹ûApcFuncµ÷ÓÃµÄÊÇLdrInitializeThunkÔò
-//a4ÊÇContextRecord
-//a5ÊÇntdllÄ£¿é»ùÖ·
+//å¦‚æœApcFuncè°ƒç”¨çš„æ˜¯LdrInitializeThunkåˆ™
+//a4æ˜¯ContextRecord
+//a5æ˜¯ntdllæ¨¡å—åŸºå€
 VOID NewPspCreateUserContext(_CONTEXT* context,
     char a2,
     PVOID ApcFunc,
@@ -681,7 +681,7 @@ VOID
 NewKeStackAttachProcess(
     _Inout_ PRKPROCESS PROCESS,
     _Out_ PRKAPC_STATE ApcState
-// __in PCONTEXT ThreadContext  /*´Ë²ÎÊıÊÇÓÃ»§²ãÌá¹©µÄ»º³åÇø*/
+// __in PCONTEXT ThreadContext  /*æ­¤å‚æ•°æ˜¯ç”¨æˆ·å±‚æä¾›çš„ç¼“å†²åŒº*/
 );
 
 VOID NewKiStackAttachProcess(_KPROCESS* Process, BOOLEAN a2, _KAPC_STATE* ApcState);
@@ -690,21 +690,21 @@ NTSTATUS
 NewNtTerminateProcess(
     __in_opt HANDLE ProcessHandle,
     __in NTSTATUS ExitStatus
-// __in PCONTEXT ThreadContext  /*´Ë²ÎÊıÊÇÓÃ»§²ãÌá¹©µÄ»º³åÇø*/
+// __in PCONTEXT ThreadContext  /*æ­¤å‚æ•°æ˜¯ç”¨æˆ·å±‚æä¾›çš„ç¼“å†²åŒº*/
 );
 
 NTSTATUS
 NewNtSuspendThread(
     __in HANDLE ThreadHandle,
     __out_opt PULONG PreviousSuspendCount
-// __in PCONTEXT ThreadContext  /*´Ë²ÎÊıÊÇÓÃ»§²ãÌá¹©µÄ»º³åÇø*/
+// __in PCONTEXT ThreadContext  /*æ­¤å‚æ•°æ˜¯ç”¨æˆ·å±‚æä¾›çš„ç¼“å†²åŒº*/
 );
 
 NTSTATUS
 NewNtResumeThread(
     __in HANDLE ThreadHandle,
     __out_opt PULONG PreviousSuspendCount
-// __in PCONTEXT ThreadContext  /*´Ë²ÎÊıÊÇÓÃ»§²ãÌá¹©µÄ»º³åÇø*/
+// __in PCONTEXT ThreadContext  /*æ­¤å‚æ•°æ˜¯ç”¨æˆ·å±‚æä¾›çš„ç¼“å†²åŒº*/
 );
 
 NTSTATUS
@@ -714,7 +714,7 @@ NewNtQueryInformationThread(
     _Out_ PVOID ThreadInformation,
     _In_ ULONG ThreadInformationLength,
     _Out_opt_ PULONG ReturnLength
-// __in PCONTEXT ThreadContext  /*´Ë²ÎÊıÊÇÓÃ»§²ãÌá¹©µÄ»º³åÇø*/
+// __in PCONTEXT ThreadContext  /*æ­¤å‚æ•°æ˜¯ç”¨æˆ·å±‚æä¾›çš„ç¼“å†²åŒº*/
 );
 
 USER_DATA GetUserData(PUSER_DATA userData);

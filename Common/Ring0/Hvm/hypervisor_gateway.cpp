@@ -1,4 +1,4 @@
-#include <ntifs.h>
+ï»¿#include <ntifs.h>
 #include "../SymbolicAccess/Utils/Log.h"
 #include "hypervisor_gateway.h"
 #include "ASM/AsmCallset.h"
@@ -71,7 +71,7 @@ namespace hvgt
 
 	/// <summary>
 	/// Unhook all functions and invalidate tlb
-	/// Ğ¶ÔØÈ«²¿hook ²¢Ë¢ĞÂtlb
+	/// å¸è½½å…¨éƒ¨hook å¹¶åˆ·æ–°tlb
 	/// </summary>
 	/// <returns> status </returns>
 	bool ept_unhook()
@@ -83,7 +83,7 @@ namespace hvgt
 
 	/// <summary>
 	/// Unhook single function and invalidate tlb
-	/// Ğ¶ÔØÖ¸¶¨º¯Êı ²¢Ë¢ĞÂtlb
+	/// å¸è½½æŒ‡å®šå‡½æ•° å¹¶åˆ·æ–°tlb
 	/// </summary>
 	/// <param name="function_address"></param>
 	/// <returns> status </returns>
@@ -94,7 +94,7 @@ namespace hvgt
 		return status;
 	}
 
-	//¶ÁÈ¡ÒşĞÎÈí¼ş¶Ïµã
+	//è¯»å–éšå½¢è½¯ä»¶æ–­ç‚¹
 	bool get_hide_software_breakpoint(void* target_address, void* buffer, unsigned __int64 buffer_size)
 	{
 		bool status = __vm_call(VMCALL_READ_SOFTWARE_BREAKPOINT, (unsigned __int64)target_address, (unsigned __int64)buffer, buffer_size);
@@ -103,7 +103,7 @@ namespace hvgt
 		return status;
 	}
 
-	//ÉèÖÃÒşĞÎÈí¼ş¶Ïµã
+	//è®¾ç½®éšå½¢è½¯ä»¶æ–­ç‚¹
 	bool set_hide_software_breakpoint(void* target_address, void* buffer, unsigned __int64 buffer_size)
 	{
 		bool status = __vm_call(VMCALL_HIDE_SOFTWARE_BREAKPOINT, (unsigned __int64)target_address, (unsigned __int64)buffer, buffer_size);
@@ -154,23 +154,23 @@ namespace hvgt
 		return __vm_call(VMCALL_TEST, 0, 0, 0);
 	}
 
-	//²âÊÔVTÇı¶¯ÊÇ·ñ¼ÓÔØ
+	//æµ‹è¯•VTé©±åŠ¨æ˜¯å¦åŠ è½½
 	NTSTATUS TestVMM()
 	{
 		__try
 		{
-			if (test_vmcall() == FALSE)  //³¢ÊÔÊÇ·ñÄÜ¹»³É¹¦Ö´ĞĞvmxÖ¸Áî
+			if (test_vmcall() == FALSE)  //å°è¯•æ˜¯å¦èƒ½å¤ŸæˆåŠŸæ‰§è¡ŒvmxæŒ‡ä»¤
 			{
-				outLog("vtÇı¶¯Ã»ÓĞ°²×°!!!\n");
+				outLog("vté©±åŠ¨æ²¡æœ‰å®‰è£…!!!\n");
 				return STATUS_UNSUCCESSFUL;
 			}
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			outLog("²»Ö§³ÖvmxÖ¸Áî!!!\n");
+			outLog("ä¸æ”¯æŒvmxæŒ‡ä»¤!!!\n");
 			return STATUS_UNSUCCESSFUL;
 		}
-		outLog("VTÇı¶¯ÒÑ°²×°³É¹¦!!!\n");
+		outLog("VTé©±åŠ¨å·²å®‰è£…æˆåŠŸ!!!\n");
 		return STATUS_SUCCESS;
 	}
 

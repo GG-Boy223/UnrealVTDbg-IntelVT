@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #ifndef In_IniSoftInfoArgs_H_
 #define In_IniSoftInfoArgs_H_
 #include <string>
@@ -6,13 +6,13 @@
 using namespace std;
 namespace Model
 {
-	//Èí¼ş³õÊ¼»¯Èë²Î
+	//è½¯ä»¶åˆå§‹åŒ–å…¥å‚
 	class In_IniSoftInfoArgs :public In_DataBaseArgs
 	{
 
 	public:
-		// Èí¼ş°æ±¾ºÅ(±ØÌî)
-		// ×¢Òâ:ÌîĞ´ÄúÈí¼şµ±Ç°µÄ°æ±¾ºÅ
+		// è½¯ä»¶ç‰ˆæœ¬å·(å¿…å¡«)
+		// æ³¨æ„:å¡«å†™æ‚¨è½¯ä»¶å½“å‰çš„ç‰ˆæœ¬å·
 		string versionname;
 	};
 }

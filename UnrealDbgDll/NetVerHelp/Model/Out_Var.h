@@ -1,18 +1,18 @@
-#pragma once
+ï»¿#pragma once
 #ifndef Out_Var_H_
 #define Out_Var_H_
 #include <string>
 using namespace std;
 namespace Model
 {
-	//±äÁ¿
+	//å˜é‡
 	class Out_Var
 	{
 
 	public:
-		// ±äÁ¿Ãû
+		// å˜é‡å
 		string varname;
-		// ±äÁ¿Öµ
+		// å˜é‡å€¼
 		string varvalue;
 	};
 }

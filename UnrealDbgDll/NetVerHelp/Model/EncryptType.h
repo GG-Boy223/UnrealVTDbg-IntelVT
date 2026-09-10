@@ -1,20 +1,20 @@
-#pragma once
+я╗┐#pragma once
 #ifndef EncryptType_H_
 #define EncryptType_H_
 namespace Model
 {
-	//╝╙├▄└р╨═
+	//хКахпЖч▒╗хЮЛ
 	enum EncryptType
 	{
-		// ╬▐╝╙├▄
+		// цЧахКахпЖ
 		NoEncrypt = 0,
-		//// DES╝╙├▄(c#╙я╤╘гм╜и╥щ╙├┤╦╝╙├▄╖╜╩╜)
+		//// DESхКахпЖ(c#шпншиАя╝Мх╗║шоочФицндхКахпЖцЦ╣х╝П)
 		//DES = 1,
 		///// <summary>
-		///// AES╝╙├▄
+		///// AESхКахпЖ
 		///// </summary>
 		//AES = 2,
-		// RC4╝╙├▄(c++╙я╤╘гм╜и╥щ╙├┤╦╝╙├▄╖╜╩╜)
+		// RC4хКахпЖ(c++шпншиАя╝Мх╗║шоочФицндхКахпЖцЦ╣х╝П)
 		RC4 = 3,
 	};
 }

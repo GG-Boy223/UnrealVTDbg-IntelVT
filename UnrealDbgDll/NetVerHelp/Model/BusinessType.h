@@ -1,66 +1,66 @@
-#pragma once
+ï»¿#pragma once
 #ifndef BusinessType_H_
 #define BusinessType_H_
 namespace Model
 {
-	//ÒµÎñÀàĞÍ
+	//ä¸šåŠ¡ç±»å‹
 	enum BusinessType
 	{
-		//Èí¼ş³õÊ¼»¯
+		//è½¯ä»¶åˆå§‹åŒ–
 		iniSoftInfo = 1,
-		//ÕËºÅ×¢²á
+		//è´¦å·æ³¨å†Œ
 		accountRegister = 2,
-		//ÕËºÅµÇÂ¼
+		//è´¦å·ç™»å½•
 		accountLogin = 3,
-		//¿¨ÃÜµÇÂ¼
+		//å¡å¯†ç™»å½•
 		cardLogin = 4,
-		//ĞÄÌø
+		//å¿ƒè·³
 		heartBeat = 5,
-		//¿Ûµã
+		//æ‰£ç‚¹
 		bucklePoint = 6,
-		//ÍË³öµÇÂ¼
+		//é€€å‡ºç™»å½•
 		loginOut = 7,
-		//»ñÈ¡Èí¼ş±äÁ¿
+		//è·å–è½¯ä»¶å˜é‡
 		getremoteVar = 8,
-		//½â°ó»úÆ÷Âë
+		//è§£ç»‘æœºå™¨ç 
 		unbundMac = 9,
-		//ĞŞ¸ÄÓÃ»§ÃÜÂë
+		//ä¿®æ”¹ç”¨æˆ·å¯†ç 
 		updPwd = 10,
 
-		//Éú³É¿¨ÃÜ
+		//ç”Ÿæˆå¡å¯†
 		createCard = 11,
 
-		// ¿ªÍ¨/Ğø·Ñ¿¨ÃÜ
+		// å¼€é€š/ç»­è´¹å¡å¯†
 		openRenewCardNum = 12,
 
-		//¿ªÍ¨/Ğø·ÑÕËºÅ
+		//å¼€é€š/ç»­è´¹è´¦å·
 		openRenewAccount = 13,
 
-		//¿¨ÃÜÏêÇé
+		//å¡å¯†è¯¦æƒ…
 		cardDetail = 14,
 
-		//ÕËºÅÏêÇé
+		//è´¦å·è¯¦æƒ…
 		accountDetail = 15,
 
-		//»ñÈ¡Èí¼ş¼Û¸ñÁĞ±í
+		//è·å–è½¯ä»¶ä»·æ ¼åˆ—è¡¨
 		softPriceList = 16,
 
-		// ¹ºÂò¿¨ÃÜ
+		// è´­ä¹°å¡å¯†
 		buyCardNum = 17,
 
-		//ĞŞ¸Ä¿¨ÃÜ/ÕËºÅ±¸×¢
+		//ä¿®æ”¹å¡å¯†/è´¦å·å¤‡æ³¨
 		updRemark = 18,
 
-		//³äÖµ¿¨³äÖµ
+		//å……å€¼å¡å……å€¼
 		rechCardRenewCardOrAccount = 19,
 
-		//³äÖµ¿¨ÏêÇé
+		//å……å€¼å¡è¯¦æƒ…
 		rechCardNumDetail = 20,
 
-		//Ô¶³ÌËã·¨×ª·¢
+		//è¿œç¨‹ç®—æ³•è½¬å‘
 		remoteCalculate = 21,
 
-		//½ûÓÃ»¹ÊÇÉ¾³ı£ºµ¥Âë»òÕËºÅ
+		//ç¦ç”¨è¿˜æ˜¯åˆ é™¤ï¼šå•ç æˆ–è´¦å·
 		disableCardOrAccount = 22,
 
 	};

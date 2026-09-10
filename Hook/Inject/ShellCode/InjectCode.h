@@ -5,16 +5,16 @@
 BOOL InjectCode(HANDLE hProcess);
 
 
-//Õª³ý¹³×Ó
+//摘除钩子
 void RemoveHook(DWORD dwPid);
 
-//»Ö¸´¹³×Ó
+//恢复钩子
 void RestoreHook(DWORD dwPid);
 
-//Õª³ý¹³×Ó
+//摘除钩子
 void RemoveKiUserApcDispatcherHook(DWORD dwPid);
 
-//»Ö¸´¹³×Ó
+//恢复钩子
 void RestoreKiUserApcDispatcherHook(DWORD dwPid);
 
 

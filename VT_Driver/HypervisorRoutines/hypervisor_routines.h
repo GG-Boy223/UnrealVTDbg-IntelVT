@@ -1,42 +1,42 @@
-#pragma once // È·±£¸ÃÍ·ÎÄ¼şÖ»±»±àÒëÆ÷°üº¬Ò»´Î£¬·ÀÖ¹ÖØ¸´¶¨Òå
+ï»¿#pragma once // ç¡®ä¿è¯¥å¤´æ–‡ä»¶åªè¢«ç¼–è¯‘å™¨åŒ…å«ä¸€æ¬¡ï¼Œé˜²æ­¢é‡å¤å®šä¹‰
 
-#ifndef _HYPERVISOR_ROUTINES_H // Í·ÎÄ¼ş±£»¤ºê¿ªÊ¼£¬±ÜÃâ¶à´Î°üº¬µ¼ÖÂÖØ¸´¶¨Òå
-#define _HYPERVISOR_ROUTINES_H // ¶¨Òå±£»¤ºê
+#ifndef _HYPERVISOR_ROUTINES_H // å¤´æ–‡ä»¶ä¿æŠ¤å®å¼€å§‹ï¼Œé¿å…å¤šæ¬¡åŒ…å«å¯¼è‡´é‡å¤å®šä¹‰
+#define _HYPERVISOR_ROUTINES_H // å®šä¹‰ä¿æŠ¤å®
 
 
 enum __syscall_type
 {
-	SYSCALL_NT, // ±íÊ¾ NT ÏµÍ³µ÷ÓÃÀàĞÍ£¨ntoskrnl Ïà¹Ø£©
-	SYSCALL_WIN32K // ±íÊ¾ Win32K ÏµÍ³µ÷ÓÃÀàĞÍ£¨Í¼ĞÎ/´°¿Ú×ÓÏµÍ³Ïà¹Ø£©
+	SYSCALL_NT, // è¡¨ç¤º NT ç³»ç»Ÿè°ƒç”¨ç±»å‹ï¼ˆntoskrnl ç›¸å…³ï¼‰
+	SYSCALL_WIN32K // è¡¨ç¤º Win32K ç³»ç»Ÿè°ƒç”¨ç±»å‹ï¼ˆå›¾å½¢/çª—å£å­ç³»ç»Ÿç›¸å…³ï¼‰
 };
 
-namespace hv // Hypervisor µÍ²ãÀı³ÌÃüÃû¿Õ¼ä
+namespace hv // Hypervisor ä½å±‚ä¾‹ç¨‹å‘½åç©ºé—´
 {
-	void set_mtf(bool set); // ÉèÖÃ»òÇå³ı Monitor Trap Flag£¨µ¥²½ VM-Exit µÄ¿ØÖÆÎ»£©
+	void set_mtf(bool set); // è®¾ç½®æˆ–æ¸…é™¤ Monitor Trap Flagï¼ˆå•æ­¥ VM-Exit çš„æ§åˆ¶ä½ï¼‰
 
 	/// <summary>
 	/// Check if cpu support virtualization
 	/// </summary>
 	/// <returns></returns>
-	bool virtualization_support(); // ¼ì²é CPU ÊÇ·ñÖ§³Ö VT-x£¨VMX£©ĞéÄâ»¯
+	bool virtualization_support(); // æ£€æŸ¥ CPU æ˜¯å¦æ”¯æŒ VT-xï¼ˆVMXï¼‰è™šæ‹ŸåŒ–
 
 	/// <summary>
 	/// Disable vmx operation
 	/// </summary>
 	/// <returns></returns>
-	void disable_vmx_operation(); // ¹Ø±Õ VMX ²Ù×÷£¨Çå³ı CR4.VMXE µÈ£©£¬ÍË³öĞéÄâ»¯Ä£Ê½
+	void disable_vmx_operation(); // å…³é—­ VMX æ“ä½œï¼ˆæ¸…é™¤ CR4.VMXE ç­‰ï¼‰ï¼Œé€€å‡ºè™šæ‹ŸåŒ–æ¨¡å¼
 
 	/// <summary>
 	/// Read vmcs field
 	/// </summary>
 	/// <param name="vmcs_field"></param>
 	/// <returns></returns>
-	unsigned __int64 vmread(unsigned __int64 vmcs_field); // ¶ÁÈ¡Ö¸¶¨ VMCS ×Ö¶Î
+	unsigned __int64 vmread(unsigned __int64 vmcs_field); // è¯»å–æŒ‡å®š VMCS å­—æ®µ
 
 	/// <summary>
 	/// Dump whole vmcs structure
 	/// </summary>
-	void dump_vmcs(); // ´òÓ¡/µ¼³ö VMCS È«²¿×Ö¶Î£¨µ÷ÊÔÓÃ£©
+	void dump_vmcs(); // æ‰“å°/å¯¼å‡º VMCS å…¨éƒ¨å­—æ®µï¼ˆè°ƒè¯•ç”¨ï¼‰
 
 	/// <summary>
 	/// Set 1 msr in msr bitmap
@@ -46,7 +46,7 @@ namespace hv // Hypervisor µÍ²ãÀı³ÌÃüÃû¿Õ¼ä
 	/// <param name="read"> If set vmexit occur on reading this msr </param>
 	/// <param name="write"> If set vmexit occur on writing to this msr </param>
 	/// <param name="value"> If true set msr bit else clear </param>
-	void set_msr_bitmap(vmx_msr_bitmap& bitmap, uint32_t const msr, bool const enable_exiting); // ÉèÖÃ MSR Î»Í¼£º¿ØÖÆÄ³¸ö MSR ·ÃÎÊÊÇ·ñ´¥·¢ VM-Exit
+	void set_msr_bitmap(vmx_msr_bitmap& bitmap, uint32_t const msr, bool const enable_exiting); // è®¾ç½® MSR ä½å›¾ï¼šæ§åˆ¶æŸä¸ª MSR è®¿é—®æ˜¯å¦è§¦å‘ VM-Exit
 
 	/// <summary>
 	/// Set or unset bit in io port bitmap
@@ -54,42 +54,42 @@ namespace hv // Hypervisor µÍ²ãÀı³ÌÃüÃû¿Õ¼ä
 	/// <param name="io_port"> IO port which you want to set</param>
 	/// <param name="vcpu"> Pointer to current vcpu </param>
 	/// <param name="value"> If true then set bit else unset bit</param>
-	void set_io_bitmap(unsigned __int16 io_port, __vcpu* vcpu, bool value); // ÉèÖÃ I/O Î»Í¼£º¿ØÖÆÄ³¸ö¶Ë¿Ú¶ÁĞ´ÊÇ·ñ´¥·¢ VM-Exit
+	void set_io_bitmap(unsigned __int16 io_port, __vcpu* vcpu, bool value); // è®¾ç½® I/O ä½å›¾ï¼šæ§åˆ¶æŸä¸ªç«¯å£è¯»å†™æ˜¯å¦è§¦å‘ VM-Exit
 
 	/// <summary>
-	/// ·µ»Øµ±Ç°guestµÄÌØÈ¨¼¶
+	/// è¿”å›å½“å‰guestçš„ç‰¹æƒçº§
 	/// </summary>
 	/// <returns> Return current guest privilage level</returns>
-	unsigned __int8 get_guest_cpl(); // »ñÈ¡À´±öµ±Ç° CPL£¨0=ÄÚºË£¬3=ÓÃ»§£©
+	unsigned __int8 get_guest_cpl(); // è·å–æ¥å®¾å½“å‰ CPLï¼ˆ0=å†…æ ¸ï¼Œ3=ç”¨æˆ·ï¼‰
 
-	//»ñÈ¡guestµÄµ±Ç°cpl
-	uint16_t current_guest_cpl(); // »ñÈ¡À´±öµ±Ç° CPL£¨´Ó¶ÎÃèÊö·û·ÃÎÊÈ¨ÏŞ¼ÆËã£©
+	//è·å–guestçš„å½“å‰cpl
+	uint16_t current_guest_cpl(); // è·å–æ¥å®¾å½“å‰ CPLï¼ˆä»æ®µæè¿°ç¬¦è®¿é—®æƒé™è®¡ç®—ï¼‰
 
 	/// <summary>
 	/// Swap cr3 with current process dtb
 	/// </summary>
 	/// <returns> old cr3 </returns>
-	unsigned __int64 swap_context(); // ÇĞ»»µ½µ±Ç°½ø³Ì CR3£¬·µ»Ø¾É CR3
-	void swap_context(__vcpu* vcpu, unsigned __int64 new_cr3); // ÉèÖÃ vcpu->target_cr3£¨ÑÓ³ÙÇĞ»»£©
+	unsigned __int64 swap_context(); // åˆ‡æ¢åˆ°å½“å‰è¿›ç¨‹ CR3ï¼Œè¿”å›æ—§ CR3
+	void swap_context(__vcpu* vcpu, unsigned __int64 new_cr3); // è®¾ç½® vcpu->target_cr3ï¼ˆå»¶è¿Ÿåˆ‡æ¢ï¼‰
 
 	/// <summary>
 	/// Restore cr3
 	/// </summary>
 	/// <param name="old_cr3"></param>
-	void restore_context(__vcpu* vcpu); // »Ö¸´ vcpu->target_cr3£¬½áÊøÁÙÊ±ÇĞ»»
+	void restore_context(__vcpu* vcpu); // æ¢å¤ vcpu->target_cr3ï¼Œç»“æŸä¸´æ—¶åˆ‡æ¢
 
 	/// <summary>
 	/// Check if address is canonicial (level 4 paging)
 	/// </summary>
 	/// <param name="address"></param>
 	/// <returns></returns>
-	bool is_address_canonical(unsigned __int64 address); // ÅĞ¶ÏµØÖ·ÊÇ·ñÎªºÏ·¨µÄ canonical µØÖ·
+	bool is_address_canonical(unsigned __int64 address); // åˆ¤æ–­åœ°å€æ˜¯å¦ä¸ºåˆæ³•çš„ canonical åœ°å€
 
 	/// <summary>
 	/// Get system directory table base
 	/// </summary>
 	/// <returns></returns>
-	unsigned __int64 get_system_directory_table_base(); // »ñÈ¡ System ½ø³Ì CR3£¨ÓÃÓÚÄÚºËµØÖ·¿Õ¼ä£©
+	unsigned __int64 get_system_directory_table_base(); // è·å– System è¿›ç¨‹ CR3ï¼ˆç”¨äºå†…æ ¸åœ°å€ç©ºé—´ï¼‰
 
 	/// <summary>
 	/// Inject interrupt/exception to guest system
@@ -98,19 +98,19 @@ namespace hv // Hypervisor µÍ²ãÀı³ÌÃüÃû¿Õ¼ä
 	/// <param name="type"></param>
 	/// <param name="error_code"></param>
 	/// <param name="deliver_error_code"></param>
-	void inject_interruption(unsigned __int32 vector, unsigned __int32 type, unsigned __int32 error_code, bool deliver_error_code); // ÏòÀ´±ö×¢ÈëÖĞ¶Ï/Òì³£
+	void inject_interruption(unsigned __int32 vector, unsigned __int32 type, unsigned __int32 error_code, bool deliver_error_code); // å‘æ¥å®¾æ³¨å…¥ä¸­æ–­/å¼‚å¸¸
 
 	/// <summary>
 	/// Write to reset io port to perform hard reset
 	/// </summary>
-	void hard_reset(); // Í¨¹ı I/O ¶Ë¿Ú´¥·¢Ó²¼ş¸´Î»
+	void hard_reset(); // é€šè¿‡ I/O ç«¯å£è§¦å‘ç¡¬ä»¶å¤ä½
 
 	/// <summary>
 	/// Used to get address passed by user in inpvcid
 	/// </summary>
 	/// <param name="guest_registers"></param>
 	/// <returns></returns>
-	unsigned __int64 get_guest_address(__vcpu* vcpu); // ´Ó VM-Exit Ö¸ÁîĞÅÏ¢ÖĞ½âÎöÀ´±öÏßĞÔµØÖ·
+	unsigned __int64 get_guest_address(__vcpu* vcpu); // ä» VM-Exit æŒ‡ä»¤ä¿¡æ¯ä¸­è§£ææ¥å®¾çº¿æ€§åœ°å€
 
 	/// <summary>
 	/// Write to vmcs field
@@ -121,19 +121,19 @@ namespace hv // Hypervisor µÍ²ãÀı³ÌÃüÃû¿Õ¼ä
 	template <typename T>
 	void vmwrite(unsigned __int64 vmcs_field, T value)
 	{
-		//0Ôò±íÊ¾²Ù×÷³É¹¦
-		unsigned char res = __vmx_vmwrite(vmcs_field, (unsigned __int64)value); // Ğ´ VMCS ×Ö¶Î
-		if (res) // VMX Ö¸Áî·µ»Ø·Ç 0 ±íÊ¾Ê§°Ü
+		//0åˆ™è¡¨ç¤ºæ“ä½œæˆåŠŸ
+		unsigned char res = __vmx_vmwrite(vmcs_field, (unsigned __int64)value); // å†™ VMCS å­—æ®µ
+		if (res) // VMX æŒ‡ä»¤è¿”å›é 0 è¡¨ç¤ºå¤±è´¥
 		{
 
 		}
 	}
 
-	bool vmx_on(unsigned __int64 vmxon_phys_addr); // Ö´ĞĞ VMXON Ö¸Áî£¬½øÈë VMX operation
+	bool vmx_on(unsigned __int64 vmxon_phys_addr); // æ‰§è¡Œ VMXON æŒ‡ä»¤ï¼Œè¿›å…¥ VMX operation
 
-	bool vmx_vmclear(unsigned __int64 vmcs_phys); // Ö´ĞĞ VMCLEAR£¬Çå¿Õ VMCS
+	bool vmx_vmclear(unsigned __int64 vmcs_phys); // æ‰§è¡Œ VMCLEARï¼Œæ¸…ç©º VMCS
 
-	bool vmx_vmptrld(unsigned __int64 vmcs_phys); // Ö´ĞĞ VMPTRLD£¬¼ÓÔØ VMCS Ö¸Õë
+	bool vmx_vmptrld(unsigned __int64 vmcs_phys); // æ‰§è¡Œ VMPTRLDï¼ŒåŠ è½½ VMCS æŒ‡é’ˆ
 }
 
-#endif // !_HYPERVISOR_ROUTINES_H // Í·ÎÄ¼ş±£»¤ºê½áÊø
+#endif // !_HYPERVISOR_ROUTINES_H // å¤´æ–‡ä»¶ä¿æŠ¤å®ç»“æŸ

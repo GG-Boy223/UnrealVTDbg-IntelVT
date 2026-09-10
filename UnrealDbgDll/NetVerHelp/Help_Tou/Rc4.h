@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #ifndef _ENCRYPT_RC4_
 #define _ENCRYPT_RC4_
 #define BOX_LEN 256
@@ -7,16 +7,16 @@ namespace Help
 	class Rc4
 	{
 	public:
-		// ¼ÓÃÜ£¬·µ»Ø¼ÓÃÜ½á¹û
+		// åŠ å¯†ï¼Œè¿”å›åŠ å¯†ç»“æœ
 		char* Encrypt(const char* szSource, const char* szPassWord); 
-		// ½âÃÜ£¬·µ»Ø½âÃÜ½á¹û
+		// è§£å¯†ï¼Œè¿”å›è§£å¯†ç»“æœ
 		char* Decrypt(const char* szSource, const char* szPassWord); 
 	private:
 		int GetKey(const unsigned char* pass, int pass_len, unsigned char *out);
 		int RC4(const unsigned char* data, int data_len, const unsigned char* key, int key_len, unsigned char* out, int* out_len);
 		static void swap_byte(unsigned char* a, unsigned char* b);
-		char* ByteToHex(const unsigned char* vByte, const int vLen); // °Ñ×Ö½ÚÂëpbBuffer×ªÎªÊ®Áù½øÖÆ×Ö·û´®£¬·½±ã´«Êä
-		unsigned char* HexToByte(const char* szHex); // °ÑÊ®Áù½øÖÆ×Ö·û´®×ªÎª×Ö½ÚÂëpbBuffer£¬½âÂë
+		char* ByteToHex(const unsigned char* vByte, const int vLen); // æŠŠå­—èŠ‚ç pbBufferè½¬ä¸ºåå…­è¿›åˆ¶å­—ç¬¦ä¸²ï¼Œæ–¹ä¾¿ä¼ è¾“
+		unsigned char* HexToByte(const char* szHex); // æŠŠåå…­è¿›åˆ¶å­—ç¬¦ä¸²è½¬ä¸ºå­—èŠ‚ç pbBufferï¼Œè§£ç 
 	};
 }
 #endif // #ifndef _ENCRYPT_RC4_

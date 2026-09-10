@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #ifndef In_LoginOutArgs_H_
 #define In_LoginOutArgs_H_
 #include <string>
@@ -6,13 +6,13 @@
 using namespace std;
 namespace Model
 {
-	// ÍË³öµÇÂ¼
+	// é€€å‡ºç™»å½•
 	class In_LoginOutArgs :public In_DataBaseArgs
 	{
 	public:
-		//µÇÂ¼ÁîÅÆ(±ØÌî)
+		//ç™»å½•ä»¤ç‰Œ(å¿…å¡«)
 		string token;
-		// ¿¨ÃÜ»òÕËºÅ(±ØÌî)
+		// å¡å¯†æˆ–è´¦å·(å¿…å¡«)
 		string cardnumorusername;
 	};
 }

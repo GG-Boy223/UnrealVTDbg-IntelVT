@@ -1,4 +1,4 @@
-#include <iostream>
+ï»¿#include <iostream>
 #include <fstream>
 #include <iomanip>
 #include <Windows.h>
@@ -7,7 +7,7 @@
 #include <vector>
 #include "MD5.h"
 
-//¼ÆËãÎÄ¼şmd5
+//è®¡ç®—æ–‡ä»¶md5
 std::string calculateMD5(const std::string& filePath)
 {
     std::ifstream file(filePath, std::ios::binary);
@@ -42,7 +42,7 @@ std::string calculateMD5(const std::string& filePath)
         }
     }
 
-    //»ñÈ¡ÃÜÂë¹şÏ£µÄ¹şÏ£Öµ³¤¶È
+    //è·å–å¯†ç å“ˆå¸Œçš„å“ˆå¸Œå€¼é•¿åº¦
     DWORD hashSize = 0;
     DWORD hashSizeLen = sizeof(DWORD);
     if (!CryptGetHashParam(hHash, HP_HASHSIZE, reinterpret_cast<BYTE*>(&hashSize), &hashSizeLen, 0)) {
@@ -52,7 +52,7 @@ std::string calculateMD5(const std::string& filePath)
         return "";
     }
 
-    //»ñÈ¡ÃÜÂë¹şÏ£µÄ¹şÏ£Öµ
+    //è·å–å¯†ç å“ˆå¸Œçš„å“ˆå¸Œå€¼
     std::vector<BYTE> hashBuffer(hashSize);
     if (!CryptGetHashParam(hHash, HP_HASHVAL, hashBuffer.data(), &hashSize, 0)) {
         std::cerr << "CryptGetHashParam failed." << std::endl;
@@ -62,7 +62,7 @@ std::string calculateMD5(const std::string& filePath)
     }
 
     std::stringstream md5Stream;
-    //×ªÊ®Áù½øÖÆ ²»×ãÁ½¸ö×Ö·û²¹0Ìî³ä ÀıÈç£º00 0E
+    //è½¬åå…­è¿›åˆ¶ ä¸è¶³ä¸¤ä¸ªå­—ç¬¦è¡¥0å¡«å…… ä¾‹å¦‚ï¼š00 0E
     md5Stream << std::hex << std::setfill('0');
     for (BYTE byte : hashBuffer) {
         md5Stream << std::setw(2) << static_cast<int>(byte);
@@ -74,7 +74,7 @@ std::string calculateMD5(const std::string& filePath)
     return md5Stream.str();
 }
 
-//×Ö½ÚÁ÷¹şÏ£ÕªÒª
+//å­—èŠ‚æµå“ˆå¸Œæ‘˜è¦
 std::string calculateMD5(const std::vector<unsigned char>& data)
 {
     HCRYPTPROV hProv = NULL;
@@ -134,7 +134,7 @@ std::string calculateMD5(const std::vector<unsigned char>& data)
     return md5Hash;
 }
 
-//¶Ô×Ö·û´®½øĞĞ¹şÏ£ÕªÒª
+//å¯¹å­—ç¬¦ä¸²è¿›è¡Œå“ˆå¸Œæ‘˜è¦
 std::string calculateMD5(const TCHAR* inputParam)
 {
     HCRYPTPROV hProv = NULL;

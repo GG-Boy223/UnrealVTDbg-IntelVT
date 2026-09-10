@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #ifndef _SHARED_MEMORY_H
 #define _SHARED_MEMORY_H
@@ -6,20 +6,20 @@
 #define IPC_GAME_CLIENT_ID    1000
 
 typedef struct _tag_GAME_CLIENT {
-    DWORD dwPid;  //ÓÎÏ·¿Í»§¶Ëpid
+    DWORD dwPid;  //æ¸¸æˆå®¢æˆ·ç«¯pid
     TCHAR szClient[100];
-    TCHAR szGamePath[256];  //ÓÎÏ·Ä¿Â¼
+    TCHAR szGamePath[256];  //æ¸¸æˆç›®å½•
 }GAME_CLIENT, * PGAME_CLIENT;
 
 typedef struct _tag_IPC_MSG_RCD {
-    DWORD MsgId;  //ÏûÏ¢id
+    DWORD MsgId;  //æ¶ˆæ¯id
     BYTE buffer[1024];
 }IPC_MSG_RCD, * PIPC_MSG_RCD;
 
-// ¹²ÏíÄÚ´æ½á¹¹Ìå
+// å…±äº«å†…å­˜ç»“æž„ä½“
 typedef struct _tag_SharedData {
     IPC_MSG_RCD ipc_msg;
-    //CRITICAL_SECTION cs; // ÓÃÓÚÍ¬²½·ÃÎÊµÄ»¥³âËø
+    //CRITICAL_SECTION cs; // ç”¨äºŽåŒæ­¥è®¿é—®çš„äº’æ–¥é”
 }SHARED_DATA, * PSHARED_DATA;
 
 class SharedMemory {
@@ -27,7 +27,7 @@ public:
     SharedMemory(const std::wstring& name, size_t size)
         : m_name(name), m_size(size) {
 
-        // ³¢ÊÔ´ò¿ªÒÑ¾­´æÔÚµÄ¹²ÏíÄÚ´æ
+        // å°è¯•æ‰“å¼€å·²ç»å­˜åœ¨çš„å…±äº«å†…å­˜
         m_hMapFile = OpenFileMapping(
             FILE_MAP_ALL_ACCESS,
             FALSE,
@@ -35,7 +35,7 @@ public:
         );
 
         if (m_hMapFile == NULL) {
-            // Èç¹û¹²ÏíÄÚ´æ²»´æÔÚ£¬´´½¨ÐÂµÄ¹²ÏíÄÚ´æ
+            // å¦‚æžœå…±äº«å†…å­˜ä¸å­˜åœ¨ï¼Œåˆ›å»ºæ–°çš„å…±äº«å†…å­˜
             m_hMapFile = CreateFileMapping(
                 INVALID_HANDLE_VALUE,
                 NULL,
@@ -68,17 +68,17 @@ public:
         }
 
         //char szBuf[MAX_PATH] = { 0 };
-        //sprintf(szBuf, "¹²ÏíÄÚ´æ: %p", m_pData);
+        //sprintf(szBuf, "å…±äº«å†…å­˜: %p", m_pData);
         //OutputDebugStringA(szBuf);
 
         char szBuf[MAX_PATH] = { 0 };
-        sprintf(szBuf, "¹²Ïí¾ä±ú: %p", m_hMapFile);
+        sprintf(szBuf, "å…±äº«å¥æŸ„: %p", m_hMapFile);
         OutputDebugStringA(szBuf);
 
         if (!m_exists)
         {
-            // Èç¹ûÊÇÐÂ´´½¨µÄ¹²ÏíÄÚ´æ£¬³õÊ¼»¯ÁÙ½çÇø
-            OutputDebugStringA("ÐÂ´´½¨µÄ¹²ÏíÄÚ´æ£¬³õÊ¼»¯ÁÙ½çÇø");
+            // å¦‚æžœæ˜¯æ–°åˆ›å»ºçš„å…±äº«å†…å­˜ï¼Œåˆå§‹åŒ–ä¸´ç•ŒåŒº
+            OutputDebugStringA("æ–°åˆ›å»ºçš„å…±äº«å†…å­˜ï¼Œåˆå§‹åŒ–ä¸´ç•ŒåŒº");
             //InitializeCriticalSection(&m_pData->cs);
         }        
     }
@@ -88,8 +88,8 @@ public:
         {
             if (!m_exists)
             {
-                //²»ÎªERROR_ALREADY_EXISTSËµÃ÷ÊÇµ±Ç°½ø³Ì´´½¨µÄ, ÎÒÃÇÐèÒª½øÐÐÇåÀí²Ù×÷
-                OutputDebugStringA("»ØÊÕ¹²ÏíÄÚ´æ");
+                //ä¸ä¸ºERROR_ALREADY_EXISTSè¯´æ˜Žæ˜¯å½“å‰è¿›ç¨‹åˆ›å»ºçš„, æˆ‘ä»¬éœ€è¦è¿›è¡Œæ¸…ç†æ“ä½œ
+                OutputDebugStringA("å›žæ”¶å…±äº«å†…å­˜");
                 //DeleteCriticalSection(&m_pData->cs);
                 UnmapViewOfFile(m_pData);                
             }
@@ -100,7 +100,7 @@ public:
     template<typename T>
     void CopyToBuffer(const T& data, void* buffer, size_t bufferSize)
     {
-        // ¼ì²éÊý¾ÝÀàÐÍ´óÐ¡ÊÇ·ñ³¬¹ý»º´æÇø´óÐ¡
+        // æ£€æŸ¥æ•°æ®ç±»åž‹å¤§å°æ˜¯å¦è¶…è¿‡ç¼“å­˜åŒºå¤§å°
         if (sizeof(T) > bufferSize) {
             throw std::runtime_error("Data structure size exceeds buffer size.");
         }
@@ -132,7 +132,7 @@ private:
     std::wstring m_name;
     size_t m_size;
     HANDLE m_hMapFile;
-    PSHARED_DATA m_pData;  //¹²ÏíÄÚ´æ
+    PSHARED_DATA m_pData;  //å…±äº«å†…å­˜
     DWORD m_Error;
     BOOL m_exists;
 };

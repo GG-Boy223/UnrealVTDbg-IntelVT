@@ -1,13 +1,13 @@
-#pragma once
+ï»¿#pragma once
 
 #ifndef _MD5_H
 #define _MD5_H
 
-//¼ÆËãÎÄ¼şmd5
+//è®¡ç®—æ–‡ä»¶md5
 std::string calculateMD5(const std::string& filePath);
-//×Ö½ÚÁ÷¹şÏ£ÕªÒª
+//å­—èŠ‚æµå“ˆå¸Œæ‘˜è¦
 std::string calculateMD5(const std::vector<unsigned char>& data);
-//¶Ô×Ö·û´®½øĞĞ¹şÏ£ÕªÒª
+//å¯¹å­—ç¬¦ä¸²è¿›è¡Œå“ˆå¸Œæ‘˜è¦
 std::string calculateMD5(const TCHAR* inputParam);
 
 #endif // !_MD5_H

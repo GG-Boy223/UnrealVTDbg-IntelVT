@@ -1,3 +1,3 @@
-#include "ApcCore.h"
+﻿#include "ApcCore.h"
 
-// APC ����ʵ�ָ���ְ��������ļ����в�֡�
+// APC 核心实现根据职责在这个文件夹中拆分。

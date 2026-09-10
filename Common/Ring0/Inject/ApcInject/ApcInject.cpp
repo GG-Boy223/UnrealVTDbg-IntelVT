@@ -1,13 +1,13 @@
-#include <ntifs.h>
+ï»¿#include <ntifs.h>
 #include <ntstrsafe.h>
 #include "Types/ApcInjectNativeSupportTypes.h"
 
 // OS Dependant data
 DYNAMIC_DATA dynData;
 
-// ÊµÏÖ°´Ö°ÔğÔÚ Core/ Ä¿Â¼ÏÂ²ğ·Ö£º
-// - ApcQueue.cpp / ThreadLookup.cpp£ºAPC ×¢Èë¡¢APC »Øµ÷¡¢Ïß³Ì²éÕÒ
-// - ShellcodeBuilder.cpp£ºx64 Shellcode Éú³É
-// - UserModuleLookup.cpp / ApiSetResolver.cpp / ImagePathResolver.cpp / SxsResolver.cpp£ºÄ£¿éÂ·¾¶½âÎö¡¢API Set¡¢SxS
-// - ExportResolver.cpp / RemoteRoutineCall.cpp£ºµ¼³ö²éÕÒºÍÔ¶³ÌÀı³Ìµ÷ÓÃ
-// - StringUtilities.cpp / KernelResolver.cpp / ThreadExecution.cpp£º×Ö·û´®¹¤¾ß¡¢ÄÚºË»ùÖ·¡¢SSDT¡¢Ä£Ê½ËÑË÷¡¢¹¤×÷Ö´ĞĞ
+// å®ç°æŒ‰èŒè´£åœ¨ Core/ ç›®å½•ä¸‹æ‹†åˆ†ï¼š
+// - ApcQueue.cpp / ThreadLookup.cppï¼šAPC æ³¨å…¥ã€APC å›è°ƒã€çº¿ç¨‹æŸ¥æ‰¾
+// - ShellcodeBuilder.cppï¼šx64 Shellcode ç”Ÿæˆ
+// - UserModuleLookup.cpp / ApiSetResolver.cpp / ImagePathResolver.cpp / SxsResolver.cppï¼šæ¨¡å—è·¯å¾„è§£æã€API Setã€SxS
+// - ExportResolver.cpp / RemoteRoutineCall.cppï¼šå¯¼å‡ºæŸ¥æ‰¾å’Œè¿œç¨‹ä¾‹ç¨‹è°ƒç”¨
+// - StringUtilities.cpp / KernelResolver.cpp / ThreadExecution.cppï¼šå­—ç¬¦ä¸²å·¥å…·ã€å†…æ ¸åŸºå€ã€SSDTã€æ¨¡å¼æœç´¢ã€å·¥ä½œæ‰§è¡Œ
