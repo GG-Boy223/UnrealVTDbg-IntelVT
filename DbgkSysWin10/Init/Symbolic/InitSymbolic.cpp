@@ -252,7 +252,7 @@ VOID InitSymbolsTable(IN PUSER_DATA userData, IN PIRP pIrp)
         return;
     }
 
-#ifdef DEBUG
+#ifdef DEBUG0
     CheckFunctionPointers();
     DumpOffsetAndFuncPtr();
 #endif

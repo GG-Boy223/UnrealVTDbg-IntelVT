@@ -2,6 +2,33 @@
 
 namespace ept
 {
+	static bool is_split_mergeable(__ept_dynamic_split const* split)
+	{
+		if (split == nullptr || (split->pml1[0].page_frame_number & 0x1ffull) != 0)
+		{
+			return false;
+		}
+
+		auto const& first = split->pml1[0];
+		for (unsigned int index = 0; index < 512; ++index)
+		{
+			auto const& entry = split->pml1[index];
+			if (entry.page_frame_number != first.page_frame_number + index ||
+				entry.read != 1 ||
+				entry.write != 1 ||
+				entry.execute != 1 ||
+				entry.ept_memory_type != first.ept_memory_type ||
+				entry.ignore_pat != first.ignore_pat ||
+				entry.execute_for_usermode != first.execute_for_usermode ||
+				entry.suppress_ve != first.suppress_ve)
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+
 	// 通过任意 PML1 表项地址，反推出所在的 split 结构地址。
 	// 原理：__ept_dynamic_split 的首字段就是 4KB 对齐的 pml1[512]，
 	// PAGE_ALIGN(pml1_entry) 后得到的页首地址就是 split 结构体起始地址。
@@ -71,6 +98,15 @@ namespace ept
 		{
 			pool_manager::release_pool(split);
 			return true;
+		}
+
+		const unsigned __int64 split_pfn =
+			MmGetPhysicalAddress(&split->pml1[0]).QuadPart >> PAGE_SHIFT;
+		if (pde->page_directory_entry.large_page != 0 ||
+			pde->large_page.page_frame_number != split_pfn ||
+			!is_split_mergeable(split))
+		{
+			return false;
 		}
 
 		// 把 split 的第 0 个 4KB PTE 还原为 2MB PFN 基址：pfn_2mb = pfn_4kb >> 9。

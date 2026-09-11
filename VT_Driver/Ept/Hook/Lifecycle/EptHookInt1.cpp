@@ -94,7 +94,8 @@ namespace ept
 			}
 
 			//将2MB页面分割为512个4KB页面
-			if (split_pml2(g_vmm_context.mtrr_info.mtrrs, ept_state, split_buffer, physical_address) == false)
+			const auto mtrrs = hv::read_mtrr_data();
+			if (split_pml2(mtrrs, ept_state, split_buffer, physical_address) == false)
 			{
 				pool_manager::release_pool(split_buffer);
 				LogError("Split failed");

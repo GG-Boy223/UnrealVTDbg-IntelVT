@@ -1,30 +1,35 @@
-﻿#pragma once // 确保该头文件只被编译器包含一次，防止重复定义
+﻿#pragma once // 防止头文件被多次包含
 
-#ifndef _HYPERVISOR_ROUTINES_H // 头文件保护宏开始，避免多次包含导致重复定义
-#define _HYPERVISOR_ROUTINES_H // 定义保护宏
+#ifndef _HYPERVISOR_ROUTINES_H // 头文件保护宏防止重复包含
+#define _HYPERVISOR_ROUTINES_H // 结束保护
 
 
 enum __syscall_type
 {
-	SYSCALL_NT, // 表示 NT 系统调用类型（ntoskrnl 相关）
-	SYSCALL_WIN32K // 表示 Win32K 系统调用类型（图形/窗口子系统相关）
+	SYSCALL_NT, // 代表 NT 系统调用入口(nasated ntoskrnl 调用)
+	SYSCALL_WIN32K // 代表 Win32K 系统调用入口(桌面/窗口系统调用)
 };
 
-namespace hv // Hypervisor 低层例程命名空间
+namespace hv // Hypervisor 核心例程命名空间
 {
-	void set_mtf(bool set); // 设置或清除 Monitor Trap Flag（单步 VM-Exit 的控制位）
+	void set_mtf(bool set); // 设置/清除 Monitor Trap Flag，触发单步 VM-Exit 用于调试断点
 
 	/// <summary>
 	/// Check if cpu support virtualization
 	/// </summary>
 	/// <returns></returns>
-	bool virtualization_support(); // 检查 CPU 是否支持 VT-x（VMX）虚拟化
+	bool virtualization_support(); // 检测 CPU 是否支持 VT-x/VMX 虚拟化功能
+
+	/// <summary>
+	/// Check capabilities required by the current EPT/VPID implementation.
+	/// </summary>
+	bool required_vmx_capabilities_supported();
 
 	/// <summary>
 	/// Disable vmx operation
 	/// </summary>
 	/// <returns></returns>
-	void disable_vmx_operation(); // 关闭 VMX 操作（清除 CR4.VMXE 等），退出虚拟化模式
+	void disable_vmx_operation(); // 关闭 VMX 操作，清除 CR4.VMXE 以退出虚拟化模式
 
 	/// <summary>
 	/// Read vmcs field
@@ -36,7 +41,7 @@ namespace hv // Hypervisor 低层例程命名空间
 	/// <summary>
 	/// Dump whole vmcs structure
 	/// </summary>
-	void dump_vmcs(); // 打印/导出 VMCS 全部字段（调试用）
+	void dump_vmcs(); // 打印/转储 VMCS 全部字段，用于调试
 
 	/// <summary>
 	/// Set 1 msr in msr bitmap
@@ -46,7 +51,7 @@ namespace hv // Hypervisor 低层例程命名空间
 	/// <param name="read"> If set vmexit occur on reading this msr </param>
 	/// <param name="write"> If set vmexit occur on writing to this msr </param>
 	/// <param name="value"> If true set msr bit else clear </param>
-	void set_msr_bitmap(vmx_msr_bitmap& bitmap, uint32_t const msr, bool const enable_exiting); // 设置 MSR 位图：控制某个 MSR 访问是否触发 VM-Exit
+	void set_msr_bitmap(vmx_msr_bitmap& bitmap, uint32_t const msr, bool const enable_exiting); // 设置 MSR 位图中指定 MSR 的位，控制是否触发 VM-Exit
 
 	/// <summary>
 	/// Set or unset bit in io port bitmap
@@ -54,42 +59,42 @@ namespace hv // Hypervisor 低层例程命名空间
 	/// <param name="io_port"> IO port which you want to set</param>
 	/// <param name="vcpu"> Pointer to current vcpu </param>
 	/// <param name="value"> If true then set bit else unset bit</param>
-	void set_io_bitmap(unsigned __int16 io_port, __vcpu* vcpu, bool value); // 设置 I/O 位图：控制某个端口读写是否触发 VM-Exit
+	void set_io_bitmap(unsigned __int16 io_port, __vcpu* vcpu, bool value); // 设置 I/O 位图中指定端口的位，控制读写是否触发 VM-Exit
 
 	/// <summary>
-	/// 返回当前guest的特权级
+	/// 获取当前guest的权限
 	/// </summary>
 	/// <returns> Return current guest privilage level</returns>
-	unsigned __int8 get_guest_cpl(); // 获取来宾当前 CPL（0=内核，3=用户）
+	unsigned __int8 get_guest_cpl(); // 获取当前 CPL，0=内核态 3=用户态
 
-	//获取guest的当前cpl
-	uint16_t current_guest_cpl(); // 获取来宾当前 CPL（从段描述符访问权限计算）
+	//获取guest当前cpl
+	uint16_t current_guest_cpl(); // 获取当前 CPL，同上更详细的权限等级
 
 	/// <summary>
 	/// Swap cr3 with current process dtb
 	/// </summary>
 	/// <returns> old cr3 </returns>
-	unsigned __int64 swap_context(); // 切换到当前进程 CR3，返回旧 CR3
-	void swap_context(__vcpu* vcpu, unsigned __int64 new_cr3); // 设置 vcpu->target_cr3（延迟切换）
+	unsigned __int64 swap_context(); // 切换当前进程 CR3，返回旧 CR3
+	void swap_context(__vcpu* vcpu, unsigned __int64 new_cr3); // 更新 vcpu->target_cr3 并执行切换
 
 	/// <summary>
 	/// Restore cr3
 	/// </summary>
 	/// <param name="old_cr3"></param>
-	void restore_context(__vcpu* vcpu); // 恢复 vcpu->target_cr3，结束临时切换
+	void restore_context(__vcpu* vcpu); // 恢复 vcpu->target_cr3 到之前的切换前状态
 
 	/// <summary>
 	/// Check if address is canonicial (level 4 paging)
 	/// </summary>
 	/// <param name="address"></param>
 	/// <returns></returns>
-	bool is_address_canonical(unsigned __int64 address); // 判断地址是否为合法的 canonical 地址
+	bool is_address_canonical(unsigned __int64 address); // 检查地址是否为规范地址 canonical address
 
 	/// <summary>
 	/// Get system directory table base
 	/// </summary>
 	/// <returns></returns>
-	unsigned __int64 get_system_directory_table_base(); // 获取 System 进程 CR3（用于内核地址空间）
+	unsigned __int64 get_system_directory_table_base(); // 获取 System 进程 CR3 即内核目录表基址
 
 	/// <summary>
 	/// Inject interrupt/exception to guest system
@@ -98,19 +103,19 @@ namespace hv // Hypervisor 低层例程命名空间
 	/// <param name="type"></param>
 	/// <param name="error_code"></param>
 	/// <param name="deliver_error_code"></param>
-	void inject_interruption(unsigned __int32 vector, unsigned __int32 type, unsigned __int32 error_code, bool deliver_error_code); // 向来宾注入中断/异常
+	void inject_interruption(unsigned __int32 vector, unsigned __int32 type, unsigned __int32 error_code, bool deliver_error_code); // 向 Guest 注入中断/异常
 
 	/// <summary>
 	/// Write to reset io port to perform hard reset
 	/// </summary>
-	void hard_reset(); // 通过 I/O 端口触发硬件复位
+	void hard_reset(); // 通过 I/O 端口触发硬复位
 
 	/// <summary>
 	/// Used to get address passed by user in inpvcid
 	/// </summary>
 	/// <param name="guest_registers"></param>
 	/// <returns></returns>
-	unsigned __int64 get_guest_address(__vcpu* vcpu); // 从 VM-Exit 指令信息中解析来宾线性地址
+	unsigned __int64 get_guest_address(__vcpu* vcpu); // 从 VM-Exit 传递的信息中获取 Guest 地址
 
 	/// <summary>
 	/// Write to vmcs field
@@ -121,9 +126,9 @@ namespace hv // Hypervisor 低层例程命名空间
 	template <typename T>
 	void vmwrite(unsigned __int64 vmcs_field, T value)
 	{
-		//0则表示操作成功
+		//0表示执行成功
 		unsigned char res = __vmx_vmwrite(vmcs_field, (unsigned __int64)value); // 写 VMCS 字段
-		if (res) // VMX 指令返回非 0 表示失败
+		if (res) // VMX 执行失败 0 表示成功
 		{
 
 		}
@@ -131,9 +136,9 @@ namespace hv // Hypervisor 低层例程命名空间
 
 	bool vmx_on(unsigned __int64 vmxon_phys_addr); // 执行 VMXON 指令，进入 VMX operation
 
-	bool vmx_vmclear(unsigned __int64 vmcs_phys); // 执行 VMCLEAR，清空 VMCS
+	bool vmx_vmclear(unsigned __int64 vmcs_phys); // 执行 VMCLEAR 初始化 VMCS
 
-	bool vmx_vmptrld(unsigned __int64 vmcs_phys); // 执行 VMPTRLD，加载 VMCS 指针
+	bool vmx_vmptrld(unsigned __int64 vmcs_phys); // 执行 VMPTRLD 加载 VMCS 指针
 }
 
-#endif // !_HYPERVISOR_ROUTINES_H // 头文件保护宏结束
+#endif // !_HYPERVISOR_ROUTINES_H // 结束头文件保护

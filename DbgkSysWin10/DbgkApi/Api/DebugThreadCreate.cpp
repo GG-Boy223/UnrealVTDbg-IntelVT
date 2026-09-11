@@ -63,7 +63,7 @@ EXTERN_C VOID DbgkCreateThread(IN PETHREAD Thread)
 
     Process = PsGetCurrentProcessByThread(Thread);
     size_t ptr_WoW64Process = (size_t)Process + eprocess_offset::WoW64Process;
-    //size_t ptr_CurrentMachine = *(size_t*)ptr_WoW64Process + ewow64process_offset::Machine;
+    size_t ptr_CurrentMachine = *(size_t*)ptr_WoW64Process + ewow64process_offset::Machine;
     //isWoW64Process = *(size_t*)ptr_WoW64Process && (*(unsigned short*)ptr_CurrentMachine == IMAGE_FILE_MACHINE_I386 || *(unsigned short*)ptr_CurrentMachine == IMAGE_FILE_MACHINE_ARMNT);
     Wow64Process = *(PVOID*)ptr_WoW64Process;
 

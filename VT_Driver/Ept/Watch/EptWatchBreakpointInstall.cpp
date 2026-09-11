@@ -21,7 +21,6 @@ namespace ept
 	//设置隐形软件断点-多页监控
 	bool set_hide_software_breakpoint(PVT_BREAK_POINT vmcallinfo)
 	{
-		int status = 0; // 预留状态变量（当前未使用）
 		VT_BREAK_POINT tmp_vmcallinfo = { 0 }; // 本地缓冲保存断点请求
 
 		if (sizeof(VT_BREAK_POINT) != hv::read_guest_virtual_memory(vmcallinfo, &tmp_vmcallinfo, sizeof(VT_BREAK_POINT))) // 读取来宾断点参数
@@ -30,7 +29,8 @@ namespace ept
 		}
 
 		unsigned int cpu_count = normalize_vcpu_count(tmp_vmcallinfo.CPUCount);
-		if (cpu_count == 0 || !is_valid_watch_range(tmp_vmcallinfo.VirtualAddress, tmp_vmcallinfo.Size))
+		if (cpu_count == 0 || tmp_vmcallinfo.Size != 1 ||
+			!is_valid_watch_range(tmp_vmcallinfo.VirtualAddress, tmp_vmcallinfo.Size))
 		{
 			return false;
 		}
@@ -42,6 +42,7 @@ namespace ept
 		int id_count = 0;
 		int firstID = -1;
 		unsigned __int64 first_phys = 0;
+		bool guest_id_written = false;
 
 		spinlock::lock(&eptWatchTransaction_lock);
 
@@ -79,11 +80,23 @@ namespace ept
 				spinlock::unlock(&eptWatchList_lock);
 				continue;
 			}
+			spinlock::unlock(&eptWatchList_lock);
 
+			const int tracker_id = Cr3TrackerAcquire(
+				tmp_vmcallinfo.cr3,
+				va,
+				physical_address);
+			if (tracker_id == kInvalidCr3TrackerId)
+			{
+				goto rollback;
+			}
+
+			spinlock::lock(&eptWatchList_lock);
 			int ID = hv::getIdleWatchID();
 			if (ID == -1)
 			{
 				spinlock::unlock(&eptWatchList_lock);
+				Cr3TrackerRelease(tracker_id);
 				goto rollback;
 			}
 
@@ -96,6 +109,7 @@ namespace ept
 			if (id_count >= EPTWATCHLISTSIZE)
 			{
 				spinlock::unlock(&eptWatchList_lock);
+				Cr3TrackerRelease(tracker_id);
 				goto rollback;
 			}
 			ids[id_count++] = ID;
@@ -109,6 +123,8 @@ namespace ept
 			eptWatchList[ID].Type = EPTW_READWRITE;
 			eptWatchList[ID].Options = EPTO_VIRTUAL_BREAKPOINT;
 			eptWatchList[ID].bpType = 3;
+			eptWatchList[ID].GroupId = firstID;
+			eptWatchList[ID].Cr3TrackerId = tracker_id;
 			eptWatchList[ID].inuse = EPT_WATCH_INSTALLING;
 			spinlock::unlock(&eptWatchList_lock);
 
@@ -117,26 +133,18 @@ namespace ept
 			page_info.Size = static_cast<int>(chunk);
 			page_info.PhysicalAddress = physical_address;
 
-			status = 0;
 			// Guest 整页读取、split、pool 和跨 VCPU commit 均在表锁外执行。
 			for (unsigned int i = 0; i < cpu_count; i++)
 			{
 				__vcpu* vcpu = &g_vmm_context.vcpu[i];
 				if (hide_cc_breakpoint(*vcpu->ept_state, page_info, physical_address, EPTW_READWRITE))
 				{
-					status++;
 					committed_vcpus[id_count - 1]++;
+					continue;
 				}
-			}
 
-			if (status != static_cast<int>(cpu_count))
-			{
 				goto rollback;
 			}
-
-			spinlock::lock(&eptWatchList_lock);
-			eptWatchList[ID].inuse = EPT_WATCH_ACTIVE;
-			spinlock::unlock(&eptWatchList_lock);
 
 			va += chunk;
 			left -= chunk;
@@ -149,6 +157,30 @@ namespace ept
 		{
 			goto rollback;
 		}
+		guest_id_written = true;
+
+		for (int index = 0; index < id_count; index++)
+		{
+			const int ID = ids[index];
+			for (unsigned int cpu = 0; cpu < committed_vcpus[index]; cpu++)
+			{
+				__vcpu* vcpu = &g_vmm_context.vcpu[cpu];
+				if (!commit_hide_cc_breakpoint(
+					*vcpu->ept_state,
+					eptWatchList[ID].VirtualAddress,
+					eptWatchList[ID].PhysicalAddress))
+				{
+					goto rollback;
+				}
+			}
+		}
+
+		spinlock::lock(&eptWatchList_lock);
+		for (int index = 0; index < id_count; index++)
+		{
+			eptWatchList[ids[index]].inuse = EPT_WATCH_ACTIVE;
+		}
+		spinlock::unlock(&eptWatchList_lock);
 
 		_mm_mfence();
 		invept_all_contexts_func();
@@ -186,12 +218,24 @@ namespace ept
 			}
 
 			spinlock::lock(&eptWatchList_lock);
+			const int tracker_id = eptWatchList[ID].Cr3TrackerId;
 			eptWatchList[ID] = { 0 };
 			spinlock::unlock(&eptWatchList_lock);
+			Cr3TrackerRelease(tracker_id);
 		}
 
 		_mm_mfence();
 		invept_all_contexts_func();
+		if (guest_id_written)
+		{
+			tmp_vmcallinfo.watchid = -1;
+			tmp_vmcallinfo.PhysicalAddress = 0;
+			tmp_vmcallinfo.errorCode = 102;
+			hv::write_guest_virtual_memory(
+				vmcallinfo,
+				&tmp_vmcallinfo,
+				sizeof(VT_BREAK_POINT));
+		}
 		spinlock::unlock(&eptWatchTransaction_lock);
 		return false;
 	}

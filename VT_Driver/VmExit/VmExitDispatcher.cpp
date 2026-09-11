@@ -53,6 +53,23 @@ namespace
 		hv::vmwrite<unsigned __int64>(VM_ENTRY_EXCEPTION_ERROR_CODE, 0); // 清除异常错误码，避免无错误码异常继承旧值。
 		hv::vmwrite<unsigned __int64>(VM_ENTRY_INSTRUCTION_LENGTH, 0); // 清除软件中断指令长度，后续注入路径按需重新写入。
 	}
+
+	__forceinline void record_vmexit_telemetry(
+		__vcpu* vcpu,
+		unsigned __int64 startTsc)
+	{
+		const unsigned __int64 elapsed = __rdtsc() - startTsc;
+		const unsigned __int64 reason = vcpu->vmexit_info.reason;
+		if (reason < kVmExitTelemetryReasonCapacity)
+		{
+			++vcpu->vmexit_telemetry.reasonCount[reason];
+			vcpu->vmexit_telemetry.reasonCycles[reason] += elapsed;
+			return;
+		}
+
+		++vcpu->vmexit_telemetry.overflowCount;
+		vcpu->vmexit_telemetry.overflowCycles += elapsed;
+	}
 }
 
 EXTERN_C
@@ -92,6 +109,7 @@ unsigned __int64 handle_vmresume_failure(unsigned __int64 const rflags)
 	}
 
 	record_vmresume_failure(rflags);
+	vcpu->vmx_off_state.vmx_off_completed = false;
 	vcpu->vmx_off_state.vmx_off_executed = true;
 	if (!PrepareGuestForVmxoff(vcpu))
 	{
@@ -113,6 +131,7 @@ unsigned __int64 handle_vmresume_failure(unsigned __int64 const rflags)
 EXTERN_C // 使用 C 链接方式导出函数名，避免 C++ 名字修饰影响汇编入口或链接匹配
 bool vmexit_handler(guest_context* guest_registers, PFXSAVE64 fxsave) // VM-exit 总入口：采集 guest 状态并分派到具体 exit handler。
 {
+	const unsigned __int64 telemetryStartTsc = __rdtsc();
 	//从 fs_base 获取到 vcpu 的指针，因为 Host 已经将每个 CPU 的 vCPU 指针到 FS 基址
 	//硬件原理：FS Base 是每个 CPU 可独立维护的寄存器，适合用于快速访问 CPU 相关数据（类似 TLS）结构
 	//从 fs_base 里取出 vcpu 的指针，因为 Host 保存了每个 CPU 的 vCPU 指针到 FS 基址
@@ -140,6 +159,7 @@ bool vmexit_handler(guest_context* guest_registers, PFXSAVE64 fxsave) // VM-exit
 	//采用函数棒（函数指针表）的设计无法满足需求，因为无法很好地处理未知/未来的退出原因
 	//改用 switch：可以把未收录的 reason 统一落到 default 做保护性处理
 	dispatch_vm_exit(vcpu); // 根据 exit reason 执行模拟、注入异常、EPT 切换或 VMCALL 服务。
+	record_vmexit_telemetry(vcpu, telemetryStartTsc);
 
 	if (vcpu->vmx_off_state.vmx_off_executed) // VMCALL/退出流程要求关闭 VMX 时，由汇编上层执行最终 VMXOFF。
 	{

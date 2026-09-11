@@ -15,7 +15,12 @@ namespace
 	{
 		std::call_once(g_aiHelperInitialization, []()
 		{
-			g_aiHelperModule = LoadLibraryW(L"AIHelper.dll");
+			const std::wstring aiHelperPath =
+				FileSystem::GetModuleDirectory(nullptr) + L"AIHelper.dll";
+			g_aiHelperModule = LoadLibraryExW(
+				aiHelperPath.c_str(),
+				nullptr,
+				LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
 			if (g_aiHelperModule == nullptr)
 			{
 				return;

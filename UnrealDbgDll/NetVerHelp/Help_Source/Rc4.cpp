@@ -1,60 +1,111 @@
 ﻿#pragma once
 #include <string.h>
+#include <limits>
 #include "../Help_Tou/Rc4.h"
 namespace Help
 {
-	char* Rc4::Encrypt(const char* szSource, const char* szPassWord) // 加密，返回加密结果
+	std::string Rc4::Encrypt(const char* szSource, const char* szPassWord) // 加密，返回加密结果
 	{
-		if (szSource == NULL || szPassWord == NULL) return NULL;
+		if (szSource == NULL || szPassWord == NULL) return {};
 
-		unsigned char* ret = new unsigned char[strlen(szSource)];
+		const size_t source_length = strlen(szSource);
+		const size_t password_length = strlen(szPassWord);
+		if (source_length > static_cast<size_t>((std::numeric_limits<int>::max)()) ||
+			password_length == 0 ||
+			password_length > static_cast<size_t>((std::numeric_limits<int>::max)()))
+		{
+			return {};
+		}
+
+		unsigned char* ret = new unsigned char[source_length == 0 ? 1 : source_length];
 
 		int ret_len = 0;
 
 		if (RC4((unsigned char*)szSource,
-			strlen(szSource),
+			static_cast<int>(source_length),
 			(unsigned char*)szPassWord,
-			strlen(szPassWord),
+			static_cast<int>(password_length),
 			ret,
 			&ret_len) == NULL)
-			return NULL;
+		{
+			delete[] ret;
+			return {};
+		}
 
-		char* ret2 = ByteToHex(ret, ret_len);
-
+		char* encoded = ByteToHex(ret, ret_len);
 		delete[] ret;
-		return ret2;
+		if (encoded == nullptr)
+		{
+			return {};
+		}
+
+		std::string result(encoded);
+		delete[] encoded;
+		return result;
 	}
 
-	char* Rc4::Decrypt(const char* szSource, const char* szPassWord) // 解密，返回解密结果
+	std::string Rc4::Decrypt(const char* szSource, const char* szPassWord) // 解密，返回解密结果
 	{
 		if (szSource == NULL || (strlen(szSource) % 2 != 0) || szPassWord == NULL)
-			return NULL;
+			return {};
+
+		const size_t source_length = strlen(szSource);
+		const size_t password_length = strlen(szPassWord);
+		if (source_length / 2 > static_cast<size_t>((std::numeric_limits<int>::max)()) ||
+			password_length == 0 ||
+			password_length > static_cast<size_t>((std::numeric_limits<int>::max)()))
+		{
+			return {};
+		}
 
 		unsigned char* src = HexToByte(szSource);
+		if (src == NULL)
+		{
+			return {};
+		}
 
-		unsigned char* ret = new unsigned char[strlen(szSource) / 2 + 1];
+		const size_t decoded_length = source_length / 2;
+		unsigned char* ret = new unsigned char[decoded_length + 1];
 
 		int ret_len = 0;
 
-		memset(ret, strlen(szSource) / 2 + 1, 0);
+		memset(ret, 0, decoded_length + 1);
 
-		if (RC4(src, strlen(szSource) / 2, (unsigned char*)szPassWord, strlen(szPassWord), ret, &ret_len) == NULL)
-			return NULL;
+		if (RC4(
+			src,
+			static_cast<int>(decoded_length),
+			(unsigned char*)szPassWord,
+			static_cast<int>(password_length),
+			ret,
+			&ret_len) == NULL)
+		{
+			delete[] src;
+			delete[] ret;
+			return {};
+		}
+
+		delete[] src;
 
 		ret[ret_len] = '\0';
-
-		return (char*)ret;
+		std::string result(
+			reinterpret_cast<const char*>(ret),
+			static_cast<size_t>(ret_len));
+		delete[] ret;
+		return result;
 	}
 
 	int Rc4::RC4(const unsigned char* data, int data_len, const unsigned char* key, int key_len, unsigned char* out, int* out_len)
 	{
-		if (data == NULL || key == NULL || out == NULL)
+		if (data == NULL || data_len < 0 || key == NULL || key_len <= 0 || out == NULL || out_len == NULL)
 			return NULL;
 
 		unsigned char* mBox = new unsigned char[BOX_LEN];
 
 		if (GetKey(key, key_len, mBox) == NULL)
+		{
+			delete[] mBox;
 			return NULL;
+		}
 
 		int i = 0;
 		int x = 0;
@@ -71,7 +122,7 @@ namespace Help
 		*out_len = data_len;
 		// *out_len = data_len;
 		delete[] mBox;
-		return -1;
+		return 1;
 	}
 
 	int Rc4::GetKey(const unsigned char* pass, int pass_len, unsigned char* out)
@@ -91,7 +142,7 @@ namespace Help
 			swap_byte(&out[i], &out[j]);
 		}
 
-		return -1;
+		return 1;
 	}
 
 	void Rc4::swap_byte(unsigned char* a, unsigned char* b)
@@ -108,10 +159,11 @@ namespace Help
 	// 把字节码转为十六进制码，一个字节两个十六进制，内部为字符串分配空间
 	char* Rc4::ByteToHex(const unsigned char* vByte, const int vLen)
 	{
-		if (!vByte)
+		if (!vByte || vLen < 0)
 			return NULL;
 
-		char* tmp = new char[vLen * 2 + 1]; // 一个字节两个十六进制码，最后要多一个'/0'
+		const size_t output_length = static_cast<size_t>(vLen) * 2;
+		char* tmp = new char[output_length + 1]; // 一个字节两个十六进制码，最后要多一个'/0'
 
 		int tmp2;
 		for (int i = 0; i < vLen; i++)
@@ -122,7 +174,7 @@ namespace Help
 			tmp[i * 2 + 1] = (char)(tmp2 + ((tmp2 > 9) ? 'A' - 10 : '0'));
 		}
 
-		tmp[vLen * 2] = '\0';
+		tmp[output_length] = '\0';
 		return tmp;
 	}
 
@@ -132,48 +184,37 @@ namespace Help
 		if (!szHex)
 			return NULL;
 
-		int iLen = strlen(szHex);
+		const size_t length = strlen(szHex);
+		if (length > static_cast<size_t>((std::numeric_limits<int>::max)()))
+			return NULL;
+
+		int iLen = static_cast<int>(length);
 
 		if (iLen <= 0 || 0 != iLen % 2)
 			return NULL;
 
 		unsigned char* pbBuf = new unsigned char[iLen / 2];  // 数据缓冲区
 
-		int tmp1, tmp2;
+		auto decode_nibble = [](const char value) -> int
+		{
+			if (value >= '0' && value <= '9')
+				return value - '0';
+			if (value >= 'A' && value <= 'F')
+				return value - 'A' + 10;
+			if (value >= 'a' && value <= 'f')
+				return value - 'a' + 10;
+			return -1;
+		};
+
 		for (int i = 0; i < iLen / 2; i++)
 		{
-			if ((szHex[i * 2] >= 'A') && (szHex[i * 2] <= 'F'))
+			const int tmp1 = decode_nibble(szHex[i * 2]);
+			const int tmp2 = decode_nibble(szHex[i * 2 + 1]);
+			if (tmp1 < 0 || tmp2 < 0)
 			{
-				tmp1 = (int)szHex[i * 2] - (((int)szHex[i * 2] >= 'A') ? 'A' - 10 : '0');
-			}
-			else if ((szHex[i * 2] >= 'a') && (szHex[i * 2] <= 'f'))
-			{
-				tmp1 = (int)szHex[i * 2] - (((int)szHex[i * 2] >= 'a') ? 'a' - 10 : '0');
-			}
-			else
-			{
-				tmp1 = (int)szHex[i * 2] - '0';
-			}
-
-			if (tmp1 >= 16)
+				delete[] pbBuf;
 				return NULL;
-
-			if ((szHex[i * 2 + 1] >= 'A') && (szHex[i * 2 + 1] <= 'F'))
-			{
-
-				tmp2 = (int)szHex[i * 2 + 1] - (((int)szHex[i * 2 + 1] >= 'A') ? 'A' - 10 : '0');
 			}
-			else if ((szHex[i * 2 + 1] >= 'a') && (szHex[i * 2 + 1] <= 'f'))
-			{
-				tmp2 = (int)szHex[i * 2 + 1] - (((int)szHex[i * 2 + 1] >= 'a') ? 'a' - 10 : '0');
-			}
-			else
-			{
-				tmp2 = (int)szHex[i * 2 + 1] - '0';
-			}
-
-			if (tmp2 >= 16)
-				return NULL;
 
 			pbBuf[i] = (tmp1 * 16 + tmp2);
 		}

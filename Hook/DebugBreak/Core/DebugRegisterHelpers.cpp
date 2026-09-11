@@ -18,10 +18,10 @@ namespace DebugBreakInternal
     {
         switch (debugRegister)
         {
-        case 0: context->Dr0 = value; break;
-        case 1: context->Dr1 = value; break;
-        case 2: context->Dr2 = value; break;
-        case 3: context->Dr3 = value; break;
+        case 0: context->Dr0 = static_cast<DWORD_PTR>(value); break;
+        case 1: context->Dr1 = static_cast<DWORD_PTR>(value); break;
+        case 2: context->Dr2 = static_cast<DWORD_PTR>(value); break;
+        case 3: context->Dr3 = static_cast<DWORD_PTR>(value); break;
         default: break;
         }
     }

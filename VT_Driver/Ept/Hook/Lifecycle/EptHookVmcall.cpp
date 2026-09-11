@@ -15,6 +15,7 @@ namespace ept
 		void** origin_function,
 		unsigned __int64 target_cr3)
 	{
+		UNREFERENCED_PARAMETER(target_cr3);
 		//unsigned __int64 physical_address = hv::get_physical_address(target_cr3, (PVOID)target_function);
 		unsigned __int64 physical_address = MmGetPhysicalAddress(target_function).QuadPart;
 
@@ -90,6 +91,8 @@ namespace ept
 			}
 		}
 
+		__ept_dynamic_split* runtime_split = nullptr;
+
 		//判断2mb pde是否已经进行分割
 		if (is_page_splitted(ept_state, physical_address) == false)
 		{
@@ -102,18 +105,26 @@ namespace ept
 			}
 
 			//将2MB页面分割为512个4KB页面
-			if (split_pml2(g_vmm_context.mtrr_info.mtrrs, ept_state, split_buffer, physical_address) == false)
+			const auto mtrrs = hv::read_mtrr_data();
+			if (split_pml2(mtrrs, ept_state, split_buffer, physical_address) == false)
 			{
 				pool_manager::release_pool(split_buffer);
 				LogError("Split failed");
 				return false;
 			}
+
+			ept_mark_runtime_split(split_buffer);
+			runtime_split = reinterpret_cast<__ept_dynamic_split*>(split_buffer);
 		}
 
 		//得到目标页
 		__ept_pte* target_page = get_pml1_entry(ept_state, physical_address);
 		if (target_page == nullptr)
 		{
+			if (runtime_split != nullptr)
+			{
+				ept_split_try_merge_and_release(ept_state, runtime_split);
+			}
 			LogError("Failed to get PML1 entry of the target address");
 			return false;
 		}
@@ -121,6 +132,10 @@ namespace ept
 		__ept_hooked_page_info* hooked_page_info = pool_manager::request_pool<__ept_hooked_page_info*>(pool_manager::INTENTION_TRACK_HOOKED_PAGES, true, sizeof(__ept_hooked_page_info));
 		if (hooked_page_info == nullptr)
 		{
+			if (runtime_split != nullptr)
+			{
+				ept_split_try_merge_and_release(ept_state, runtime_split);
+			}
 			LogError("There is no preallocated pool for hooked page info");
 			return false;
 		}
@@ -133,6 +148,10 @@ namespace ept
 		{
 			// 关键修复：失败路径要回收 hooked_page_info（旧代码这里直接 return false，导致池对象泄漏）。
 			pool_manager::release_pool(hooked_page_info);
+			if (runtime_split != nullptr)
+			{
+				ept_split_try_merge_and_release(ept_state, runtime_split);
+			}
 			LogError("hook函数时预分配的缓冲已耗尽");
 			return false;
 		}
@@ -149,6 +168,10 @@ namespace ept
 				// 关键修复：失败路径要回收 hooked_page_info（旧代码这里直接 return false，导致池对象泄漏）。
 				pool_manager::release_pool(hooked_page_info);
 				pool_manager::release_pool(hooked_function_info);
+				if (runtime_split != nullptr)
+				{
+					ept_split_try_merge_and_release(ept_state, runtime_split);
+				}
 				LogError("There is no pre-allocated pool for trampoline");
 				return false;
 			}
@@ -157,6 +180,7 @@ namespace ept
 		hooked_page_info->pfn_of_hooked_page = GET_PFN(physical_address); //获取guest物理页面的页帧号
 		hooked_page_info->pfn_of_fake_page_contents = GET_PFN(MmGetPhysicalAddress(hooked_page_info->fake_page_contents).QuadPart);
 		hooked_page_info->entry_address = target_page; //ept_pte
+		hooked_page_info->owner_split = ept_get_split_from_pml1(target_page);
 
 		//先改原页为不可执行 回到guest后执行就触发vmexit
 		//进入vmm后交换伪造页
@@ -185,11 +209,20 @@ namespace ept
 		//开始hook
 		if (write_vmcall_instruction_to_memory(hooked_function_info, target_function, proxy_function, origin_function) == false)
 		{
+			target_page->read = 1;
+			target_page->write = 1;
+			target_page->execute = 1;
 			if (hooked_function_info->first_trampoline_address != nullptr)
 				pool_manager::release_pool(hooked_function_info->first_trampoline_address);
 			pool_manager::release_pool(hooked_function_info);
 			// 关键修复：失败路径要回收 hooked_page_info（旧代码这里直接 return false，导致池对象泄漏）。
 			pool_manager::release_pool(hooked_page_info);
+			if (runtime_split != nullptr)
+			{
+				ept_split_try_merge_and_release(ept_state, runtime_split);
+			}
+			_mm_mfence();
+			invept_single_context_func(ept_state.ept_pointer->all);
 			LogError("Hook failed");
 			return false;
 		}
@@ -199,6 +232,8 @@ namespace ept
 		//记录hook的函数和页 以便日后释放
 		// Track all hooked functions
 		InsertHeadList(&hooked_page_info->hooked_functions_list, &hooked_function_info->hooked_function_list);
+
+		ept_split_ref_inc(hooked_page_info->owner_split);
 
 		// Track all hooked pages
 		InsertHeadList(&ept_state.hooked_page_list, &hooked_page_info->hooked_page_list);

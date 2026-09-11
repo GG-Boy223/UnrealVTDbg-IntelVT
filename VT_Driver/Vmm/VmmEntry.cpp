@@ -34,6 +34,7 @@ bool vmm_init() // 启动全局VMM，并在每个逻辑处理器上进入VMX，�
 		{
 			KeRevertToUserGroupAffinityThread(&orig_affinity); // 失败时先恢复线程亲和力，避免影响系统调度
 			outFile("[失败][CPU%u] VMX初始化链路失败，开始回滚已进入VT的CPU", iter);
+			g_vmm_context.lifecycle_state = hv::vmm_release_policy::lifecycle_state::stopping;
 			if (iter > 0)
 			{
 				if (!hvgt::vmoff(iter))
@@ -41,6 +42,7 @@ bool vmm_init() // 启动全局VMM，并在每个逻辑处理器上进入VMX，�
 					vmx_fatal_error(vmx_fatal_vmxoff_broadcast, iter, g_vmm_context.processor_count);
 				}
 			}
+			g_vmm_context.lifecycle_state = hv::vmm_release_policy::lifecycle_state::stopped;
 			free_vmm_context();
 			outFile("[完成][CPU%u] 回滚和资源释放结束", iter);
 			return false; // 任一核失败即整体失败，避免部分核进入VMX
@@ -50,5 +52,22 @@ bool vmm_init() // 启动全局VMM，并在每个逻辑处理器上进入VMX，�
 		outFile("[成功][CPU%u] VMX初始化链路完成", iter);
 	}
 	outFile("========== 所有逻辑处理器VT初始化完成 ==========");
+	if (!Cr3TrackerStartWorker())
+	{
+		outFile("[失败][VMM] CR3候选处理线程创建失败，开始关闭全部VCPU");
+		g_vmm_context.lifecycle_state = hv::vmm_release_policy::lifecycle_state::stopping;
+		if (!hvgt::vmoff(g_vmm_context.processor_count))
+		{
+			vmx_fatal_error(
+				vmx_fatal_vmxoff_broadcast,
+				g_vmm_context.processor_count,
+				0);
+		}
+		g_vmm_context.lifecycle_state = hv::vmm_release_policy::lifecycle_state::stopped;
+		free_vmm_context();
+		return false;
+	}
+	outFile("[成功][VMM] CR3候选处理线程已启动");
+	g_vmm_context.lifecycle_state = hv::vmm_release_policy::lifecycle_state::running;
 	return true; // 所有CPU成功进入VMX，VMM启动完成
 }

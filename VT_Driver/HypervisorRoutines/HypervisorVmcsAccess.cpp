@@ -20,8 +20,8 @@ namespace hv
     /// <returns> 返回当前来宾特权级 </returns>
     unsigned __int8 get_guest_cpl() // 读取来宾当前 CPL（特权级）
     {
-        uint32_t cs_access_rights = vmread(GUEST_CS_ACCESS_RIGHTS);
-        return (cs_access_rights >> 5) & 3;
+        const uint32_t cs_access_rights = static_cast<uint32_t>(vmread(GUEST_CS_ACCESS_RIGHTS));
+        return static_cast<unsigned __int8>((cs_access_rights >> 5) & 3u);
 
         //return vmread(GUEST_CS_SELECTOR) & 3; // 读取 GUEST_CS_SELECTOR 的低 2 位作为 CPL（特权级 0-3） 读取的是 RPL，不是 CPL
     }

@@ -16,6 +16,7 @@ namespace hvgt
 	/// </summary>
 	/// <param name="invept_all"> If true invalidates all contexts otherway invalidate only single context (currently hv doesn't use more than 1 context)</param>
 	void invept(bool invept_all);
+	bool synchronize_cr3_exit_policy();
 
 	/// <summary>
 	/// Set/Unset presence of hypervisor
@@ -45,7 +46,7 @@ namespace hvgt
 	/// <returns> status </returns>
 	bool hook_function(void* target_address, void* proxy_function, void** origin_function);
 
-	//广播给所有逻辑处理器
+	// 广播给所有逻辑处理器
 	//bool vmcall(PVOID vmcallinfo);
 	// 
 	// vmcallinfo 仍通过 rdx；parameter2/parameter3 分别通过 r8/r9。
@@ -63,13 +64,13 @@ namespace hvgt
 	/// <returns> status </returns>
 	bool send_irp_perform_allocation();
 
-	//读ept伪页内存
+	// 读ept伪页内存
 	bool read_ept_fake_page_memory(void* target_address, void* buffer, unsigned __int64 buffer_size);
 
-	//读取隐形软件断点
+	// 读取隐形软件断点
 	bool get_hide_software_breakpoint(void* target_address, void* buffer, unsigned __int64 buffer_size);
 
-	//设置隐形软件断点
+	// 设置隐形软件断点
 	bool set_hide_software_breakpoint(MDL_MAP* map_table, void* buffer, unsigned __int64 buffer_size);
 }
 

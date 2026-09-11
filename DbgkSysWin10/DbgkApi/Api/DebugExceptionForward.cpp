@@ -22,8 +22,7 @@ BOOLEAN DbgkForwardException(
         return FALSE;
     }
 
-    DBGKTRACE(DBGK_EXCEPTION_DEBUG,
-        "ExceptionRecord: %p Port: %u\n", ExceptionRecord, IsUseDebugPort);
+    DBGKTRACE(DBGK_EXCEPTION_DEBUG, "ExceptionRecord: %p Port: %u\n", ExceptionRecord, IsUseDebugPort);
 
     ApiMessage.h.u1.Length = 0xD000A8;
     ApiMessage.h.u2.ZeroInit = 8;

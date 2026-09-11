@@ -2,12 +2,12 @@
 
 namespace Common
 {
-    //gbk转utf8
-    std::string GbkToUTF8(const std::string& gbkString)
+    //转utf8
+    std::string ToUTF8(const std::string& String)
     {
-        int bufferSize = MultiByteToWideChar(CP_ACP, 0, gbkString.c_str(), -1, nullptr, 0);
+        int bufferSize = MultiByteToWideChar(CP_ACP, 0, String.c_str(), -1, nullptr, 0);
         std::wstring wideString(bufferSize - 1, L'\0');
-        MultiByteToWideChar(CP_ACP, 0, gbkString.c_str(), -1, &wideString[0], bufferSize - 1);
+        MultiByteToWideChar(CP_ACP, 0, String.c_str(), -1, &wideString[0], bufferSize - 1);
 
         bufferSize = WideCharToMultiByte(CP_UTF8, 0, wideString.c_str(), -1, nullptr, 0, nullptr, nullptr);
         std::string utf8String(bufferSize - 1, '\0');
@@ -16,8 +16,8 @@ namespace Common
         return utf8String;
     }
 
-    // 将 utf8 编码的字符串转换为 GBK 编码
-    std::string utf8ToGbk(const std::string& utf8String)
+    // 将 utf8 编码的字符串转换为  编码
+    std::string utf8To(const std::string& utf8String)
     {
         int bufferSize = MultiByteToWideChar(CP_UTF8, 0, utf8String.c_str(), -1, nullptr, 0);
         if (bufferSize == 0)
@@ -36,10 +36,10 @@ namespace Common
             return "";
         }
 
-        std::string gbkString(bufferSize, '\0');
-        WideCharToMultiByte(CP_ACP, 0, wideString.c_str(), -1, &gbkString[0], bufferSize, nullptr, nullptr);
+        std::string String(bufferSize, '\0');
+        WideCharToMultiByte(CP_ACP, 0, wideString.c_str(), -1, &String[0], bufferSize, nullptr, nullptr);
 
-        return gbkString;
+        return String;
     }
 
     //本地代码页转std::wstring

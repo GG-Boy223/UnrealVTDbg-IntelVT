@@ -148,9 +148,9 @@ namespace Help
 		//请求接口获取数据
 		static Model::Result GetRequestResult(Model::BusinessType businessType, string data);
 
-		static string GBKToUTF8(const char* strGBK);
+		static string ToUTF8(const char* str);
 
-		static	string UTF8ToGBK(const char* strUTF8);
+		static	string UTF8To(const char* strUTF8);
 
 
 	};

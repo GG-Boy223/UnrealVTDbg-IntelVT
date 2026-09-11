@@ -5,6 +5,8 @@ namespace ept
 	bool ept_watch_deactivate_internal(__vcpu* vcpu, __ept_state& ept_state, unsigned __int64 VirtualAddress, unsigned __int64 physical_address, unsigned __int64 Type,
 		int bpType, unsigned char OriginalByte, int has, int ignoredID)
 	{
+		UNREFERENCED_PARAMETER(Type);
+
 		// 检测该函数是否存在于物理内存中
 		// 如果该函数的物理地址为空
 		// 说明该函数不存在于物理内存中
@@ -48,30 +50,13 @@ namespace ept
 					}
 					else
 					{
-						if (has == 0 && Type == EPTW_WRITE) //撤销写监视
+						if (has == 0)
 						{
-							hooked_page_info->entry_address->write = 1;
-						}
-						//else if (Type == EPTW_READ)  //撤销读监视
-						//{
-						//	if (bpType == 3)  //int3
-						//	{
-						//		//换回原页
-						//		hooked_page_info->entry_address->all = hooked_page_info->original_entry.all;
-						//	}
-						//	hooked_page_info->entry_address->read = 1;
-						//}
-						else if (has == 0 && Type == EPTW_READWRITE) //撤销读写监视
-						{
-							//还原ept页的属性，让guest程序能正常执行，正常读写
 							hooked_page_info->entry_address->read = 1;
 							hooked_page_info->entry_address->write = 1;
-						}
-						else if (has == 0 && Type == EPTW_EXECUTE) //撤销执行监视
-						{
 							hooked_page_info->entry_address->execute = 1;
 						}
-						else if (has != 0)
+						else
 						{
 							apply_active_watch_permissions_locked(hooked_page_info, ignoredID);
 						}
@@ -121,13 +106,15 @@ namespace ept
 
 	int ept_watch_deactivate(VT_BREAK_POINT vmcallinfo, int ID)
 	{
-		int status = 0; // 预留状态变量（当前未使用）
-		int has = 0;
 		unsigned int cpu_count = normalize_vcpu_count(vmcallinfo.CPUCount);
 		if (cpu_count == 0)
 		{
 			return 4;
 		}
+
+		int group_ids[EPTWATCHLISTSIZE] = { 0 };
+		int group_count = 0;
+		int group_id = -1;
 
 		spinlock::lock(&eptWatchTransaction_lock);
 		spinlock::lock(&eptWatchList_lock);
@@ -146,64 +133,166 @@ namespace ept
 			return 2;
 		}
 
-		EPTWatchEntry removing_entry = eptWatchList[ID];
-		eptWatchList[ID].inuse = EPT_WATCH_REMOVING;
+		group_id = eptWatchList[ID].GroupId;
+		if (group_id < 0 || group_id >= EPTWATCHLISTSIZE ||
+			!ept_watch_entry_is_active(eptWatchList[group_id]) ||
+			eptWatchList[group_id].GroupId != group_id)
+		{
+			spinlock::unlock(&eptWatchList_lock);
+			spinlock::unlock(&eptWatchTransaction_lock);
+			return 5;
+		}
 
 		for (int i = 0; i < EPTWATCHLISTSIZE; i++)
 		{
-			if ((i != ID) && ept_watch_entry_is_active(eptWatchList[i]) &&
-				GET_PFN(eptWatchList[i].PhysicalAddress) == GET_PFN(removing_entry.PhysicalAddress))
+			if (ept_watch_entry_is_active(eptWatchList[i]) &&
+				eptWatchList[i].GroupId == group_id)
 			{
-				has = 1; //属于同一页，存在其他监视断点
-				if (eptWatchList[i].Type == removing_entry.Type)
-				{
-					has = 2; //不能撤销
-					break;
-				}
+				group_ids[group_count] = i;
+				group_count++;
 			}
 		}
 		spinlock::unlock(&eptWatchList_lock);
 
-		//没有其他的监视断点了，现在可以把页撤销了
-		if ((has != 2) || (removing_entry.bpType == 3))
+		for (int entry_index = 0; entry_index < group_count; entry_index++)
 		{
-			//设置每个cpu
-			for (unsigned int i = 0; i < cpu_count; i++)
-			{
-				__vcpu* vcpu = &g_vmm_context.vcpu[i];
-				if (ept_watch_deactivate_internal(vcpu,
-					*vcpu->ept_state,
-					removing_entry.VirtualAddress,
-					removing_entry.PhysicalAddress,
-					removing_entry.Type,
-					removing_entry.bpType,
-					removing_entry.OriginalByte,
-					has,
-					ID))
-				{
-					status++;
-				}
-			}
+			spinlock::lock(&eptWatchList_lock);
+			EPTWatchEntry entry = eptWatchList[group_ids[entry_index]];
+			spinlock::unlock(&eptWatchList_lock);
 
-			if (status == static_cast<int>(cpu_count))
+			for (unsigned int cpu = 0; cpu < cpu_count; cpu++)
 			{
-				_mm_mfence();
-				invept_all_contexts_func();
-			}
-			else
-			{
-				spinlock::lock(&eptWatchList_lock);
-				eptWatchList[ID].inuse = EPT_WATCH_ACTIVE;
-				spinlock::unlock(&eptWatchList_lock);
-				spinlock::unlock(&eptWatchTransaction_lock);
-				return 3;
+				__vcpu* vcpu = &g_vmm_context.vcpu[cpu];
+				if (vcpu->ept_state == nullptr)
+				{
+					spinlock::unlock(&eptWatchTransaction_lock);
+					return 3;
+				}
+
+				bool found = false;
+				PLIST_ENTRY current = &vcpu->ept_state->hooked_page_list;
+				while (&vcpu->ept_state->hooked_page_list != current->Flink)
+				{
+					current = current->Flink;
+					auto hooked_page_info = CONTAINING_RECORD(
+						current,
+						__ept_hooked_page_info,
+						hooked_page_list);
+					if (hooked_page_info->pfn_of_hooked_page == GET_PFN(entry.PhysicalAddress) &&
+						hooked_page_info->Options == EPTO_VIRTUAL_BREAKPOINT)
+					{
+						found = true;
+						break;
+					}
+				}
+
+				if (!found)
+				{
+					spinlock::unlock(&eptWatchTransaction_lock);
+					return 3;
+				}
 			}
 		}
 
 		spinlock::lock(&eptWatchList_lock);
-		clear_detected_breakpoint_for_watch_locked(removing_entry.VirtualAddress);
-		eptWatchList[ID] = { 0 }; //将当前entry的inuse标记为未使用
+		for (int entry_index = 0; entry_index < group_count; entry_index++)
+		{
+			const int entry_id = group_ids[entry_index];
+			if (!ept_watch_entry_is_active(eptWatchList[entry_id]) ||
+				eptWatchList[entry_id].GroupId != group_id)
+			{
+				spinlock::unlock(&eptWatchList_lock);
+				spinlock::unlock(&eptWatchTransaction_lock);
+				return 5;
+			}
+
+			eptWatchList[entry_id].inuse = EPT_WATCH_REMOVING;
+		}
 		spinlock::unlock(&eptWatchList_lock);
+
+		for (int entry_index = group_count - 1; entry_index >= 0; entry_index--)
+		{
+			spinlock::lock(&eptWatchList_lock);
+			EPTWatchEntry entry = eptWatchList[group_ids[entry_index]];
+			spinlock::unlock(&eptWatchList_lock);
+			int has = 0;
+			bool page_already_removed = false;
+			for (int previous = entry_index + 1; previous < group_count; previous++)
+			{
+				spinlock::lock(&eptWatchList_lock);
+				const bool same_page = eptWatchList[group_ids[previous]].PhysicalAddress ==
+					entry.PhysicalAddress;
+				spinlock::unlock(&eptWatchList_lock);
+				if (same_page)
+				{
+					page_already_removed = true;
+					break;
+				}
+			}
+
+			if (page_already_removed)
+			{
+				continue;
+			}
+
+			spinlock::lock(&eptWatchList_lock);
+			for (int other = 0; other < EPTWATCHLISTSIZE; other++)
+			{
+				if (eptWatchList[other].GroupId != group_id &&
+					ept_watch_entry_is_active(eptWatchList[other]) &&
+					GET_PFN(eptWatchList[other].PhysicalAddress) == GET_PFN(entry.PhysicalAddress))
+				{
+					has = 1;
+					if (eptWatchList[other].Type == entry.Type)
+					{
+						has = 2;
+						break;
+					}
+				}
+			}
+			spinlock::unlock(&eptWatchList_lock);
+
+			if (has == 2 && entry.bpType != 3)
+			{
+				continue;
+			}
+
+			for (unsigned int cpu = 0; cpu < cpu_count; cpu++)
+			{
+				__vcpu* vcpu = &g_vmm_context.vcpu[cpu];
+				if (!ept_watch_deactivate_internal(vcpu,
+					*vcpu->ept_state,
+					entry.VirtualAddress,
+					entry.PhysicalAddress,
+					entry.Type,
+					entry.bpType,
+					entry.OriginalByte,
+					has,
+					group_ids[entry_index]))
+				{
+					KeBugCheckEx(
+						0x00020001,
+						0x45505457,
+						2,
+						group_ids[entry_index],
+						cpu);
+				}
+			}
+		}
+
+		_mm_mfence();
+		invept_all_contexts_func();
+
+		for (int entry_index = 0; entry_index < group_count; entry_index++)
+		{
+			spinlock::lock(&eptWatchList_lock);
+			EPTWatchEntry entry = eptWatchList[group_ids[entry_index]];
+			clear_detected_breakpoint_for_watch_locked(entry.VirtualAddress);
+			eptWatchList[group_ids[entry_index]] = { 0 };
+			spinlock::unlock(&eptWatchList_lock);
+			Cr3TrackerRelease(entry.Cr3TrackerId);
+		}
+
 		spinlock::unlock(&eptWatchTransaction_lock);
 		return 0;
 	}

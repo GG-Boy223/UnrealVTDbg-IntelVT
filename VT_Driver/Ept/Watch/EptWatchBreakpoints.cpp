@@ -146,10 +146,7 @@ namespace ept
 						}
 					}
 
-					//写入cc断点
-					int offset = vmcallinfo.VirtualAddress & 0xFFF;
-					hooked_page_info->fake_page_contents[offset] = 0xCC;
-					// Installing 条目尚未对 VM-exit 可见，但本 VCPU 的 EPT commit 必须立即包含 INT3 执行权限。
+					// 安装阶段只准备 fake page 与 EPT 权限；0xCC 在来宾收到 watch ID 后统一提交。
 					apply_active_watch_permissions_locked(hooked_page_info, -1);
 					hooked_page_info->entry_address->execute = 0;
 
@@ -171,7 +168,8 @@ namespace ept
 			}
 
 			//将2MB页面分割为512个4KB页面
-			if (split_pml2(g_vmm_context.mtrr_info.mtrrs, ept_state, split_buffer, physical_address) == false)
+			const auto mtrrs = hv::read_mtrr_data();
+			if (split_pml2(mtrrs, ept_state, split_buffer, physical_address) == false)
 			{
 				pool_manager::release_pool(split_buffer);
 				LogError("Split failed");
@@ -237,21 +235,49 @@ namespace ept
 		//备份目标进程原页内容
 		if (!sync_int3_fake_page_from_guest(hooked_page_info, guest_cr3, vmcallinfo.VirtualAddress))
 		{
-			// 关键修复：失败路径要回收 hooked_page_info（旧代码这里直接 return false，导致池对象泄漏）。
+			target_page->read = 1;
+			target_page->write = 1;
+			target_page->execute = 1;
 			pool_manager::release_pool(hooked_page_info);
-			// 如果本次刚做了 runtime split 但未成功建立监视记录，则尝试回收 split。
 			if (runtime_split != nullptr)
 			{
 				ept_split_try_merge_and_release(ept_state, runtime_split);
 			}
+			_mm_mfence();
+			invept_single_context_func(ept_state.ept_pointer->all);
 			return false;
 		}
 
-		//写入cc断点
-		int offset = vmcallinfo.VirtualAddress & 0xFFF;
-		hooked_page_info->fake_page_contents[offset] = 0xCC;
-		// Track all hooked pages
+		ept_split_ref_inc(hooked_page_info->owner_split);
 		InsertHeadList(&ept_state.hooked_page_list, &hooked_page_info->hooked_page_list);
 		return true;
+	}
+
+	bool commit_hide_cc_breakpoint(
+		__ept_state& ept_state,
+		unsigned __int64 virtual_address,
+		unsigned __int64 physical_address)
+	{
+		PLIST_ENTRY current = &ept_state.hooked_page_list;
+		while (&ept_state.hooked_page_list != current->Flink)
+		{
+			current = current->Flink;
+			__ept_hooked_page_info* hooked_page_info = CONTAINING_RECORD(
+				current,
+				__ept_hooked_page_info,
+				hooked_page_list);
+
+			if (hooked_page_info->pfn_of_hooked_page != GET_PFN(physical_address) ||
+				hooked_page_info->Options != EPTO_VIRTUAL_BREAKPOINT)
+			{
+				continue;
+			}
+
+			const int offset = static_cast<int>(virtual_address & 0xFFF);
+			hooked_page_info->fake_page_contents[offset] = 0xCC;
+			return true;
+		}
+
+		return false;
 	}
 }

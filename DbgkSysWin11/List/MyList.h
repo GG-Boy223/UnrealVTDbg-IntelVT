@@ -7,11 +7,11 @@
 typedef struct _MY_LIST
 {
 	LIST_ENTRY ListHead;
-	ULONG Count; //用户队列的最大计数
+	ULONG Count; // 用户自定义数据
 } MY_LIST;
 
 VOID InitFunctionEventList();
-//初始化互斥锁和列表
+// 初始化函数事件列表
 VOID InitializeList(MY_LIST* list, PFAST_MUTEX FastMutex);
 VOID InsertNode(MY_LIST* list, LIST_ENTRY* entry);
 VOID RemoveNode(MY_LIST* list, LIST_ENTRY* entry);
@@ -21,10 +21,10 @@ ULONG GetListCount(MY_LIST* list);
 class CMyList
 {
 private:
-	DWORD m_FCount;  //记录元素个数
-	DWORD m_FCapacity;  //最大容量
+	DWORD m_FCount;  // 记录元素个数
+	DWORD m_FCapacity;  // 最大容量
 	FAST_MUTEX m_FLock;
-	PVOID* m_FList;  //底层数组存储区
+	PVOID* m_FList;  // 指向元素数组的指针
 
 public:
 	CMyList()
@@ -60,19 +60,19 @@ public:
 		return m_FCount;
 	}
 
-	//取出元素
+	// 取元素
 	PVOID Get(DWORD dwIndex)
 	{
 		if (dwIndex >= m_FCount)
 		{
-			////判断当前调用者是否是调试器进程
+			//// 检查前面数组元素是否已经初始化完成
 			//if (!IsDebugger(PsGetCurrentProcess()))
 			//{
-			//    //根据窗口句柄获得窗口对象
+			//    // 尝试获取窗口对象
 			//    PWND pwnd = Sys_ValidateHwnd(hwnd);
 			//    if (pwnd)
 			//    {
-			//        //根据线程对象获得进程对象
+			//        // 获取线程进程
 			//        PsGetThreadProcess((PETHREAD)pwnd->head.pti->pEThread);
 			//    }
 			//}
@@ -85,7 +85,7 @@ public:
 		}
 	}
 
-	//删除元素
+	// 删元素
 	VOID Delete(DWORD dwIndex)
 	{
 		if (dwIndex < m_FCount)
@@ -95,7 +95,7 @@ public:
 		}
 	}
 
-	//添加元素
+	// 增加元素
 	DWORD Add(PVOID Item)
 	{
 		if (m_FCount < m_FCapacity)
@@ -104,7 +104,7 @@ public:
 		}
 		else
 		{
-			//如果元素个数大于缓冲区则通过int3触发蓝屏
+			// 超过元素最大限制通过int3触发断点
 			DbgPrint("CMyList capacity exceeded: count=%lu capacity=%lu\n", m_FCount, m_FCapacity);
 		}
 		return m_FCount;

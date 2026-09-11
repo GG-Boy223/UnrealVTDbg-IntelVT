@@ -12,7 +12,3 @@ void vmexit_unimplemented(__vcpu* vcpu); // 前置声明 VM-exit 分支处理函
 void vmexit_failed(__vcpu* vcpu); // 前置声明 VM-exit 分支处理函数，便于后续分发调用
 bool vm_entry_event_pending();
 bool reinject_idt_vectoring_event_if_needed(__vcpu* vcpu);
-
-// 断点/调试处理
-unsigned __int32 handler_breakpoint(__ept_state& ept_state, __vmexit_interrupt_info interrupt_info);
-unsigned __int32 handler_debug(__ept_state& ept_state, __vmexit_interrupt_info interrupt_info);

@@ -1,6 +1,7 @@
 ﻿#include "../../Driver.h"
 #include "IoctlHandlerCommon.h"
 #include "../../Globals.h"
+#include "../../Cr3/Cr3Resolver.h"
 #include "../../../Common/Ring0/Inject/ApcInject/Api/ApcInjectRemoteThreadApi.h"
 
 void VerifyHookClient(IN PUSER_DATA userData, IN PIRP pIrp)
@@ -95,11 +96,7 @@ void GetProcessInfo(IN PUSER_DATA userData, IN PIRP pIrp)
             continue;
         }
 
-        size_t ptr_DirectoryTableBase = (size_t)Process + kprocess_offset::DirectoryTableBase;
-        if (ptr_DirectoryTableBase != 0)
-        {
-            output->cr3 = *(size_t*)ptr_DirectoryTableBase;
-        }
+        Cr3ResolveProcess(reinterpret_cast<PEPROCESS>(Process), 0, &output->cr3);
         ObDereferenceObject(Process); //释放进程对象
         break;
     }

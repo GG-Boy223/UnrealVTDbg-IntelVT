@@ -1,7 +1,13 @@
 ﻿#include "GlobalsInternal.h"
+#include <Ring0/Hvm/MtrrTypePolicy.h>
 
 namespace hv
 {
+    static_assert(mtrr::type_policy::uncacheable == MEMORY_TYPE_UNCACHEABLE);
+    static_assert(mtrr::type_policy::write_through == MEMORY_TYPE_WRITE_THROUGH);
+    static_assert(mtrr::type_policy::write_back == MEMORY_TYPE_WRITE_BACK);
+    static_assert(mtrr::type_policy::invalid == MEMORY_TYPE_INVALID);
+
     mtrr_data read_mtrr_data()
     {
         mtrr_data mtrrs;
@@ -54,15 +60,10 @@ namespace hv
             {
                 auto const type = static_cast<uint8_t>(mtrrs.variable[i].base.type); // 读取该范围内存类型
 
-                //判断是否是UC类型，如果是则立即返回
-                if (type == MEMORY_TYPE_UNCACHEABLE)
+                curr_mem_type = mtrr::type_policy::merge(curr_mem_type, type);
+                if (curr_mem_type == MEMORY_TYPE_UNCACHEABLE)
                 {
                     return MEMORY_TYPE_UNCACHEABLE;
-                }
-
-                if (type < curr_mem_type)
-                {
-                    curr_mem_type = type;
                 }
             }
         }
@@ -92,15 +93,10 @@ namespace hv
         {
             auto const type = calc_mtrr_mem_type(mtrrs, curr >> 12); // 逐页计算类型
 
-            //判断是否是UC类型，如果是则立即返回
-            if (type == MEMORY_TYPE_UNCACHEABLE)
+            curr_mem_type = mtrr::type_policy::merge(curr_mem_type, type);
+            if (curr_mem_type == MEMORY_TYPE_UNCACHEABLE)
             {
-                return type; // UC 优先级最高，直接返回
-            }
-
-            if (type < curr_mem_type)
-            {
-                curr_mem_type = type;
+                return MEMORY_TYPE_UNCACHEABLE; // UC 优先级最高，直接返回
             }
         }
 

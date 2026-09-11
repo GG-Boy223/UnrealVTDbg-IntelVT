@@ -158,24 +158,25 @@ VOID SetupHook_PspExitThread_CMP_Debugport() // 在 PspExitThread 内查找 Debu
     if (hookAddr == NULL)
     {
         outLog("hook PspExitThread_CMP_Debugport_01 target cmp not found.");
-        //是我们自己的调试器要创建线程，则直接返回不走线程回调
-        return; // 未找到候选指令时不安装 hook。
+        return;
     }
 
     if (!MmIsAddressValid(hookAddr) || !MmIsAddressValid(hookAddr + sizeof(code) - 1))
     {
         outLog("hook PspExitThread_CMP_Debugport_01 target cmp address invalid.");
-        //是我们自己的调试器要创建线程，则直接返回不走线程回调
-        return; // 候选地址不可读时退出，避免内核异常。
+        return;
     }
 
-    //判断指令是否是cmp
     if ((hookAddr[0] == 0x49) &&
         (hookAddr[1] == 0x39) &&
         (*(WORD*)&hookAddr[3] == eprocess_offset::DebugPort))
     {
-        //得到cmp的下一条指令
-        PspExitThread_jcc_instruction = (unsigned __int64)((unsigned __int64)hookAddr + (unsigned __int64)(LDE((unsigned __int8*)hookAddr, 64))); // 保存 cmp 后继地址，供汇编代理返回。
+        PspExitThread_jcc_instruction = (unsigned __int64)((unsigned __int64)hookAddr + (unsigned __int64)(LDE((unsigned __int8*)hookAddr, 64)));
+        if (PspExitThread_jcc_instruction == 0)
+        {
+            outLog("hook PspExitThread_CMP_Debugport_01 jcc instruction is NULL after LDE.");
+            return;
+        }
         if (hvgt::hook_function(hookAddr, Asm_PspExitThread_CMP_Debugport_01, NULL))
         {
             outLog("\x68\x6F\x6F\x6B\x20\x50\x73\x70\x45\x78\x69\x74\x54\x68\x72\x65\x61\x64\x5F\x43\x4D\x50\x5F\x44\x65\x62\x75\x67\x70\x6F\x72\x74\x5F\x30\x31\xB3\xC9\xB9\xA6\x2E");

@@ -16,7 +16,16 @@ namespace
     }
 #endif
 
-    bool IsAnyVcpuActive()
+    NTSTATUS DriverEntryFailure(const NTSTATUS status)
+    {
+        Cr3TrackerStopWorker();
+#ifdef _DEBUG_Key_Log
+        StopInitOffsetLogThread();
+#endif
+        return status;
+    }
+
+    bool AreAllVcpusLaunched()
     {
         if (g_vmm_context.vcpu == nullptr || g_vmm_context.processor_count == 0)
         {
@@ -25,14 +34,13 @@ namespace
 
         for (unsigned int i = 0; i < g_vmm_context.processor_count; ++i)
         {
-            if (g_vmm_context.vcpu[i].vcpu_status.vmm_launched != 0 ||
-                g_vmm_context.vcpu[i].vcpu_status.vmx_on != 0)
+            if (g_vmm_context.vcpu[i].vcpu_status.vmm_launched == 0)
             {
-                return true;
+                return false;
             }
         }
 
-        return false;
+        return true;
     }
 }
 
@@ -45,8 +53,20 @@ VOID Unload(PDRIVER_OBJECT DriverObject) // 驱动卸载入口，释放虚拟化
     StopInitOffsetLogThread(); // 先停止驱动内线程，避免卸载后线程继续执行已卸载代码
 #endif
 
-    if (IsAnyVcpuActive())
+    Cr3TrackerStopWorker();
+
+    const auto lifecycle_state = g_vmm_context.lifecycle_state;
+    if (lifecycle_state == hv::vmm_release_policy::lifecycle_state::running)
     {
+        if (!AreAllVcpusLaunched())
+        {
+            vmx_fatal_error(
+                vmx_fatal_vmxoff_broadcast,
+                g_vmm_context.processor_count,
+                static_cast<unsigned __int64>(lifecycle_state));
+        }
+
+        g_vmm_context.lifecycle_state = hv::vmm_release_policy::lifecycle_state::stopping;
         if (!hvgt::ept_unhook())
         {
             outDebug("EPT 反向解绑未完全成功，继续执行 VMXOFF 清理。\n");
@@ -59,9 +79,20 @@ VOID Unload(PDRIVER_OBJECT DriverObject) // 驱动卸载入口，释放虚拟化
                 g_vmm_context.processor_count,
                 0);
         }
+
+        g_vmm_context.lifecycle_state = hv::vmm_release_policy::lifecycle_state::stopped;
+    }
+    else if (lifecycle_state == hv::vmm_release_policy::lifecycle_state::stopping)
+    {
+        vmx_fatal_error(
+            vmx_fatal_vmxoff_broadcast,
+            g_vmm_context.processor_count,
+            static_cast<unsigned __int64>(lifecycle_state));
     }
 
-    hv::disable_vmx_operation(); // 关闭全局VMX使能，防止后续路径误用VMX指令
+    hv::disable_vmx_operation(); // 关闭当前CPU的VMX使能，其他CPU已由受检VMXOFF恢复来宾CR4
+    Cr3TrackerDumpTelemetry();
+    Cr3TrackerReset();
     free_vmm_context(); // 释放VMM上下文与相关内存
 
     KdPrint(("Driver Unload!!!\n")); // 输出卸载完成提示
@@ -80,6 +111,7 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
 
     g_vt_driver_image_base = DriverObject->DriverStart; // 记录驱动镜像范围，后续补映射Host关键代码页，不作为VT进入条件。
     g_vt_driver_image_size = DriverObject->DriverSize;
+    Cr3TrackerReset();
     outFile("[信息][DriverEntry] VT驱动镜像：Base=0x%p Size=0x%llX",
         g_vt_driver_image_base,
         g_vt_driver_image_size);
@@ -125,9 +157,16 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
         {
             outFile("[失败] 当前处理器不支持或未开启VMX虚拟化");
             outDebug("VMX operation is not supported on this processor.\n");
-            return STATUS_UNSUCCESSFUL; // 返回失败状态
+            return DriverEntryFailure(STATUS_UNSUCCESSFUL); // 返回失败状态
         }
         outFile("[成功] VMX虚拟化支持检查通过");
+
+        if (!hv::required_vmx_capabilities_supported())
+        {
+            outFile("[失败] 当前处理器缺少本实现所需的EPT/VPID能力");
+            outDebug("Required EPT/VPID capabilities are not supported.\n");
+            return DriverEntryFailure(STATUS_NOT_SUPPORTED);
+        }
 
         outFile("---------- 阶段3：保存Guest初始全局状态 ----------");
         hv::InitGlobalVariables(); // 初始化全局虚拟化相关状态与数据，保证后续流程依赖的全局值有效
@@ -140,7 +179,7 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
             free_vmm_context(); // 释放VMM上下文和已分配资源
             outDebug("VMM 初始化失败"); // 输出初始化失败提示
             outFile("========== VT加载失败：VMM初始化失败 ==========");
-            return STATUS_UNSUCCESSFUL; // 返回失败状态
+            return DriverEntryFailure(STATUS_UNSUCCESSFUL); // 返回失败状态
         }
         outFile("[成功] VMM初始化完成，所有目标CPU已进入VT链路");
         outDebug("驱动加载成功!!!\n"); // 输出驱动加载成功提示
@@ -152,5 +191,5 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
         outDebug("驱动加载失败!!!\n"); // 输出驱动加载失败提示
         outFile("========== VT加载失败：内核符号初始化失败 ==========");
     }
-    return nStatus; // 返回最终状态给系统
+    return NT_SUCCESS(nStatus) ? nStatus : DriverEntryFailure(nStatus); // 返回最终状态给系统
 }

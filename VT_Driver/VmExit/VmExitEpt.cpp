@@ -1,9 +1,14 @@
 ﻿#include "VmExitEpt.h"
+#include "../Cr3/Cr3Tracker.h"
 
 void vmexit_ept_misconfiguration_handler(__vcpu* vcpu) // 处理 EPT 配置错误（misconfiguration）导致的 VM-exit
 {
 	sLog("\n"); // 日志占位，用于调试定位
 	auto const phys = hv::vmread(GUEST_PHYSICAL_ADDRESS); // 读取导致错误的客户机物理地址（GPA）
+	vmx_fatal_error(
+		vmx_fatal_ept_misconfiguration,
+		phys,
+		vcpu != nullptr ? vcpu->vmexit_info.qualification : 0);
 }
 
 //处理 EPT Violation 退出：根据读/写/执行违规类型处理 EPT 断点/函数钩子，并同步修改后的 EPT 条目
@@ -60,6 +65,7 @@ void vmexit_ept_violation_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 							_mm_mfence(); // 原理：内存栅栏确保页表修改先于后续访问；作用：避免乱序导致权限不一致；结果：修改有序生效
 							invept_single_context_func(vcpu->ept_state->ept_pointer->all); // 原理：刷新当前 EPT 上下文的 TLB 缓存；作用：让新 PML1 条目生效；结果：旧缓存失效
 						}
+						return;
 					}
 				}
 
@@ -76,17 +82,44 @@ void vmexit_ept_violation_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 						hooked_page_info->entry_address,
 						hooked_page_info->original_entry,
 						invept_type::invept_single_context);
+					return;
 				}
 			}
 			else if (ept_violation.execute_access && (ept_violation.ept_readable || ept_violation.ept_writeable)) // 原理：执行违规表示尝试执行不可执行页；作用：处理执行型钩子/断点；结果：切换到可执行条目
 			{
 				if (hooked_page_info->Options == EPTO_VIRTUAL_BREAKPOINT)
 				{
-					//交换物理页面并刷新tlb
-					ept::swap_pml1_and_invalidate_tlb(*vcpu->ept_state, // 原理：交换 EPT PML1 条目并失效 TLB；作用：让权限变更立即生效；结果：访问规则更新
-						hooked_page_info->entry_address,
-						hooked_page_info->changed_entry,
-						invept_type::invept_single_context);
+					// 普通 EXECUTE watch 没有 fake page；放行当前指令并用 MTF 恢复组合权限。
+					if (hooked_page_info->changed_entry.page_frame_number == 0)
+					{
+						int bpType = 0;
+						if (ept::ept_handleWatchEvent(
+							vcpu,
+							ept_violation,
+							hooked_page_info,
+							guest_physical_adddress,
+							bpType))
+						{
+							if (!hv::mark_pending_mtf_page(vcpu, hooked_page_info))
+							{
+								return;
+							}
+							_mm_mfence();
+							invept_single_context_func(vcpu->ept_state->ept_pointer->all);
+							return;
+						}
+						break;
+					}
+
+					Cr3TrackerObserve(hv::vmread(GUEST_CR3));
+					if (ept::ept_handle_int3_execute(
+						vcpu,
+						hooked_page_info,
+						guest_physical_adddress))
+					{
+						return;
+					}
+					break;
 				}
 
 				if (hooked_page_info->Options == EPTO_HOOK_FUNCTION) // 原理：函数钩子需要在执行/读写时切换页权限；作用：区分钩子类型；结果：进入函数钩子处理
@@ -96,10 +129,16 @@ void vmexit_ept_violation_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 						hooked_page_info->entry_address,
 						hooked_page_info->changed_entry,
 						invept_type::invept_single_context);
+					return;
 				}
 			}
 
 			break;
 		}
 	}
+
+	vmx_fatal_error(
+		vmx_fatal_unhandled_ept_violation,
+		guest_physical_adddress,
+		ept_violation.all);
 }

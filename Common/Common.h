@@ -85,10 +85,10 @@ namespace Common
 	std::wstring wcharToWideString(const wchar_t* wcharStr);
 	//char*תwchar_t*
 	std::wstring ConvertCharToWchar(const char* charStr);
-	//gbk转utf8
-	std::string GbkToUTF8(const std::string& gbkString);
-	//将utf8编码的字符串转换为GBK编码
-	std::string utf8ToGbk(const std::string& utf8String);
+	//转utf8
+	std::string ToUTF8(const std::string& String);
+	//将utf8编码的字符串转换为编码
+	std::string utf8To(const std::string& utf8String);
 	//将utf8编码的字符串转换为Unicode编码
 	std::wstring utf8ToUnicode(const std::string& utf8String);
 	//本地代码页转std::wstring

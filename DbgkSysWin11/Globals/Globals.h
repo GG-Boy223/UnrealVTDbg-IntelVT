@@ -234,14 +234,14 @@ typedef struct _WINDOW_DATA
 
 typedef struct _PROTECTOBJ
 {
-    MY_LIST list_entry;    //保护对象列表
-    FAST_MUTEX Mutex;          //互斥锁
+    MY_LIST list_entry;    //���������б�
+    FAST_MUTEX Mutex;          //������
 }PROTECTOBJ, * PPROTECTOBJ;
 
 typedef struct _DEBUGGER_TABLE
 {
-    MY_LIST list_entry;        //指向DEBUGGER_DATA对象
-    FAST_MUTEX Mutex;          //互斥锁
+    MY_LIST list_entry;        //ָ��DEBUGGER_DATA����
+    FAST_MUTEX Mutex;          //������
 }DEBUGGER_TABLE, * PDEBUGGER_TABLE;
 
 //
@@ -249,15 +249,15 @@ typedef struct _DEBUGGER_TABLE
 //
 typedef struct _DEBUG_OBJECT
 {
-    KEVENT EventsPresent;        //当事件列表非空时设置的事件
-    FAST_MUTEX Mutex;            //互斥锁
-    LIST_ENTRY EventList;        //调试事件的队列
+    KEVENT EventsPresent;        //���¼��б������ʱ���õ��¼���
+    FAST_MUTEX Mutex;            //������
+    LIST_ENTRY EventList;        //�����¼��Ķ���
     ULONG Flags;
 } DEBUG_OBJECT, * PDEBUG_OBJECT;
 
 typedef struct _MINI_CONTEXT_WOW64
 {
-    BOOLEAN initializated;  //用于判断shadow context是否已经初始化
+    BOOLEAN initializated;  //�û��ж�shadow context�Ƿ��Ѿ���ʼ��
     unsigned long Dr0;
     unsigned long Dr1;
     unsigned long Dr2;
@@ -276,7 +276,7 @@ typedef struct _MINI_CONTEXT_WOW64
 
 typedef struct _MINI_CONTEXT
 {
-    BOOLEAN initializated;  //用于判断shadow context是否已经初始化
+    BOOLEAN initializated;  //�û��ж�shadow context�Ƿ��Ѿ���ʼ��
     ULONG64 Dr0;
     ULONG64 Dr1;
     ULONG64 Dr2;
@@ -286,14 +286,14 @@ typedef struct _MINI_CONTEXT
     ULONG EFlags;
 }MINI_CONTEXT, * PMINI_CONTEXT;
 
-//调试进程对象
+//���Խ��̶���
 //调试进程对象
 typedef struct _DEBUG_PROCESS
 {
     LIST_ENTRY list_entry;
-    FAST_MUTEX Mutex;          //互斥锁
-    _EPROCESS* Process;  //进程对象
-    PDEBUG_OBJECT DebugObject;  //调试对象
+    FAST_MUTEX Mutex;          //������
+    _EPROCESS* Process;  //���̶���
+    PDEBUG_OBJECT DebugObject;  //���Զ���
     BOOLEAN DebugObjectReferenced;
     MINI_CONTEXT Context;
     MINI_CONTEXT_WOW64 wow64Context;
@@ -301,26 +301,26 @@ typedef struct _DEBUG_PROCESS
 
 typedef struct _DEBUG_PROCESS_TABLE
 {
-    MY_LIST list_entry;    //指向DEBUG_PROCESS对象
-    FAST_MUTEX Mutex;          //互斥锁
+    MY_LIST list_entry;    //ָ��DEBUG_PROCESS����
+    FAST_MUTEX Mutex;          //������
 }DEBUG_PROCESS_TABLE, * PDEBUG_PROCESS_TABLE;
 
 
 typedef struct _BREAKPOINT_TABLE_ENTRY
 {
     LIST_ENTRY list_entry;
-    _EPROCESS* Process;  //进程对象
-    PVOID BreakpointAddress;  //断点地址
-    //BYTE firstByte;  //首字节内容
-    //BYTE originalByte  //原始字节内容
+    _EPROCESS* Process;  //���̶���
+    PVOID BreakpointAddress;  //�ϵ��ַ
+    //BYTE firstByte;  //���ֽ�����
+    //BYTE originalByte  //ԭʼ�ֽ�����
 //BYTE firstByte;  //首字节内容
 //BYTE originalByte  //原始字节内容
 }BREAKPOINT_TABLE_ENTRY, * PBREAKPOINT_TABLE_ENTRY;
 
 typedef struct _BREAKPOINT_TABLE
 {
-    MY_LIST list_entry;  //指向BREAKPOINT_TABLE_ENTRY
-    FAST_MUTEX Mutex;          //互斥锁
+    MY_LIST list_entry;  //ָ��BREAKPOINT_TABLE_ENTRY
+    FAST_MUTEX Mutex;          //������
 }BREAKPOINT_TABLE, * PBREAKPOINT_TABLE;
 
 typedef struct _MDL_MAP
@@ -330,7 +330,7 @@ typedef struct _MDL_MAP
     PVOID VirtualAddress;
 }MDL_MAP, * PMDL_MAP;
 
-//虚拟句柄表
+//��������
 //虚拟句柄表
 typedef struct _VIRTUAL_HANDLE_TABLE_ENTRY
 {
@@ -343,20 +343,20 @@ typedef struct _VIRTUAL_HANDLE_TABLE_ENTRY
 
 typedef struct _VIRTUAL_HANDLE_TABLE
 {
-    MY_LIST list_entry;    //指向DEBUG_PROCESS对象
-    FAST_MUTEX Mutex;          //互斥锁
+    MY_LIST list_entry;    //ָ��DEBUG_PROCESS����
+    FAST_MUTEX Mutex;          //������
 }VIRTUAL_HANDLE_TABLE, * PVIRTUAL_HANDLE_TABLE;
 
 typedef struct _DEBUGGER_TABLE_ENTRY
 {
     LIST_ENTRY list_entry;
-    DWORD dwPid;          //调试器的进程id
-    PTR64(TCHAR*) fileData;  //文件信息
-    PTR64(TCHAR*) fileData2;  //文件信息
+    DWORD dwPid;          //�������Ľ���id
+    PTR64(TCHAR*) fileData;  //�ļ���Ϣ
+    PTR64(TCHAR*) fileData2;  //�ļ���Ϣ
 }DEBUGGER_TABLE_ENTRY, * PDEBUGGER_TABLE_ENTRY;
 
 
-/*===============================================类描述===============================================*/
+/*===============================================������===============================================*/
 // /*===============================================类描述===============================================*/
 class CDebuggerList : public CMyList
 {
@@ -399,21 +399,21 @@ private:
 
 
 
-extern PULONG_PTR PspProcessSequenceNumber;               //进程序列号
-extern _EPROCESS* DbgkTargetProcess;                      //调试目标
-extern _EPROCESS* ProtectProcessEp;                       //被保护的进程
-extern POBJECT_TYPE* DbgkDebugObjectType;                    //调试对象类型
-extern POBJECT_TYPE          Hvm_DbgkDebugObjectType;                //自建的调试对象类型
+extern PULONG_PTR PspProcessSequenceNumber;               //�������к�
+extern _EPROCESS* DbgkTargetProcess;                      //����Ŀ��
+extern _EPROCESS* ProtectProcessEp;                       //�������Ľ���
+extern POBJECT_TYPE* DbgkDebugObjectType;                    //���Զ�������
+extern POBJECT_TYPE          Hvm_DbgkDebugObjectType;                //�Խ��ĵ��Զ�������
 extern PVOID                 g_DbgkOriginalCloseProcedure;
 extern POBJECT_TYPE* ObTypeIndexTable;
-extern FAST_MUTEX            DbgkpProcessDebugPortMutex;             //进程调试端口互斥锁
+extern FAST_MUTEX            DbgkpProcessDebugPortMutex;             //���̵��Զ˿ڻ�����
 extern FAST_MUTEX            LongFlagsMutex;
 extern PRKEVENT* DbgkErrorPortRegisteredEvent;
 extern PDBGKP_ERROR_PORT     DbgkpErrorPort;
 extern EX_PUSH_LOCK          DbgkpErrorPortLock;
 extern _EPROCESS** DbgkpErrorProcess;
 extern BOOLEAN               IsDbgk;
-extern ULONG                 Ssdtbase;                               //SSDT地址
+extern ULONG                 Ssdtbase;                               //SSDT��ַ
 extern PVOID                 PspSystemDllBase;
 extern PBOOLEAN              PsImageNotifyEnabled;
 extern EPROCESS_QUOTA_BLOCK  PspDefaultQuotaBlock;
@@ -425,35 +425,35 @@ extern PVOID                 KeUserExceptionDispatcher;              //ntdll.KiU
 extern PULONG                KeFeatureBits;
 extern PULONG_PTR            KeEnabledXStateFeatures;
 extern UNICODE_STRING        PsNtDllPathName;
-extern BOOLEAN               g_IsInitGlobalVariable;                 //初始化全局变量
-extern volatile LONG         g_DbgkDriverUnloading;                  //驱动正在卸载，拒绝新的IOCTL
-extern volatile LONG         g_DbgkActiveIoctlCount;                 //正在执行的IOCTL数量
+extern BOOLEAN               g_IsInitGlobalVariable;                 //��ʼ��ȫ�ֱ���
+extern volatile LONG         g_DbgkDriverUnloading;                  //��������ж�أ��ܾ��µ�IOCTL
+extern volatile LONG         g_DbgkActiveIoctlCount;                 //����ִ�е�IOCTL����
 extern volatile LONG         g_DbgkActiveRuntimeCallCount;           // Active hook/debug callback count during unload drain
 extern PEX_PUSH_LOCK         PspActiveProcessLock;
-extern PLIST_ENTRY           PsActiveProcessHead;                    //活动进程列表
+extern PLIST_ENTRY           PsActiveProcessHead;                    //������б�
 extern LARGE_INTEGER* PspShortTime;
-extern PEX_CALLBACK          PspCreateThreadNotifyRoutine;           //线程通知回调函数数组
-extern PEX_CALLBACK          PspCreateProcessNotifyRoutine;          //进程通知回调函数数组
+extern PEX_CALLBACK          PspCreateThreadNotifyRoutine;           //�߳�֪ͨ�ص�����������
+extern PEX_CALLBACK          PspCreateProcessNotifyRoutine;          //����֪ͨ�ص�����������
 extern PULONG                PspNotifyEnableMask;
 extern PULONG                PerfGlobalGroupMask;
 extern PVOID* PspSystemDlls;
 extern PVOID                 g_obProcessHandle;
-extern _EPROCESS* g_ProtectTargetProcess;                 //需要保护的目标进程
-extern PROTECTOBJ            g_ProtectFileObjList;                   //保护的文件对象列表
-extern PROTECTOBJ            g_ProtectWndObjList;                    //保护的窗口对象列表
-extern DEBUGGER_TABLE g_DebuggerList;                         //调试器列表
-extern DEBUG_PROCESS_TABLE g_DebugProcessList;                     //被调试的进程列表
+extern _EPROCESS* g_ProtectTargetProcess;                 //��Ҫ������Ŀ�����
+extern PROTECTOBJ            g_ProtectFileObjList;                   //�������ļ������б�
+extern PROTECTOBJ            g_ProtectWndObjList;                    //�����Ĵ��ڶ����б�
+extern DEBUGGER_TABLE g_DebuggerList;                         //����������
+extern DEBUG_PROCESS_TABLE g_DebugProcessList;                     //�����ԵĽ����б�
 extern DEBUG_PROCESS_TABLE g_DebugProcessUnloadList;               // Debug process entries waiting for unload drain
-extern _EPROCESS* g_SelfProcess;                          //驱动自身关联的进程
-extern BREAKPOINT_TABLE      g_BreakpointList;                       //断点列表
-extern VIRTUAL_HANDLE_TABLE  g_VirtualHandleList;                    //虚拟句柄列表
+extern _EPROCESS* g_SelfProcess;                          //�����Լ��Ľ���
+extern BREAKPOINT_TABLE      g_BreakpointList;                       //�ϵ��б�
+extern VIRTUAL_HANDLE_TABLE  g_VirtualHandleList;                    //�������б�
 extern LONG                  g_TL_Game_pid;
 
 
 
 
 
-/**************************** 函数指针 ****************************/
+/**************************** ����ָ�� ****************************/
 // /**************************** 函数指针 ****************************/
 typedef NTSTATUS(NTAPI* PFN_OBDUPLICATEOBJECT)(
     IN _EPROCESS* SourceProcess,
@@ -722,7 +722,7 @@ typedef NTSTATUS(__fastcall* PFN_NTGETCONTEXTTHREAD)(_In_ HANDLE hThread, _Inout
 
 typedef NTSTATUS(__fastcall* PFN_NTSETCONTEXTTHREAD)(
     __in HANDLE ThreadHandle,
-    __in PCONTEXT ThreadContext  /*此参数是用户提供的缓冲区*/
+    __in PCONTEXT ThreadContext  /*�˲������û����ṩ�Ļ�����*/
     // __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
     );
 
@@ -1110,17 +1110,17 @@ typedef VOID(__fastcall* PFN_ADDRESS)();
 
 
 
-extern PFN_OBDUPLICATEOBJECT ObDuplicateObject;  //复制对象
+extern PFN_OBDUPLICATEOBJECT ObDuplicateObject;  //���ƶ���
 extern PFN_KERESUMETHREAD KeResumeThread;
 extern PFN_KESUSPENDTHREAD KeSuspendThread;
 extern PFN_KEFORCERESUMETHREAD KeForceResumeThread;
 extern PFN_KEFREEZEALLTHREADS KeFreezeAllThreads;
 extern PFN_KETHAWALLTHREADS KeThawAllThreads;
-extern PFN_PSGETNEXTPROCESSTHREAD PsGetNextProcessThread; //获取进程的下一个线程
-extern PFN_PSQUITNEXTPROCESSTHREAD PsQuitNextProcessThread; //释放线程对象引用
-extern PFN_MMGETFILENAMEFORADDRESS MmGetFileNameForAddress; //通过地址获取文件名
-extern PFN_MMGETFILENAMEFORSECTION MmGetFileNameForSection; //通过节对象获取文件名
-extern PFN_LPCREQUESTWAITREPLYPORTEX LpcRequestWaitReplyPortEx; //向端口发送请求并等待回复
+extern PFN_PSGETNEXTPROCESSTHREAD PsGetNextProcessThread; //��ȡ���̵���һ���߳�
+extern PFN_PSQUITNEXTPROCESSTHREAD PsQuitNextProcessThread; //�̶߳���������
+extern PFN_MMGETFILENAMEFORADDRESS MmGetFileNameForAddress; //ͨ����ַ��ȡ������Ϣ
+extern PFN_MMGETFILENAMEFORSECTION MmGetFileNameForSection; //ͨ���ڶ����ȡ������Ϣ
+extern PFN_LPCREQUESTWAITREPLYPORTEX LpcRequestWaitReplyPortEx; //����˿�
 extern PFN_KECONTEXTFROMKFRAMES KeContextFromKframes;
 extern PFN_KECONTEXTTOKFRAMES KeContextToKframes;
 extern PFN_KICHECKFORATLTHUNK KiCheckForAtlThunk;
@@ -1128,7 +1128,7 @@ extern PFN_KISEGSSTOTRAPFRAME KiSegSsToTrapFrame;
 extern PFN_KIESPTOTRAPFRAME KiEspToTrapFrame;
 extern PFN_KIDEBUGROUTINE KiDebugRoutine;
 extern PFN_RTLDISPATCHEXCEPTION RtlDispatchException;
-extern PFN_PSCALLIMAGENOTIFYROUTINES PsCallImageNotifyRoutines;  //调用映像通知回调函数
+extern PFN_PSCALLIMAGENOTIFYROUTINES PsCallImageNotifyRoutines;  //����ӳ��ص�����
 extern PFN_OBGETPROCESSHANDLECOUNT ObGetProcessHandleCount;
 extern PFN_PSGETPROCESSSESSIONID PsGetProcessSessionId;
 extern PFN_OBISLUIDDEVICEMAPSENABLED ObIsLUIDDeviceMapsEnabled;
@@ -1328,7 +1328,7 @@ extern PFN_SEPDELETEACCESSSTATE SepDeleteAccessState;
 
 
 
-//全局变量
+//ȫ�ֱ���
 //全局变量
 extern PVOID PspLoaderInitRoutine;
 extern unsigned __int64 game_cr3;
@@ -1504,7 +1504,7 @@ VOID
 FORCEINLINE
 KeEnterGuardedRegionThread(IN PKTHREAD Thread)
 {
-    //下面代码等价于Thread->SpecialApcDisable -= 1;
+    //���´�����������Thread->SpecialApcDisable -= 1;
     //以下代码描述的是Thread->SpecialApcDisable -= 1;
     size_t ptr_SpecialApcDisable = (size_t)Thread + kthread_offset::SpecialApcDisable;
     *(short*)ptr_SpecialApcDisable -= 1;
@@ -1634,7 +1634,7 @@ KeLeaveGuardedRegionThread(IN PKTHREAD Thread)
 //}
 VOID
 FORCEINLINE
-PspLockProcessShared(IN PMY_EPROCESS Process,  //进程共享锁
+PspLockProcessShared(IN PMY_EPROCESS Process,  //���̹�����
     IN PMY_ETHREAD CurrentThread)
 {
     KeEnterCriticalRegionThread(&CurrentThread->Tcb);
@@ -1808,7 +1808,7 @@ PspUnlockDbgkpErrorPortShared(IN PMY_ETHREAD CurrentThread)
 //}
 VOID
 FORCEINLINE
-PspLockProcessExclusive(IN PMY_EPROCESS Process,   //进程独占锁
+PspLockProcessExclusive(IN PMY_EPROCESS Process,   //���̶�ռ��
     IN PMY_ETHREAD CurrentThread)
 {
     KeEnterCriticalRegionThread(&CurrentThread->Tcb);
@@ -1898,7 +1898,7 @@ PspUnlockProcessExclusive(IN PEPROCESS Process,
 //}
 VOID
 FORCEINLINE
-PspLockProcessListExclusive(IN PETHREAD CurrentThread)  //锁定活动进程列表
+PspLockProcessListExclusive(IN PETHREAD CurrentThread)  //��ס������б�
 {
     size_t kthread_base = (size_t)CurrentThread + ethread_offset::Tcb;
     KeEnterGuardedRegionThread((PKTHREAD)kthread_base);
@@ -1951,7 +1951,7 @@ PspUnlockProcessList(IN PETHREAD CurrentThread)
 
 //VOID
 //FORCEINLINE
-//PspLockSystemDllShared(IN _ETHREAD* CurrentThread,   //系统dll共享锁
+//PspLockSystemDllShared(IN _ETHREAD* CurrentThread,   //ϵͳdll������
 //    IN PSP_SYSTEM_DLL SystemDll)
 //{
 //    KeEnterCriticalRegionThread(&CurrentThread->Tcb);

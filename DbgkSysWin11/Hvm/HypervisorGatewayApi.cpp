@@ -36,6 +36,16 @@ namespace hvgt
 		}
 	}
 
+	bool synchronize_cr3_exit_policy()
+	{
+		volatile SHORT statuses = 0;
+		KeGenericCallDpc(
+			broadcast_sync_cr3_exit_policy,
+			const_cast<SHORT*>(&statuses));
+		return static_cast<ULONG>(statuses) ==
+			KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS);
+	}
+
 	/// <summary>
 	/// Set/Unset presence of hypervisor
 	/// </summary>
@@ -115,10 +125,60 @@ namespace hvgt
 	/// </summary>
 	bool hook_function(void* target_address, void* proxy_function, void** origin_function)
 	{
-		HookFunctionArgs args{ target_address, proxy_function, origin_function, __readcr3(), 0 };
+		const ULONG processor_count = KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS);
+		if (processor_count == 0)
+		{
+			return false;
+		}
+
+		const SIZE_T committed_bytes =
+			static_cast<SIZE_T>(processor_count) * sizeof(LONG);
+		auto committed_processors = static_cast<volatile LONG*>(ExAllocatePool2(
+			POOL_FLAG_NON_PAGED,
+			committed_bytes,
+			'EHpU'));
+		if (committed_processors == nullptr)
+		{
+			return false;
+		}
+		RtlZeroMemory(const_cast<LONG*>(committed_processors), committed_bytes);
+
+		HookFunctionArgs args{
+			target_address,
+			proxy_function,
+			origin_function,
+			__readcr3(),
+			0,
+			0,
+			committed_processors,
+			processor_count,
+			0
+		};
 		KeGenericCallDpc(broadcast_hook_function, &args);
 
-		return static_cast<ULONG>(args.statuses) == KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS);
+		const ULONG successful_hooks = static_cast<ULONG>(args.statuses);
+		if (successful_hooks == processor_count)
+		{
+			ExFreePoolWithTag(const_cast<LONG*>(committed_processors), 'EHpU');
+			return true;
+		}
+
+		if (successful_hooks != 0)
+		{
+			for (int attempt = 0;
+				attempt < 3 && static_cast<ULONG>(args.rollback_statuses) != successful_hooks;
+				++attempt)
+			{
+				KeGenericCallDpc(broadcast_rollback_hook_function, &args);
+			}
+		}
+		if (origin_function != nullptr)
+		{
+			*origin_function = nullptr;
+		}
+
+		ExFreePoolWithTag(const_cast<LONG*>(committed_processors), 'EHpU');
+		return false;
 	}
 
 	// 广播给所有逻辑处理器。

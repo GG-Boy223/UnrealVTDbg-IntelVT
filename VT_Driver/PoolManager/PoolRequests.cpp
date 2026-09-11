@@ -11,6 +11,7 @@ namespace pool_manager
     /// </summary>
     bool request_allocation(unsigned __int64 size, unsigned __int32 count, allocation_intention intention)
     {
+        bool request_queued = false;
         spinlock::lock(&g_vmm_context.pool_manager->lock_for_request_allocation);
 
         for (unsigned __int64 i = 0; i < 10; i++)
@@ -21,12 +22,13 @@ namespace pool_manager
                 g_vmm_context.pool_manager->allocation_requests->size[i] = size;
                 g_vmm_context.pool_manager->allocation_requests->intention[i] = intention;
                 g_vmm_context.pool_manager->is_request_for_allocation_recived = true;
+                request_queued = true;
                 break;
             }
         }
 
         spinlock::unlock(&g_vmm_context.pool_manager->lock_for_request_allocation);
-        return g_vmm_context.pool_manager->is_request_for_allocation_recived;
+        return request_queued;
     }
 
     /// <summary>

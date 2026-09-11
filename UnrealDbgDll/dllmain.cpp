@@ -566,29 +566,35 @@ BOOL Initialize_F3(ULONG64 key)   //初始化驱动 key用户  驱动对比
         return false;
     }
 
-    BOOL boSuccess = TRUE;
 	std::wstring processPath = FileSystem::GetModuleDirectory(NULL);
     //VMProtectEnd();
 
-	if (_Initialize(processPath.c_str()))  //加载驱动
+	if (!_Initialize(processPath.c_str()))  //加载驱动
 	{
-		//驱动初始化成功的处理逻辑
-        //Common::ReportSeriousError("阻塞");
-        if (InitSymbolsTable(key))
-        {
-            SendDebuggerDataToDriver(GetCurrentProcessId());
-        }
-        else
-        {
-            // 处理打开进程失败的情况
-            return false;
-        }
-        std::thread HeartBeatThread(HeartBeat); HeartBeatThread.detach();
-
+        logger.outDebug(_xor_(L"驱动初始化失败"));
+        (void)UnInitialize();
+        return FALSE;
 	}
 
+    if (!InitSymbolsTable(key))
+    {
+        logger.outDebug(_xor_(L"符号表初始化失败"));
+        (void)UnInitialize();
+        return FALSE;
+    }
+
+    if (!SendDebuggerDataToDriver(GetCurrentProcessId()))
+    {
+        logger.outDebug(_xor_(L"宿主调试器登记失败"));
+        (void)UnInitialize();
+        return FALSE;
+    }
+
+    std::thread HeartBeatThread(HeartBeat);
+    HeartBeatThread.detach();
+
     logger.outDebug(_xor_(L"初始化成功"));
-    return boSuccess;
+    return TRUE;
 }
 
 

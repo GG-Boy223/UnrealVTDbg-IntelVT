@@ -101,7 +101,7 @@ namespace ept
 	void apply_active_watch_permissions_locked(__ept_hooked_page_info* hooked_page_info, int ignoredID = -1);
 
 	//设置ept监视
-	bool ept_watch_activate(VT_BREAK_POINT vmcallinfo, unsigned __int64 Type, int* outID, int& errorCode);
+	bool ept_watch_activate(VT_BREAK_POINT vmcallinfo, unsigned __int64 Type, PVT_BREAK_POINT guest_request, int& errorCode);
 
 	//取消监视断点
 	int ept_watch_deactivate(VT_BREAK_POINT vmcallinfo, int ID);
@@ -112,6 +112,10 @@ namespace ept
 		__ept_hooked_page_info* hooked_page_info,
 		unsigned __int64 guest_physical_adddress,
 		int& bpType);
+	bool ept_handle_int3_execute(
+		__vcpu* vcpu,
+		__ept_hooked_page_info* hooked_page_info,
+		unsigned __int64 guest_physical_address);
 }
 
 #endif // !_EPT_H

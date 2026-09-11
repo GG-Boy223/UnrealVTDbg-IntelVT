@@ -4,8 +4,8 @@
 EXTERN_C VOID PspExitThread(_In_ NTSTATUS ExitStatus)
 {
     Debugport_Struct s;
-    PDEBUG_OBJECT Port;
-    PDEBUG_PROCESS DebugProcess;
+    PDEBUG_OBJECT Port = NULL;
+    PDEBUG_PROCESS DebugProcess = NULL;
     _EPROCESS* Process = (_EPROCESS*)PsGetCurrentProcess();
 
     DbgkStateOpGuard stateGuard;
@@ -17,14 +17,15 @@ EXTERN_C VOID PspExitThread(_In_ NTSTATUS ExitStatus)
         {
             Original_PspExitThread(ExitStatus);
         }
-        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
-    //DbgBreakPoint();
     if (IsDebugTargetProcess(Process, &DebugProcess))
     {
-        Port = DebugProcess->DebugObject;
+        if (DebugProcess != NULL && DebugProcess->DebugObject != NULL)
+        {
+            Port = DebugProcess->DebugObject;
+        }
     }
     else
     {
@@ -34,6 +35,12 @@ EXTERN_C VOID PspExitThread(_In_ NTSTATUS ExitStatus)
 
     s.id = 0xfbbd6252520ea3d5; //PspExitThread 经16位md5哈希摘要
     s.DebugPort = (size_t)Port;
+
+    if (IsDbgkUnloadInProgress())
+    {
+        s.DebugPort = 0;
+    }
+
     Original_PspExitThread(ExitStatus);
 }
 #pragma optimize("", on)
@@ -45,18 +52,24 @@ EXTERN_C VOID DbgkExitThread(
     DBGKM_APIMSG ApiMsg = { 0 }; // [rsp+20h] [rbp-118h]
     _EPROCESS* Process; //进程对象
     PETHREAD Thread;
-    PDEBUG_PROCESS DebugProcess;
+    PDEBUG_PROCESS DebugProcess = NULL;
 
     PAGED_CODE();
+    DbgkStateOpGuard stateGuard;
+
+    if (IsDbgkUnloadInProgress())
+    {
+        return;
+    }
 
     Process = (_EPROCESS*)PsGetCurrentProcess();
 
-    DbgPrint("\xCF\xDF\xB3\xCC\xCD\xCB\xB3\xF6\n");
-    PrintProcessName(Process);
-
     if (IsDebugTargetProcess(Process, &DebugProcess))
     {
-        Port = DebugProcess->DebugObject;
+        if (DebugProcess != NULL && DebugProcess->DebugObject != NULL)
+        {
+            Port = DebugProcess->DebugObject;
+        }
     }
     else
     {
@@ -64,10 +77,8 @@ EXTERN_C VOID DbgkExitThread(
         Port = *(PDEBUG_OBJECT*)ptr_DebugPort;
     }
 
-    // /* Send the message on the LPC Port */
     if (!Port)
     {
-        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 
@@ -83,7 +94,6 @@ EXTERN_C VOID DbgkExitThread(
         ApiMsg.h.u2.ZeroInit = LPC_DEBUG_EVENT;
         ApiMsg.ApiNumber = DbgKmExitThreadApi;
         DbgkpSendApiMessage(Process, TRUE, &ApiMsg);
-        DbgPrint("\xD7\xAA\xB7\xA2\xCF\xDF\xB3\xCC\xCD\xCB\xB3\xF6\xCA\xC2\xBC\xFE\n");
     }
 }
 
@@ -131,24 +141,24 @@ DbgkExitProcess(
     DBGKM_APIMSG ApiMsg = { 0 }; // [rsp+20h] [rbp-118h]
     _EPROCESS* Process; //进程对象
     PETHREAD Thread;
-    PDEBUG_PROCESS DebugProcess;
+    PDEBUG_PROCESS DebugProcess = NULL;
 
     PAGED_CODE();
     DbgkStateOpGuard stateGuard;
 
     if (IsDbgkUnloadInProgress())
     {
-        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
-
-    DbgPrint("\xBD\xF8\xB3\xCC\xCD\xCB\xB3\xF6\n");
 
     Process = (_EPROCESS*)PsGetCurrentProcess();
 
     if (IsDebugTargetProcess(Process, &DebugProcess))
     {
-        Port = DebugProcess->DebugObject;
+        if (DebugProcess != NULL && DebugProcess->DebugObject != NULL)
+        {
+            Port = DebugProcess->DebugObject;
+        }
     }
     else
     {
@@ -156,10 +166,8 @@ DbgkExitProcess(
         Port = *(PDEBUG_OBJECT*)ptr_DebugPort;
     }
 
-    // /* Send the message on the LPC Port */
     if (!Port)
     {
-        //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
     }
 

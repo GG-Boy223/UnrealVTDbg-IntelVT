@@ -1,6 +1,9 @@
 ﻿#pragma once
 
 #include "GlobalsEptHookTypes.h"
+#include <Ring0/Hvm/VmmReleasePolicy.h>
+
+constexpr unsigned int kVmExitTelemetryReasonCapacity = 256;
 
 struct __vcpu // 每逻辑 CPU 的 VMM 状态
 {
@@ -116,8 +119,8 @@ struct __vcpu // 每逻辑 CPU 的 VMM 状态
 
     struct __vcpu_status
     {
-        unsigned __int64 vmx_on; // 是否已 VMXON
-        unsigned __int64 vmm_launched;  //vm虚拟机的运行状态
+        volatile unsigned __int64 vmx_on; // 是否已 VMXON
+        volatile unsigned __int64 vmm_launched;  //vm虚拟机的运行状态
     }vcpu_status; // VCPU 状态
 
     struct __vmcs_effective_controls
@@ -131,14 +134,15 @@ struct __vcpu // 每逻辑 CPU 的 VMM 状态
 
     struct __vmx_off_state
     {
-        unsigned __int64  vmx_off_executed;  //关闭虚拟化
-        unsigned __int64  guest_rip; // VMXOFF 后恢复 RIP
-        unsigned __int64  guest_rsp; // VMXOFF 后恢复 RSP
-        unsigned __int64  guest_rflags; // VMXOFF 后恢复 RFLAGS
-        unsigned __int64  guest_cs; // VMXOFF 后恢复 CS
-        unsigned __int64  guest_ss; // VMXOFF 后恢复 SS
-        unsigned __int64  guest_cr0; // VMXOFF 后恢复有效 CR0
-        unsigned __int64  guest_cr4; // VMXOFF 后恢复有效 CR4
+        volatile unsigned __int64 vmx_off_executed; // VMXOFF 请求已由 VM-exit handler 接受
+        volatile unsigned __int64 vmx_off_completed; // VMXOFF 指令成功并已越过硬件完成点
+        unsigned __int64 guest_rip; // VMXOFF 后恢复 RIP
+        unsigned __int64 guest_rsp; // VMXOFF 后恢复 RSP
+        unsigned __int64 guest_rflags; // VMXOFF 后恢复 RFLAGS
+        unsigned __int64 guest_cs; // VMXOFF 后恢复 CS
+        unsigned __int64 guest_ss; // VMXOFF 后恢复 SS
+        unsigned __int64 guest_cr0; // VMXOFF 后恢复有效 CR0
+        unsigned __int64 guest_cr4; // VMXOFF 后恢复有效 CR4
     }vmx_off_state; // VMXOFF 状态
 
     struct __vcpu_bitmaps
@@ -158,16 +162,36 @@ struct __vcpu // 每逻辑 CPU 的 VMM 状态
 
     CLIENT_ID Cid; //记录触发监视断点的guest的线程id
     unsigned __int64 breakpoint_detected; //记录触发的地址
+
+    unsigned __int64 cr3_target_values[4];
+    unsigned __int32 cr3_target_count;
+    unsigned __int32 cr3_target_cursor;
+
+    struct __cr3_candidate_slot
+    {
+        volatile unsigned __int64 value;
+        volatile LONG64 sequence;
+        LONG64 consumedSequence;
+    }cr3_candidate;
+
+    struct __vmexit_telemetry
+    {
+        unsigned __int64 reasonCount[kVmExitTelemetryReasonCapacity];
+        unsigned __int64 reasonCycles[kVmExitTelemetryReasonCapacity];
+        unsigned __int64 overflowCount;
+        unsigned __int64 overflowCycles;
+    }vmexit_telemetry;
 };
 
-static_assert(FIELD_OFFSET(__vcpu::__vmx_off_state, guest_rip) == 0x08, "VMXOFF guest RIP offset must match vm-exit.asm");
-static_assert(FIELD_OFFSET(__vcpu::__vmx_off_state, guest_rsp) == 0x10, "VMXOFF guest RSP offset must match vm-exit.asm");
-static_assert(FIELD_OFFSET(__vcpu::__vmx_off_state, guest_rflags) == 0x18, "VMXOFF guest RFLAGS offset must match vm-exit.asm");
-static_assert(FIELD_OFFSET(__vcpu::__vmx_off_state, guest_cs) == 0x20, "VMXOFF guest CS offset must match vm-exit.asm");
-static_assert(FIELD_OFFSET(__vcpu::__vmx_off_state, guest_ss) == 0x28, "VMXOFF guest SS offset must match vm-exit.asm");
-static_assert(FIELD_OFFSET(__vcpu::__vmx_off_state, guest_cr0) == 0x30, "VMXOFF guest CR0 offset must match vm-exit.asm");
-static_assert(FIELD_OFFSET(__vcpu::__vmx_off_state, guest_cr4) == 0x38, "VMXOFF guest CR4 offset must match vm-exit.asm");
-static_assert(sizeof(__vcpu::__vmx_off_state) == 0x40, "VMXOFF state size must match vm-exit.asm");
+static_assert(FIELD_OFFSET(__vcpu::__vmx_off_state, vmx_off_completed) == 0x08, "VMXOFF completion offset must match vm-exit.asm");
+static_assert(FIELD_OFFSET(__vcpu::__vmx_off_state, guest_rip) == 0x10, "VMXOFF guest RIP offset must match vm-exit.asm");
+static_assert(FIELD_OFFSET(__vcpu::__vmx_off_state, guest_rsp) == 0x18, "VMXOFF guest RSP offset must match vm-exit.asm");
+static_assert(FIELD_OFFSET(__vcpu::__vmx_off_state, guest_rflags) == 0x20, "VMXOFF guest RFLAGS offset must match vm-exit.asm");
+static_assert(FIELD_OFFSET(__vcpu::__vmx_off_state, guest_cs) == 0x28, "VMXOFF guest CS offset must match vm-exit.asm");
+static_assert(FIELD_OFFSET(__vcpu::__vmx_off_state, guest_ss) == 0x30, "VMXOFF guest SS offset must match vm-exit.asm");
+static_assert(FIELD_OFFSET(__vcpu::__vmx_off_state, guest_cr0) == 0x38, "VMXOFF guest CR0 offset must match vm-exit.asm");
+static_assert(FIELD_OFFSET(__vcpu::__vmx_off_state, guest_cr4) == 0x40, "VMXOFF guest CR4 offset must match vm-exit.asm");
+static_assert(sizeof(__vcpu::__vmx_off_state) == 0x48, "VMXOFF state size must match vm-exit.asm");
 
 struct __mtrr_info // MTRR 汇总状态
 {
@@ -175,7 +199,6 @@ struct __mtrr_info // MTRR 汇总状态
     __mtrr_range_descriptor memory_range[345]; // 容量是架构上限，不通过截断或跳过掩盖平台差异
     unsigned __int32 enabled_memory_ranges; // 有效范围数量
     unsigned __int8 default_memory_type; // 默认内存类型
-    mtrr_data mtrrs; // MTRR 详细信息
 };
 
 struct __vmm_context // 全局 VMM 上下文
@@ -187,6 +210,7 @@ struct __vmm_context // 全局 VMM 上下文
     unsigned __int32 processor_count;  //处理器数量
     unsigned __int32 highest_basic_leaf; // CPUID 最大基础叶
     bool hv_presence;  //标识hy对象已经创建
+    volatile hv::vmm_release_policy::lifecycle_state lifecycle_state; // VMM 资源所有权阶段
 };
 
 // 4级页映射的虚拟地址

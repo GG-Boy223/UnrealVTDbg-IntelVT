@@ -52,13 +52,27 @@ Asm_DbgkCreateThread_CMP_Debugport_01 proc
 	mov rax, rsp
 	add rax, 0C0h
 	mov rcx, 0
+	mov r10, 80h             ; 最大扫描 128 次 * 8 字节 = 1024 字节
 	mov rbx, 0d7b32a726e23dbc2h  ;DbgkCreateThread 经16位md5哈希摘要
 loop_start:
+	cmp rcx, r10
+	jae not_found_create
 	cmp qword ptr [rax + rcx], rbx
-	jz loop_end
+	jz loop_end_create
 	add rcx,8
 	jmp loop_start
-loop_end:
+not_found_create:
+	; marker 未找到，设置 DebugPort=0 走安全路径（ZF=1）
+	xor eax, eax
+	pushfq
+	pop rbx
+	mov [r8 + 40h], rbx
+	mov rsp, r8
+	add rsp, 40h
+	RESTORE_Context
+	push DbgkCreateThread_jcc_instruction
+	ret
+loop_end_create:
 	lea rax,[rax + rcx + 8]  ;&s.DebugPort
 	cmp qword ptr [rax], 0 ;if ( Process->DebugPort )
 	pushfq
@@ -78,13 +92,27 @@ Asm_PspExitThread_CMP_Debugport_01 proc
 	mov rax, rsp
 	add rax, 0C0h
 	mov rcx, 0
+	mov r10, 80h             ; 最大扫描 128 次 * 8 字节 = 1024 字节
 	mov rbx, 0fbbd6252520ea3d5h  ;PspExitThread 经16位md5哈希摘要
 loop_start:
+	cmp rcx, r10
+	jae not_found_exit
 	cmp qword ptr [rax + rcx], rbx
-	jz loop_end
+	jz loop_end_exit
 	add rcx,8
 	jmp loop_start
-loop_end:
+not_found_exit:
+	; marker 未找到，设置 DebugPort=0 走安全路径（ZF=1）
+	xor eax, eax
+	pushfq
+	pop rbx
+	mov [r8 + 40h], rbx
+	mov rsp, r8
+	add rsp, 40h
+	RESTORE_Context
+	push PspExitThread_jcc_instruction
+	ret
+loop_end_exit:
 	lea rax,[rax + rcx + 8]  ;&s.DebugPort
 	cmp qword ptr [rax], 0 ;if ( Process->DebugPort )
 	pushfq

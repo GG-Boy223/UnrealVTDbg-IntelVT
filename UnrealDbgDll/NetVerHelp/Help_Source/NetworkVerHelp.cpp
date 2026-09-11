@@ -49,22 +49,48 @@ namespace Help
 
 	//---------------------------------------------------------------------------------------------------
 
-	string NetworkVerHelp::GBKToUTF8(const char* strGBK)
+	string NetworkVerHelp::ToUTF8(const char* str)
 	{
 #if USE_VMP
-		VMProtectBegin("GBKToUTF8");
+		VMProtectBegin("ToUTF8");
 #endif
-		int len = MultiByteToWideChar(CP_ACP, 0, strGBK, -1, NULL, 0);
+
+		if (str == NULL) return string();
+
+		// 获取宽字符串长度
+		int len = MultiByteToWideChar(CP_ACP, 0, str, -1, NULL, 0);
+		if (len <= 0) return string();
+
+		// 分配宽字符串缓冲区
 		wchar_t* wstr = new wchar_t[len + 1];
-		memset(wstr, 0, len + 1);
-		MultiByteToWideChar(CP_ACP, 0, strGBK, -1, wstr, len);
+		if (wstr == NULL) return string();
+
+		memset(wstr, 0, (len + 1) * sizeof(wchar_t));
+		MultiByteToWideChar(CP_ACP, 0, str, -1, wstr, len);
+
+		// 获取 UTF-8 字符串长度
 		len = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, NULL, 0, NULL, NULL);
-		char* str = new char[len + 1];
-		memset(str, 0, len + 1);
-		WideCharToMultiByte(CP_UTF8, 0, wstr, -1, str, len, NULL, NULL);
-		string strTemp = str;
-		if (wstr) delete[] wstr;
-		if (str) delete[] str;
+		if (len <= 0) {
+			delete[] wstr;
+			return string();
+		}
+
+		// 分配 UTF-8 字符串缓冲区
+		char* utf8Str = new char[len + 1];
+		if (utf8Str == NULL) {
+			delete[] wstr;
+			return string();
+		}
+
+		memset(utf8Str, 0, len + 1);
+		WideCharToMultiByte(CP_UTF8, 0, wstr, -1, utf8Str, len, NULL, NULL);
+
+		// 创建返回值
+		string strTemp = utf8Str;
+
+		// 清理资源
+		delete[] wstr;
+		delete[] utf8Str;
 
 #if USE_VMP
 		VMProtectEnd();
@@ -72,23 +98,22 @@ namespace Help
 
 		return strTemp;
 	}
-
-	string NetworkVerHelp::UTF8ToGBK(const char* strUTF8)
+	string NetworkVerHelp::UTF8To(const char* strUTF8)
 	{
 #if USE_VMP
-		VMProtectBegin("UTF8ToGBK");
+		VMProtectBegin("UTF8To");
 #endif
 		int len = MultiByteToWideChar(CP_UTF8, 0, strUTF8, -1, NULL, 0);
-		wchar_t* wszGBK = new wchar_t[len + 1];
-		memset(wszGBK, 0, len * 2 + 2);
-		MultiByteToWideChar(CP_UTF8, 0, strUTF8, -1, wszGBK, len);
-		len = WideCharToMultiByte(CP_ACP, 0, wszGBK, -1, NULL, 0, NULL, NULL);
-		char* szGBK = new char[len + 1];
-		memset(szGBK, 0, len + 1);
-		WideCharToMultiByte(CP_ACP, 0, wszGBK, -1, szGBK, len, NULL, NULL);
-		string strTemp(szGBK);
-		if (wszGBK) delete[] wszGBK;
-		if (szGBK) delete[] szGBK;
+		wchar_t* wsz = new wchar_t[len + 1];
+		memset(wsz, 0, len * 2 + 2);
+		MultiByteToWideChar(CP_UTF8, 0, strUTF8, -1, wsz, len);
+		len = WideCharToMultiByte(CP_ACP, 0, wsz, -1, NULL, 0, NULL, NULL);
+		char* sz = new char[len + 1];
+		memset(sz, 0, len + 1);
+		WideCharToMultiByte(CP_ACP, 0, wsz, -1, sz, len, NULL, NULL);
+		string strTemp(sz);
+		if (wsz) delete[] wsz;
+		if (sz) delete[] sz;
 
 #if USE_VMP
 		VMProtectEnd();
@@ -131,7 +156,6 @@ namespace Help
 			oJson.Get((const char*)_xor_("data"), result.data);
 		}
 		head.clear();
-		http.~CHttpRequestTool();
 
 #if USE_VMP
 		VMProtectEnd();
@@ -173,16 +197,16 @@ namespace Help
 		case Model::NoEncrypt:
 			break;
 		case Model::RC4:
-			string	UTF8data = GBKToUTF8(data.c_str());
+			string	UTF8data = ToUTF8(data.c_str());
 			//如果软件设置是加密通讯，那么此处需要把data解密出来
-			string	UTF8encryptKey = GBKToUTF8(encryptKey.c_str());
+			string	UTF8encryptKey = ToUTF8(encryptKey.c_str());
 			Rc4 rc4;
 			data = rc4.Encrypt(UTF8data.c_str(), UTF8encryptKey.c_str());
 
 			//注意加密顺序不能变:业务类型+加密类型+平台用户Code+商品Code+inisoftkey+时间戳+业务数据+签名盐+平台类型
 			string signData = to_string(businessType) + to_string(encrypttypeid) + platformUserCode + goodscode
 				+ inisoftkey + to_string(TimeStamp) + data + signSalt + to_string(platformtypeid);
-			signData = GBKToUTF8(signData.c_str());
+			signData = ToUTF8(signData.c_str());
 
 			MD5 md5(signData);
 			sign = md5.toString();
@@ -248,8 +272,8 @@ namespace Help
 							case Model::NoEncrypt:
 								break;
 							case Model::RC4:
-								string	UTF8data2 = GBKToUTF8(data2.c_str());
-								string	UTF8encryptKey2 = GBKToUTF8(encryptKey.c_str());
+								string	UTF8data2 = ToUTF8(data2.c_str());
+								string	UTF8encryptKey2 = ToUTF8(encryptKey.c_str());
 								Rc4 rc4;
 								data2 = rc4.Encrypt(UTF8data2.c_str(), UTF8encryptKey2.c_str());
 								break;
@@ -279,8 +303,8 @@ namespace Help
 						case Model::NoEncrypt:
 							break;
 						case Model::RC4:
-							string	UTF8data2 = GBKToUTF8(data2.c_str());
-							string	UTF8encryptKey2 = GBKToUTF8(encryptKey.c_str());
+							string	UTF8data2 = ToUTF8(data2.c_str());
+							string	UTF8encryptKey2 = ToUTF8(encryptKey.c_str());
 							Rc4 rc4;
 							data2 = rc4.Encrypt(UTF8data2.c_str(), UTF8encryptKey2.c_str());
 							break;
@@ -333,10 +357,10 @@ namespace Help
 				break;
 			case Model::RC4:
 				//如果软件设置是加密通讯，那么此处需要把data解密出来
-				string	UTF8encryptKey = GBKToUTF8(encryptKey.c_str());
+				string	UTF8encryptKey = ToUTF8(encryptKey.c_str());
 				Rc4 rc4;
 				data = rc4.Decrypt(data.c_str(), UTF8encryptKey.c_str());
-				data = UTF8ToGBK(data.c_str());
+				data = UTF8To(data.c_str());
 				break;
 			}
 
@@ -379,10 +403,10 @@ namespace Help
 				break;
 			case Model::RC4:
 				//如果软件设置是加密通讯，那么此处需要把data解密出来
-				string	UTF8encryptKey = GBKToUTF8(encryptKey.c_str());
+				string	UTF8encryptKey = ToUTF8(encryptKey.c_str());
 				Rc4 rc4;
 				data = rc4.Decrypt(data.c_str(), UTF8encryptKey.c_str());
-				data = UTF8ToGBK(data.c_str());
+				data = UTF8To(data.c_str());
 				break;
 			}
 
@@ -440,10 +464,10 @@ namespace Help
 				break;
 			case Model::RC4:
 				//如果软件设置是加密通讯，那么此处需要把data解密出来
-				string	UTF8encryptKey = GBKToUTF8(encryptKey.c_str());
+				string	UTF8encryptKey = ToUTF8(encryptKey.c_str());
 				Rc4 rc4;
 				data = rc4.Decrypt(data.c_str(), UTF8encryptKey.c_str());
-				data = UTF8ToGBK(data.c_str());
+				data = UTF8To(data.c_str());
 				break;
 			}
 
@@ -509,10 +533,10 @@ namespace Help
 				break;
 			case Model::RC4:
 				//如果软件设置是加密通讯，那么此处需要把data解密出来
-				string	UTF8encryptKey = GBKToUTF8(encryptKey.c_str());
+				string	UTF8encryptKey = ToUTF8(encryptKey.c_str());
 				Rc4 rc4;
 				data = rc4.Decrypt(data.c_str(), UTF8encryptKey.c_str());
-				data = UTF8ToGBK(data.c_str());
+				data = UTF8To(data.c_str());
 				break;
 			}
 
@@ -559,10 +583,10 @@ namespace Help
 				break;
 			case Model::RC4:
 				//如果软件设置是加密通讯，那么此处需要把data解密出来
-				string	UTF8encryptKey = GBKToUTF8(encryptKey.c_str());
+				string	UTF8encryptKey = ToUTF8(encryptKey.c_str());
 				Rc4 rc4;
 				data = rc4.Decrypt(data.c_str(), UTF8encryptKey.c_str());
-				data = UTF8ToGBK(data.c_str());
+				data = UTF8To(data.c_str());
 				break;
 			}
 

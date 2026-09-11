@@ -1,66 +1,19 @@
 .code
 
-; defined in guest-context.h
-guest_context struct
-  ; general-purpose registers
-  $rax qword ?
-  $rcx qword ?
-  $rdx qword ?
-  $rbx qword ?
-  $rsp qword ? ; guest RSP, also reused for the validated VMXOFF state pointer
-  $rbp qword ?
-  $rsi qword ?
-  $rdi qword ?
-  $r8  qword ?
-  $r9  qword ?
-  $r10 qword ?
-  $r11 qword ?
-  $r12 qword ?
-  $r13 qword ?
-  $r14 qword ?
-  $r15 qword ?
-
-  ; control registers
-  $cr2 qword ?
-  $cr8 qword ?
-
-  ; debug registers
-  $dr0 qword ?
-  $dr1 qword ?
-  $dr2 qword ?
-  $dr3 qword ?
-  $dr6 qword ?
-
-  ; SSE registers
-  $xmm0 oword ?
-  $xmm1 oword ?
-  $xmm2 oword ?
-  $xmm3 oword ?
-  $xmm4 oword ?
-  $xmm5 oword ?
-  $xmm6 oword ?
-  $xmm7 oword ?
-  $xmm8 oword ?
-  $xmm9 oword ?
-  $xmm10 oword ?
-  $xmm11 oword ?
-  $xmm12 oword ?
-  $xmm13 oword ?
-  $xmm14 oword ?
-  $xmm15 oword ?
-guest_context ends
+include vm-exit-context.inc
 
 extern vmexit_handler : proc
 extern handle_vmresume_failure : proc
 extern vmx_fatal_error : proc
 
-VMXOFF_STATE_RIP      equ 08h
-VMXOFF_STATE_RSP      equ 10h
-VMXOFF_STATE_RFLAGS   equ 18h
-VMXOFF_STATE_CS       equ 20h
-VMXOFF_STATE_SS       equ 28h
-VMXOFF_STATE_CR0      equ 30h
-VMXOFF_STATE_CR4      equ 38h
+VMXOFF_STATE_COMPLETED equ 08h
+VMXOFF_STATE_RIP      equ 10h
+VMXOFF_STATE_RSP      equ 18h
+VMXOFF_STATE_RFLAGS   equ 20h
+VMXOFF_STATE_CS       equ 28h
+VMXOFF_STATE_SS       equ 30h
+VMXOFF_STATE_CR0      equ 38h
+VMXOFF_STATE_CR4      equ 40h
 
 VMX_FATAL_VMXOFF_INSTRUCTION equ 2
 VMX_FATAL_MISSING_VCPU       equ 6
@@ -278,6 +231,7 @@ stop_virtualization:
   mov rbp, rdx
   vmxoff
   jbe stop_virtualization_vmxoff_failed
+  mov qword ptr [rbp + VMXOFF_STATE_COMPLETED], 1
 
   ; restore cr0 and cr4
   mov rax, [rbp + VMXOFF_STATE_CR0]

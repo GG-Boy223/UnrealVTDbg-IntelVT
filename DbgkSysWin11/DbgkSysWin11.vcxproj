@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -46,7 +46,6 @@
     <ConfigurationType>Driver</ConfigurationType>
     <DriverType>WDM</DriverType>
     <Driver_SpectreMitigation>false</Driver_SpectreMitigation>
-    <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <TargetVersion>Windows10</TargetVersion>
@@ -97,7 +96,7 @@
       <LanguageStandard_C>stdc11</LanguageStandard_C>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>$(MSBuildProjectDirectory)\..\Common\Ring0\SymbolicAccessKM.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Wdmsec.lib;$(MSBuildProjectDirectory)\..\Common\Ring0\SymbolicAccessKM.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <DriverSign>
       <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
@@ -105,7 +104,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Link>
-      <AdditionalDependencies>$(MSBuildProjectDirectory)\..\Common\Ring0\SymbolicAccessKM.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Wdmsec.lib;$(MSBuildProjectDirectory)\..\Common\Ring0\SymbolicAccessKM.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -176,6 +175,7 @@
     <ClCompile Include="Hooks\EptHook\Core\EptHookWin32k.cpp" />
     <ClCompile Include="Hvm\HypervisorGatewayApi.cpp" />
     <ClCompile Include="Hvm\HypervisorGatewayBroadcast.cpp" />
+    <ClCompile Include="Hvm\HypervisorGatewayBroadcastSupport.cpp" />
     <!-- Core modules -->
     <ClCompile Include="Core\DriverMain.cpp" />
     <ClCompile Include="Core\IoctlDispatch.cpp" />
@@ -185,6 +185,9 @@
     <ClCompile Include="Core\IoctlHandlers\ClientRequestHandlers.cpp" />
     <ClCompile Include="Core\IoctlHandlers\ProtectListHandlers.cpp" />
     <ClCompile Include="Core\IoctlHandlers\DebuggerInfoHandlers.cpp" />
+    <ClCompile Include="Cr3\Cr3Candidate.cpp" />
+    <ClCompile Include="Cr3\Cr3Probe.cpp" />
+    <ClCompile Include="Cr3\Cr3Resolver.cpp" />
     <ClCompile Include="Core\HookSetup.cpp" />
     <ClCompile Include="Core\DebugEvents\DebugRuntimeEvents.cpp" />
     <ClCompile Include="Core\DebugEvents\ThreadCreationEvents.cpp" />
@@ -243,6 +246,8 @@
     <ClInclude Include="Core\DebugEvents\DebugEventsCommon.h" />
     <ClInclude Include="Core\IoctlDispatchInternal.h" />
     <ClInclude Include="Core\IoctlHandlers\IoctlHandlerCommon.h" />
+    <ClInclude Include="Cr3\Cr3Internal.h" />
+    <ClInclude Include="Cr3\Cr3Resolver.h" />
     <ClInclude Include="..\Common\Shared\DriverProtocol.h" />
     <ClInclude Include="..\Common\Shared\IOCTLs.h" />
     <ClInclude Include="..\Common\Shared\SharedStruct.h" />

@@ -1,7 +1,53 @@
 ﻿#include "VmmInternal.h"
+#include "../VmExit/VmExitTelemetry.h"
 
 namespace
 {
+	bool are_all_vcpus_quiescent(unsigned int* first_active_processor)
+	{
+		if (first_active_processor != nullptr)
+		{
+			*first_active_processor = static_cast<unsigned int>(-1);
+		}
+
+		if (g_vmm_context.vcpu == nullptr)
+		{
+			return true;
+		}
+
+		for (unsigned int i = 0; i < g_vmm_context.processor_count; ++i)
+		{
+			auto const& vcpu = g_vmm_context.vcpu[i];
+			if (!hv::vmm_release_policy::IsVcpuQuiescent(
+				vcpu.vcpu_status.vmx_on,
+				vcpu.vcpu_status.vmm_launched,
+				vcpu.vmx_off_state.vmx_off_executed))
+			{
+				if (first_active_processor != nullptr)
+				{
+					*first_active_processor = i;
+				}
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	void verify_vmm_context_can_be_released()
+	{
+		unsigned int first_active_processor = static_cast<unsigned int>(-1);
+		const bool all_vcpus_quiescent = are_all_vcpus_quiescent(&first_active_processor);
+		const auto lifecycle_state = g_vmm_context.lifecycle_state;
+		if (!hv::vmm_release_policy::CanRelease(lifecycle_state, all_vcpus_quiescent))
+		{
+			vmx_fatal_error(
+				vmx_fatal_release_active_context,
+				static_cast<unsigned __int64>(lifecycle_state),
+				first_active_processor);
+		}
+	}
+
 	void log_vmx_runtime_snapshots() // 在安全清理上下文输出VMX运行期快照，避免VM-exit路径内做文件IO。
 	{
 		if (g_vmm_context.vcpu == nullptr || g_vmm_context.processor_count == 0)
@@ -46,8 +92,10 @@ namespace
 
 void free_vmm_context() // 释放VMM全局资源与每核VCPU相关内存，避免驱动卸载后内存泄漏
 {
+	verify_vmm_context_can_be_released();
 	// 旧逻辑：free_vmm_context直接释放VCPU，VMRESUME失败/Host异常快照会随内存释放丢失。
 	log_vmx_runtime_snapshots(); // 先输出运行期诊断快照；该日志不改变进入VT条件，也不在VM-exit路径执行。
+	VmExitTelemetryDump();
 	hv::cleanup_host_page_tables(); // 释放Host关键页补映射动态页表页；此时VMX已回滚/关闭，不影响VT功能链路。
 
 	//if (g_vmm_context != nullptr)
@@ -124,11 +172,13 @@ void free_vmm_context() // 释放VMM全局资源与每核VCPU相关内存，避�
 	g_vmm_context.vcpu = nullptr;
 	g_vmm_context.processor_count = 0;
 	g_vmm_context.hv_presence = false;
+	g_vmm_context.lifecycle_state = hv::vmm_release_policy::lifecycle_state::empty;
 }
 
 //分配g_vmm_context上下文
 bool allocate_vmm_context() // 初始化全局VMM资源，包含每核VCPU与EPT基础结构，为启动VMM做准备
 {
+	g_vmm_context.lifecycle_state = hv::vmm_release_policy::lifecycle_state::allocated;
 	__cpuid_info cpuid_reg = { 0 }; // CPUID临时缓冲，用于读取CPU能力信息
 	outFile("========== VMM全局上下文分配开始 ==========");
 

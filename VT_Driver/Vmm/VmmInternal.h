@@ -15,6 +15,7 @@
 #include "../hypervisor_gateway.h"
 #include "../vmm.h"
 #include "../VmExit/VmxFatal.h"
+#include "../Cr3/Cr3Tracker.h"
 
 bool allocate_vmm_context();
 //创建host页表

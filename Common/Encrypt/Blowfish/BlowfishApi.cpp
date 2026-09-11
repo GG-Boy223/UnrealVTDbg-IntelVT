@@ -1,5 +1,6 @@
 ﻿#include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <string>
 #include <Windows.h>
 
@@ -80,6 +81,11 @@ int Encrypt(Blowfish* blowfish, const unsigned char* in, size_t siz_i, unsigned 
     unsigned char* byte_out;
     int nLen, nRet;
 
+    if (siz_i > static_cast<size_t>((std::numeric_limits<int>::max)() - 7))
+    {
+        return -1;
+    }
+
     if (siz_i % 8 == 0)
     {
         nLen = static_cast<int>(siz_i);
@@ -90,7 +96,7 @@ int Encrypt(Blowfish* blowfish, const unsigned char* in, size_t siz_i, unsigned 
         nLen = static_cast<int>(siz_i + 8 - siz_i % 8);
     }
 
-    if (siz_o < nLen * 2)
+    if (siz_o < static_cast<size_t>(nLen) * 2)
     {
         return -1;
     }
@@ -119,8 +125,13 @@ int Decrypt(Blowfish* blowfish, const unsigned char* in, size_t siz_i, unsigned 
         return -1;
     }
 
+    if (siz_i / 2 > static_cast<size_t>((std::numeric_limits<int>::max)()))
+    {
+        return -1;
+    }
+
     nLen = static_cast<int>(siz_i / 2);
-    if (siz_o < nLen)
+    if (siz_o < static_cast<size_t>(nLen))
     {
         return -1;
     }

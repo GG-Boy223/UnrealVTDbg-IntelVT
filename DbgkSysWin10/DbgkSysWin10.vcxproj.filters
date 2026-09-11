@@ -278,6 +278,9 @@
     <ClCompile Include="Hvm\HypervisorGatewayBroadcast.cpp">
       <Filter>Source Files\Hvm</Filter>
     </ClCompile>
+    <ClCompile Include="Hvm\HypervisorGatewayBroadcastSupport.cpp">
+      <Filter>Source Files\Hvm</Filter>
+    </ClCompile>
     <ClCompile Include="Init\Symbolic\InitSymbolic.cpp">
       <Filter>Source Files\Init\Symbolic</Filter>
     </ClCompile>

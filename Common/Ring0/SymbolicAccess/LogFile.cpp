@@ -8,8 +8,8 @@
 namespace LogFile
 {
     bool boLogInit;
-    //FAST_MUTEX Mutex;          //互斥锁
-    UNICODE_STRING logFilePath; // 日志文件路径
+    //FAST_MUTEX Mutex;          //������
+    UNICODE_STRING logFilePath; // ��־�ļ�·��
 
     NTSTATUS CreateLogsDirectory(PWCHAR path)
     {
@@ -55,14 +55,14 @@ namespace LogFile
             0);
         if (!NT_SUCCESS(status))
         {
-            outLog("ZwCreateFile日志文件失败!");
+            outLog("ZwCreateFile日志文件创建失败!");
             return status;
         }
 
         status = ZwWriteFile(fileHandle, NULL, NULL, NULL, &ioStatus, logMessage, (ULONG)wcslen(logMessage) * sizeof(WCHAR), NULL, NULL);
         if (!NT_SUCCESS(status))
         {
-            outLog("ZwWriteFile日志文件失败!");
+            outLog("ZwWriteFile日志文件写入失败!");
             ZwClose(fileHandle);
             return status;
         }
@@ -92,14 +92,14 @@ namespace LogFile
             0);
         if (!NT_SUCCESS(status))
         {
-            outLog("ZwCreateFile日志文件失败!");
+            outLog("ZwCreateFile日志文件创建失败!");
             return status;
         }
 
         status = ZwWriteFile(fileHandle, NULL, NULL, NULL, &ioStatus, logMessage, (ULONG)strlen(logMessage), NULL, NULL);
         if (!NT_SUCCESS(status))
         {
-            outLog("ZwWriteFile日志文件失败!");
+            outLog("ZwWriteFile日志文件写入失败!");
             ZwClose(fileHandle);
             return status;
         }
@@ -115,12 +115,12 @@ namespace LogFile
         TIME_FIELDS timeFields;
         WCHAR logMessage[256];
 
-        // 获取当前系统时间
+        // ��ȡ��ǰϵͳʱ��
         KeQuerySystemTime(&systemTime);
         ExSystemTimeToLocalTime(&systemTime, &systemTime);
         RtlTimeToTimeFields(&systemTime, &timeFields);
 
-        // 将包含日期的日志信息格式化为XML格式
+        // ��ʽ���������ڵ���־��ϢΪXML��ʽ
         RtlStringCchPrintfW(logMessage, 
         	sizeof(logMessage), 
         	L"<LogEntry Date=\"%04u-%02u-%02u\" Time=\"%02u:%02u:%02u.%03u\">%s</LogEntry>\n", 
@@ -133,7 +133,7 @@ namespace LogFile
         	timeFields.Milliseconds, 
         	message);
 
-        // 写入日志信息到XML文件
+        // д����־��Ϣ��XML�ļ�
         status = WriteLogToXmlFileW(logMessage);
         if (!NT_SUCCESS(status))
         {
@@ -150,12 +150,12 @@ namespace LogFile
         TIME_FIELDS timeFields;
         CHAR logMessage[256];
 
-        // 获取当前系统时间
+        // ��ȡ��ǰϵͳʱ��
         KeQuerySystemTime(&systemTime);
         ExSystemTimeToLocalTime(&systemTime, &systemTime);
         RtlTimeToTimeFields(&systemTime, &timeFields);
 
-        // 将包含日期的日志信息格式化为XML格式
+        // ��ʽ���������ڵ���־��ϢΪXML��ʽ
         RtlStringCchPrintfA(logMessage,
             sizeof(logMessage),
             "<LogEntry Date=\"%04u-%02u-%02u\" Time=\"%02u:%02u:%02u.%03u\">%s</LogEntry>\n",
@@ -168,7 +168,7 @@ namespace LogFile
             timeFields.Milliseconds,
             message);
 
-        // 写入日志信息到XML文件
+        // д����־��Ϣ��XML�ļ�
         status = WriteLogToXmlFileA(logMessage);
         if (!NT_SUCCESS(status))
         {
@@ -204,7 +204,7 @@ namespace LogFile
     {
         NTSTATUS status = STATUS_UNSUCCESSFUL;
 
-        //// 打开INI文件
+        //// ��INI�ļ�
         //HANDLE fileHandle;
         //IO_STATUS_BLOCK ioStatusBlock;
         //UNICODE_STRING unicodeFilePath;
@@ -218,7 +218,7 @@ namespace LogFile
         //    return status;
         //}
 
-        //// 读取INI文件内容
+        //// ��ȡINI�ļ�����
         //CHAR buffer[512];
         //ULONG bytesRead;
         //status = ZwReadFile(fileHandle, NULL, NULL, NULL, &ioStatusBlock, buffer, sizeof(buffer) - sizeof(CHAR), NULL, NULL);
@@ -229,10 +229,10 @@ namespace LogFile
         //    return status;
         //}
 
-        //// 关闭INI文件
+        //// �ر�INI�ļ�
         //ZwClose(fileHandle);
 
-        //// 解析INI文件内容
+        //// ����INI�ļ�����
         //PCHAR section = NULL;
         //PCHAR key = NULL;
         //PCHAR valueStart = NULL;
@@ -243,7 +243,7 @@ namespace LogFile
         //{
         //    if (token[0] == '[' && token[strlen(token) - 1] == ']')
         //    {
-        //        // 判断是否为目标节
+        //        // �ж��Ƿ����Ŀ���
         //        token[strlen(token) - 1] = '\0';
 
         //        PCHAR ansiString = NULL;
@@ -262,7 +262,7 @@ namespace LogFile
         //            inTargetSection = FALSE;
         //        }
 
-        //        // 释放资源
+        //        // �ͷ���Դ
         //        if (ansiString != NULL)
         //        {
         //            RtlFreeAnsiString((PANSI_STRING)&ansiString);
@@ -270,7 +270,7 @@ namespace LogFile
         //    }
         //    else if (inTargetSection)
         //    {
-        //        // 判断是否为目标键
+        //        // �ж��Ƿ���Ŀ���
         //        PCHAR equalSign = strchr(token, '=');
         //        if (equalSign != NULL)
         //        {
@@ -290,7 +290,7 @@ namespace LogFile
         //                valueEnd = token + strlen(token);
         //            }
 
-        //            // 释放资源
+        //            // �ͷ���Դ
         //            if (ansiString != NULL)
         //            {
         //                RtlFreeAnsiString((PANSI_STRING)&ansiString);
@@ -301,7 +301,7 @@ namespace LogFile
         //    token = strtok(NULL, "\r\n");
         //}
 
-        //// 复制键值到输出缓冲区
+        //// ���Ƽ�ֵ�����������
         //if (valueStart != NULL && valueEnd != NULL && valueSize >= valueEnd - valueStart + 1)
         //{
         //    RtlCopyMemory(value, valueStart, valueEnd - valueStart);
@@ -318,13 +318,13 @@ namespace LogFile
 
     PWSTR ReadIni(_In_ PCWSTR filePath, _In_ PCWSTR sectionName, _In_ PCWSTR keyName)
     {
-        static WCHAR valueBuffer[256];  // 用于存储键值的缓冲区
+        static WCHAR valueBuffer[256];  // ���ڴ洢��ֵ�Ļ�����
 
         NTSTATUS status = ReadIniValue(filePath, sectionName, keyName, valueBuffer, sizeof(valueBuffer));
 
         if (!NT_SUCCESS(status))
         {
-            // 读取键值失败
+            // �������������ӡ������־���׳��쳣��
             // ...
             return nullptr;
         }
@@ -337,29 +337,29 @@ namespace LogFile
     {
         NTSTATUS status;         
 
-        // 创建Logs目录
+        // ����LogsĿ¼
         status = LogFile::CreateLogsDirectory(L"\\??\\C:\\Logs");
         if (!NT_SUCCESS(status))
         {
-            outLog("创建目录失败!");
+            outLog("创建Logs目录失败!");
             return status;
         }
 
-        //创建日志文件
+        //������־�ļ�
         status = LogFile::SetLogFilePath(L"\\??\\C:\\Logs\\driver.xml");
         if (!NT_SUCCESS(status))
         {
-            outLog("创建日志文件失败!");
+            outLog("设置日志文件失败!");
             return status;
         }
 
         boLogInit = true;
 
-        // 记录日志信息
-        //status = Common::LogDriverMessage(L"记录日志信息 Driver loaded."); // 测试日志信息
+        // ��¼��־��Ϣ
+        //status = Common::LogDriverMessage(L"��¼��־��Ϣ Driver loaded."); // ������־��Ϣ
         //if (!NT_SUCCESS(status))
         //{
-        //    outLog(("记录日志信息失败！\n"));
+        //    outLog(("��¼��־��Ϣʧ�ܣ�\n"));
         //    return status;
         //}
         return STATUS_SUCCESS;
@@ -372,24 +372,24 @@ namespace LogFile
         OBJECT_ATTRIBUTES objectAttributes;
         InitializeObjectAttributes(&objectAttributes, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
 
-        // 创建线程
+        // �����߳�
         status = PsCreateSystemThread(&hThread, THREAD_ALL_ACCESS, &objectAttributes, NULL, NULL, StartRoutine, StartContext);
         if (!NT_SUCCESS(status))
         {
-            // 处理错误
+            // ��������
             return status;
         }
 
-        // 获取线程对象指针
+        // ��ȡ�̶߳���ָ��
         //status = ObReferenceObjectByHandle(hThread, THREAD_ALL_ACCESS, *PsThreadType, KernelMode, (PVOID*)Thread, NULL);
         //if (!NT_SUCCESS(status))
         //{
-        //    // 处理错误
+        //    // ��������
         //    ZwClose(hThread);
         //    return status;
         //}
 
-        // 关闭线程句柄
+        // �ر��߳̾��
         ZwClose(hThread);
 
         return STATUS_SUCCESS;
@@ -397,25 +397,25 @@ namespace LogFile
 
     //NTSTATUS CreateKernelThread(PKSTART_ROUTINE StartRoutine, PTHREAD_DATA threadData, PETHREAD* Thread)
     //{
-    //    // 创建线程
+    //    // �����߳�
     //    return CreateInternalThread(StartRoutine, threadData, Thread);
     //}
 
     VOID KernelSleep(UINT32 milliseconds)
     {
         LARGE_INTEGER delay;
-        delay.QuadPart = -((LONGLONG)milliseconds * 10 * 1000);  // 转换为100纳秒单位
+        delay.QuadPart = -((LONGLONG)milliseconds * 10 * 1000);  // ת��Ϊ100���뵥λ
 
         KeDelayExecutionThread(KernelMode, FALSE, &delay);
     }
 
     VOID RemovePath(WCHAR* fullPath)
     {
-        WCHAR* lastSlash = wcsrchr(fullPath, L'\\');  // 在字符串中查找最后一个目录分隔符
+        WCHAR* lastSlash = wcsrchr(fullPath, L'\\');  // ���ַ����в������һ��Ŀ¼�ָ��� '\'
 
         if (lastSlash != NULL)
         {
-            WCHAR* fileName = lastSlash + 1;  // 跳过目录分隔符
+            WCHAR* fileName = lastSlash + 1;  // ����Ŀ¼�ָ���
             wcscpy_s(fullPath, wcslen(fileName) + 1, fileName);
         }
     }

@@ -297,24 +297,25 @@ VOID SetupHook_PspExitThread_CMP_Debugport() // Win11 PspExitThread DebugPort cm
     if (hookAddr == NULL)
     {
         outLog("hook PspExitThread_CMP_Debugport_01 target cmp not found.");
-        //是我们自己的调试器要创建线程，则直接返回不走线程回调
-        return; // 未找到候选指令时跳过安装。
+        return;
     }
 
     if (!MmIsAddressValid(hookAddr) || !MmIsAddressValid(hookAddr + sizeof(code) - 1))
     {
         outLog("hook PspExitThread_CMP_Debugport_01 target cmp address invalid.");
-        //是我们自己的调试器要创建线程，则直接返回不走线程回调
-        return; // 防止不可读候选地址触发页错误。
+        return;
     }
 
-    //判断指令是否是cmp
     if ((hookAddr[0] == 0x49) &&
         (hookAddr[1] == 0x39) &&
-        (*(WORD*)&hookAddr[3] == eprocess_offset::DebugPort))  /*if ( Process->DebugPort )*/
+        (*(WORD*)&hookAddr[3] == eprocess_offset::DebugPort))
     {
-        //得到cmp的下一条指令
-        PspExitThread_jcc_instruction = (unsigned __int64)((unsigned __int64)hookAddr + (unsigned __int64)(LDE((unsigned __int8*)hookAddr, 64))); // 保存原 cmp 后继地址，供汇编代理跳回。
+        PspExitThread_jcc_instruction = (unsigned __int64)((unsigned __int64)hookAddr + (unsigned __int64)(LDE((unsigned __int8*)hookAddr, 64)));
+        if (PspExitThread_jcc_instruction == 0)
+        {
+            outLog("hook PspExitThread_CMP_Debugport_01 jcc instruction is NULL after LDE.");
+            return;
+        }
         if (hvgt::hook_function(hookAddr, Asm_PspExitThread_CMP_Debugport_01, NULL))
         {
             outLog("hook PspExitThread_CMP_Debugport_01成功.");
@@ -326,6 +327,6 @@ VOID SetupHook_PspExitThread_CMP_Debugport() // Win11 PspExitThread DebugPort cm
     }
     else
     {
-        outLog("没有匹配到 cmp [r14+578h]"); // 候选模板存在但偏移不是 DebugPort，说明当前系统版本指令形态不符合预期。
+        outLog("没有匹配到 cmp [r14+578h]");
     }
 }

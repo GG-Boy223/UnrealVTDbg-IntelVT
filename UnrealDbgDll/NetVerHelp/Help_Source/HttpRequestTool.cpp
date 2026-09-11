@@ -1,257 +1,433 @@
-﻿
-//#define _CRT_SECURE_NO_WARNINGS
 #include "../Help_Tou/HttpRequestTools.h"
+
+#include <Windows.h>
+#include <WinInet.h>
+
+#include <array>
+#include <limits>
+#include <string_view>
+#include <utility>
 
 namespace Help
 {
-#define BUFFER_SIZE   (4 * 1024)			// 接收数据buffer size
-#define NORMAL_CONNECT   INTERNET_FLAG_KEEP_CONNECTION
-#define SECURE_CONNECT   NORMAL_CONNECT | INTERNET_FLAG_SECURE
-#define NORMAL_REQUEST   INTERNET_FLAG_RELOAD | INTERNET_FLAG_DONT_CACHE
-#define SECURE_REQUEST   NORMAL_REQUEST | INTERNET_FLAG_SECURE | INTERNET_FLAG_IGNORE_CERT_CN_INVALID
+    namespace
+    {
+        constexpr DWORD kConnectTimeoutMs = 10'000;
+        constexpr DWORD kSendTimeoutMs = 10'000;
+        constexpr DWORD kMinimumReceiveTimeoutMs = 30'000;
+        constexpr std::size_t kMaximumResponseBytes = 16u * 1024u * 1024u;
 
-	CHttpRequestTool::CHttpRequestTool(string strAgent) :
-		m_pConnection(NULL),
-		m_pFile(NULL)
-	{
-		CString agent(strAgent.c_str());
-		m_pSession = new CInternetSession(agent);
-	}
+        class InternetHandle final
+        {
+        public:
+            InternetHandle() noexcept = default;
+            explicit InternetHandle(HINTERNET handle) noexcept : handle_(handle)
+            {
+            }
 
-	CHttpRequestTool::~CHttpRequestTool()
-	{
-		Clear();
+            ~InternetHandle() noexcept
+            {
+                reset();
+            }
 
-		if (NULL != m_pSession)
-		{
-			m_pSession->Close();
-			delete m_pSession;
-			m_pSession = NULL;
-		}
-	}
+            InternetHandle(const InternetHandle&) = delete;
+            InternetHandle& operator=(const InternetHandle&) = delete;
 
-	string CHttpRequestTool::HttpGet(string url, int timeOut)
-	{
-		CString strUrl(url.c_str());
-		return ExecuteGetRequest(strUrl, timeOut);
-	}
+            InternetHandle(InternetHandle&& other) noexcept
+                : handle_(std::exchange(other.handle_, nullptr))
+            {
+            }
 
-	string CHttpRequestTool::HttpPost(string url, string postData, list<string> head, int timeOut)
-	{
-		CString strUrl(url.c_str());
-		CString m_strPostData(postData.c_str());
-		return ExecutePostRequest(strUrl, m_strPostData, head, timeOut);
-	}
+            InternetHandle& operator=(InternetHandle&& other) noexcept
+            {
+                if (this != &other)
+                {
+                    reset(std::exchange(other.handle_, nullptr));
+                }
+                return *this;
+            }
 
-	void CHttpRequestTool::Clear()
-	{
-		if (NULL != m_pFile)
-		{
-			m_pFile->Close(); // recycle
-			delete m_pFile;
-			m_pFile = NULL;
-		}
+            [[nodiscard]] HINTERNET get() const noexcept
+            {
+                return handle_;
+            }
 
-		if (NULL != m_pConnection)
-		{
-			m_pConnection->Close();
-			delete m_pConnection;
-			m_pConnection = NULL;
-		}
-	}
+            explicit operator bool() const noexcept
+            {
+                return handle_ != nullptr;
+            }
 
-	string CHttpRequestTool::ExecuteGetRequest(CString strUrl, int timeOut)
-	{
-		string strResponse = (const char*)_xor_("");
-		try
-		{
-			// 1. 首先得设置个超时标准吧
-			m_pSession->SetOption(INTERNET_OPTION_CONNECT_RETRIES, 1000 * 10);// 连接超时
-			m_pSession->SetOption(INTERNET_OPTION_CONNECT_TIMEOUT, 1000 * 10);// 连接超时
+            void reset(HINTERNET handle = nullptr) noexcept
+            {
+                if (handle_ != nullptr)
+                {
+                    ::InternetCloseHandle(handle_);
+                }
+                handle_ = handle;
+            }
 
-			m_pSession->SetOption(INTERNET_OPTION_SEND_TIMEOUT, 1000 * 10);           //发送超时
-			m_pSession->SetOption(INTERNET_OPTION_DATA_SEND_TIMEOUT, 1000 * 10);     //发送超时
+        private:
+            HINTERNET handle_{ nullptr };
+        };
 
-			if (timeOut <= 1000 * 30)
-			{
-				timeOut = 1000 * 30;
-			}
-			m_pSession->SetOption(INTERNET_OPTION_DATA_RECEIVE_TIMEOUT, timeOut);  // 接收超时
-			m_pSession->SetOption(INTERNET_OPTION_RECEIVE_TIMEOUT, timeOut);       // 接收超时
+        std::wstring MultiByteToWide(
+            const std::string_view text,
+            const UINT code_page,
+            const DWORD flags)
+        {
+            if (text.empty() ||
+                text.size() > static_cast<std::size_t>((std::numeric_limits<int>::max)()))
+            {
+                return {};
+            }
 
+            const int input_size = static_cast<int>(text.size());
+            const int output_size = ::MultiByteToWideChar(
+                code_page,
+                flags,
+                text.data(),
+                input_size,
+                nullptr,
+                0);
+            if (output_size <= 0)
+            {
+                return {};
+            }
 
+            std::wstring result(static_cast<std::size_t>(output_size), L'\0');
+            if (::MultiByteToWideChar(
+                code_page,
+                flags,
+                text.data(),
+                input_size,
+                result.data(),
+                output_size) != output_size)
+            {
+                return {};
+            }
+            return result;
+        }
 
-			// 2. request to the HTTP server
-			ConvertUnicodeToUtf8(strUrl);						// before OpenUrl, convert strUrl coding
-			m_pFile = (CHttpFile*)m_pSession->OpenURL(strUrl);
-			if (m_pFile)
-			{
-				char szChars[BUFFER_SIZE + 1] = { 0 };			// buffer
-				UINT nReaded = 0;								// The number of bytes transferred to the buffer
-				while ((nReaded = m_pFile->Read((void *)szChars, BUFFER_SIZE)) > 0)
-				{
-					szChars[nReaded] = '\0';
-					strResponse += szChars;
-				}
+        std::wstring ToWide(const std::string_view text)
+        {
+            std::wstring result = MultiByteToWide(text, CP_UTF8, MB_ERR_INVALID_CHARS);
+            if (result.empty() && !text.empty())
+            {
+                result = MultiByteToWide(text, CP_ACP, 0);
+            }
+            return result;
+        }
 
-				ConvertUtf8ToUnicode(strResponse);				// response context convert coding
+        std::string WideToMultiByte(const std::wstring_view text, const UINT code_page)
+        {
+            if (text.empty() ||
+                text.size() > static_cast<std::size_t>((std::numeric_limits<int>::max)()))
+            {
+                return {};
+            }
 
-				m_pFile->Close();								// recycle
-				delete m_pFile;
-				m_pFile = NULL;
-			}
-		}
-		catch (CInternetException* e)
-		{
-			if (m_pFile)
-			{
-				m_pFile->Close(); // recycle
-				delete m_pFile;
-				m_pFile = NULL;
-			}
-		}
-		return strResponse;
-	}
+            const int input_size = static_cast<int>(text.size());
+            const int output_size = ::WideCharToMultiByte(
+                code_page,
+                0,
+                text.data(),
+                input_size,
+                nullptr,
+                0,
+                nullptr,
+                nullptr);
+            if (output_size <= 0)
+            {
+                return {};
+            }
 
-	string CHttpRequestTool::ExecutePostRequest(CString strUrl, CString	m_strPostData, list<string> head, int timeOut)
-	{
-		string strResponse = (const char*)_xor_("");
+            std::string result(static_cast<std::size_t>(output_size), '\0');
+            if (::WideCharToMultiByte(
+                code_page,
+                0,
+                text.data(),
+                input_size,
+                result.data(),
+                output_size,
+                nullptr,
+                nullptr) != output_size)
+            {
+                return {};
+            }
+            return result;
+        }
 
-		// 1. 解析URL字符串，并返回服务类型
-		DWORD dwServiceType;					// 表名Internet的服务类型，如AFX_INET_SERVICE_HTTP
-		CString strServer;						// 解析出来的主机字符串
-		CString strObject;						// 解析出来的URL内容字符串
-		INTERNET_PORT nPort;					// 端口号（由Server或Object段指定的）
+        std::string Utf8ResponseToLocalCodePage(const std::string& response)
+        {
+            if (response.empty())
+            {
+                return {};
+            }
 
-		if (!AfxParseURL(strUrl, dwServiceType, strServer, strObject, nPort))
-		{
-			// the URL is empty or does not contain a known Internet service type
-			return strResponse;
-		}
-		if (AFX_INET_SERVICE_HTTP != dwServiceType && AFX_INET_SERVICE_HTTPS != dwServiceType)
-		{
-			// the type of Internet service is illegal
-			return strResponse;
-		}
+            const std::wstring wide =
+                MultiByteToWide(response, CP_UTF8, MB_ERR_INVALID_CHARS);
+            if (wide.empty())
+            {
+                return response;
+            }
 
-		try
-		{
-			// 2. 设置超时标准,超时时间单位：毫秒
-			m_pSession->SetOption(INTERNET_OPTION_CONNECT_RETRIES, 1000 * 10);// 连接超时
-			m_pSession->SetOption(INTERNET_OPTION_CONNECT_TIMEOUT, 1000 * 10);// 连接超时
+            const std::string local = WideToMultiByte(wide, CP_ACP);
+            return local.empty() ? response : local;
+        }
 
-			m_pSession->SetOption(INTERNET_OPTION_SEND_TIMEOUT, 1000 * 10);           //发送超时
-			m_pSession->SetOption(INTERNET_OPTION_DATA_SEND_TIMEOUT, 1000 * 10);     //发送超时
+        std::wstring NormalizeUserAgent(const std::string& agent)
+        {
+            constexpr std::string_view prefix = "User-Agent:";
+            std::string_view value(agent);
+            if (value.size() >= prefix.size() &&
+                value.compare(0, prefix.size(), prefix) == 0)
+            {
+                value.remove_prefix(prefix.size());
+                while (!value.empty() && (value.front() == ' ' || value.front() == '\t'))
+                {
+                    value.remove_prefix(1);
+                }
+            }
+            return ToWide(value);
+        }
 
-			if (timeOut <= 1000 * 30)
-			{
-				timeOut = 1000 * 30;
-			}
-			m_pSession->SetOption(INTERNET_OPTION_DATA_RECEIVE_TIMEOUT, timeOut);  // 接收超时
-			m_pSession->SetOption(INTERNET_OPTION_RECEIVE_TIMEOUT, timeOut);       // 接收超时
+        bool SetTimeout(HINTERNET handle, const DWORD option, DWORD value) noexcept
+        {
+            return ::InternetSetOptionW(
+                handle,
+                option,
+                &value,
+                sizeof(value)) != FALSE;
+        }
+    }
 
+    CHttpRequestTool::CHttpRequestTool(std::string agent)
+        : agent_(std::move(agent))
+    {
+    }
 
+    std::string CHttpRequestTool::HttpGet(std::string url, const int timeOut)
+    {
+        return ExecuteRequest(L"GET", url, {}, {}, timeOut);
+    }
 
+    std::string CHttpRequestTool::HttpPost(
+        std::string url,
+        std::string postData,
+        std::list<std::string> headers,
+        const int timeOut)
+    {
+        return ExecuteRequest(L"POST", url, postData, headers, timeOut);
+    }
 
-			// 3. 用来管理HTTP连接，并返回一个CHttpConnection对象
-			m_pConnection = m_pSession->GetHttpConnection(strServer, dwServiceType ==
-				AFX_INET_SERVICE_HTTP ? NORMAL_CONNECT : SECURE_CONNECT, nPort);
+    std::string CHttpRequestTool::ExecuteRequest(
+        const wchar_t* method,
+        const std::string& url,
+        const std::string& postData,
+        const std::list<std::string>& headers,
+        const int timeOut)
+    {
+        try
+        {
+            const std::wstring wide_url = ToWide(url);
+            const std::wstring wide_agent = NormalizeUserAgent(agent_);
+            if (wide_url.empty() ||
+                wide_agent.empty() ||
+                wide_url.size() > static_cast<std::size_t>(MAXDWORD))
+            {
+                return {};
+            }
 
+            URL_COMPONENTSW components{};
+            components.dwStructSize = sizeof(components);
+            components.dwSchemeLength = static_cast<DWORD>(-1);
+            components.dwHostNameLength = static_cast<DWORD>(-1);
+            components.dwUrlPathLength = static_cast<DWORD>(-1);
+            components.dwExtraInfoLength = static_cast<DWORD>(-1);
+            if (::InternetCrackUrlW(
+                wide_url.c_str(),
+                static_cast<DWORD>(wide_url.size()),
+                0,
+                &components) == FALSE)
+            {
+                return {};
+            }
 
-			// 4. 用来打开HTTP连接，并返回一个指向CHttpFile对象的指针_T("POST")
-			m_pFile = m_pConnection->OpenRequest(CHttpConnection::HTTP_VERB_POST, strObject, NULL, 1, NULL, NULL,
-				(dwServiceType == AFX_INET_SERVICE_HTTP ? NORMAL_REQUEST : SECURE_REQUEST));
+            const bool secure = components.nScheme == INTERNET_SCHEME_HTTPS;
+            if (!secure && components.nScheme != INTERNET_SCHEME_HTTP)
+            {
+                return {};
+            }
 
-			// 5. 给请求添加Headers
-			list<string>::iterator it;
-			for (it = head.begin(); it != head.end(); it++)
-			{
-				string temp = *it;
-				CString headTemp(temp.c_str());
-				m_pFile->AddRequestHeaders(headTemp);
-			}
+            const std::wstring host(
+                components.lpszHostName,
+                static_cast<std::size_t>(components.dwHostNameLength));
+            std::wstring object_path;
+            if (components.lpszUrlPath != nullptr && components.dwUrlPathLength != 0)
+            {
+                object_path.assign(
+                    components.lpszUrlPath,
+                    static_cast<std::size_t>(components.dwUrlPathLength));
+            }
+            if (components.lpszExtraInfo != nullptr && components.dwExtraInfoLength != 0)
+            {
+                object_path.append(
+                    components.lpszExtraInfo,
+                    static_cast<std::size_t>(components.dwExtraInfoLength));
+            }
+            if (host.empty())
+            {
+                return {};
+            }
+            if (object_path.empty())
+            {
+                object_path = L"/";
+            }
 
+            InternetHandle session(::InternetOpenW(
+                wide_agent.c_str(),
+                INTERNET_OPEN_TYPE_PRECONFIG,
+                nullptr,
+                nullptr,
+                0));
+            if (!session)
+            {
+                return {};
+            }
 
-			// 6. 向HTTP服务器发送请求,需要将参数转码utf_8
-			if (m_strPostData.IsEmpty())
-			{
-				m_pFile->SendRequest(NULL, 0, (LPVOID)"", 0);
-			}
-			else
-			{
-				int nLen = WideCharToMultiByte(CP_UTF8, 0, m_strPostData, -1, NULL, 0, NULL, NULL);
-				char *pBuf = new char[nLen + 1];
-				if (NULL != pBuf)
-				{
-					WideCharToMultiByte(CP_UTF8, 0, m_strPostData, -1, pBuf, nLen, NULL, NULL);
-					m_pFile->SendRequest(NULL, 0, (LPVOID)pBuf, strlen(pBuf));
+            const DWORD receive_timeout =
+                timeOut > static_cast<int>(kMinimumReceiveTimeoutMs)
+                ? static_cast<DWORD>(timeOut)
+                : kMinimumReceiveTimeoutMs;
+            if (!SetTimeout(session.get(), INTERNET_OPTION_CONNECT_TIMEOUT, kConnectTimeoutMs) ||
+                !SetTimeout(session.get(), INTERNET_OPTION_SEND_TIMEOUT, kSendTimeoutMs) ||
+                !SetTimeout(session.get(), INTERNET_OPTION_RECEIVE_TIMEOUT, receive_timeout))
+            {
+                return {};
+            }
 
-					delete[] pBuf;
-					pBuf = NULL;
-				}
-			}
+            InternetHandle connection(::InternetConnectW(
+                session.get(),
+                host.c_str(),
+                components.nPort,
+                nullptr,
+                nullptr,
+                INTERNET_SERVICE_HTTP,
+                0,
+                0));
+            if (!connection)
+            {
+                return {};
+            }
 
-			// 7. 获取HTTP请求的状态码
-			DWORD dwStatusCode = 0L;
-			m_pFile->QueryInfoStatusCode(dwStatusCode);
-			if (HTTP_STATUS_OK == dwStatusCode)
-			{
-				char szChars[BUFFER_SIZE + 1] = { 0 };			// buffer
-				UINT nReaded = 0;								// The number of bytes transferred to the buffer
-				while ((nReaded = m_pFile->Read((void *)szChars, BUFFER_SIZE)) > 0)
-				{
-					strResponse += szChars;
-					::ZeroMemory(szChars, BUFFER_SIZE + 1);
-				}
+            const wchar_t* accept_types[]{ L"*/*", nullptr };
+            DWORD request_flags =
+                INTERNET_FLAG_RELOAD |
+                INTERNET_FLAG_NO_CACHE_WRITE |
+                INTERNET_FLAG_KEEP_CONNECTION;
+            if (secure)
+            {
+                request_flags |= INTERNET_FLAG_SECURE;
+            }
 
-				ConvertUtf8ToUnicode(strResponse); // response context convert coding
-			}
+            InternetHandle request(::HttpOpenRequestW(
+                connection.get(),
+                method,
+                object_path.c_str(),
+                nullptr,
+                nullptr,
+                accept_types,
+                request_flags,
+                0));
+            if (!request)
+            {
+                return {};
+            }
 
-		}
-		catch (CInternetException *e)
-		{
-			DWORD dwErrorCode = e->m_dwError;
-			DWORD_PTR dwContext = e->m_dwContext;
-			e->Delete();
+            for (const std::string& header : headers)
+            {
+                const std::wstring wide_header = ToWide(header);
+                if (wide_header.empty() ||
+                    ::HttpAddRequestHeadersW(
+                        request.get(),
+                        wide_header.c_str(),
+                        static_cast<DWORD>(wide_header.size()),
+                        HTTP_ADDREQ_FLAG_ADD | HTTP_ADDREQ_FLAG_REPLACE) == FALSE)
+                {
+                    return {};
+                }
+            }
 
-			// write to log
-			/*CString strLog;
-			strLog.Format(_T("InternetException m_dwContext:%u m_dwError:%u"), dwContext, dwErrorCode);*/
-		}
+            std::string request_body;
+            if (!postData.empty())
+            {
+                const std::wstring wide_body = ToWide(postData);
+                if (wide_body.empty())
+                {
+                    return {};
+                }
+                request_body = WideToMultiByte(wide_body, CP_UTF8);
+                if (request_body.empty() ||
+                    request_body.size() > static_cast<std::size_t>(MAXDWORD))
+                {
+                    return {};
+                }
+            }
 
-		Clear();
-		return strResponse;
-	}
+            if (::HttpSendRequestW(
+                request.get(),
+                nullptr,
+                0,
+                request_body.empty() ? nullptr : request_body.data(),
+                static_cast<DWORD>(request_body.size())) == FALSE)
+            {
+                return {};
+            }
 
-	void CHttpRequestTool::ConvertUnicodeToUtf8(CString& strText)
-	{
-		int nLen = WideCharToMultiByte(CP_UTF8, 0, strText, -1, NULL, 0, NULL, NULL);
-		char *pBuf = new char[nLen + 1];
-		if (NULL != pBuf)
-		{
-			WideCharToMultiByte(CP_UTF8, 0, strText, -1, pBuf, nLen, NULL, NULL);
-			pBuf[nLen] = '\0';
-			strText = pBuf;
+            DWORD status_code = 0;
+            DWORD status_size = sizeof(status_code);
+            if (::HttpQueryInfoW(
+                request.get(),
+                HTTP_QUERY_STATUS_CODE | HTTP_QUERY_FLAG_NUMBER,
+                &status_code,
+                &status_size,
+                nullptr) == FALSE ||
+                status_code < 200 ||
+                status_code >= 300)
+            {
+                return {};
+            }
 
-			delete[] pBuf;
-			pBuf = NULL;
-		}
-	}
+            std::string response;
+            std::array<char, 4096> buffer{};
+            for (;;)
+            {
+                DWORD bytes_read = 0;
+                if (::InternetReadFile(
+                    request.get(),
+                    buffer.data(),
+                    static_cast<DWORD>(buffer.size()),
+                    &bytes_read) == FALSE)
+                {
+                    return {};
+                }
+                if (bytes_read == 0)
+                {
+                    break;
+                }
+                if (static_cast<std::size_t>(bytes_read) >
+                    kMaximumResponseBytes - response.size())
+                {
+                    return {};
+                }
+                response.append(buffer.data(), static_cast<std::size_t>(bytes_read));
+            }
 
-	void CHttpRequestTool::ConvertUtf8ToUnicode(string& strText)
-	{
-		int unicodeLen = MultiByteToWideChar(CP_UTF8, 0, strText.c_str(), -1, NULL, 0);
-		WCHAR *pUnicode = new WCHAR[unicodeLen + 1];
-		if (NULL != pUnicode)
-		{
-			MultiByteToWideChar(CP_UTF8, 0, strText.c_str(), -1, pUnicode, unicodeLen);
-			pUnicode[unicodeLen] = '\0';
-
-			USES_CONVERSION;
-			strText = T2A(pUnicode);
-
-			delete[] pUnicode;
-			pUnicode = NULL;
-		}
-	}
+            return Utf8ResponseToLocalCodePage(response);
+        }
+        catch (...)
+        {
+            return {};
+        }
+    }
 }

@@ -92,19 +92,9 @@ void set_primary_controls(__vmx_primary_processor_based_control& primary_control
     primary_controls.rdtsc_exiting = true; // 拦截 RDTSC/RDTSCP
 #endif // 条件编译结束
 
-// CR3-load exiting：写 CR3 时根据 CR3-target 规则决定是否 VM-exit
-#ifdef _MINIMAL // 精简模式
-    primary_controls.cr3_load_exiting = true; // 拦截写 CR3
-#else // 非精简模式
-    primary_controls.cr3_load_exiting = true; // 拦截写 CR3
-#endif // 条件编译结束
-
-// CR3-store exiting：读 CR3 时是否 VM-exit
-#ifdef _MINIMAL // 精简模式
-    primary_controls.cr3_store_exiting = false; // 不拦截读 CR3
-#else // 非精简模式
-    primary_controls.cr3_store_exiting = true; // 拦截读 CR3
-#endif // 条件编译结束
+    // CR3 观察按 tracker 生命周期动态启用，启动阶段不拦截系统地址空间切换。
+    primary_controls.cr3_load_exiting = false;
+    primary_controls.cr3_store_exiting = false;
 
     // CR8 load 是否 VM-exit
     primary_controls.cr8_load_exiting = false; // 不拦截写 CR8

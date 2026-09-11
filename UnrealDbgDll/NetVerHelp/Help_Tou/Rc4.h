@@ -1,6 +1,7 @@
 ﻿#pragma once
 #ifndef _ENCRYPT_RC4_
 #define _ENCRYPT_RC4_
+#include <string>
 #define BOX_LEN 256
 namespace Help
 {
@@ -8,9 +9,9 @@ namespace Help
 	{
 	public:
 		// 加密，返回加密结果
-		char* Encrypt(const char* szSource, const char* szPassWord); 
+		std::string Encrypt(const char* szSource, const char* szPassWord);
 		// 解密，返回解密结果
-		char* Decrypt(const char* szSource, const char* szPassWord); 
+		std::string Decrypt(const char* szSource, const char* szPassWord);
 	private:
 		int GetKey(const unsigned char* pass, int pass_len, unsigned char *out);
 		int RC4(const unsigned char* data, int data_len, const unsigned char* key, int key_len, unsigned char* out, int* out_len);
