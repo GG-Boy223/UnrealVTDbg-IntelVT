@@ -18,7 +18,20 @@ NTSTATUS NTAPI NewNtDebugActiveProcess(
         &BytesReturned))
     {
         const DWORD newTargetPid = GetProcessId(ProcessHandle);
-        if (g_target_pid != 0 && newTargetPid != 0 && g_target_pid != newTargetPid)
+        if (!output.cr3 || !newTargetPid)
+        {
+            ReportSeriousError("cr3 或 pid为空");
+            return STATUS_UNSUCCESSFUL;
+        }
+
+        // 先完成真实附加,成功后再切换/建立追踪状态,避免附加失败时残留错误目标。
+        Status = Sys_NtDebugActiveProcess(ProcessHandle, DebugObjectHandle);
+        if (!NT_SUCCESS(Status))
+        {
+            return Status;
+        }
+
+        if (g_target_pid != 0 && g_target_pid != newTargetPid)
         {
             CleanupDebugSessionState("NtDebugActiveProcess切换目标");
         }
@@ -31,14 +44,6 @@ NTSTATUS NTAPI NewNtDebugActiveProcess(
         logger.Log("g_target_cr3: 0x%p", g_target_cr3);
         logger.Log("g_target_pid: %d", g_target_pid);
 
-        if (!g_target_cr3 || !g_target_pid)
-        {
-            ReportSeriousError("cr3 或 pid为空");
-            return STATUS_UNSUCCESSFUL;
-        }
-
-        //连接调试器
-        Status = Sys_NtDebugActiveProcess(ProcessHandle, DebugObjectHandle);
         //if (NT_SUCCESS(Status))
         //{
         //    //在目标进程内触发int3事件
@@ -130,11 +135,6 @@ NewDebugActiveProcess(
     _In_ DWORD dwProcessId
 )
 {
-    if (g_target_pid != 0 && dwProcessId != 0 && g_target_pid != dwProcessId)
-    {
-        CleanupDebugSessionState("DebugActiveProcess切换目标");
-    }
-
     logger.Log("附加到目标进程");
     return Sys_DebugActiveProcess(dwProcessId);
 }

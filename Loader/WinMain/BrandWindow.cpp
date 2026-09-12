@@ -126,11 +126,21 @@ int DisplayBrand(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In
 
 	// 加载图片
 	HBITMAP hBitmap = (HBITMAP)LoadImage(NULL, curdir.c_str(), IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
-	DWORD err = GetLastError();
+	if (!hBitmap)
+	{
+		Common::ReportSeriousError("加载资源文件失败! (error: %d)", __func__, __LINE__, GetLastError());
+		return 0;
+	}
 
 	// 获取图片原始尺寸
 	BITMAP bitmap;
-	GetObject(hBitmap, sizeof(BITMAP), &bitmap);
+	if (!GetObject(hBitmap, sizeof(BITMAP), &bitmap))
+	{
+		DWORD err = GetLastError();
+		DeleteObject(hBitmap);
+		Common::ReportSeriousError("获取资源文件尺寸失败! (error: %d)", __func__, __LINE__, err);
+		return 0;
+	}
 	int originalWidth = bitmap.bmWidth;
 	int originalHeight = bitmap.bmHeight;
 	nWidth = bitmap.bmWidth;

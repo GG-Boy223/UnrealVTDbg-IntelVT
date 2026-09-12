@@ -11,6 +11,8 @@
 typedef struct _SET_DBG_BREAKPOINT {
 	BOOL boLdrInitializeThunk;
 	BOOL boBaseThreadInitThunk;
+	BOOL BaseThreadInitThunkPatched;
+	BYTE BaseThreadInitThunkOriginalBytes[3];
 } SET_DBG_BREAKPOINT, * PSET_DBG_BREAKPOINT;
 
 typedef struct _PROCESS_INFO {

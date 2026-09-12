@@ -11,6 +11,9 @@ void CleanupDebugSessionState(const char* reason)
     std::vector<VT_BREAK_POINT> int3Breakpoints;
     int3Breakpoints.reserve(8);
 
+    const bool startupBreakpointRestored =
+        RestoreBaseThreadInitThunkStartupBreakpoint();
+
     INT3BreakpointList.Lock();
     for (const auto& breakpoint : INT3BreakpointList)
     {
@@ -64,8 +67,9 @@ void CleanupDebugSessionState(const char* reason)
     g_target_pid = 0;
     g_target_cr3 = 0;
 
-    logger.Log("调试会话清理完成 来源:%s 隐藏int3:%d 本地int3残留:%llu 硬件残留:%llu",
+    logger.Log("调试会话清理完成 来源:%s 启动断点恢复:%d 隐藏int3:%d 本地int3残留:%llu 硬件残留:%llu",
         cleanupReason,
+        startupBreakpointRestored ? 1 : 0,
         releasedInt3Count,
         staleInt3Count,
         staleHardwareCount);

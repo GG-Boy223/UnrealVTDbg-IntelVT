@@ -25,7 +25,7 @@ void DownloadSymbol()
 			continue; // 读不出就跳过
 		}
 
-		// 2. 本地验证（你的函数，毫秒级）
+		// 2. 本地验证(你的函数,毫秒级)
 		if (FileExists(pdbPath) && VerifyExistingPdb2(gPe, agePe))
 		{
 			PostMessageW(g_hwnd, USER_PROGRESS_BAR, 100, 0);
@@ -34,10 +34,7 @@ void DownloadSymbol()
 
 		// 3. 不匹配或缺失 → 真正下载
 		std::wstring log;
-		if (!DownloadSymbol_internal(pePath, L"C:\\Symbols\\", &log, true))
-		{
-			exit(0);
-		}
+		DownloadSymbol_internal(pePath, L"C:\\Symbols\\", &log, true);
 	}
 }
 
@@ -53,5 +50,8 @@ unsigned __stdcall DownloadSymbolThread(PVOID pArgList)
 void InitThread()
 {
 	HANDLE hThread = (HANDLE)_beginthreadex(nullptr, 0, DownloadSymbolThread, nullptr, 0, nullptr);
-	CloseHandle(hThread);
+	if (hThread)
+	{
+		CloseHandle(hThread);
+	}
 }

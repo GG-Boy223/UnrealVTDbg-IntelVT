@@ -81,6 +81,7 @@ namespace ept
 		}
 
 		//判断2mb pde是否已经进行分割
+		__ept_dynamic_split* runtime_split = nullptr;
 		if (is_page_splitted(ept_state, physical_address) == false)
 		{
 			void* split_buffer = pool_manager::request_pool<void*>(
@@ -101,12 +102,21 @@ namespace ept
 				LogError("Split failed");
 				return false;
 			}
+
+			ept_mark_runtime_split(split_buffer);
+			runtime_split = reinterpret_cast<__ept_dynamic_split*>(split_buffer);
 		}
 
 		//得到目标页
 		__ept_pte* target_page = get_pml1_entry(ept_state, physical_address);
 		if (target_page == nullptr)
 		{
+			// 如果本次刚做了 runtime split 但未成功建立监视记录,则尝试回收 split。
+			if (runtime_split != nullptr)
+			{
+				ept_split_try_merge_and_release(ept_state, runtime_split);
+			}
+
 			LogError("Failed to get PML1 entry of the target address");
 			return false;
 		}
@@ -117,6 +127,12 @@ namespace ept
 			sizeof(__ept_hooked_page_info));
 		if (hooked_page_info == nullptr)
 		{
+			// 如果本次刚做了 runtime split 但未成功建立监视记录,则尝试回收 split。
+			if (runtime_split != nullptr)
+			{
+				ept_split_try_merge_and_release(ept_state, runtime_split);
+			}
+
 			LogError("There is no preallocated pool for hooked page info");
 			return false;
 		}
@@ -132,6 +148,12 @@ namespace ept
 		{
 			// 关键修复：失败路径要回收 hooked_page_info（旧代码这里直接 return false，导致池对象泄漏）。
 			pool_manager::release_pool(hooked_page_info);
+
+			// 如果本次刚做了 runtime split 但未成功建立监视记录,则尝试回收 split。
+			if (runtime_split != nullptr)
+			{
+				ept_split_try_merge_and_release(ept_state, runtime_split);
+			}
 
 			LogError("hook函数时预分配的缓冲已耗尽");
 			return false;
@@ -152,6 +174,12 @@ namespace ept
 				pool_manager::release_pool(hooked_page_info);
 				pool_manager::release_pool(hooked_function_info);
 
+				// 如果本次刚做了 runtime split 但未成功建立监视记录,则尝试回收 split。
+				if (runtime_split != nullptr)
+				{
+					ept_split_try_merge_and_release(ept_state, runtime_split);
+				}
+
 				LogError("There is no pre-allocated pool for trampoline");
 				return false;
 			}
@@ -160,6 +188,7 @@ namespace ept
 		hooked_page_info->pfn_of_hooked_page = GET_PFN(physical_address); //获取guest物理页面的页帧号
 		hooked_page_info->pfn_of_fake_page_contents = GET_PFN(MmGetPhysicalAddress(hooked_page_info->fake_page_contents).QuadPart);
 		hooked_page_info->entry_address = target_page; //ept_pte
+		hooked_page_info->owner_split = ept_get_split_from_pml1(target_page);
 		//先改原页为不可执行 回到guest后执行就触发vmexit
 		//进入vmm后交换伪造页
 		hooked_page_info->entry_address->execute = 0;
@@ -182,6 +211,9 @@ namespace ept
 		//开始hook
 		if (write_int1_instruction_to_memory(hooked_function_info, target_function, proxy_function, origin_function) == false)
 		{
+			target_page->read = 1;
+			target_page->write = 1;
+			target_page->execute = 1;
 			if (hooked_function_info->first_trampoline_address != nullptr)
 			{
 				pool_manager::release_pool(hooked_function_info->first_trampoline_address);
@@ -190,13 +222,26 @@ namespace ept
 			// 关键修复：失败路径要回收 hooked_page_info（旧代码这里直接 return false，导致池对象泄漏）。
 			pool_manager::release_pool(hooked_page_info);
 
+			// 如果本次刚做了 runtime split 但未成功建立监视记录,则尝试回收 split。
+			if (runtime_split != nullptr)
+			{
+				ept_split_try_merge_and_release(ept_state, runtime_split);
+			}
+
+			_mm_mfence();
+			invept_single_context_func(ept_state.ept_pointer->all);
 			LogError("Hook failed");
 			return false;
 		}
 
 		//记录hook的函数和页 以便日后释放
 		// Track all hooked functions
+		hooked_page_info->Options = EPTO_HOOK_FUNCTION;
 		InsertHeadList(&hooked_page_info->hooked_functions_list, &hooked_function_info->hooked_function_list);
+
+		// 引用计数 +1:表示该 split 现在被一个 watch 页面记录占用。
+		ept_split_ref_inc(hooked_page_info->owner_split);
+
 		// Track all hooked pages
 		InsertHeadList(&ept_state.hooked_page_list, &hooked_page_info->hooked_page_list);
 

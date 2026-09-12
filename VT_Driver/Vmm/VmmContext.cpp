@@ -182,14 +182,23 @@ bool allocate_vmm_context() // 初始化全局VMM资源，包含每核VCPU与EPT
 	__cpuid_info cpuid_reg = { 0 }; // CPUID临时缓冲，用于读取CPU能力信息
 	outFile("========== VMM全局上下文分配开始 ==========");
 
+	USHORT active_group_count = KeQueryActiveGroupCount();
+	if (active_group_count != 1)
+	{
+		outDebug("当前 VMM 布局不支持多个处理器组。\n");
+		return false;
+	}
+
 	//
 	// Allocate virtual cpu context for every logical core
 	// 为每个逻辑处理器分配虚拟 CPU 上下文
 	g_vmm_context.processor_count = KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS); // 统计全部处理器组的逻辑处理器数量
+
+
 	outFile("[信息][VMM上下文] 活跃逻辑处理器数量=%u 活跃处理器组数量=%u",
 		g_vmm_context.processor_count,
 		KeQueryActiveGroupCount());
-	if (g_vmm_context.processor_count == 0)
+	if (g_vmm_context.processor_count == 0 || g_vmm_context.processor_count > 64)
 	{
 		outFile("[失败][VMM上下文] 系统报告的逻辑处理器数量为0，停止VT加载");
 		return false;

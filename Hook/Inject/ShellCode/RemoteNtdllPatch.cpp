@@ -4,85 +4,105 @@
 #include "InjectCode.h"
 
 #include <cstring>
-#include <stdexcept>
 
-const DWORD ins_len = 20;
+constexpr DWORD kPatchLength = 20;
 
-BYTE originalInstructions[ins_len] = { 0 };
+BYTE originalLdrInstructions[kPatchLength] = { 0 };
+BYTE originalApcInstructions[kPatchLength] = { 0 };
 
 
 //摘除钩子
 void RemoveHook(DWORD dwPid)
 {
-	try
+	HANDLE hProcess = nullptr;
+	SIZE_T size = 0;
+	DWORD oldProtect = 0;
+	LdrInitializeThunk = (PFN_LDRINITIALIZETHUNK)GetProcAddress(GetModuleHandle(_T("ntdll.dll")), "LdrInitializeThunk");
+	if (!LdrInitializeThunk)
 	{
-		HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwPid);
-		//hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwPid);
-		if (hProcess)
-		{
-			LdrInitializeThunk = (PFN_LDRINITIALIZETHUNK)GetProcAddress(GetModuleHandle(_T("ntdll.dll")), "LdrInitializeThunk");
-			SIZE_T Size = 0;
-			DWORD dwOldProtect;
-			BYTE InstructionsBuf[ins_len] = { 0 };
-
-			VirtualProtect((LPVOID)LdrInitializeThunk, ins_len, PAGE_EXECUTE_READWRITE, &dwOldProtect);
-			memcpy(InstructionsBuf, LdrInitializeThunk, ins_len);  //将自身内存里的没有被修改的拷一份下来
-
-			//备份目标进程的内容
-			if (!ReadProcessMemory(hProcess, LdrInitializeThunk, originalInstructions, sizeof(originalInstructions), &Size))
-			{
-				throw std::runtime_error("RemoveHook 拷贝失败");
-			}
-			//摘除钩子
-			if (!WriteProcessMemory(hProcess, LdrInitializeThunk, InstructionsBuf, sizeof(InstructionsBuf), &Size))
-			{
-				throw std::runtime_error("RemoveHook 写入数据失败");
-			}
-			VirtualProtect((LPVOID)LdrInitializeThunk, ins_len, dwOldProtect, &dwOldProtect);
-			// 关闭进程句柄
-			CloseHandle(hProcess);
-		}
-		// *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
-		else
-		{
-			logger.Log("打开进程失败 error: %d",GetLastError());
-		}
+		logger.Log("RemoveHook LdrInitializeThunk resolve failed");
+		return;
 	}
-	catch (const std::exception& e)
+
+	hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwPid);
+	if (!hProcess)
 	{
-		OutputDebugStringA(e.what());
+		logger.Log("open process failed error: %d", GetLastError());
+		return;
 	}
+
+	if (!VirtualProtect((LPVOID)LdrInitializeThunk, kPatchLength, PAGE_EXECUTE_READWRITE, &oldProtect))
+	{
+		logger.Log("RemoveHook VirtualProtect failed error: %d", GetLastError());
+		CloseHandle(hProcess);
+		return;
+	}
+
+	BYTE originalLocalBytes[kPatchLength] = { 0 };
+	BYTE instructionsBuf[kPatchLength] = { 0 };
+	memcpy(instructionsBuf, LdrInitializeThunk, kPatchLength);
+
+	if (!ReadProcessMemory(hProcess, LdrInitializeThunk, originalLocalBytes, sizeof(originalLocalBytes), &size))
+	{
+		logger.Log("RemoveHook read memory failed error: %d", GetLastError());
+		VirtualProtect((LPVOID)LdrInitializeThunk, kPatchLength, oldProtect, &oldProtect);
+		CloseHandle(hProcess);
+		return;
+	}
+
+	if (!WriteProcessMemory(hProcess, LdrInitializeThunk, instructionsBuf, sizeof(instructionsBuf), &size))
+	{
+		logger.Log("RemoveHook write memory failed error: %d", GetLastError());
+		VirtualProtect((LPVOID)LdrInitializeThunk, kPatchLength, oldProtect, &oldProtect);
+		CloseHandle(hProcess);
+		return;
+	}
+
+	memcpy(originalLdrInstructions, originalLocalBytes, sizeof(originalLdrInstructions));
+	VirtualProtect((LPVOID)LdrInitializeThunk, kPatchLength, oldProtect, &oldProtect);
+	CloseHandle(hProcess);
 }
 
 //恢复钩子
 void RestoreHook(DWORD dwPid)
 {
-	try
+	HANDLE hProcess = nullptr;
+	SIZE_T size = 0;
+	DWORD oldProtect = 0;
+	LdrInitializeThunk = (PFN_LDRINITIALIZETHUNK)GetProcAddress(GetModuleHandle(_T("ntdll.dll")), "LdrInitializeThunk");
+	if (!LdrInitializeThunk)
 	{
-		HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwPid);
-		//hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwPid);
-		if (hProcess)
-		{
-			LdrInitializeThunk = (PFN_LDRINITIALIZETHUNK)GetProcAddress(GetModuleHandle(_T("ntdll.dll")), "LdrInitializeThunk");
-			SIZE_T Size = 0;
-
-			//恢复钩子
-			if (!WriteProcessMemory(hProcess, LdrInitializeThunk, originalInstructions, sizeof(originalInstructions), &Size))
-			{
-				throw std::runtime_error("RestoreHook 写入数据失败");
-			}
-			// 关闭进程句柄
-			CloseHandle(hProcess);
-		}
-		// *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
-		else
-		{
-			logger.Log("打开进程失败 error: %d", GetLastError());
-		}
+		logger.Log("RestoreHook LdrInitializeThunk resolve failed");
+		return;
 	}
-	catch (const std::exception& e)
+
+	hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwPid);
+	if (!hProcess)
 	{
-		OutputDebugStringA(e.what());
+		logger.Log("open process failed error: %d", GetLastError());
+		return;
+	}
+
+	if (!VirtualProtect((LPVOID)LdrInitializeThunk, kPatchLength, PAGE_EXECUTE_READWRITE, &oldProtect))
+	{
+		logger.Log("RestoreHook VirtualProtect failed error: %d", GetLastError());
+		CloseHandle(hProcess);
+		return;
+	}
+
+	BOOL restored = WriteProcessMemory(
+		hProcess,
+		LdrInitializeThunk,
+		originalLdrInstructions,
+		sizeof(originalLdrInstructions),
+		&size);
+	DWORD restoreError = restored ? 0 : GetLastError();
+	VirtualProtect((LPVOID)LdrInitializeThunk, kPatchLength, oldProtect, &oldProtect);
+	CloseHandle(hProcess);
+
+	if (!restored)
+	{
+		logger.Log("RestoreHook write memory failed error: %d", restoreError);
 	}
 }
 
@@ -90,74 +110,94 @@ void RestoreHook(DWORD dwPid)
 //摘除钩子
 void RemoveKiUserApcDispatcherHook(DWORD dwPid)
 {
-	try
+	HANDLE hProcess = nullptr;
+	SIZE_T size = 0;
+	DWORD oldProtect = 0;
+	KiUserApcDispatcher = (PFN_LDRINITIALIZETHUNK)GetProcAddress(GetModuleHandle(_T("ntdll.dll")), "KiUserApcDispatcher");
+	if (!KiUserApcDispatcher)
 	{
-		HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwPid);
-		//hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwPid);
-		if (hProcess)
-		{
-			KiUserApcDispatcher = (PFN_LDRINITIALIZETHUNK)GetProcAddress(GetModuleHandle(_T("ntdll.dll")), "KiUserApcDispatcher");
-			SIZE_T Size = 0;
-			DWORD dwOldProtect;
-			BYTE InstructionsBuf[ins_len] = { 0 };
-
-			VirtualProtect((LPVOID)KiUserApcDispatcher, ins_len, PAGE_EXECUTE_READWRITE, &dwOldProtect);
-			memcpy(InstructionsBuf, KiUserApcDispatcher, ins_len);  //将自身内存里的没有被修改的拷一份下来
-
-			//备份目标进程的内容
-			if (!ReadProcessMemory(hProcess, KiUserApcDispatcher, originalInstructions, sizeof(originalInstructions), &Size))
-			{
-				throw std::runtime_error("RemoveHook 拷贝失败");
-			}
-			//摘除钩子
-			if (!WriteProcessMemory(hProcess, KiUserApcDispatcher, InstructionsBuf, sizeof(InstructionsBuf), &Size))
-			{
-				throw std::runtime_error("RemoveHook 写入数据失败");
-			}
-			VirtualProtect((LPVOID)KiUserApcDispatcher, ins_len, dwOldProtect, &dwOldProtect);
-			// 关闭进程句柄
-			CloseHandle(hProcess);
-		}
-		// *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
-		else
-		{
-			logger.Log("打开进程失败 error: %d", GetLastError());
-		}
+		logger.Log("RemoveKiUserApcDispatcherHook KiUserApcDispatcher resolve failed");
+		return;
 	}
-	catch (const std::exception& e)
+
+	hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwPid);
+	if (!hProcess)
 	{
-		OutputDebugStringA(e.what());
+		logger.Log("open process failed error: %d", GetLastError());
+		return;
 	}
+
+	if (!VirtualProtect((LPVOID)KiUserApcDispatcher, kPatchLength, PAGE_EXECUTE_READWRITE, &oldProtect))
+	{
+		logger.Log("RemoveKiUserApcDispatcherHook VirtualProtect failed error: %d", GetLastError());
+		CloseHandle(hProcess);
+		return;
+	}
+
+	BYTE originalLocalBytes[kPatchLength] = { 0 };
+	BYTE instructionsBuf[kPatchLength] = { 0 };
+	memcpy(instructionsBuf, KiUserApcDispatcher, kPatchLength);
+
+	if (!ReadProcessMemory(hProcess, KiUserApcDispatcher, originalLocalBytes, sizeof(originalLocalBytes), &size))
+	{
+		logger.Log("RemoveKiUserApcDispatcherHook read memory failed error: %d", GetLastError());
+		VirtualProtect((LPVOID)KiUserApcDispatcher, kPatchLength, oldProtect, &oldProtect);
+		CloseHandle(hProcess);
+		return;
+	}
+
+	if (!WriteProcessMemory(hProcess, KiUserApcDispatcher, instructionsBuf, sizeof(instructionsBuf), &size))
+	{
+		logger.Log("RemoveKiUserApcDispatcherHook write memory failed error: %d", GetLastError());
+		VirtualProtect((LPVOID)KiUserApcDispatcher, kPatchLength, oldProtect, &oldProtect);
+		CloseHandle(hProcess);
+		return;
+	}
+
+	memcpy(originalApcInstructions, originalLocalBytes, sizeof(originalApcInstructions));
+	VirtualProtect((LPVOID)KiUserApcDispatcher, kPatchLength, oldProtect, &oldProtect);
+	CloseHandle(hProcess);
 }
 
 //恢复钩子
 void RestoreKiUserApcDispatcherHook(DWORD dwPid)
 {
-	try
+	HANDLE hProcess = nullptr;
+	SIZE_T size = 0;
+	DWORD oldProtect = 0;
+	KiUserApcDispatcher = (PFN_LDRINITIALIZETHUNK)GetProcAddress(GetModuleHandle(_T("ntdll.dll")), "KiUserApcDispatcher");
+	if (!KiUserApcDispatcher)
 	{
-		HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwPid);
-		//hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwPid);
-		if (hProcess)
-		{
-			KiUserApcDispatcher = (PFN_LDRINITIALIZETHUNK)GetProcAddress(GetModuleHandle(_T("ntdll.dll")), "KiUserApcDispatcher");
-			SIZE_T Size = 0;
-
-			//恢复钩子
-			if (!WriteProcessMemory(hProcess, KiUserApcDispatcher, originalInstructions, sizeof(originalInstructions), &Size))
-			{
-				throw std::runtime_error("RestoreHook 写入数据失败");
-			}
-			// 关闭进程句柄
-			CloseHandle(hProcess);
-		}
-		// *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
-		else
-		{
-			logger.Log("打开进程失败 error: %d", GetLastError());
-		}
+		logger.Log("RestoreKiUserApcDispatcherHook KiUserApcDispatcher resolve failed");
+		return;
 	}
-	catch (const std::exception& e)
+
+	hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwPid);
+	if (!hProcess)
 	{
-		OutputDebugStringA(e.what());
+		logger.Log("open process failed error: %d", GetLastError());
+		return;
+	}
+
+	if (!VirtualProtect((LPVOID)KiUserApcDispatcher, kPatchLength, PAGE_EXECUTE_READWRITE, &oldProtect))
+	{
+		logger.Log("RestoreKiUserApcDispatcherHook VirtualProtect failed error: %d", GetLastError());
+		CloseHandle(hProcess);
+		return;
+	}
+
+	BOOL restored = WriteProcessMemory(
+		hProcess,
+		KiUserApcDispatcher,
+		originalApcInstructions,
+		sizeof(originalApcInstructions),
+		&size);
+	DWORD restoreError = restored ? 0 : GetLastError();
+	VirtualProtect((LPVOID)KiUserApcDispatcher, kPatchLength, oldProtect, &oldProtect);
+	CloseHandle(hProcess);
+
+	if (!restored)
+	{
+		logger.Log("RestoreKiUserApcDispatcherHook write memory failed error: %d", restoreError);
 	}
 }

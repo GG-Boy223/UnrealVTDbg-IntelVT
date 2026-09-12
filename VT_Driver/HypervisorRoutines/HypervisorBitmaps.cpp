@@ -10,17 +10,35 @@ namespace hv
     /// <param name="enable_exiting">是否开启对该 MSR 的 VM-exit</param>
     void set_msr_bitmap(vmx_msr_bitmap& bitmap, uint32_t const msr, bool const enable_exiting) // 设置 MSR 位图以控制 VM-exit
     {
-        auto const bit = static_cast<uint8_t>(enable_exiting ? 1 : 0); // 将布尔值转换为 0/1，用于设置位图
+        auto const bit_mask = static_cast<uint8_t>(1u << (msr & 0b0111));
 
         if (msr <= MSR_ID_LOW_MAX) // MSR 在低范围，使用低位图
         {
-            // 在低位 MSR 位图中设置该位
-            bitmap.rdmsr_low[msr / 8] = (bit << (msr & 0b0111)); // 在低 MSR 范围的读位图中设置对应位
+            // RDMSR/WRMSR bitmaps are separate 4KB pages; do not overwrite sibling MSR bits.
+            if (enable_exiting)
+            {
+                bitmap.rdmsr_low[msr / 8] |= bit_mask;
+                bitmap.wrmsr_low[msr / 8] |= bit_mask;
+            }
+            else
+            {
+                bitmap.rdmsr_low[msr / 8] &= static_cast<uint8_t>(~bit_mask);
+                bitmap.wrmsr_low[msr / 8] &= static_cast<uint8_t>(~bit_mask);
+            }
         }
-        else if (msr >= MSR_ID_HIGH_MIN && msr <= MSR_ID_HIGH_MAX) // MSR 在高范围，使用高位图
+        else if (msr >= MSR_ID_HIGH_MIN && msr <= MSR_ID_HIGH_MAX) // MSR 在高范围,使用高位图
         {
-            // 在高位 MSR 位图中设置该位
-            bitmap.rdmsr_high[(msr - MSR_ID_HIGH_MIN) / 8] = (bit << (msr & 0b0111)); // 在高 MSR 范围的读位图中设置对应位
+            auto const index = (msr - MSR_ID_HIGH_MIN) / 8; // high range bitmap starts at MSR_ID_HIGH_MIN
+            if (enable_exiting)
+            {
+                bitmap.rdmsr_high[index] |= bit_mask;
+                bitmap.wrmsr_high[index] |= bit_mask;
+            }
+            else
+            {
+                bitmap.rdmsr_high[index] &= static_cast<uint8_t>(~bit_mask);
+                bitmap.wrmsr_high[index] &= static_cast<uint8_t>(~bit_mask);
+            }
         }
     }
 

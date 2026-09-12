@@ -1,6 +1,11 @@
 ﻿#include "VmExitEpt.h"
 #include "../Cr3/Cr3Tracker.h"
 
+namespace
+{
+	constexpr unsigned __int64 kMaxUnhandledEptViolationRetries = 64;
+}
+
 void vmexit_ept_misconfiguration_handler(__vcpu* vcpu) // 处理 EPT 配置错误（misconfiguration）导致的 VM-exit
 {
 	sLog("\n"); // 日志占位，用于调试定位
@@ -137,8 +142,43 @@ void vmexit_ept_violation_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 		}
 	}
 
-	vmx_fatal_error(
-		vmx_fatal_unhandled_ept_violation,
-		guest_physical_adddress,
-		ept_violation.all);
+	// EPT violation 可能由未跟踪页、并发清理后的权限状态或非预期访问触发。
+	// 无条件 BugCheck 会把一次可恢复的权限状态变化变成整机故障;先刷新 EPT TLB,
+	// 让硬件按当前页表状态重试,同时保留现场信息供后续诊断。
+	if (vcpu != nullptr && vcpu->ept_state != nullptr)
+	{
+		// Only count consecutive violations for the same GPA+qualification. This
+		// bounds a stuck EPT state without treating ordinary transient violations
+		// accumulated over hours as a fatal problem.
+		if (vcpu->ept_state->last_unhandled_ept_violation_guest_physical == guest_physical_adddress &&
+			vcpu->ept_state->last_unhandled_ept_violation_qualification == ept_violation.all)
+		{
+			++vcpu->ept_state->unhandled_ept_violation_count;
+		}
+		else
+		{
+			vcpu->ept_state->unhandled_ept_violation_count = 1;
+		}
+
+		vcpu->ept_state->last_unhandled_ept_violation_guest_physical = guest_physical_adddress;
+		vcpu->ept_state->last_unhandled_ept_violation_qualification = ept_violation.all;
+		vcpu->ept_state->last_unhandled_ept_violation_guest_rip =
+			vcpu->vmexit_info.guest_rip;
+
+		if (vcpu->ept_state->unhandled_ept_violation_count >= kMaxUnhandledEptViolationRetries)
+		{
+			vmx_fatal_error(
+				vmx_fatal_unhandled_ept_violation,
+				guest_physical_adddress,
+				ept_violation.all);
+		}
+	}
+
+	_mm_mfence();
+	if (vcpu != nullptr &&
+		vcpu->ept_state != nullptr &&
+		vcpu->ept_state->ept_pointer != nullptr)
+	{
+		invept_single_context_func(vcpu->ept_state->ept_pointer->all);
+	}
 }

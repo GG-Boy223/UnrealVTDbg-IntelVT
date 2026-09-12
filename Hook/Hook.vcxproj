@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -220,6 +220,7 @@
     <ClCompile Include="HookCallSet\Hooks\HookManager\HiddenInt3Records.cpp" />
     <ClCompile Include="HookCallSet\Hooks\HookManager\HiddenInt3WriteRemoval.cpp" />
     <ClCompile Include="HookCallSet\Hooks\HookManager\HookManagerState.cpp" />
+    <ClCompile Include="HookCallSet\Hooks\HookManager\StartupBreakpointRestore.cpp" />
     <ClCompile Include="Inject\ApcInject\ApcInject.cpp" />
     <ClCompile Include="Inject\ShellCode\InjectCode.cpp" />
     <ClCompile Include="Inject\ShellCode\RemoteNtdllPatch.cpp" />

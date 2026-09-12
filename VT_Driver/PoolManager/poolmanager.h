@@ -84,45 +84,65 @@ namespace pool_manager
     /// <param name="new_pool">If set new pool will (with same properties) be requested to allocate</param>
     /// <param name="size">Only if new_pool is true. Size of new pool</param>
     /// <returns></returns>
-    template <typename T>
-    T request_pool(allocation_intention intention, bool new_pool, unsigned __int64 size)
-    {
-        PLIST_ENTRY current = 0;
-        void* address = 0;
-        bool is_recycled = false;
-        __pool_table* pool_table;
-        current = g_vmm_context.pool_manager->list_of_allocated_pools;
+	template <typename T>
+	T request_pool(allocation_intention intention, bool new_pool, unsigned __int64 size)
+	{
+		PLIST_ENTRY current = 0;
+		void* address = 0;
+		bool is_recycled = false;
+		__pool_table* pool_table;
 
-        spinlock::lock(&g_vmm_context.pool_manager->lock_for_reading_pool);
+		auto scan_for_pool = [&]() -> void
+		{
+			current = g_vmm_context.pool_manager->list_of_allocated_pools;
 
-        while (g_vmm_context.pool_manager->list_of_allocated_pools != current->Flink)
-        {
-            current = current->Flink;
+			spinlock::lock(&g_vmm_context.pool_manager->lock_for_reading_pool);
 
-            // Get the head of the record
-            pool_table = (__pool_table*)CONTAINING_RECORD(current, __pool_table, pool_list);
+			while (g_vmm_context.pool_manager->list_of_allocated_pools != current->Flink)
+			{
+				current = current->Flink;
 
-            if (pool_table->intention == intention && pool_table->is_busy == false)
-            {
-                pool_table->is_busy = true;
-                is_recycled = pool_table->recycled;
-                address = pool_table->address;
-                break;
-            }
-        }
+				// Get the head of the record
+				pool_table = (__pool_table*)CONTAINING_RECORD(current, __pool_table, pool_list);
 
-        spinlock::unlock(&g_vmm_context.pool_manager->lock_for_reading_pool);
+				if (pool_table->intention == intention && pool_table->is_busy == false)
+				{
+					pool_table->is_busy = true;
+					is_recycled = pool_table->recycled;
+					address = pool_table->address;
+					break;
+				}
+			}
 
-        //
-        // If pool which we got is recycled then we don't allocate
-        // a new one because we don't want to overload memory, If there wasn't any preallocated pool
-        // this function will send a request
-        //
-        if (new_pool == true && is_recycled == false)
-            request_allocation(size, 1, intention);
+			spinlock::unlock(&g_vmm_context.pool_manager->lock_for_reading_pool);
+		};
 
-        return (T)address;
-    }
+		scan_for_pool();
+
+		//
+		// If pool which we got is recycled then we don't allocate
+		// a new one because we don't want to overload memory, If there wasn't any preallocated pool
+		// this function will send a request and perform allocation immediately.
+		//
+		if (new_pool == true &&
+			address == nullptr)
+		{
+			(void)request_allocation(size, 1, intention);
+			(void)perform_allocation();
+			scan_for_pool();
+		}
+
+		//
+		// Pre-allocated pools are consumed sequentially.  Keep a queued request behind
+		// a newly taken buffer so the next allocation can be served without stalling.
+		//
+		if (new_pool == true && is_recycled == false)
+		{
+			(void)request_allocation(size, 1, intention);
+		}
+
+		return (T)address;
+	}
 }
 
 #endif // !_POOL_MANAGER_H

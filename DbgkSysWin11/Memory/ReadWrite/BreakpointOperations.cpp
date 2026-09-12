@@ -45,18 +45,33 @@ NTSTATUS SetBreakpoint(HANDLE ProcessHandle, _EPROCESS* Process, PVOID BaseAddre
 
             //通过mdl将新分配的物理页面映射到虚拟内存
             MappedAddress = MDLMapVirtualAddress(BaseAddress, BufferSize, map_table);
-            if (MappedAddress)
+            if (MappedAddress == NULL)
+            {
+                Status = STATUS_UNSUCCESSFUL;
+            }
+            else
             {
                 map_table.VirtualAddress = BaseAddress;
                 if (hvgt::set_hide_software_breakpoint(&map_table, &tmpBuffer, BufferSize))
                 {
                     TraceBreakpoint(Process, BaseAddress, tmpBuffer); // 仅 hv 成功时记录断点表。
                 }
+                else
+                {
+                    Status = STATUS_UNSUCCESSFUL;
+                }
 
                 UnMDLMapVirtualAddress(map_table);
             }
 
-            ZwProtectVirtualMemory(NtCurrentProcess(), &loc_BaseAddress, &RegionSize, flOldProtect, &flOldProtect); // 恢复原保护属性。
+            if (NT_SUCCESS(Status))
+            {
+                Status = ZwProtectVirtualMemory(NtCurrentProcess(), &loc_BaseAddress, &RegionSize, flOldProtect, &flOldProtect);
+            }
+            else
+            {
+                (void)ZwProtectVirtualMemory(NtCurrentProcess(), &loc_BaseAddress, &RegionSize, flOldProtect, &flOldProtect);
+            }
         }
 
     }
@@ -76,11 +91,23 @@ NTSTATUS SetBreakpoint(HANDLE ProcessHandle, _EPROCESS* Process, PVOID BaseAddre
 
 NTSTATUS RemoveBreakpoint(HANDLE ProcessHandle, _EPROCESS* Process, PVOID BaseAddress, PVOID Buffer, SIZE_T BufferSize)
 {
+    UNREFERENCED_PARAMETER(ProcessHandle);
+
     NTSTATUS Status = STATUS_SUCCESS;
     KAPC_STATE ApcState;
     BYTE tmpBuffer[256] = { 0 }; // 本地缓存断点字节，避免直接使用外部缓冲区。
     MDL_MAP map_table = { 0 };
     PVOID MappedAddress = NULL;
+
+    if (Process == NULL || BaseAddress == NULL || Buffer == NULL || BufferSize == 0)
+    {
+        return STATUS_INVALID_PARAMETER;
+    }
+
+    if (BufferSize > sizeof(tmpBuffer))
+    {
+        return STATUS_INVALID_BUFFER_SIZE;
+    }
 
     //DbgBreakPoint();
     size_t ptr_Pcb = (size_t)Process + eprocess_offset::Pcb;
@@ -96,12 +123,20 @@ NTSTATUS RemoveBreakpoint(HANDLE ProcessHandle, _EPROCESS* Process, PVOID BaseAd
         PVOID loc_BaseAddress = BaseAddress;
         {
             MappedAddress = MDLMapVirtualAddress(BaseAddress, BufferSize, map_table);
-            if (MappedAddress)
+            if (MappedAddress == NULL)
+            {
+                Status = STATUS_UNSUCCESSFUL;
+            }
+            else
             {
                 map_table.VirtualAddress = BaseAddress;
                 if (hvgt::set_hide_software_breakpoint(&map_table, &tmpBuffer, BufferSize))
                 {
                     DeleteBreakpoint(Process, BaseAddress, tmpBuffer);
+                }
+                else
+                {
+                    Status = STATUS_UNSUCCESSFUL;
                 }
                 UnMDLMapVirtualAddress(map_table);
             }
@@ -113,7 +148,7 @@ NTSTATUS RemoveBreakpoint(HANDLE ProcessHandle, _EPROCESS* Process, PVOID BaseAd
         return GetExceptionCode();
     }
     KiUnstackDetachProcess(&ApcState, 0); // 无论成功失败都对称解除附着。
-    return STATUS_SUCCESS;
+    return Status;
 }
 
 NTSTATUS GetBreakpoint(_EPROCESS* Process, PVOID BaseAddress, PVOID Buffer, SIZE_T BufferSize)
@@ -121,8 +156,19 @@ NTSTATUS GetBreakpoint(_EPROCESS* Process, PVOID BaseAddress, PVOID Buffer, SIZE
     KAPC_STATE ApcState;
     BYTE tmpBuffer[256] = { 0 }; // 本地缓存断点字节，避免直接使用外部缓冲区。
     BOOLEAN boFound = FALSE;
+    NTSTATUS Status = STATUS_UNSUCCESSFUL;
     MDL_MAP map_table = { 0 };
     PVOID MappedAddress = NULL;
+
+    if (Process == NULL || BaseAddress == NULL || Buffer == NULL || BufferSize == 0)
+    {
+        return STATUS_INVALID_PARAMETER; // 参数不合法时直接拒绝。
+    }
+
+    if (BufferSize > sizeof(tmpBuffer))
+    {
+        return STATUS_INVALID_BUFFER_SIZE; // 防止固定栈缓冲区溢出。
+    }
 
     //DbgBreakPoint();
     size_t ptr_Pcb = (size_t)Process + eprocess_offset::Pcb;
@@ -132,12 +178,20 @@ NTSTATUS GetBreakpoint(_EPROCESS* Process, PVOID BaseAddress, PVOID Buffer, SIZE
     __try
     {
         MappedAddress = MDLMapVirtualAddress(BaseAddress, BufferSize, map_table);
-        if (MappedAddress)
+        if (MappedAddress == NULL)
+        {
+            Status = STATUS_UNSUCCESSFUL;
+        }
+        else
         {
             //读取EPT内存
             if (hvgt::get_hide_software_breakpoint(BaseAddress, &tmpBuffer, BufferSize))
             {
                 boFound = TRUE; // 仅标记命中，回写在统一出口执行。
+            }
+            else
+            {
+                Status = STATUS_UNSUCCESSFUL;
             }
             UnMDLMapVirtualAddress(map_table);
         }
@@ -154,5 +208,5 @@ NTSTATUS GetBreakpoint(_EPROCESS* Process, PVOID BaseAddress, PVOID Buffer, SIZE
         RtlCopyMemory(Buffer, tmpBuffer, BufferSize);
         return STATUS_SUCCESS;
     }
-    return STATUS_UNSUCCESSFUL;
+    return Status;
 }

@@ -136,12 +136,14 @@ namespace HookInternal
             &bytesReturned))
         {
             ReportSeriousError("IOCTL_DEL_SOFTWARE_BREAKPOINT 请求失败!");
-            clear_vt_breakpoint_state(0, breakpoint.VirtualAddress, breakpoint.cr3, breakpoint.watchid);
             return false;
         }
 
         const bool success = output == 1998;
-        clear_vt_breakpoint_state(0, breakpoint.VirtualAddress, breakpoint.cr3, breakpoint.watchid);
+        if (success)
+        {
+            clear_vt_breakpoint_state(0, breakpoint.VirtualAddress, breakpoint.cr3, breakpoint.watchid);
+        }
         return success;
     }
 }

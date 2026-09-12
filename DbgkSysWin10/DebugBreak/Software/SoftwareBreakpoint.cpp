@@ -34,6 +34,7 @@ void SetSoftwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
         &numElements);
     if (aucPlainText == nullptr)
     {
+        output->errorCode = 520; // 解密失败,明确回写错误码。
         return;
     }
 
@@ -45,6 +46,10 @@ void SetSoftwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
         if (AddSoftwareBreakpoint(pInfo))
         {
             *output = *pInfo; //成功
+        }
+        else
+        {
+            output->errorCode = 520; //设置失败
         }
         break;
     }
@@ -87,6 +92,7 @@ void RemoveSoftwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
         &numElements);
     if (aucPlainText == nullptr)
     {
+        *output = 520; // 解密失败,明确回写错误码。
         return;
     }
 
@@ -149,6 +155,7 @@ void ReadSoftwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
         &numElements);
     if (aucPlainText == nullptr)
     {
+        output->errorCode = 520; // 解密失败,明确回写错误码。
         return;
     }
 
@@ -160,6 +167,10 @@ void ReadSoftwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
         if (GetSoftwareBreakpoint(pInfo))
         {
             *output = *pInfo; //成功
+        }
+        else
+        {
+            output->errorCode = 520; //读取失败
         }
         break;
     }

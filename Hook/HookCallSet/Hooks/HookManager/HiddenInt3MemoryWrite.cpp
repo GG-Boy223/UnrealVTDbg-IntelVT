@@ -170,7 +170,13 @@ namespace HookInternal
             return result;
         }
 
-        WriteTargetMemoryByte(process, baseAddress, originalByte);
+        if (!WriteTargetMemoryByte(process, baseAddress, originalByte))
+        {
+            ReportSeriousError("写回int3原字节失败");
+            result.handled = true;
+            result.success = false;
+            return result;
+        }
 
         VT_BREAK_POINT vmcallinfo = { 0 };
         vmcallinfo.cr3 = g_target_cr3;

@@ -4,6 +4,13 @@ namespace pool_manager
 {
     bool allocate_pool_entries(unsigned __int64 size, unsigned __int32 count, allocation_intention intention)
     {
+        if (size == 0 || count == 0 || g_vmm_context.pool_manager == nullptr ||
+            g_vmm_context.pool_manager->list_of_allocated_pools == nullptr)
+        {
+            LogError("Pool allocation request is invalid");
+            return false;
+        }
+
         for (unsigned int i = 0; i < count; i++)
         {
             __pool_table* single_pool = ::allocate_pool<__pool_table>();
@@ -19,6 +26,7 @@ namespace pool_manager
             if (single_pool->address == nullptr)
             {
                 LogError("Memory allocation failed");
+                ::free_pool(single_pool);
                 return false;
             }
             RtlSecureZeroMemory(single_pool->address, size);

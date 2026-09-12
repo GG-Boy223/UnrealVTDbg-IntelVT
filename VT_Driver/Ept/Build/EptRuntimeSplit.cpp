@@ -117,6 +117,7 @@ namespace ept
 		merged.page_directory_entry.large_page = 1;
 		merged.page_directory_entry.memory_type = split->pml1[0].ept_memory_type;
 		merged.page_directory_entry.ignore_pat = split->pml1[0].ignore_pat;
+		merged.page_directory_entry.execute_for_usermode = split->pml1[0].execute_for_usermode;
 		merged.page_directory_entry.suppressve = split->pml1[0].suppress_ve;
 		merged.page_directory_entry.page_frame_number = split->pml1[0].page_frame_number >> 9;
 

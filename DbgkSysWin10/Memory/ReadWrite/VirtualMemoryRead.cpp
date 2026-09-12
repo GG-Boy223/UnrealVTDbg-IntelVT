@@ -52,6 +52,11 @@ NTSTATUS MyReadVirtualMemory(
             RtlCopyMemory(tmpBuffer, MappedAddress, BufferSize);
             UnMDLMapVirtualAddress(map_table);
         }
+        else
+        {
+            // 映射失败时保持失败返回,不把未初始化的临时缓冲复制给调用方。
+            Status = STATUS_UNSUCCESSFUL;
+        }
     }
     __except (EXCEPTION_EXECUTE_HANDLER)
     {

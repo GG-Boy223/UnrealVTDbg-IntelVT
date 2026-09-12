@@ -30,7 +30,10 @@ NTSTATUS DbgkpQueueMessage(
     NewEvent = (Flags & DEBUG_EVENT_NOWAIT) ? TRUE : FALSE;
     if (NewEvent)
     {
-        DebugEvent = allocate_pool<DEBUG_EVENT>();
+        DebugEvent = (PDEBUG_EVENT)ExAllocatePoolWithTag(
+            NonPagedPool,
+            sizeof(DEBUG_EVENT),
+            'EgbD');
         if (!DebugEvent)
         {
             return STATUS_INSUFFICIENT_RESOURCES; // 显式返回内存不足，避免隐式成功。
@@ -165,7 +168,7 @@ NTSTATUS DbgkpQueueMessage(
             // /* Dereference the process and thread */
             ObDereferenceObject(Thread);
             ObDereferenceObject(Process); //释放进程对象
-            free_pool(DebugEvent);
+            ExFreePoolWithTag(DebugEvent, 'EgbD');
         }
     }
 

@@ -28,11 +28,12 @@ namespace ept
 		peb->RBP = guest_registers->rbp;
 		peb->RSP = hv::vmread(GUEST_RSP);
 		peb->RIP = hv::vmread(GUEST_RIP);
-		peb->DR0 = __readdr(0);
-		peb->DR1 = __readdr(1);
-		peb->DR2 = __readdr(2);
-		peb->DR3 = __readdr(3);
-		peb->DR6 = __readdr(6);
+		// These guest values are saved by the VM-exit assembly entry; VMX root mode DRs are host state.
+		peb->DR0 = guest_registers->dr0;
+		peb->DR1 = guest_registers->dr1;
+		peb->DR2 = guest_registers->dr2;
+		peb->DR3 = guest_registers->dr3;
+		peb->DR6 = guest_registers->dr6;
 		peb->DR7 = hv::vmread(GUEST_DR7);
 		peb->CS = static_cast<unsigned short>(hv::vmread(GUEST_CS_SELECTOR));
 		peb->DS = static_cast<unsigned short>(hv::vmread(GUEST_DS_SELECTOR));

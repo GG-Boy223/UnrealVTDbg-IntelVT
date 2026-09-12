@@ -21,7 +21,7 @@ namespace pool_manager
         if (g_vmm_context.pool_manager->allocation_requests == nullptr)
         {
             LogError("Allacation requests allocation failed");
-            return false;
+            goto failure;
         }
         RtlSecureZeroMemory(g_vmm_context.pool_manager->allocation_requests, sizeof(__request_new_allocation));
 
@@ -29,7 +29,7 @@ namespace pool_manager
         if (g_vmm_context.pool_manager->list_of_allocated_pools == nullptr)
         {
             LogError("List of allocated pools allocation failed");
-            return false;
+            goto failure;
         }
         RtlSecureZeroMemory(g_vmm_context.pool_manager->list_of_allocated_pools, sizeof(LIST_ENTRY));
 
@@ -41,28 +41,42 @@ namespace pool_manager
         if (request_allocation(sizeof(__ept_dynamic_split), buffer_count, INTENTION_SPLIT_PML2) == false)
         {
             LogError("Pool mangaer request allocation Failed");
-            return false;
+            goto failure;
         }
 
         if (request_allocation(sizeof(__ept_hooked_page_info), buffer_count, INTENTION_TRACK_HOOKED_PAGES) == false)
         {
             LogError("Pool mangaer request allocation Failed");
-            return false;
+            goto failure;
         }
 
         if (request_allocation(100, buffer_count, INTENTION_EXEC_TRAMPOLINE) == false)
         {
             LogError("Pool mangaer request allocation Failed");
-            return false;
+            goto failure;
         }
 
         if (request_allocation(sizeof(__ept_hooked_function_info), buffer_count, INTENTION_TRACK_HOOKED_FUNCTIONS) == false)
         {
             LogError("Pool mangaer request allocation Failed");
-            return false;
+            goto failure;
         }
 
-        return perform_allocation();
+        if (perform_allocation())
+        {
+            return true;
+        }
+
+        LogError("Pool manager perform allocation failed");
+
+failure:
+        if (g_vmm_context.pool_manager != nullptr)
+        {
+            uninitialize();
+            ::free_pool(g_vmm_context.pool_manager);
+            g_vmm_context.pool_manager = nullptr;
+        }
+        return false;
     }
 
     /// <summary>

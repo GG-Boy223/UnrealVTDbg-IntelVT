@@ -1,184 +1,216 @@
 ﻿#include "SymbolsInternal.h"
 
+namespace
+{
+    bool LoadPdbFile(std::unique_ptr<char[]>* outData, size_t* outSize)
+    {
+        if (!outData || !outSize)
+        {
+            return false;
+        }
+
+        std::ifstream f(g_szPdbPath.c_str(), std::ios::binary | std::ios::ate);
+        if (!f)
+        {
+            return false;
+        }
+
+        const std::streamoff streamSize = f.tellg();
+        if (streamSize <= 0)
+        {
+            return false;
+        }
+
+        const size_t sizeOnDisk = static_cast<size_t>(streamSize);
+        std::unique_ptr<char[]> data(new(std::nothrow) char[sizeOnDisk]);
+        if (!data)
+        {
+            return false;
+        }
+
+        f.seekg(0, std::ios::beg);
+        f.read(data.get(), streamSize);
+        const bool readOk = f.gcount() == streamSize;
+        f.close();
+        if (!readOk)
+        {
+            return false;
+        }
+
+        *outData = std::move(data);
+        *outSize = sizeOnDisk;
+        return true;
+    }
+
+    const char* PdbPage(const char* data, size_t dataSize, size_t pageSize, int pageNumber)
+    {
+        if (pageNumber < 0 || pageSize == 0)
+        {
+            return nullptr;
+        }
+
+        const size_t page = static_cast<size_t>(pageNumber);
+        const size_t offset = page * pageSize;
+        if (offset < page || offset >= dataSize || pageSize > dataSize - offset)
+        {
+            return nullptr;
+        }
+
+        return data + offset;
+    }
+}
+
 // 验证已存在的PDB文件
 bool VerifyExistingPdb(const GUID& guid)
 {
-    std::ifstream f(g_szPdbPath.c_str(), std::ios::binary | std::ios::ate);
-    if (f.bad())
-    {
-        // 处理打开进程失败的情况
-        return false;
-    }
-
-    size_t size_on_disk = static_cast<size_t>(f.tellg());
-    if (!size_on_disk)
-    {
-        f.close();
-
-        return false;
-    }
-
-    char* pdb_raw = new char[size_on_disk];
-    if (!pdb_raw)
-    {
-        f.close();
-
-        return false;
-    }
-
-    f.seekg(std::ios::beg);
-    f.read(pdb_raw, size_on_disk);
-    f.close();
-
-    if (size_on_disk < sizeof(PDBHeader7))
-    {
-        delete[] pdb_raw;
-
-        return false;
-    }
-
-    auto* pPDBHeader = reinterpret_cast<PDBHeader7*>(pdb_raw);
-
-    if (memcmp(pPDBHeader->signature, "Microsoft C/C++ MSF 7.00\r\n\x1A""DS\0\0\0", sizeof(PDBHeader7::signature)))
-    {
-        delete[] pdb_raw;
-
-        return false;
-    }
-
-    if (size_on_disk < (size_t)pPDBHeader->page_size * pPDBHeader->file_page_count)
-    {
-        delete[] pdb_raw;
-
-        return false;
-    }
-
-    int* pRootPageNumber = reinterpret_cast<int*>(pdb_raw + (size_t)pPDBHeader->root_stream_page_number_list_number * pPDBHeader->page_size);
-    auto* pRootStream = reinterpret_cast<RootStream7*>(pdb_raw + (size_t)(*pRootPageNumber) * pPDBHeader->page_size);
-
-    std::map<int, std::vector<int>> streams;
-    int current_page_number = 0;
-
-    for (int i = 0; i != pRootStream->num_streams; ++i)
-    {
-        int current_size = pRootStream->stream_sizes[i] == 0xFFFFFFFF ? 0 : pRootStream->stream_sizes[i];
-
-        int current_page_count = current_size / pPDBHeader->page_size;
-        if (current_size % pPDBHeader->page_size)
-        {
-            ++current_page_count;
-        }
-
-        std::vector<int> numbers;
-
-        for (int j = 0; j != current_page_count; ++j, ++current_page_number)
-        {
-            numbers.push_back(pRootStream->stream_sizes[pRootStream->num_streams + current_page_number]);
-        }
-
-        streams.insert({ i, numbers });
-    }
-
-    auto pdb_info_page_index = streams.at(1).at(0);
-
-    auto* stram_data = reinterpret_cast<GUID_StreamData*>(pdb_raw + (size_t)(pdb_info_page_index) * pPDBHeader->page_size);
-
-    int guid_eq = memcmp(&stram_data->guid, &guid, sizeof(GUID));
-
-    delete[] pdb_raw;
-
-    return (guid_eq == 0);
+    return VerifyExistingPdb2(guid, 0);
 }
 
-bool VerifyExistingPdb2(const GUID& guid, DWORD age) // 仅加 age 参数
+bool VerifyExistingPdb2(const GUID& guid, DWORD age)
 {
-    std::ifstream f(g_szPdbPath.c_str(), std::ios::binary | std::ios::ate);
-    if (f.bad())
+    std::unique_ptr<char[]> pdbRaw;
+    size_t sizeOnDisk = 0;
+    if (!LoadPdbFile(&pdbRaw, &sizeOnDisk))
     {
-        // 处理打开进程失败的情况
         return false;
     }
 
-    size_t size_on_disk = static_cast<size_t>(f.tellg());
-    f.close();
-    if (!size_on_disk)
+    if (sizeOnDisk < sizeof(PDBHeader7))
     {
-        // 处理打开进程失败的情况
         return false;
     }
 
-    std::unique_ptr<char[]> pdb_raw(new(std::nothrow) char[size_on_disk]);
-    if (!pdb_raw)
-    {
-        // 处理打开进程失败的情况
-        return false;
-    }
-
-    f.open(g_szPdbPath.c_str(), std::ios::binary);
-    f.read(pdb_raw.get(), size_on_disk);
-    f.close();
-
-    if (size_on_disk < sizeof(PDBHeader7))
-    {
-        // 处理打开进程失败的情况
-        return false;
-    }
-
-    auto* pPDBHeader = reinterpret_cast<PDBHeader7*>(pdb_raw.get());
-    if (memcmp(pPDBHeader->signature,
+    const PDBHeader7* pHeader = reinterpret_cast<const PDBHeader7*>(pdbRaw.get());
+    if (memcmp(pHeader->signature,
         "Microsoft C/C++ MSF 7.00\r\n\x1A""DS\0\0\0",
-        sizeof(pPDBHeader->signature)) != 0)
+        sizeof(pHeader->signature)) != 0)
     {
-        // 处理打开进程失败的情况
         return false;
     }
 
-    if (size_on_disk < static_cast<size_t>(pPDBHeader->page_size) *
-        pPDBHeader->file_page_count)
+    const int pageSizeInt = pHeader->page_size;
+    const int filePageCountInt = pHeader->file_page_count;
+    const int rootPageListInt = pHeader->root_stream_page_number_list_number;
+    if (pageSizeInt <= 0 || filePageCountInt < 0 || rootPageListInt < 0)
     {
-        // 处理打开进程失败的情况
         return false;
     }
 
-    int* pRootPageNumber = reinterpret_cast<int*>(
-        pdb_raw.get() +
-        static_cast<size_t>(pPDBHeader->root_stream_page_number_list_number) *
-        pPDBHeader->page_size);
-
-    auto* pRootStream = reinterpret_cast<RootStream7*>(
-        pdb_raw.get() +
-        static_cast<size_t>(*pRootPageNumber) * pPDBHeader->page_size);
-
-    std::vector<std::vector<int>> streams(pRootStream->num_streams);
-    int current_page_number = 0;
-    for (int i = 0; i < pRootStream->num_streams; ++i)
+    const size_t pageSize = static_cast<size_t>(pageSizeInt);
+    const size_t filePageCount = static_cast<size_t>(filePageCountInt);
+    if (pageSize > sizeOnDisk || filePageCount > sizeOnDisk / pageSize)
     {
-        int sz = pRootStream->stream_sizes[i];
-        if (sz == 0xFFFFFFFF)
+        return false;
+    }
+
+    const char* rootPageList = PdbPage(pdbRaw.get(), sizeOnDisk, pageSize, rootPageListInt);
+    if (!rootPageList)
+    {
+        return false;
+    }
+
+    const size_t rootPageListEntries = (sizeOnDisk - (rootPageList - pdbRaw.get())) /
+        sizeof(int);
+    if (rootPageListEntries < 1)
+    {
+        return false;
+    }
+
+    const int rootPageNumber = *reinterpret_cast<const int*>(rootPageList);
+    const char* rootStream = PdbPage(pdbRaw.get(), sizeOnDisk, pageSize, rootPageNumber);
+    if (!rootStream)
+    {
+        return false;
+    }
+
+    const size_t rootStreamBytes = sizeOnDisk - (rootStream - pdbRaw.get());
+    if (rootStreamBytes < sizeof(RootStream7))
+    {
+        return false;
+    }
+
+    const RootStream7* pRoot = reinterpret_cast<const RootStream7*>(rootStream);
+    if (pRoot->num_streams <= 0)
+    {
+        return false;
+    }
+
+    const size_t numStreams = static_cast<size_t>(pRoot->num_streams);
+    if (numStreams > rootStreamBytes / sizeof(int))
+    {
+        return false;
+    }
+
+    std::vector<int> streamSizes;
+    streamSizes.reserve(numStreams);
+    for (size_t i = 0; i < numStreams; ++i)
+    {
+        streamSizes.push_back(pRoot->stream_sizes[i]);
+    }
+
+    size_t maxRootEntries = (rootStreamBytes - numStreams * sizeof(int)) / sizeof(int);
+    size_t pageTableIndex = 0;
+    for (size_t i = 0; i < numStreams; ++i)
+    {
+        int streamSize = streamSizes[i];
+        if (streamSize == 0xFFFFFFFF)
         {
-            sz = 0;
+            streamSize = 0;
         }
-        int pages = (sz + pPDBHeader->page_size - 1) / pPDBHeader->page_size;
-        streams[i].reserve(pages);
-        for (int j = 0; j < pages; ++j, ++current_page_number)
+        if (streamSize < 0)
         {
-            streams[i].push_back(
-                pRootStream->stream_sizes[pRootStream->num_streams + current_page_number]);
+            return false;
         }
+
+        const size_t pageCount = (static_cast<size_t>(streamSize) +
+            pageSize - 1) / pageSize;
+        if (pageTableIndex > maxRootEntries ||
+            pageCount > maxRootEntries - pageTableIndex)
+        {
+            return false;
+        }
+
+        const size_t entriesBase = numStreams + pageTableIndex;
+        for (size_t j = 0; j < pageCount; ++j)
+        {
+            const int pageNumber = pRoot->stream_sizes[entriesBase + j];
+            if (PdbPage(pdbRaw.get(), sizeOnDisk, pageSize, pageNumber) == nullptr)
+            {
+                return false;
+            }
+        }
+
+        pageTableIndex += pageCount;
     }
 
-    if (streams.size() < 2 || streams[1].empty())
+    if (numStreams < 2 || streamSizes[1] == 0xFFFFFFFF)
     {
-        // 处理打开进程失败的情况
         return false;
     }
-    auto* stram_data = reinterpret_cast<GUID_StreamData*>(
-        pdb_raw.get() +
-        static_cast<size_t>(streams[1][0]) * pPDBHeader->page_size);
 
-    // 同时比较 GUID 和 Age
-    bool guidOk = (memcmp(&stram_data->guid, &guid, sizeof(GUID)) == 0);
-    bool ageOk = (stram_data->age == age);
+    const int guidStreamSize = streamSizes[1];
+    if (guidStreamSize < 0 ||
+        static_cast<size_t>(guidStreamSize) < sizeof(GUID_StreamData))
+    {
+        return false;
+    }
 
-    return guidOk && ageOk;
+    const int guidPage = pRoot->stream_sizes[numStreams + 0];
+    const char* guidStreamData = PdbPage(pdbRaw.get(), sizeOnDisk, pageSize, guidPage);
+    if (!guidStreamData ||
+        static_cast<size_t>(guidStreamSize) > sizeOnDisk - (guidStreamData - pdbRaw.get()))
+    {
+        return false;
+    }
+
+    const auto* streamData = reinterpret_cast<const GUID_StreamData*>(guidStreamData);
+
+    // 未启用 age 校验时(历史调用 VerifyExistingPdb),仅比较 GUID。
+    if (age == 0)
+    {
+        return memcmp(&streamData->guid, &guid, sizeof(GUID)) == 0;
+    }
+
+    return memcmp(&streamData->guid, &guid, sizeof(GUID)) == 0 &&
+        streamData->age == age;
 }

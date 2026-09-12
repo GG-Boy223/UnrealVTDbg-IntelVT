@@ -261,7 +261,10 @@ namespace ept
 				//将阻止优先级为 9 或更低的所有中断，同时允许识别优先级为 10 或更高的所有中断。将 TPR 加载为 0 可启用所有外部中断。将 TPR 加载为
 				//15 (1111b) 可禁用所有外部中断。
 				//Task Priority Register (CR8)
-				unsigned __int64 CR8 = __readcr8();
+				const unsigned __int64 CR8 =
+					vcpu != nullptr && vcpu->vmexit_info.guest_registers != nullptr
+					? vcpu->vmexit_info.guest_registers->cr8
+					: 0; // CR8 由 VM-exit 汇编入口从 guest 状态保存,不能读取 VMX root 态的 host CR8。
 				rflags rflags; // RFLAGS 结构，用于判断 TF（单步标志）等位
 				rflags.flags = hv::vmread(GUEST_RFLAGS); // 读取来宾 RFLAGS，查看是否开启单步
 				__vmx_interruptibility_state is = { hv::vmread(GUEST_INTERRUPTIBILITY_STATE) };
