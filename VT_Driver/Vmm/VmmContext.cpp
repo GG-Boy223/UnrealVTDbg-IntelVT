@@ -125,14 +125,14 @@ void free_vmm_context() // 释放VMM全局资源与每核VCPU相关内存，避�
 					// IO BITMAP A
 					if (g_vmm_context.vcpu[i].vcpu_bitmaps.io_bitmap_a != nullptr)
 					{
-						free_pool(g_vmm_context.vcpu[i].vcpu_bitmaps.io_bitmap_a); // 释放IO位图A，避免每核位图泄漏
+						free_vmm_page_aligned(g_vmm_context.vcpu[i].vcpu_bitmaps.io_bitmap_a); // 释放IO位图A，避免每核位图泄漏
 						g_vmm_context.vcpu[i].vcpu_bitmaps.io_bitmap_a = nullptr;
 					}
 
 					// IO BITMAP B
 					if (g_vmm_context.vcpu[i].vcpu_bitmaps.io_bitmap_b != nullptr)
 					{
-						free_pool(g_vmm_context.vcpu[i].vcpu_bitmaps.io_bitmap_b); // 释放IO位图B，避免每核位图泄漏
+						free_vmm_page_aligned(g_vmm_context.vcpu[i].vcpu_bitmaps.io_bitmap_b); // 释放IO位图B，避免每核位图泄漏
 						g_vmm_context.vcpu[i].vcpu_bitmaps.io_bitmap_b = nullptr;
 					}
 
@@ -143,14 +143,14 @@ void free_vmm_context() // 释放VMM全局资源与每核VCPU相关内存，避�
 						// EPT POINTER
 						if (g_vmm_context.vcpu[i].ept_state->ept_pointer != nullptr)
 						{
-							free_pool(g_vmm_context.vcpu[i].ept_state->ept_pointer); // 释放EPTP结构，回收EPT控制块
+							free_vmm_page_aligned(g_vmm_context.vcpu[i].ept_state->ept_pointer); // 释放EPTP结构，回收EPT控制块
 							g_vmm_context.vcpu[i].ept_state->ept_pointer = nullptr;
 						}
 						// EPT PAGE TABLE
 						if (g_vmm_context.vcpu[i].ept_state->ept_page_table != nullptr)
 						{
 							// ept::cleanup_page_table(*g_vmm_context.vcpu[i].ept_state); // 旧逻辑：只在ept_page_table非空时清理，部分失败路径会漏掉RAM范围缓存。
-							free_pool(g_vmm_context.vcpu[i].ept_state->ept_page_table); // 释放EPT页表，避免大量物理页泄漏
+							free_vmm_page_aligned(g_vmm_context.vcpu[i].ept_state->ept_page_table); // 释放EPT页表，避免大量物理页泄漏
 							g_vmm_context.vcpu[i].ept_state->ept_page_table = nullptr;
 						}
 
@@ -161,7 +161,7 @@ void free_vmm_context() // 释放VMM全局资源与每核VCPU相关内存，避�
 					//free_pool(g_vmm_context.vcpu_table[i]);
 				}
 			}
-			free_pool(g_vmm_context.vcpu); // 释放VCPU数组，清理每核上下文容器
+			free_vmm_page_aligned(g_vmm_context.vcpu); // 释放VCPU数组，清理每核上下文容器
 			//g_vmm_context.vcpu = nullptr;
 			//g_vmm_context.processor_count = 0;
 		}

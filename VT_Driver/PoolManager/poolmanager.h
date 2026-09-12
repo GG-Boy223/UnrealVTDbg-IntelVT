@@ -38,6 +38,7 @@ namespace pool_manager
         LIST_ENTRY pool_list;
         bool is_busy;  //内存是否已被使用
         bool recycled; //回收
+        bool physically_aligned; //缓冲区使用连续物理内存分配,释放时必须用对应函数
     };
 
     /// <summary>

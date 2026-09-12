@@ -154,5 +154,4 @@ struct __vmm_ept_page_table // EPT 页表（PML4/PDPTE/PDE）
 
     DECLSPEC_ALIGN(PAGE_SIZE) __ept_pdpte pml3[512]; // PDPTE 表
 
-    DECLSPEC_ALIGN(PAGE_SIZE) __ept_pde pml2[EPT_PD_COUNT][512]; // PDE 表（分组）
 };

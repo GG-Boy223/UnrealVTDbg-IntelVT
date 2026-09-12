@@ -154,11 +154,11 @@ namespace ept
 
 		if (ept_state.pml2_pages != nullptr)
 		{
-			for (unsigned __int32 i = ept_default_pdpt_count; i < ept_state.mapped_pdpte_count; ++i)
+			for (unsigned __int32 i = 0; i < ept_state.mapped_pdpte_count; ++i)
 			{
 				if (ept_state.pml2_pages[i] != nullptr)
 				{
-					free_pool(ept_state.pml2_pages[i]);
+					free_vmm_page_aligned(ept_state.pml2_pages[i]);
 					ept_state.pml2_pages[i] = nullptr;
 				}
 			}
@@ -174,7 +174,7 @@ namespace ept
 			{
 				if (ept_state.extended_pml3_pages[i] != nullptr)
 				{
-					free_pool(ept_state.extended_pml3_pages[i]);
+					free_vmm_page_aligned(ept_state.extended_pml3_pages[i]);
 					ept_state.extended_pml3_pages[i] = nullptr;
 				}
 			}
@@ -309,7 +309,7 @@ namespace ept
 	bool create_ept_page_table(__ept_state& ept_state)
 	{
 		outFile("---------- EPT页表构建开始 ----------");
-		ept_state.ept_page_table = allocate_pool<__vmm_ept_page_table>();
+		ept_state.ept_page_table = allocate_page_aligned_pool<__vmm_ept_page_table*>(sizeof(__vmm_ept_page_table));
 		if (ept_state.ept_page_table == NULL)
 		{
 			outDebug("PageTable 内存分配失败。\n");
@@ -328,7 +328,7 @@ namespace ept
 		{
 			outFile("[失败][EPT页表] 所需PDPT数量为0，停止EPT构建");
 			cleanup_page_table(ept_state); // 清理已缓存的RAM范围，避免极端物理地址上界失败时泄漏。
-			free_pool(ept_state.ept_page_table);
+			free_vmm_page_aligned(ept_state.ept_page_table);
 			ept_state.ept_page_table = nullptr;
 			return false;
 		}
@@ -348,7 +348,7 @@ namespace ept
 			outFile("[失败][EPT页表] PML2页指针表分配失败：Bytes=%llu",
 				static_cast<unsigned __int64>(sizeof(__ept_pde*) * required_pdpt_count));
 			cleanup_page_table(ept_state);
-			free_pool(ept_state.ept_page_table);
+			free_vmm_page_aligned(ept_state.ept_page_table);
 			ept_state.ept_page_table = nullptr;
 			return false;
 		}
@@ -362,7 +362,7 @@ namespace ept
 				LogError("Failed to allocate EPT extended PDPT pointer table");
 				outFile("[失败][EPT页表] 扩展PDPT指针表分配失败：ExtCount=%u", required_pml4_count - 1);
 				cleanup_page_table(ept_state);
-				free_pool(ept_state.ept_page_table);
+				free_vmm_page_aligned(ept_state.ept_page_table);
 				ept_state.ept_page_table = nullptr;
 				return false;
 			}
@@ -384,13 +384,13 @@ namespace ept
 			}
 			else
 			{
-				__ept_pdpte_page* pdpt_page = allocate_pool<__ept_pdpte_page*>(sizeof(__ept_pdpte_page));
+				__ept_pdpte_page* pdpt_page = allocate_page_aligned_pool<__ept_pdpte_page*>(sizeof(__ept_pdpte_page));
 				if (pdpt_page == nullptr)
 				{
 					LogError("Failed to allocate EPT extended PDPT page %u", pml4_index);
 					outFile("[失败][EPT页表] 扩展PDPT页分配失败：PML4Index=%u", pml4_index);
 					cleanup_page_table(ept_state);
-					free_pool(ept_state.ept_page_table);
+					free_vmm_page_aligned(ept_state.ept_page_table);
 					ept_state.ept_page_table = nullptr;
 					return false;
 				}
@@ -416,27 +416,19 @@ namespace ept
 
 		for (unsigned __int32 i = 0; i < required_pdpt_count; ++i)
 		{
-			__ept_pde* pde_page = nullptr;
-			if (i < ept_default_pdpt_count)
+			__ept_pde_page* dynamic_pde_page = allocate_page_aligned_pool<__ept_pde_page*>(sizeof(__ept_pde_page));
+			if (dynamic_pde_page == nullptr)
 			{
-				pde_page = &page_table->pml2[i][0];
+				LogError("Failed to allocate EPT PD page %u", i);
+				outFile("[失败][EPT页表] PD页分配失败:FlatPDPT=%u", i);
+				cleanup_page_table(ept_state);
+				free_vmm_page_aligned(ept_state.ept_page_table);
+				ept_state.ept_page_table = nullptr;
+				return false;
 			}
-			else
-			{
-				__ept_pde_page* dynamic_pde_page = allocate_pool<__ept_pde_page*>(sizeof(__ept_pde_page));
-				if (dynamic_pde_page == nullptr)
-				{
-					LogError("Failed to allocate EPT dynamic PD page %u", i);
-					outFile("[失败][EPT页表] 动态PD页分配失败：FlatPDPT=%u", i);
-					cleanup_page_table(ept_state);
-					free_pool(ept_state.ept_page_table);
-					ept_state.ept_page_table = nullptr;
-					return false;
-				}
 
-				RtlSecureZeroMemory(dynamic_pde_page, sizeof(__ept_pde_page));
-				pde_page = &dynamic_pde_page->entries[0];
-			}
+			RtlSecureZeroMemory(dynamic_pde_page, sizeof(__ept_pde_page));
+			__ept_pde* pde_page = &dynamic_pde_page->entries[0];
 
 			ept_state.pml2_pages[i] = pde_page;
 
@@ -446,7 +438,7 @@ namespace ept
 				LogError("EPT PDPTE lookup failed for index %u", i);
 				outFile("[失败][EPT页表] PDPTE查找失败：FlatPDPT=%u", i);
 				cleanup_page_table(ept_state);
-				free_pool(ept_state.ept_page_table);
+				free_vmm_page_aligned(ept_state.ept_page_table);
 				ept_state.ept_page_table = nullptr;
 				return false;
 			}
@@ -482,7 +474,7 @@ namespace ept
 					outDebug("setup_pml2_entry 失败\n");
 					outFile("[失败][EPT页表] PML2条目设置失败：FlatPDPT=%u PDE=%d PFN=%llu", i, j, pde_pfn);
 					cleanup_page_table(ept_state);
-					free_pool(ept_state.ept_page_table);
+					free_vmm_page_aligned(ept_state.ept_page_table);
 					ept_state.ept_page_table = nullptr;
 					return false;
 				}
@@ -495,69 +487,7 @@ namespace ept
 
 	bool create_ept_page_table2(__ept_state& ept_state)
 	{
-		PHYSICAL_ADDRESS max_size;
-		max_size.QuadPart = MAXULONG64;
-
-		ept_state.ept_page_table = allocate_pool<__vmm_ept_page_table>();
-		if (ept_state.ept_page_table == NULL)
-		{
-			LogError("Failed to allocate memory for PageTable");
-			return false;
-		}
-
-		__vmm_ept_page_table* page_table = ept_state.ept_page_table;
-		RtlSecureZeroMemory(page_table, sizeof(__vmm_ept_page_table));
-
-		//
-		// Set all pages as rwx to prevent unwanted ept violation
-		// 将所有页面设置为 rwx，以防止不必要的 ept 违规
-		// 设置第一个 PML4E，使其指向我们的 PDPT
-		//
-		page_table->pml4[0].page_frame_number = GET_PFN(MmGetPhysicalAddress(&page_table->pml3[0]).QuadPart);
-		page_table->pml4[0].read = 1;
-		page_table->pml4[0].write = 1;
-		page_table->pml4[0].execute = 1;
-		page_table->pml4[0].execute_for_usermode = 0;
-
-		// MTRR data for setting memory types
-		// 用于设置内存类型的 MTRR 数据
-		auto const mtrrs = hv::read_mtrr_data();
-
-		// TODO: allocate a PT for the fixed MTRRs region so that we can get
-		// more accurate memory typing in that area (as opposed to just
-		// mapping the whole PDE as UC).
-		// 为固定 MTRR 区域分配一个 PT页表，以便我们可以在该区域获得更准确的内存类型（而不是仅将整个 PDE 映射为 UC）。
-
-		for (size_t i = 0; i < EPT_PD_COUNT; ++i)
-		{
-			// point each PDPTE to the corresponding PD
-			// 将每个 PDPTE 指向相应的 PD
-			auto& pdpte = page_table->pml3[i];
-			pdpte.read = 1;
-			pdpte.write = 1;
-			pdpte.execute = 1;
-			pdpte.accessed = 0; // 清零访问位
-			pdpte.execute_for_usermode = 0;
-			pdpte.page_frame_number = GET_PFN(MmGetPhysicalAddress(&page_table->pml2[i][0]).QuadPart);
-
-			for (size_t j = 0; j < 512; ++j)
-			{
-				// identity-map every GPA to the corresponding HPA
-				auto& pde = page_table->pml2[i][j];
-				pde.page_directory_entry.read = 1;
-				pde.page_directory_entry.write = 1;
-				pde.page_directory_entry.execute = 1;
-				pde.page_directory_entry.ignore_pat = 0;
-				pde.page_directory_entry.large_page = 1;  //表示pde未分割
-				pde.page_directory_entry.accessed = 0;
-				pde.page_directory_entry.dirty = 0;
-				pde.page_directory_entry.execute_for_usermode = 0;
-				pde.page_directory_entry.page_frame_number = (i << 9) + j;
-				pde.page_directory_entry.memory_type = hv::calc_mtrr_mem_type(mtrrs, pde.page_directory_entry.page_frame_number << 21/*2mb对齐*/, 0x1000 << 9/*2mb大小*/);
-			}
-		}
-
-		return true;
+		return create_ept_page_table(ept_state);
 	}
 
 	/// <summary>
@@ -567,7 +497,7 @@ namespace ept
 	bool initialize(__ept_state& ept_state)
 	{
 		outFile("---------- EPT初始化开始 ----------");
-		__eptp* ept_pointer = allocate_pool<__eptp*>(PAGE_SIZE);
+		__eptp* ept_pointer = allocate_page_aligned_pool<__eptp*>(PAGE_SIZE);
 		if (ept_pointer == NULL)
 		{
 			outDebug("ept_pointer 空指针\n");
@@ -581,7 +511,7 @@ namespace ept
 		if (create_ept_page_table(ept_state) == false)
 		{
 			outDebug("create_ept_page_table失败\n");
-			free_pool(ept_pointer);
+			free_vmm_page_aligned(ept_pointer);
 			ept_state.ept_pointer = nullptr;
 			outFile("[失败][EPT初始化] EPT页表构建失败");
 			return false;

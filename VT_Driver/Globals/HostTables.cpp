@@ -782,6 +782,30 @@ namespace hv
                     vcpu->ept_state->extended_pml3_pages,
                     static_cast<unsigned __int64>(vcpu->ept_state->mapped_pml4_count - 1) * sizeof(vcpu->ept_state->extended_pml3_pages[0])) && ok;
             }
+            if (vcpu->ept_state->pml2_pages != nullptr && vcpu->ept_state->mapped_pdpte_count != 0)
+            {
+                for (unsigned __int32 i = 0; i < vcpu->ept_state->mapped_pdpte_count; ++i)
+                {
+                    if (vcpu->ept_state->pml2_pages[i] != nullptr)
+                    {
+                        ok = ensure_host_virtual_range("EPT PD页",
+                            vcpu->ept_state->pml2_pages[i],
+                            PAGE_SIZE) && ok;
+                    }
+                }
+            }
+            if (vcpu->ept_state->extended_pml3_pages != nullptr && vcpu->ept_state->mapped_pml4_count > 1)
+            {
+                for (unsigned __int32 i = 0; i < vcpu->ept_state->mapped_pml4_count - 1; ++i)
+                {
+                    if (vcpu->ept_state->extended_pml3_pages[i] != nullptr)
+                    {
+                        ok = ensure_host_virtual_range("EPT扩展PDPT页",
+                            vcpu->ept_state->extended_pml3_pages[i],
+                            PAGE_SIZE) && ok;
+                    }
+                }
+            }
             if (vcpu->ept_state->physical_memory_ranges != nullptr && vcpu->ept_state->physical_memory_range_count != 0)
             {
                 ok = ensure_host_virtual_range("EPT物理内存范围缓存",

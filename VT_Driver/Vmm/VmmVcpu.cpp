@@ -13,7 +13,7 @@ bool init_vcpu(__vcpu* vcpu) // 为单个VCPU分配位图和EPT状态等基础�
 	//}
 	//RtlSecureZeroMemory(vcpu->vmm_stack, VMM_STACK_SIZE);
 
-	vcpu->vcpu_bitmaps.io_bitmap_a = allocate_pool<unsigned __int8*>(PAGE_SIZE); // 分配IO位图A（端口0-0x7FFF），用于控制IO拦截
+	vcpu->vcpu_bitmaps.io_bitmap_a = allocate_page_aligned_pool<unsigned __int8*>(PAGE_SIZE); // 分配IO位图A（端口0-0x7FFF），用于控制IO拦截
 	if (vcpu->vcpu_bitmaps.io_bitmap_a == nullptr)
 	{
 		outFile("[失败][VCPU] IO Bitmap A分配失败：VCPU=0x%p", vcpu);
@@ -23,7 +23,7 @@ bool init_vcpu(__vcpu* vcpu) // 为单个VCPU分配位图和EPT状态等基础�
 	vcpu->vcpu_bitmaps.io_bitmap_a_physical = MmGetPhysicalAddress(vcpu->vcpu_bitmaps.io_bitmap_a).QuadPart; // 记录物理地址供VMCS使用
 	outFile("[成功][VCPU] IO Bitmap A分配完成：VA=0x%p PA=0x%llX", vcpu->vcpu_bitmaps.io_bitmap_a, vcpu->vcpu_bitmaps.io_bitmap_a_physical);
 
-	vcpu->vcpu_bitmaps.io_bitmap_b = allocate_pool<unsigned __int8*>(PAGE_SIZE); // 分配IO位图B（端口0x8000-0xFFFF）
+	vcpu->vcpu_bitmaps.io_bitmap_b = allocate_page_aligned_pool<unsigned __int8*>(PAGE_SIZE); // 分配IO位图B（端口0x8000-0xFFFF）
 	if (vcpu->vcpu_bitmaps.io_bitmap_b == nullptr)
 	{
 		outFile("[失败][VCPU] IO Bitmap B分配失败：VCPU=0x%p", vcpu);

@@ -87,6 +87,11 @@ failure:
     {
         PLIST_ENTRY ListHead, NextEntry, DelEntry;
 
+        if (g_vmm_context.pool_manager == nullptr)
+        {
+            return;
+        }
+
         if (g_vmm_context.pool_manager->list_of_allocated_pools != nullptr)
         {
             ListHead = g_vmm_context.pool_manager->list_of_allocated_pools;
@@ -98,7 +103,14 @@ failure:
                 __pool_table* pool_table = (__pool_table*)CONTAINING_RECORD(NextEntry, __pool_table, pool_list);
 
                 // Free the alloocated buffer
-                free_pool(pool_table->address);
+                if (pool_table->physically_aligned)
+                {
+                    ::free_vmm_page_aligned(pool_table->address);
+                }
+                else
+                {
+                    ::free_pool(pool_table->address);
+                }
 
                 DelEntry = NextEntry;
                 // /* Move to the next entry */

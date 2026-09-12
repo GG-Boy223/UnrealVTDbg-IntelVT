@@ -11,6 +11,19 @@ namespace pool_manager
     /// </summary>
     bool request_allocation(unsigned __int64 size, unsigned __int32 count, allocation_intention intention)
     {
+        if (g_vmm_context.pool_manager == nullptr ||
+            g_vmm_context.pool_manager->allocation_requests == nullptr)
+        {
+            LogError("Pool manager is not initialized");
+            return false;
+        }
+
+        if (size == 0 || count == 0)
+        {
+            LogError("Invalid pool allocation request");
+            return false;
+        }
+
         bool request_queued = false;
         spinlock::lock(&g_vmm_context.pool_manager->lock_for_request_allocation);
 
@@ -37,6 +50,13 @@ namespace pool_manager
     /// <param name="address"></param>
     void release_pool(void* address)
     {
+        if (address == nullptr ||
+            g_vmm_context.pool_manager == nullptr ||
+            g_vmm_context.pool_manager->list_of_allocated_pools == nullptr)
+        {
+            return;
+        }
+
         PLIST_ENTRY current = 0;
         current = g_vmm_context.pool_manager->list_of_allocated_pools;
 
