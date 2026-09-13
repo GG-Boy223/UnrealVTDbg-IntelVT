@@ -110,6 +110,8 @@ namespace pool_manager
 				{
 					pool_table->is_busy = true;
 					is_recycled = pool_table->recycled;
+					// ✅ P1-001 修复：清除 recycled 标记，使池可以正常复用
+					pool_table->recycled = false;
 					address = pool_table->address;
 					break;
 				}

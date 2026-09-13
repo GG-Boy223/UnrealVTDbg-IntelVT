@@ -144,7 +144,20 @@ bool vmexit_handler(guest_context* guest_registers, PFXSAVE64 fxsave) // VM-exit
 
 	guest_registers->rsp = hv::vmread(GUEST_RSP); // 汇编入口保存通用寄存器后，这里补齐 VMCS 中的 guest RSP。
 
-	vcpu->vmexit_info.reason = hv::vmread(VM_EXIT_REASON) & 0xffff; // 低 16 位是基础 exit reason，高位状态不参与 switch 分发。
+	// ✅ P0-005 修复：完整读取 VM_EXIT_REASON，包括高位标志
+	unsigned __int64 exit_reason_raw = hv::vmread(VM_EXIT_REASON);
+	vcpu->vmexit_info.reason = exit_reason_raw & 0xffff; // 低 16 位是基础 exit reason，高位状态不参与 switch 分发。
+
+	// ✅ P0-005 修复：检查并处理 NMI unblocking 标志（bit 31）
+	constexpr unsigned __int64 VMX_EXIT_REASON_NMI_UNBLOCKING = 0x80000000ULL;
+	if ((exit_reason_raw & VMX_EXIT_REASON_NMI_UNBLOCKING) != 0)
+	{
+		// NMI unblocking：VM-Exit 发生时 NMI 阻塞被解除，需清除 interruptibility 中的 NMI blocking 位
+		unsigned __int64 interruptibility = hv::vmread(GUEST_INTERRUPTIBILITY_STATE);
+		constexpr unsigned __int64 GUEST_INTERRUPTIBILITY_NMI_BLOCKING = 0x00000008ULL;
+		interruptibility &= ~GUEST_INTERRUPTIBILITY_NMI_BLOCKING;
+		hv::vmwrite(GUEST_INTERRUPTIBILITY_STATE, interruptibility);
+	}
 	vcpu->vmexit_info.qualification = hv::vmread(EXIT_QUALIFICATION); // 保存 exit qualification，供 CR/DR/EPT 等 handler 解码。
 	vcpu->vmexit_info.guest_rflags.all = hv::vmread(GUEST_RFLAGS); // 保存 RFLAGS，后续单步、IF/TF 状态都依赖该快照。
 	vcpu->vmexit_info.guest_rip = hv::vmread(GUEST_RIP); // 保存触发 VM-exit 的 guest RIP，供模拟执行或日志定位。

@@ -4,6 +4,9 @@ namespace hv
 {
     bool load_vmcs_pointer(vmcs& vmcs_region)
     {
+        // ✅ P0-001 修复：清零整个 VMCS 区域，避免随机数据导致 VM-Fail
+        RtlSecureZeroMemory(&vmcs_region, sizeof(vmcs));
+
         ia32_vmx_basic_register vmx_basic; // VMX 基本能力结构
         vmx_basic.flags = __readmsr(IA32_VMX_BASIC); // 读取 VMX 基本能力 MSR
 
@@ -78,6 +81,9 @@ namespace hv
             outFile("[失败][VMXON] 当前逻辑处理器缺少所需EPT/VPID能力");
             return false;
         }
+
+        // ✅ P0-001 修复：清零整个 VMXON 区域，避免随机数据导致 VMXON 失败
+        RtlSecureZeroMemory(&vmxon_region, sizeof(vmxon));
 
         ia32_vmx_basic_register vmx_basic; // VMX 基本能力结构
         vmx_basic.flags = __readmsr(IA32_VMX_BASIC); // 读取 VMX 基本能力

@@ -4,7 +4,8 @@
 
 namespace cr3_tracker_internal
 {
-    constexpr int kTrackerCount = 16;
+    // ✅ P1-002 修复：从 16 扩大到 128，避免在多进程环境下候选池溢出
+    constexpr int kTrackerCount = 128;
 
     struct TRACKER_ENTRY
     {

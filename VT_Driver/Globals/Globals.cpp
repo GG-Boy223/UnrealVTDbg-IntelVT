@@ -14,6 +14,10 @@ int eptWatchListPos; // 监视表位置游标：保留字段（当前未用）�
 volatile long eptWatchList_lock = 0; // 监视表自旋锁：多核并发访问时防止竞态与数据破坏
 volatile long eptWatchTransaction_lock = 0; // 安装/删除事务锁：重操作可在表锁外串行执行
 
+// ✅ P0-003 修复：多核 VMXON 同步锁
+volatile long g_vmx_init_lock = 0; // VMX 初始化自旋锁：确保多核串行执行关键 VMX 操作
+volatile long g_vmx_initialized_count = 0; // 已成功初始化 VMX 的 CPU 数量：用于验证所有 CPU 正常启动
+
 EPTWatchEntry eptWatchList[EPTWATCHLISTSIZE]; // 全局监视断点数组：保存所有 EPT watch 条目，供所有 CPU 共享
 
 PFN_PSGETNEXTPROCESS PsGetNextProcess; // PsGetNextProcess 函数指针：运行时解析，避免静态导入在不同系统版本失效
