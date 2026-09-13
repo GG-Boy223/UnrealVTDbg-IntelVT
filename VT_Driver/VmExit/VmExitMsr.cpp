@@ -57,6 +57,13 @@ void vmexit_msr_read_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 		msr.all = hv::vmread(GUEST_PAT); // Guest PAT 由 VMCS 持有，VM-exit 后硬件 PAT 已是 Host PAT。
 		break;
 	}
+	case IA32_EFER:
+	{
+		// GUEST_EFER 由 VMCS 保存,读取该值才能保证 guest 看到的 EFER 与 VMCS 状态一致。
+		msr.all = hv::vmread(GUEST_EFER);
+		break;
+	}
+
 	case IA32_FEATURE_CONTROL:
 	{
 		__ia32_feature_control_msr feature_msr = { 0 }; // 原理：该 MSR 控制 VMX/SMX 能力；作用：构造可控返回值；结果：feature_msr 就绪
@@ -117,26 +124,39 @@ void vmexit_msr_write_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 		adjust_rip(vcpu);
 		return;
 	}
-
+	if (msr_index == IA32_EFER)
 	{
-		// hv::host_exception_info e; // 旧逻辑：未清零会让safe WRMSR异常状态受旧栈内容影响。
-		hv::host_exception_info e = { 0 }; // safe WRMSR失败时向guest注入#GP，不让Host异常扩散到未处理路径。
-		hv::wrmsr_safe(e, msr_index, msr.all); // 参数1：异常信息结构；参数2：MSR 编号；参数3：写入值；结果：安全尝试写入 MSR
-
-		if (e.exception_occurred) // 原理：写入非法 MSR 会触发异常；作用：检测写入是否失败；结果：失败则注入 #GP
+		// EFER 是 VMCS guest-state 之一,不能直接写宿主 MSR。任何不一致写入都按硬件语义拒绝,
+		// 防止 guest 篡改 VMX root 的 LMA/LME/NXE 等状态。
+		if (msr.all != hv::vmread(GUEST_EFER))
 		{
 			hv::inject_interruption(EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT,
 				INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, true);
 			return;
 		}
+
+		set_hide_vm_exit_overhead(vcpu, true);
+		adjust_rip(vcpu);
+		return;
+	}
+
+	// hv::host_exception_info e; // 旧逻辑：未清零会让safe WRMSR异常状态受旧栈内容影响。
+	hv::host_exception_info e = { 0 }; // safe WRMSR失败时向guest注入#GP，不让Host异常扩散到未处理路径。
+	hv::wrmsr_safe(e, msr_index, msr.all); // 参数1：异常信息结构；参数2：MSR 编号；参数3：写入值；结果：安全尝试写入 MSR
+
+	if (e.exception_occurred) // 原理：写入非法 MSR 会触发异常；作用：检测写入是否失败；结果：失败则注入 #GP
+	{
+		hv::inject_interruption(EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT,
+			INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, true);
+		return;
 	}
 
 	// MTRR 影响内存类型，如果修改后需同步 EPT
 	// 原理：MTRR 影响内存类型，来宾修改后需更新 EPT；作用：检测相关 MSR 写入；结果：必要时刷新 EPT 缓存
 	if (msr_index == IA32_MTRR_DEF_TYPE || msr_index == IA32_MTRR_FIX64K_00000 ||
-	    msr_index == IA32_MTRR_FIX16K_80000 || msr_index == IA32_MTRR_FIX16K_A0000 ||
-	    (msr_index >= IA32_MTRR_FIX4K_C0000 && msr_index <= IA32_MTRR_FIX4K_F8000) ||
-	    (msr_index >= IA32_MTRR_PHYSBASE0 && msr_index <= IA32_MTRR_PHYSBASE0 + 511))
+		msr_index == IA32_MTRR_FIX16K_80000 || msr_index == IA32_MTRR_FIX16K_A0000 ||
+		(msr_index >= IA32_MTRR_FIX4K_C0000 && msr_index <= IA32_MTRR_FIX4K_F8000) ||
+		(msr_index >= IA32_MTRR_PHYSBASE0 && msr_index <= IA32_MTRR_PHYSBASE0 + 511))
 	{
 		// 原理：只有在缓存开启时更新 EPT 类型才有意义；作用：避免无效更新；结果：按条件执行更新
 		if (!hv::read_effective_guest_cr0().cache_disable)

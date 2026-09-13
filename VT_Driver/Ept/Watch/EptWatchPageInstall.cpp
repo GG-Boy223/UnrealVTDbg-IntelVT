@@ -150,9 +150,7 @@ namespace ept
         hooked_page_info->owner_split = ept_get_split_from_pml1(target_page);
         set_ept_watch(hooked_page_info, Type);
         ept_split_ref_inc(hooked_page_info->owner_split);
-        InsertHeadList(
-            &ept_state.hooked_page_list,
-            &hooked_page_info->hooked_page_list);
+        ept::insert_hooked_page(ept_state, hooked_page_info);
         return true;
     }
 }

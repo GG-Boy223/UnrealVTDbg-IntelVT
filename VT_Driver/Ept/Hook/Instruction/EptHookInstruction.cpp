@@ -280,32 +280,30 @@ namespace ept
 		unsigned __int64 guest_rip = hv::vmread(GUEST_RIP);
 		unsigned __int64 physical_address = hv::get_physical_address(hv::ghv.system_cr3.flags, (PVOID)guest_rip);
 
-		PLIST_ENTRY current = &ept_state.hooked_page_list;
-		while (&ept_state.hooked_page_list != current->Flink) // 遍历链表直到回到表头
+		if (physical_address == 0)
 		{
-			current = current->Flink;
-			//从列表中取出挂钩页
-			__ept_hooked_page_info* hooked_page_info = CONTAINING_RECORD(current, __ept_hooked_page_info, hooked_page_list);
-
-			//判断目标地址是否是被挂钩的页
-			//仅比较页帧号
-			if (hooked_page_info->pfn_of_hooked_page == GET_PFN(physical_address))
-			{
-				//检查虚拟地址是否已经挂钩
-				PLIST_ENTRY current_hooked_function = &hooked_page_info->hooked_functions_list;
-				while (&hooked_page_info->hooked_functions_list != current_hooked_function->Flink) // 逐个检查每个函数钩子
-				{
-					current_hooked_function = current_hooked_function->Flink; // 移动到下一个函数钩子节点
-					__ept_hooked_function_info* hooked_function_info = CONTAINING_RECORD(current_hooked_function, __ept_hooked_function_info, hooked_function_list); // 取得函数钩子信息
-
-					if (hooked_function_info->virtual_address == (PVOID)guest_rip)
-					{
-						hv::vmwrite(GUEST_RIP, hooked_function_info->handler_function);
-						return true;
-					}
-				}
-			}
+			return false;
 		}
-		return false;
+
+		__ept_hooked_page_info* hooked_page_info =
+			acquire_page_hot_reference(ept_state, GET_PFN(physical_address), EPTO_HOOK_FUNCTION);
+		if (hooked_page_info == nullptr)
+		{
+			return false;
+		}
+
+		__ept_hooked_function_info* hooked_function_info =
+			acquire_function_hot_reference(hooked_page_info, guest_rip);
+		if (hooked_function_info == nullptr)
+		{
+			release_page_hot_reference(ept_state, hooked_page_info);
+			return false;
+		}
+
+		hv::vmwrite(GUEST_RIP, hooked_function_info->handler_function);
+
+		release_function_hot_reference(hooked_function_info);
+		release_page_hot_reference(ept_state, hooked_page_info);
+		return true;
 	}
 }

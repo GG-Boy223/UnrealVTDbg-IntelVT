@@ -44,6 +44,7 @@ bool init_vcpu(__vcpu* vcpu) // 为单个VCPU分配位图和EPT状态等基础�
 	}
 	RtlSecureZeroMemory(vcpu->ept_state, sizeof(__ept_state)); // 清零EPT状态，避免残留指针
 	InitializeListHead(&vcpu->ept_state->hooked_page_list); // 初始化EPT hook列表头，便于后续管理
+	vcpu->ept_state->hooked_page_list_lock = 0; // 初始化每VCPU的EPT hook列表锁。
 	outFile("[成功][VCPU] EPT状态结构分配完成：VA=0x%p", vcpu->ept_state);
 
 	RtlSecureZeroMemory(&vcpu->host_tss, sizeof(task_state_segment_64)); // 清零宿主TSS，避免旧值影响任务切换

@@ -53,8 +53,10 @@ namespace hvgt
 	{
 		const auto args = reinterpret_cast<HookFunctionArgs*>(DeferredContext);
 
-		if (args != nullptr &&
-			SafeVmCallEx(VMCALL_READ_EPT_FAKE_PAGE_MEMORY,
+		const BOOLEAN transaction_owner = KeSignalCallDpcSynchronize(SystemArgument2);
+		if (transaction_owner && args != nullptr)
+		{
+			const bool transaction_succeeded = SafeVmCallEx(VMCALL_READ_EPT_FAKE_PAGE_MEMORY,
 				(unsigned __int64)args->target_address,
 				(unsigned __int64)args->proxy_function,
 				(unsigned __int64)args->origin_function,
@@ -63,29 +65,13 @@ namespace hvgt
 				0,
 				0,
 				0,
-				0))
-		{
-			InterlockedIncrement16(&args->statuses);
+				0);
+			InterlockedExchange(&args->transaction_status, transaction_succeeded ? 1 : -1);
 		}
 
-		SignalDpcDone(SystemArgument1, SystemArgument2);
-	}
-
-	void broadcast_get_hide_software_breakpoint(KDPC*, PVOID DeferredContext, PVOID SystemArgument1, PVOID SystemArgument2)
-	{
-		const auto args = reinterpret_cast<HookFunctionArgs*>(DeferredContext);
-
+		KeSignalCallDpcSynchronize(SystemArgument2);
 		if (args != nullptr &&
-			SafeVmCallEx(VMCALL_READ_SOFTWARE_BREAKPOINT,
-				(unsigned __int64)args->target_address,
-				(unsigned __int64)args->proxy_function,
-				(unsigned __int64)args->origin_function,
-				args->current_cr3,
-				0,
-				0,
-				0,
-				0,
-				0))
+			InterlockedCompareExchange(&args->transaction_status, 0, 0) == 1)
 		{
 			InterlockedIncrement16(&args->statuses);
 		}
@@ -93,17 +79,47 @@ namespace hvgt
 		SignalDpcDone(SystemArgument1, SystemArgument2);
 	}
 
-	void broadcast_set_hide_software_breakpoint(KDPC*, PVOID DeferredContext, PVOID SystemArgument1, PVOID SystemArgument2)
+	void broadcast_get_software_breakpoint_buffer(KDPC*, PVOID DeferredContext, PVOID SystemArgument1, PVOID SystemArgument2)
 	{
-		const auto args = reinterpret_cast<HookFunctionArgs*>(DeferredContext);
+		const auto args = reinterpret_cast<SoftwareBreakpointBufferArgs*>(DeferredContext);
 
 		const BOOLEAN transaction_owner = KeSignalCallDpcSynchronize(SystemArgument2);
 		if (transaction_owner && args != nullptr)
 		{
-			const bool transaction_succeeded = SafeVmCallEx(VMCALL_HIDE_SOFTWARE_BREAKPOINT,
+			const bool transaction_succeeded = SafeVmCallEx(VMCALL_GET_SOFTWARE_BREAKPOINT_BUFFER,
 				(unsigned __int64)args->target_address,
-				(unsigned __int64)args->proxy_function,
-				(unsigned __int64)args->origin_function,
+				(unsigned __int64)args->buffer,
+				args->buffer_size,
+				args->current_cr3,
+				0,
+				0,
+				0,
+				0,
+				0);
+			InterlockedExchange(&args->transaction_status, transaction_succeeded ? 1 : -1);
+		}
+
+		KeSignalCallDpcSynchronize(SystemArgument2);
+		if (args != nullptr &&
+			InterlockedCompareExchange(&args->transaction_status, 0, 0) == 1)
+		{
+			InterlockedIncrement16(&args->statuses);
+		}
+
+		SignalDpcDone(SystemArgument1, SystemArgument2);
+	}
+
+	void broadcast_set_software_breakpoint_buffer(KDPC*, PVOID DeferredContext, PVOID SystemArgument1, PVOID SystemArgument2)
+	{
+		const auto args = reinterpret_cast<SoftwareBreakpointBufferArgs*>(DeferredContext);
+
+		const BOOLEAN transaction_owner = KeSignalCallDpcSynchronize(SystemArgument2);
+		if (transaction_owner && args != nullptr)
+		{
+			const bool transaction_succeeded = SafeVmCallEx(VMCALL_SET_SOFTWARE_BREAKPOINT_BUFFER,
+				(unsigned __int64)args->target_address,
+				(unsigned __int64)args->buffer,
+				args->buffer_size,
 				args->current_cr3,
 				0,
 				0,

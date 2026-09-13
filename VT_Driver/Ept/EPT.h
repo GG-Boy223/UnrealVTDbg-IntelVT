@@ -93,6 +93,20 @@ namespace ept
 	//读伪造页内存
 	bool read_fake_page_memory(__ept_hooked_function_info* hooked_function_info, void* target_address, void* buffer, unsigned __int64 buffer_size);
 
+	// 按 guest 虚拟地址和 CR3 读取/写入隐藏 INT3 对应页的 fake page 内容。
+	bool get_software_breakpoint_buffer(
+		__ept_state& ept_state,
+		unsigned __int64 target_address,
+		void* buffer,
+		unsigned __int64 buffer_size,
+		unsigned __int64 current_cr3);
+	bool set_software_breakpoint_buffer(
+		__ept_state& ept_state,
+		unsigned __int64 target_address,
+		void* buffer,
+		unsigned __int64 buffer_size,
+		unsigned __int64 current_cr3);
+
 	bool handler_vmcall_rip(__ept_state& ept_state);
 
 	//判断是否是监视的页

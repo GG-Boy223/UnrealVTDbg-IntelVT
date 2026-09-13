@@ -49,7 +49,7 @@ void vmexit_invlpg_handler(__vcpu* vcpu) // 模拟 INVLPG，维护 VPID 单地�
 {
 	sLog("\n"); // 记录 INVLPG 退出。
 
-	invvpid_invidual_address_func(vcpu->vmexit_info.qualification, 1); // qualification 保存 INVLPG 线性地址，VPID=1 对应当前 guest 上下文。
+	invvpid_invidual_address_func(vcpu->vmexit_info.qualification, guest_vpid); // qualification 保存 INVLPG 线性地址，VPID=1 对应当前 guest 上下文。
 
 	adjust_rip(vcpu); // TLB 失效完成后跳过 INVLPG。
 }
@@ -89,6 +89,14 @@ void vmexit_xsetbv_handler(__vcpu* vcpu) // 模拟 XSETBV，严格验证 XCR0 �
 			INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, false); // CR4.OSXSAVE 未开启时 XSETBV 应产生 #UD。
 		return; // 异常已安排，不推进 RIP。
 	}
+
+	//// 原理:XSETBV 是特权指令,非 CPL0 执行必须产生 #GP(0);作用:补齐硬件语义;结果:不推进 RIP
+	//if (hv::current_guest_cpl() != 0) // 原理:读取当前 guest CPL;作用:判断是否满足特权级要求;结果:非 0 则非法
+	//{
+	//	hv::inject_interruption(EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT,
+	//		INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, true); // 非特权级写入 XCR 时按硬件语义注入 #GP(0)。
+	//	return; // 异常已安排,不推进 RIP。
+	//}
 
 	uint32_t xcr_number = static_cast<uint32_t>(vcpu->vmexit_info.guest_registers->rcx); // ECX 指定 XCR 编号，当前只允许 XCR0。
 

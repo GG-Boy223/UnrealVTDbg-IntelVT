@@ -7,6 +7,7 @@ namespace hv::vmcall_dispatch_policy
     constexpr bool IsEptMutation(unsigned __int64 command)
     {
         return command == VMCALL_HIDE_SOFTWARE_BREAKPOINT ||
+            command == VMCALL_SET_SOFTWARE_BREAKPOINT_BUFFER ||
             command == VMCALL_WATCH_WRITES ||
             command == VMCALL_WATCH_READS ||
             command == VMCALL_WATCH_EXECUTES ||

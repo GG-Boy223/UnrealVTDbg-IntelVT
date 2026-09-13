@@ -61,6 +61,7 @@ namespace ept
 					}
 				}
 
+		initialize_hooked_function_runtime_fields(hooked_function_info);
 				hooked_function_info->virtual_address = target_function;
 				hooked_function_info->breakpoint_address = NULL;
 
@@ -77,7 +78,7 @@ namespace ept
 				}
 
 				// Track all hooked functions within page
-				InsertHeadList(&hooked_page_info->hooked_functions_list, &hooked_function_info->hooked_function_list);
+				ept::insert_hooked_function(hooked_page_info, hooked_function_info);
 
 				return true;
 			}
@@ -200,6 +201,7 @@ namespace ept
 
 		RtlCopyMemory(&hooked_page_info->fake_page_contents, PAGE_ALIGN(target_function), PAGE_SIZE);
 
+		initialize_hooked_function_runtime_fields(hooked_function_info);
 		hooked_function_info->virtual_address = target_function;
 		hooked_function_info->breakpoint_address = NULL;
 
@@ -232,13 +234,13 @@ namespace ept
 		//记录hook的函数和页 以便日后释放
 		// Track all hooked functions
 		hooked_page_info->Options = EPTO_HOOK_FUNCTION;
-		InsertHeadList(&hooked_page_info->hooked_functions_list, &hooked_function_info->hooked_function_list);
+		ept::insert_hooked_function(hooked_page_info, hooked_function_info);
 
 		// 引用计数 +1:表示该 split 现在被一个 watch 页面记录占用。
 		ept_split_ref_inc(hooked_page_info->owner_split);
 
 		// Track all hooked pages
-		InsertHeadList(&ept_state.hooked_page_list, &hooked_page_info->hooked_page_list);
+		ept::insert_hooked_page(ept_state, hooked_page_info);
 
 		_mm_mfence();
 		invept_single_context_func(ept_state.ept_pointer->all);

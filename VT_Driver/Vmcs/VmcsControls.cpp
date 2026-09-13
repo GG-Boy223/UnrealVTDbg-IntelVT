@@ -143,12 +143,10 @@ void set_secondary_controls(__vmx_secondary_processor_based_control& secondary_c
     // 是否启用 EPT
     secondary_controls.enable_ept = true; // 启用 EPT，提高性能
 
-// 描述符表访问是否 VM-exit
-#ifdef _MINIMAL // 精简模式
-    secondary_controls.descriptor_table_exiting = false; // 不拦截描述符表访问
-#else // 非精简模式
-    secondary_controls.descriptor_table_exiting = true; // 拦截描述符表访问
-#endif // 条件编译结束
+    // 描述符表访问是否 VM-exit
+    // 当前 dispatcher 未实现 LGDT/LIDT/LLDT/LTR/SGDT/SIDT/SLDT/STR 的 VM-exit 处理,
+    // 因此非精简模式也不能开启,避免未处理退出导致 guest 指令被卡死或被当作未知退出处理。
+    secondary_controls.descriptor_table_exiting = false;
 
     // 是否允许 RDTSCP
     secondary_controls.enable_rdtscp = true; // 允许 RDTSCP 指令
@@ -173,12 +171,9 @@ void set_secondary_controls(__vmx_secondary_processor_based_control& secondary_c
     // PAUSE 循环是否触发 VM-exit
     secondary_controls.pause_loop_exiting = false; // 不启用 PAUSE loop exiting
 
-// RDRAND 是否 VM-exit
-#ifdef _MINIMAL // 精简模式
-    secondary_controls.rdrand_exiting = false; // 不拦截 RDRAND
-#else // 非精简模式
-    secondary_controls.rdrand_exiting = true; // 拦截 RDRAND
-#endif // 条件编译结束
+    // RDRAND 是否 VM-exit
+    // 当前 dispatcher 未实现 RDRAND 的 VM-exit 处理,统一关闭拦截。
+    secondary_controls.rdrand_exiting = false;
 
     // 是否允许 INVPCID
     secondary_controls.enable_invpcid = true; // 允许 INVPCID 指令
@@ -189,12 +184,9 @@ void set_secondary_controls(__vmx_secondary_processor_based_control& secondary_c
     // 是否拦截 ENCLS
     secondary_controls.enable_encls_exiting = false; // 不拦截 ENCLS
 
-// RDSEED 是否 VM-exit
-#ifdef _MINIMAL // 精简模式
-    secondary_controls.rdseed_exiting = false; // 不拦截 RDSEED
-#else // 非精简模式
-    secondary_controls.rdseed_exiting = true; // 拦截 RDSEED
-#endif // 条件编译结束
+    // RDSEED 是否 VM-exit
+    // 当前 dispatcher 未实现 RDSEED 的 VM-exit 处理,统一关闭拦截。
+    secondary_controls.rdseed_exiting = false;
 
     // 是否启用 PML（页修改日志）
     secondary_controls.enable_pml = false; // 不启用 PML

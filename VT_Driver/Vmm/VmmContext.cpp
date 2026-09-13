@@ -206,7 +206,7 @@ bool allocate_vmm_context() // 初始化全局VMM资源，包含每核VCPU与EPT
 
 	auto const arr_size = sizeof(__vcpu) * g_vmm_context.processor_count; // 计算VCPU数组大小，避免越界
 	outFile("[进行中][VMM上下文] 分配VCPU数组：Bytes=%llu", static_cast<unsigned __int64>(arr_size));
-	g_vmm_context.vcpu = allocate_pool<__vcpu*>(arr_size); // 为每个逻辑核分配VCPU结构数组，作为每核状态容器
+	g_vmm_context.vcpu = allocate_page_aligned_pool<__vcpu*>(arr_size); // VCPU数组内含alignas(PAGE_SIZE)硬件结构,必须使用连续物理页分配,不能使用普通池。
 	if (g_vmm_context.vcpu == nullptr)
 	{
 		outFile("[失败][VMM上下文] VCPU数组分配失败");

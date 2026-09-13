@@ -70,6 +70,12 @@ namespace hvgt
 	// 读取隐形软件断点
 	bool get_hide_software_breakpoint(void* target_address, void* buffer, unsigned __int64 buffer_size);
 
+	// 设置隐形软件断点原字节
+	bool set_software_breakpoint_buffer(void* target_address, void* buffer, unsigned __int64 buffer_size, unsigned __int64 current_cr3);
+
+	// 读取隐形软件断点原字节
+	bool get_software_breakpoint_buffer(void* target_address, void* buffer, unsigned __int64 buffer_size, unsigned __int64 current_cr3);
+
 	// 设置隐形软件断点
 	bool set_hide_software_breakpoint(MDL_MAP* map_table, void* buffer, unsigned __int64 buffer_size);
 }

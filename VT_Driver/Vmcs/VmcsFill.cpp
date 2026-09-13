@@ -112,6 +112,11 @@ void fill_vmcs(__vcpu* vcpu, void* guest_rsp) // 填充 VMCS
     // 清空 VM-exit MSR 载入列表
     hv::vmwrite<unsigned __int64>(VM_EXIT_MSR_LOAD_COUNT, 0); // 载入数量为 0
     hv::vmwrite<unsigned __int64>(VM_EXIT_MSR_LOAD_ADDR, 0); // 载入地址为 0
+    // 清空 VM-exit MSR 保存列表与 VM-entry MSR 载入列表,避免陈旧地址被硬件使用。
+    hv::vmwrite<unsigned __int64>(VM_EXIT_MSR_STORE_COUNT, 0);
+    hv::vmwrite<unsigned __int64>(VM_EXIT_MSR_STORE_ADDR, 0);
+    hv::vmwrite<unsigned __int64>(VM_ENTRY_MSR_LOAD_COUNT, 0);
+    hv::vmwrite<unsigned __int64>(VM_ENTRY_MSR_LOAD_ADDR, 0);
     // 清空 VM-entry 中断注入字段
     hv::vmwrite<unsigned __int64>(VM_ENTRY_INTERRUPTION_INFO_FIELD, 0); // 中断信息为 0
     hv::vmwrite<unsigned __int64>(VM_ENTRY_EXCEPTION_ERROR_CODE, 0); // 错误码为 0

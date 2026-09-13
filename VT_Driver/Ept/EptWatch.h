@@ -28,6 +28,20 @@ namespace ept
 	void fillPageEventBasic(PageEventBasic* peb, guest_context* guest_registers);
 	void RestoreEptPageProperties(__ept_hooked_page_info* hooked_page_info, int ID);
 
+	// 23/24:按 guest 虚拟地址和 CR3 读写隐藏 INT3 对应的单页 fake page 内容。
+	bool get_software_breakpoint_buffer(
+		__ept_state& ept_state,
+		unsigned __int64 target_address,
+		void* buffer,
+		unsigned __int64 buffer_size,
+		unsigned __int64 current_cr3);
+	bool set_software_breakpoint_buffer(
+		__ept_state& ept_state,
+		unsigned __int64 target_address,
+		void* buffer,
+		unsigned __int64 buffer_size,
+		unsigned __int64 current_cr3);
+
 	// Watch 查询
 	int ept_isWatchAddress(unsigned __int64 guest_physical_adddress, int ID);
 	//判断是否是监视的页

@@ -71,10 +71,7 @@ namespace ept
 							hv::clear_pending_mtf_metadata(vcpu);
 						}
 
-						while (InterlockedCompareExchange(&hooked_page_info->mtf_reference_count, 0, 0) != 0)
-						{
-							_mm_pause();
-						}
+						ept::wait_for_page_quiescence(hooked_page_info);
 
 						hooked_page_info->ID = -1;
 						hooked_page_info->isBp = false;
@@ -91,7 +88,7 @@ namespace ept
 							owner_split = ept_get_split_from_pml1(hooked_page_info->entry_address);
 						}
 
-						RemoveEntryList(current_hooked_page);
+						ept::remove_hooked_page(ept_state, hooked_page_info);
 						// 关键修复：失败路径要回收 hooked_page_info（旧代码这里直接 return false，导致池对象泄漏）。
 						pool_manager::release_pool(hooked_page_info);
 						// 关键：watch 页记录被删除后，对 split 做 ref--，必要时合并回 2MB 并回收。

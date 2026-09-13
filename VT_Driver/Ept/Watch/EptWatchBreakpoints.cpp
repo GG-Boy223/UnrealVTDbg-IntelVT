@@ -2,6 +2,132 @@
 
 namespace ept
 {
+	namespace
+	{
+		bool copy_software_breakpoint_buffer(
+			__ept_state& ept_state,
+			unsigned __int64 target_address,
+			void* buffer,
+			unsigned __int64 buffer_size,
+			unsigned __int64 current_cr3,
+			bool writing_to_fake_page)
+		{
+			unsigned char transfer_buffer[kEptPageSize];
+
+			if (target_address == 0)
+			{
+				return false;
+			}
+
+			if (buffer == nullptr ||
+				buffer_size == 0 ||
+				buffer_size > kEptPageSize ||
+				current_cr3 == 0)
+			{
+				return false;
+			}
+
+			const unsigned __int64 page_offset = target_address & 0xFFF;
+			const bool in_range =
+				page_offset < kEptPageSize &&
+				buffer_size <= kEptPageSize - page_offset;
+			if (!in_range)
+			{
+				return false;
+			}
+
+			cr3 guest_cr3;
+			guest_cr3.flags = current_cr3;
+
+			// 写入方向先从 guest 缓冲区安全读取,读取方向最后安全写回 guest 缓冲区。
+			// 不能把 guest 虚拟地址当作宿主地址直接 RtlCopyMemory,否则在根模式下会访问错误地址。
+			if (writing_to_fake_page &&
+				hv::read_guest_virtual_memory(
+					guest_cr3,
+					buffer,
+					&transfer_buffer[0],
+					static_cast<SIZE_T>(buffer_size)) != buffer_size)
+			{
+				return false;
+			}
+
+			const unsigned __int64 physical_address =
+				hv::get_physical_address(current_cr3, reinterpret_cast<PVOID>(target_address));
+			if (physical_address == 0)
+			{
+				return false;
+			}
+
+			// 只允许操作隐形 INT3 的 fake page,避免 VMCALL 23 误改函数 hook 伪页。
+			__ept_hooked_page_info* const hooked_page_info =
+				ept::acquire_page_hot_reference(
+					ept_state,
+					GET_PFN(physical_address),
+					EPTO_VIRTUAL_BREAKPOINT);
+			if (hooked_page_info == nullptr)
+			{
+				return false;
+			}
+
+			bool copied = false;
+			if (writing_to_fake_page)
+			{
+				RtlCopyMemory(
+					&hooked_page_info->fake_page_contents[page_offset],
+					&transfer_buffer[0],
+					static_cast<SIZE_T>(buffer_size));
+				copied = true;
+			}
+			else
+			{
+				RtlCopyMemory(
+					&transfer_buffer[0],
+					&hooked_page_info->fake_page_contents[page_offset],
+					static_cast<SIZE_T>(buffer_size));
+				copied = hv::write_guest_virtual_memory(
+					guest_cr3,
+					buffer,
+					&transfer_buffer[0],
+					static_cast<SIZE_T>(buffer_size)) == buffer_size;
+			}
+
+			ept::release_page_hot_reference(ept_state, hooked_page_info);
+			return copied;
+		}
+	}
+
+	bool get_software_breakpoint_buffer(
+		__ept_state& ept_state,
+		unsigned __int64 target_address,
+		void* buffer,
+		unsigned __int64 buffer_size,
+		unsigned __int64 current_cr3)
+	{
+		return copy_software_breakpoint_buffer(
+			ept_state,
+			target_address,
+			buffer,
+			buffer_size,
+			current_cr3,
+			false);
+	}
+
+	bool set_software_breakpoint_buffer(
+		__ept_state& ept_state,
+		unsigned __int64 target_address,
+		void* buffer,
+		unsigned __int64 buffer_size,
+		unsigned __int64 current_cr3)
+	{
+		return copy_software_breakpoint_buffer(
+			ept_state,
+			target_address,
+			buffer,
+			buffer_size,
+			current_cr3,
+			true);
+	}
+
 	void prepare_int3_fake_page_entries(__ept_hooked_page_info* hooked_page_info)
 	{
 		if (hooked_page_info == nullptr || hooked_page_info->entry_address == nullptr)
@@ -249,7 +375,7 @@ namespace ept
 		}
 
 		ept_split_ref_inc(hooked_page_info->owner_split);
-		InsertHeadList(&ept_state.hooked_page_list, &hooked_page_info->hooked_page_list);
+		ept::insert_hooked_page(ept_state, hooked_page_info);
 		return true;
 	}
 

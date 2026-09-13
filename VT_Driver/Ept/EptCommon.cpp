@@ -55,10 +55,276 @@ namespace ept
 		hooked_page_info->fake_page_needs_full_sync = false;
 		hooked_page_info->mtf_reference_count = 0;
 		hooked_page_info->removing = 0;
+		hooked_page_info->hot_reference_count = 0;
+		hooked_page_info->functions_lock = 0;
+	}
+
+	void initialize_hooked_function_runtime_fields(__ept_hooked_function_info* hooked_function_info)
+	{
+		if (hooked_function_info == nullptr)
+		{
+			return;
+		}
+
+		hooked_function_info->removing = 0;
+		hooked_function_info->hot_reference_count = 0;
 	}
 
 	bool is_watch_id_valid(int ID)
 	{
 		return ID >= 0 && ID < EPTWATCHLISTSIZE;
+	}
+
+	__ept_hooked_page_info* acquire_page_hot_reference(
+		__ept_state& ept_state,
+		unsigned __int64 pfn,
+		int required_options)
+	{
+		spinlock::lock(&ept_state.hooked_page_list_lock);
+
+		for (PLIST_ENTRY current = ept_state.hooked_page_list.Flink;
+			current != &ept_state.hooked_page_list;
+			current = current->Flink)
+		{
+			__ept_hooked_page_info* hooked_page_info =
+				CONTAINING_RECORD(current, __ept_hooked_page_info, hooked_page_list);
+
+			if (hooked_page_info->pfn_of_hooked_page != pfn ||
+				(required_options != 0 &&
+					hooked_page_info->Options != required_options) ||
+				hooked_page_info->removing != 0)
+			{
+				continue;
+			}
+
+			InterlockedIncrement(&hooked_page_info->hot_reference_count);
+			if (hooked_page_info->removing == 0)
+			{
+				spinlock::unlock(&ept_state.hooked_page_list_lock);
+				return hooked_page_info;
+			}
+
+			InterlockedDecrement(&hooked_page_info->hot_reference_count);
+			spinlock::unlock(&ept_state.hooked_page_list_lock);
+			return nullptr;
+		}
+
+		spinlock::unlock(&ept_state.hooked_page_list_lock);
+		return nullptr;
+	}
+
+	void release_page_hot_reference(
+		__ept_state& ept_state,
+		__ept_hooked_page_info* hooked_page_info)
+	{
+		if (hooked_page_info == nullptr)
+		{
+			return;
+		}
+
+		UNREFERENCED_PARAMETER(ept_state);
+		InterlockedDecrement(&hooked_page_info->hot_reference_count);
+	}
+	__ept_hooked_page_info* find_hooked_page_for_pfn(
+		__ept_state& ept_state,
+		unsigned __int64 pfn,
+		int required_options)
+	{
+		spinlock::lock(&ept_state.hooked_page_list_lock);
+		for (PLIST_ENTRY current = ept_state.hooked_page_list.Flink;
+			current != &ept_state.hooked_page_list;
+			current = current->Flink)
+		{
+			__ept_hooked_page_info* hooked_page_info =
+				CONTAINING_RECORD(current, __ept_hooked_page_info, hooked_page_list);
+
+			if (hooked_page_info->pfn_of_hooked_page != pfn ||
+				(required_options != 0 &&
+					hooked_page_info->Options != required_options) ||
+				hooked_page_info->removing != 0)
+			{
+				continue;
+			}
+
+			spinlock::unlock(&ept_state.hooked_page_list_lock);
+			return hooked_page_info;
+		}
+
+		spinlock::unlock(&ept_state.hooked_page_list_lock);
+		return nullptr;
+	}
+
+	void insert_hooked_page(
+		__ept_state& ept_state,
+		__ept_hooked_page_info* hooked_page_info)
+	{
+		if (hooked_page_info == nullptr)
+		{
+			return;
+		}
+
+		spinlock::lock(&ept_state.hooked_page_list_lock);
+		InsertHeadList(&ept_state.hooked_page_list, &hooked_page_info->hooked_page_list);
+		spinlock::unlock(&ept_state.hooked_page_list_lock);
+	}
+
+	void remove_hooked_page(
+		__ept_state& ept_state,
+		__ept_hooked_page_info* hooked_page_info)
+	{
+		if (hooked_page_info == nullptr)
+		{
+			return;
+		}
+
+		spinlock::lock(&ept_state.hooked_page_list_lock);
+		RemoveEntryList(&hooked_page_info->hooked_page_list);
+		spinlock::unlock(&ept_state.hooked_page_list_lock);
+	}
+	__ept_hooked_function_info* acquire_function_hot_reference(
+		__ept_hooked_page_info* hooked_page_info,
+		unsigned __int64 virtual_address)
+	{
+		if (hooked_page_info == nullptr)
+		{
+			return nullptr;
+		}
+
+		spinlock::lock(&hooked_page_info->functions_lock);
+		for (PLIST_ENTRY current = hooked_page_info->hooked_functions_list.Flink;
+			current != &hooked_page_info->hooked_functions_list;
+			current = current->Flink)
+		{
+			__ept_hooked_function_info* hooked_function_info =
+				CONTAINING_RECORD(
+					current,
+					__ept_hooked_function_info,
+					hooked_function_list);
+
+			if (hooked_function_info->virtual_address != (PVOID)virtual_address ||
+				hooked_function_info->removing != 0)
+			{
+				continue;
+			}
+
+			InterlockedIncrement(&hooked_function_info->hot_reference_count);
+			if (hooked_function_info->removing == 0)
+			{
+				spinlock::unlock(&hooked_page_info->functions_lock);
+				return hooked_function_info;
+			}
+
+			InterlockedDecrement(&hooked_function_info->hot_reference_count);
+			spinlock::unlock(&hooked_page_info->functions_lock);
+			return nullptr;
+		}
+
+		spinlock::unlock(&hooked_page_info->functions_lock);
+		return nullptr;
+	}
+
+	void release_function_hot_reference(
+		__ept_hooked_function_info* hooked_function_info)
+	{
+		if (hooked_function_info == nullptr)
+		{
+			return;
+		}
+
+		InterlockedDecrement(&hooked_function_info->hot_reference_count);
+	}
+
+	__ept_hooked_page_info* acquire_any_page_hot_reference(
+		__ept_state& ept_state,
+		unsigned __int64 pfn)
+	{
+		spinlock::lock(&ept_state.hooked_page_list_lock);
+
+		for (PLIST_ENTRY current = ept_state.hooked_page_list.Flink;
+			current != &ept_state.hooked_page_list;
+			current = current->Flink)
+		{
+			__ept_hooked_page_info* hooked_page_info =
+				CONTAINING_RECORD(current, __ept_hooked_page_info, hooked_page_list);
+
+			if (hooked_page_info->pfn_of_hooked_page != pfn ||
+				hooked_page_info->removing != 0)
+			{
+				continue;
+			}
+
+			InterlockedIncrement(&hooked_page_info->hot_reference_count);
+			if (hooked_page_info->removing == 0)
+			{
+				spinlock::unlock(&ept_state.hooked_page_list_lock);
+				return hooked_page_info;
+			}
+
+			InterlockedDecrement(&hooked_page_info->hot_reference_count);
+			spinlock::unlock(&ept_state.hooked_page_list_lock);
+			return nullptr;
+		}
+
+		spinlock::unlock(&ept_state.hooked_page_list_lock);
+		return nullptr;
+	}
+
+	void insert_hooked_function(
+		__ept_hooked_page_info* hooked_page_info,
+		__ept_hooked_function_info* hooked_function_info)
+	{
+		if (hooked_page_info == nullptr || hooked_function_info == nullptr)
+		{
+			return;
+		}
+
+		spinlock::lock(&hooked_page_info->functions_lock);
+		InsertHeadList(
+			&hooked_page_info->hooked_functions_list,
+			&hooked_function_info->hooked_function_list);
+		spinlock::unlock(&hooked_page_info->functions_lock);
+	}
+
+	void remove_hooked_function(
+		__ept_hooked_page_info* hooked_page_info,
+		__ept_hooked_function_info* hooked_function_info)
+	{
+		if (hooked_page_info == nullptr || hooked_function_info == nullptr)
+		{
+			return;
+		}
+
+		spinlock::lock(&hooked_page_info->functions_lock);
+		RemoveEntryList(&hooked_function_info->hooked_function_list);
+		spinlock::unlock(&hooked_page_info->functions_lock);
+	}
+	void wait_for_page_quiescence(__ept_hooked_page_info* hooked_page_info)
+	{
+		if (hooked_page_info == nullptr)
+		{
+			return;
+		}
+
+		while (InterlockedCompareExchange(
+			&hooked_page_info->hot_reference_count, 0, 0) != 0 ||
+			InterlockedCompareExchange(
+				&hooked_page_info->mtf_reference_count, 0, 0) != 0)
+		{
+			_mm_pause();
+		}
+	}
+
+	void wait_for_function_quiescence(__ept_hooked_function_info* hooked_function_info)
+	{
+		if (hooked_function_info == nullptr)
+		{
+			return;
+		}
+
+		while (InterlockedCompareExchange(
+			&hooked_function_info->hot_reference_count, 0, 0) != 0)
+		{
+			_mm_pause();
+		}
 	}
 }

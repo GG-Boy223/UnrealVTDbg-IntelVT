@@ -8,6 +8,7 @@
 #include "vmexit_handler.h"
 #include "VmcallDispatch.h"
 #include "../Cr3/Cr3Tracker.h"
+#include "../Ept/EptCommon.h"
 
 namespace
 {
@@ -116,6 +117,188 @@ namespace
 		return status;
 	}
 
+	bool ExecuteEptFunctionHook(__vcpu* vcpu, VmcallDispatch::Request const& request)
+	{
+		spinlock::lock(&eptWatchTransaction_lock);
+		bool status = false;
+		switch (request.reason)
+		{
+		case VMCALL_EPT_CC_HOOK:
+			status = ept::cc_hook_function(
+				*vcpu->ept_state,
+				(void*)request.parameter1,
+				(void*)request.parameter2,
+				(void**)request.parameter3);
+			break;
+		case VMCALL_EPT_INT1_HOOK:
+			status = ept::int1_hook_function(
+				*vcpu->ept_state,
+				(void*)request.parameter1,
+				(void*)request.parameter2,
+				(void**)request.parameter3);
+			break;
+		case VMCALL_EPT_HOOK_FUNCTION:
+			status = ept::hook_function(
+				*vcpu->ept_state,
+				(void*)request.parameter1,
+				(void*)request.parameter2,
+				(void**)request.parameter3);
+			break;
+		default:
+			break;
+		}
+		spinlock::unlock(&eptWatchTransaction_lock);
+		return status;
+	}
+
+	bool ExecuteReadEptFakePageMemory(__vcpu* vcpu, VmcallDispatch::Request const& request)
+	{
+		if (vcpu == nullptr ||
+			vcpu->ept_state == nullptr ||
+			request.parameter1 == 0 ||
+			request.parameter2 == 0 ||
+			request.parameter3 == 0 ||
+			request.parameter3 > ept::kEptPageSize)
+		{
+			return false;
+		}
+
+		const unsigned __int64 physical_address =
+			hv::get_physical_address(request.parameter4, (PVOID)request.parameter1);
+		if (physical_address == 0)
+		{
+			return false;
+		}
+
+		const unsigned __int64 page_offset = request.parameter1 & 0xFFF;
+		const bool range_valid =
+			page_offset < ept::kEptPageSize &&
+			request.parameter3 <= ept::kEptPageSize - page_offset;
+		if (!range_valid)
+		{
+			return false;
+		}
+
+		unsigned char local_buffer[ept::kEptPageSize];
+		bool found = false;
+
+		cr3 guest_cr3;
+		guest_cr3.flags = request.parameter4;
+
+		spinlock::lock(&eptWatchTransaction_lock);
+		if (g_vmm_context.vcpu != nullptr && g_vmm_context.processor_count > 0)
+		{
+			for (unsigned __int32 i = 0; i < g_vmm_context.processor_count; ++i)
+			{
+				__ept_state* const ept_state = g_vmm_context.vcpu[i].ept_state;
+				if (ept_state == nullptr)
+				{
+					continue;
+				}
+
+				__ept_hooked_page_info* hooked_page_info =
+					ept::acquire_any_page_hot_reference(
+						*ept_state,
+						GET_PFN(physical_address));
+				if (hooked_page_info == nullptr)
+				{
+					continue;
+				}
+
+				RtlCopyMemory(
+					local_buffer,
+					&hooked_page_info->fake_page_contents[page_offset],
+					static_cast<SIZE_T>(request.parameter3));
+				ept::release_page_hot_reference(*ept_state, hooked_page_info);
+				found = true;
+				break;
+			}
+		}
+		spinlock::unlock(&eptWatchTransaction_lock);
+
+		return found &&
+			request.parameter3 == hv::write_guest_virtual_memory(
+				guest_cr3,
+				(PVOID)request.parameter2,
+				local_buffer,
+				static_cast<SIZE_T>(request.parameter3));
+	}
+
+	bool ExecuteSoftwareBreakpointBuffer(__vcpu* vcpu, VmcallDispatch::Request const& request)
+	{
+		if (vcpu == nullptr ||
+			vcpu->ept_state == nullptr ||
+			request.parameter1 == 0 ||
+			request.parameter2 == 0 ||
+			request.parameter3 == 0 ||
+			request.parameter3 > ept::kEptPageSize ||
+			request.parameter4 == 0)
+		{
+			return false;
+		}
+
+		spinlock::lock(&eptWatchTransaction_lock);
+		bool status = false;
+		if (request.reason == VMCALL_SET_SOFTWARE_BREAKPOINT_BUFFER)
+		{
+			bool updated = false;
+			if (g_vmm_context.vcpu != nullptr && g_vmm_context.processor_count > 0)
+			{
+				for (unsigned __int32 i = 0; i < g_vmm_context.processor_count; ++i)
+				{
+					__ept_state* const ept_state = g_vmm_context.vcpu[i].ept_state;
+					if (ept_state == nullptr)
+					{
+						continue;
+					}
+
+					if (ept::set_software_breakpoint_buffer(
+							*ept_state,
+							request.parameter1,
+							(PVOID)request.parameter2,
+							request.parameter3,
+							request.parameter4))
+					{
+						updated = true;
+					}
+				}
+			}
+
+			// 只有至少一个 EPT 状态对应 fake page 更新成功才算成功。
+			status = updated;
+		}
+		else if (request.reason == VMCALL_GET_SOFTWARE_BREAKPOINT_BUFFER)
+		{
+			bool found = false;
+			if (g_vmm_context.vcpu != nullptr && g_vmm_context.processor_count > 0)
+			{
+				for (unsigned __int32 i = 0; i < g_vmm_context.processor_count; ++i)
+				{
+					__ept_state* const ept_state = g_vmm_context.vcpu[i].ept_state;
+					if (ept_state == nullptr)
+					{
+						continue;
+					}
+
+					if (ept::get_software_breakpoint_buffer(
+							*ept_state,
+							request.parameter1,
+							(PVOID)request.parameter2,
+							request.parameter3,
+							request.parameter4))
+					{
+						found = true;
+						break;
+					}
+				}
+			}
+
+			status = found;
+		}
+		spinlock::unlock(&eptWatchTransaction_lock);
+		return status;
+	}
+
 	bool ExecuteInvept(__vcpu* vcpu, VmcallDispatch::Request const& request)
 	{
 		_mm_mfence();
@@ -155,8 +338,14 @@ namespace VmcallDispatch
 		case VMCALL_EPT_CC_HOOK:
 		case VMCALL_EPT_INT1_HOOK:
 		case VMCALL_EPT_HOOK_FUNCTION:
+			return ExecuteEptFunctionHook(vcpu, request);
+
 		case VMCALL_READ_EPT_FAKE_PAGE_MEMORY:
-			return false;
+			return ExecuteReadEptFakePageMemory(vcpu, request);
+
+		case VMCALL_SET_SOFTWARE_BREAKPOINT_BUFFER:
+		case VMCALL_GET_SOFTWARE_BREAKPOINT_BUFFER:
+			return ExecuteSoftwareBreakpointBuffer(vcpu, request);
 
 		case VMCALL_EPT_RIP_HOOK:
 			return ExecuteEptRipHook(vcpu, request);

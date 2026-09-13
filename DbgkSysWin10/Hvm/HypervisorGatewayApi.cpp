@@ -101,8 +101,47 @@ namespace hvgt
 	//读取隐形软件断点
 	bool get_hide_software_breakpoint(void* target_address, void* buffer, unsigned __int64 buffer_size)
 	{
-		HookFunctionArgs args{ target_address, buffer, (void**)buffer_size, __readcr3(), 0 };
-		KeGenericCallDpc(broadcast_get_hide_software_breakpoint, &args);
+		SoftwareBreakpointBufferArgs args{
+			target_address,
+			buffer,
+			buffer_size,
+			__readcr3(),
+			0,
+			0
+		};
+		KeGenericCallDpc(broadcast_get_software_breakpoint_buffer, &args);
+
+		return static_cast<ULONG>(args.statuses) == KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS);
+	}
+
+	//设置隐形软件断点原字节
+	bool set_software_breakpoint_buffer(void* target_address, void* buffer, unsigned __int64 buffer_size, unsigned __int64 current_cr3)
+	{
+		SoftwareBreakpointBufferArgs args{
+			target_address,
+			buffer,
+			buffer_size,
+			current_cr3,
+			0,
+			0
+		};
+		KeGenericCallDpc(broadcast_set_software_breakpoint_buffer, &args);
+
+		return static_cast<ULONG>(args.statuses) == KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS);
+	}
+
+	//读取隐形软件断点原字节
+	bool get_software_breakpoint_buffer(void* target_address, void* buffer, unsigned __int64 buffer_size, unsigned __int64 current_cr3)
+	{
+		SoftwareBreakpointBufferArgs args{
+			target_address,
+			buffer,
+			buffer_size,
+			current_cr3,
+			0,
+			0
+		};
+		KeGenericCallDpc(broadcast_get_software_breakpoint_buffer, &args);
 
 		return static_cast<ULONG>(args.statuses) == KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS);
 	}
@@ -110,10 +149,16 @@ namespace hvgt
 	//设置隐形软件断点
 	bool set_hide_software_breakpoint(MDL_MAP* map_table, void* buffer, unsigned __int64 buffer_size)
 	{
-		HookFunctionArgs args{ map_table, buffer, (void**)buffer_size, __readcr3(), 0 };
-		KeGenericCallDpc(broadcast_set_hide_software_breakpoint, &args);
+		if (map_table == nullptr || map_table->VirtualAddress == nullptr)
+		{
+			return false;
+		}
 
-		return static_cast<ULONG>(args.statuses) == KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS);
+		return set_software_breakpoint_buffer(
+			map_table->VirtualAddress,
+			buffer,
+			buffer_size,
+			__readcr3());
 	}
 
 	/// <param name="target_address">Address of function which we want to hook</param>
