@@ -10,6 +10,44 @@
 
 namespace ept
 {
+	namespace
+	{
+		// 计算从 target_function 起、至少覆盖 min_bytes 字节所需覆盖的完整指令长度。
+		// 返回 false 的两种情况：LDE 解码失败（返回 0）、覆盖范围跨出 4KB 页。
+		// 这里运行在 VM-exit 上下文：无界解码会让整个物理 CPU 回不到宿主，因此取值必须先校验再使用。
+		bool decode_hooked_instructions_size(
+			const void* target_function,
+			unsigned __int64 page_offset,
+			unsigned __int64 min_bytes,
+			unsigned __int64& hooked_instructions_size)
+		{
+			hooked_instructions_size = 0;
+
+			while (hooked_instructions_size < min_bytes)
+			{
+				const size_t instruction_length = LDE(
+					reinterpret_cast<const unsigned __int8*>(target_function) + hooked_instructions_size,
+					64);
+
+				// LDE 解码失败返回 0：按 0 递增会让本循环永不退出，物理 CPU 会卡在 VMX root 态。
+				if (instruction_length == 0)
+				{
+					return false;
+				}
+
+				hooked_instructions_size += instruction_length;
+			}
+
+			// 覆盖范围必须完整落在同一个 4KB 页内：伪造页写入与卸载时的恢复都按页内偏移进行。
+			if (hooked_instructions_size > kEptPageSize - page_offset)
+			{
+				return false;
+			}
+
+			return true;
+		}
+	}
+
 	/// <summary>
 	/// Write an absolute jump, We aren't touching any register except stack so it's the most safest trampoline
 	/// Size: 14 bytes
@@ -109,11 +147,18 @@ namespace ept
 	//将vmcall指令写入伪造页  通过触发vmcall来实现hook
 	bool write_vmcall_instruction_to_memory(__ept_hooked_function_info* hooked_function_info, void* target_function, void* proxy_function, void** origin_function)
 	{
-		unsigned __int64 hooked_instructions_size = 0;
-
 		// Get offset of hooked function within page
 		// 获得线性地址的低12位 页偏移
 		unsigned __int64 page_offset = MASK_EPT_PML1_OFFSET((unsigned __int64)target_function);
+
+		// 先完成解码与校验再改写伪造页：校验失败时不会留下半写入的指令。
+		unsigned __int64 hooked_instructions_size = 0;
+		if (decode_hooked_instructions_size(target_function, page_offset, 3, hooked_instructions_size) == false)
+		{
+			LogError("解析被覆盖指令长度失败");
+			return false;
+		}
+
 		unsigned __int8* target_buffer = &hooked_function_info->fake_page_contents[page_offset];
 		target_buffer[0] = 0x0f;
 		target_buffer[1] = 0x01;
@@ -123,9 +168,7 @@ namespace ept
 		//DbgBreakPoint();
 		if (origin_function)
 		{
-			//计算被修改的指令占用多少字节
-			while (hooked_instructions_size < 3)
-				hooked_instructions_size += LDE((unsigned __int8*)target_function + hooked_instructions_size, 64);
+			// 覆盖长度已在写入伪造页前完成解码与校验。
 
 			hooked_function_info->hook_size = hooked_instructions_size;
 
@@ -147,12 +190,20 @@ namespace ept
 	//将int3指令写入伪造页  通过触发int3中断来实现hook
 	bool write_cc_instruction_to_memory(__ept_hooked_function_info* hooked_function_info, void* target_function, void* proxy_function, void** origin_function)
 	{
-		unsigned __int64 hooked_instructions_size = 1;
-
 		// Get offset of hooked function within page
 		// 获得线性地址的低12位 页偏移
 		unsigned __int64 page_offset = MASK_EPT_PML1_OFFSET((unsigned __int64)target_function);
-		hooked_function_info->hook_size = hooked_instructions_size;
+
+		// 先完成解码与校验再改写伪造页：校验失败时不会留下半写入的指令。
+		unsigned __int64 hooked_instructions_size = 0;
+		if (decode_hooked_instructions_size(target_function, page_offset, 1, hooked_instructions_size) == false)
+		{
+			LogError("解析被覆盖指令长度失败");
+			return false;
+		}
+
+		// int3 只覆盖 1 字节，卸载时按 1 字节恢复。
+		hooked_function_info->hook_size = 1;
 		unsigned __int8* target_buffer = &hooked_function_info->fake_page_contents[page_offset];
 		target_buffer[0] = 0xCC;
 		hooked_function_info->handler_function = proxy_function;  //int3的处理函数
@@ -161,7 +212,7 @@ namespace ept
 		if (origin_function)
 		{
 			//计算被修改的指令占用多少字节
-			hooked_instructions_size = LDE((unsigned __int8*)target_function, 64);
+			// 跳板只需要复制被 0xCC 覆盖的那一条完整指令，长度已在上面解码并校验。
 
 			// Copy overwritten instructions to trampoline buffer
 			// 将覆盖的指令复制到跳板缓冲区
@@ -181,12 +232,20 @@ namespace ept
 	//将int1写入伪页  进行hook
 	bool write_int1_instruction_to_memory(__ept_hooked_function_info* hooked_function_info, void* target_function, void* proxy_function, void** origin_function)
 	{
-		unsigned __int64 hooked_instructions_size = 1;
-
 		// Get offset of hooked function within page
 		// 获得线性地址的低12位 页偏移
 		unsigned __int64 page_offset = MASK_EPT_PML1_OFFSET((unsigned __int64)target_function);
-		hooked_function_info->hook_size = hooked_instructions_size;
+
+		// 先完成解码与校验再改写伪造页：校验失败时不会留下半写入的指令。
+		unsigned __int64 hooked_instructions_size = 0;
+		if (decode_hooked_instructions_size(target_function, page_offset, 1, hooked_instructions_size) == false)
+		{
+			LogError("解析被覆盖指令长度失败");
+			return false;
+		}
+
+		// int1 只覆盖 1 字节，卸载时按 1 字节恢复。
+		hooked_function_info->hook_size = 1;
 		unsigned __int8* target_buffer = &hooked_function_info->fake_page_contents[page_offset];
 		target_buffer[0] = 0xf1;  //int1
 		hooked_function_info->handler_function = proxy_function;  //int1的处理函数
@@ -195,7 +254,7 @@ namespace ept
 		if (origin_function)
 		{
 			//计算被修改的指令占用多少字节
-			hooked_instructions_size = LDE((unsigned __int8*)target_function, 64);
+			// 跳板只需要复制被 0xf1 覆盖的那一条完整指令，长度已在上面解码并校验。
 
 			// Copy overwritten instructions to trampoline buffer
 			// 将覆盖的指令复制到跳板缓冲区
@@ -237,8 +296,12 @@ namespace ept
 		}
 
 		// Get the full size of instructions necessary to copy
-		while (hooked_instructions_size < 14)
-			hooked_instructions_size += LDE((unsigned __int8*)target_function + hooked_instructions_size, 64);
+		// 解码并校验覆盖长度：解码失败或越界时直接失败，避免在 VM-exit 上下文里死循环。
+		if (decode_hooked_instructions_size(target_function, page_offset, kAbsoluteJumpSize, hooked_instructions_size) == false)
+		{
+			LogError("解析被覆盖指令长度失败");
+			return false;
+		}
 
 		// If instructions to hook are on two seperate pages then return (Hypervisor doesn't support function hooking at page boundaries)
 		if ((hooked_instructions_size + 14) > PAGE_SIZE - 1)

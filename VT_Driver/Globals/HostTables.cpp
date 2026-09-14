@@ -788,9 +788,7 @@ namespace hv
                 {
                     if (vcpu->ept_state->pml2_pages[i] != nullptr)
                     {
-                        ok = ensure_host_virtual_range("EPT PD页",
-                            vcpu->ept_state->pml2_pages[i],
-                            PAGE_SIZE) && ok;
+                        ok = ensure_host_virtual_range("EPT PD页",vcpu->ept_state->pml2_pages[i],PAGE_SIZE) && ok;
                     }
                 }
             }

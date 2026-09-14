@@ -19,7 +19,7 @@ namespace hv
         outFile("[信息][VMCS] 准备加载VMCS指针：VA=0x%p PA=0x%llX Revision=0x%X",
             &vmcs_region,
             vmcs_phys,
-            vmx_basic.vmcs_revision_id);
+            static_cast<unsigned int>(vmx_basic.vmcs_revision_id)); // 31 位字段按 %X 传递必须显式收敛为 32 位宽
 
         if (!hv::vmx_vmclear(vmcs_phys))
         {
@@ -97,7 +97,7 @@ namespace hv
         outFile("[信息][VMXON] 准备执行VMXON：VA=0x%p PA=0x%llX Revision=0x%X IA32_VMX_BASIC=0x%llX",
             &vmxon_region,
             vmxon_phys,
-            vmx_basic.vmcs_revision_id,
+            static_cast<unsigned int>(vmx_basic.vmcs_revision_id), // 31 位字段按 %X 传递必须显式收敛为 32 位宽
             vmx_basic.flags);
 
         if (!vmx_on(vmxon_phys))

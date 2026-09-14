@@ -196,6 +196,7 @@ namespace SerialPortInternal
                     break;
                 case '%':
                     putf(putp, ch);
+                    break;
                 default:
                     break;
                 }

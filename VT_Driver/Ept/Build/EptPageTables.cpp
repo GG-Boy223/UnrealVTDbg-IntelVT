@@ -407,6 +407,14 @@ namespace ept
 			page_table->pml4[pml4_index].execute_for_usermode = 0;
 		}
 
+		__ept_pde pde_template = { 0 };
+
+		pde_template.page_directory_entry.read = 1;
+		pde_template.page_directory_entry.write = 1;
+		pde_template.page_directory_entry.execute = 1;
+		pde_template.page_directory_entry.large_page = 1;  //使用大页面 2mb
+		pde_template.page_directory_entry.execute_for_usermode = 0;
+
 		__ept_pdpte pdpte_template = { 0 };
 
 		pdpte_template.read = 1;
@@ -432,6 +440,9 @@ namespace ept
 
 			ept_state.pml2_pages[i] = pde_page;
 
+			// 与分配同一个循环完成整页大页模板填充：pml2_pages[i] 一旦发布即为完整条目
+			__stosq((unsigned __int64*)pde_page, pde_template.all, 512);
+
 			__ept_pdpte* pdpte = get_pdpte_entry(ept_state, i);
 			if (pdpte == nullptr)
 			{
@@ -445,20 +456,6 @@ namespace ept
 
 			pdpte->all = pdpte_template.all;
 			pdpte->page_frame_number = GET_PFN(MmGetPhysicalAddress(pde_page).QuadPart);
-		}
-
-		__ept_pde pde_template = { 0 };
-
-		pde_template.page_directory_entry.read = 1;
-		pde_template.page_directory_entry.write = 1;
-		pde_template.page_directory_entry.execute = 1;
-
-		pde_template.page_directory_entry.large_page = 1;  //使用大页面 2mb
-		pde_template.page_directory_entry.execute_for_usermode = 0;
-
-		for (unsigned __int32 i = 0; i < required_pdpt_count; ++i)
-		{
-			__stosq((unsigned __int64*)ept_state.pml2_pages[i], pde_template.all, 512);
 		}
 
 		// MTRR data for setting memory types

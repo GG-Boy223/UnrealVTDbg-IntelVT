@@ -279,7 +279,6 @@ namespace ept
 					vcpu->breakpoint_detected = eptWatchList[ID].VirtualAddress;
 				}
 			}
-
 			RestoreEptPageProperties(hooked_page_info, ID);
 			spinlock::unlock(&eptWatchList_lock);
 			return true;

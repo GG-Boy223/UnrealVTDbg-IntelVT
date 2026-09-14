@@ -49,7 +49,8 @@ namespace
 
         while (temp_offset != 0)
         {
-            AppendChar(buffer, buffer_size, offset, temp[--temp_offset]);
+            --temp_offset; // 先自减再取值：避免复合表达式对 size_t 递减触发静态分析越界误报(C6385)
+            AppendChar(buffer, buffer_size, offset, temp[temp_offset]);
         }
     }
 

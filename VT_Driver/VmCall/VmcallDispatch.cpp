@@ -1,4 +1,4 @@
-#include "Driver.h"
+﻿#include "Driver.h"
 #include "poolmanager.h"
 #include "Globals.h"
 #include "vmcall_reason.h"
@@ -299,6 +299,19 @@ namespace
 		return status;
 	}
 
+	// 读取隐形软件断点：get_hide_software_breakpoint 内部遍历 hooked_page_list，
+	// 该遍历不持 hooked_page_list_lock（与其它安装/删除路径一致依赖事务锁），
+	// 因此这里必须与安装/删除事务互斥，否则删除事务可能在遍历过程中回收页面记录。
+	bool ExecuteReadSoftwareBreakpoint(__vcpu* vcpu, VmcallDispatch::Request const& request)
+	{
+		spinlock::lock(&eptWatchTransaction_lock);
+		const bool status = ept::get_hide_software_breakpoint(
+			*vcpu->ept_state,
+			(PVT_BREAK_POINT)request.parameter1);
+		spinlock::unlock(&eptWatchTransaction_lock);
+		return status;
+	}
+
 	bool ExecuteInvept(__vcpu* vcpu, VmcallDispatch::Request const& request)
 	{
 		_mm_mfence();
@@ -376,9 +389,7 @@ namespace VmcallDispatch
 			return ept::set_hide_software_breakpoint((PVT_BREAK_POINT)request.parameter1);
 
 		case VMCALL_READ_SOFTWARE_BREAKPOINT:
-			return ept::get_hide_software_breakpoint(
-				*vcpu->ept_state,
-				(PVT_BREAK_POINT)request.parameter1);
+			return ExecuteReadSoftwareBreakpoint(vcpu, request);
 
 		case VMCALL_WATCH_WRITES:
 			return SetBreakpoint((PVT_BREAK_POINT)request.parameter1, EPTW_WRITE);

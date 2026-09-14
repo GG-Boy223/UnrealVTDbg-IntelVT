@@ -52,7 +52,7 @@ namespace ept
 				//
 				if (origin_function != nullptr)
 				{
-					hooked_function_info->first_trampoline_address = pool_manager::request_pool<unsigned __int8*>(pool_manager::INTENTION_EXEC_TRAMPOLINE, TRUE, 100);
+					hooked_function_info->first_trampoline_address = pool_manager::request_pool<unsigned __int8*>(pool_manager::INTENTION_EXEC_TRAMPOLINE, TRUE, kTrampolineBufferSize);
 					if (hooked_function_info->first_trampoline_address == nullptr)
 					{
 						pool_manager::release_pool(hooked_function_info);
@@ -160,7 +160,7 @@ namespace ept
 		//
 		if (origin_function != nullptr)
 		{
-			hooked_function_info->first_trampoline_address = pool_manager::request_pool<unsigned __int8*>(pool_manager::INTENTION_EXEC_TRAMPOLINE, TRUE, 100);
+			hooked_function_info->first_trampoline_address = pool_manager::request_pool<unsigned __int8*>(pool_manager::INTENTION_EXEC_TRAMPOLINE, TRUE, kTrampolineBufferSize);
 			if (hooked_function_info->first_trampoline_address == nullptr)
 			{
 				// 关键修复：失败路径要回收 hooked_page_info（旧代码这里直接 return false，导致池对象泄漏）。

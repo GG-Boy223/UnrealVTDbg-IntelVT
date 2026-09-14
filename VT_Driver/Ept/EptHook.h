@@ -7,6 +7,13 @@ EXTERN_C size_t __fastcall LDE(const void* lpData, unsigned int size);
 // EPT Hook 功能
 namespace ept
 {
+	// 跳板缓冲区容量：pool_manager 按 INTENTION_EXEC_TRAMPOLINE 预分配的单个缓冲区大小，
+	// 申请跳板与写入跳板必须使用同一常量，避免申请大小与写入上限不一致。
+	constexpr unsigned __int64 kTrampolineBufferSize = 100;
+
+	// 写回原函数的绝对跳转长度：push imm32; mov dword ptr [rsp+4], imm32; ret。
+	constexpr unsigned __int64 kAbsoluteJumpSize = 14;
+
 	/// <summary>
 	/// Write an absolute jump, We aren't touching any register except stack so it's the most safest trampoline
 	/// Size: 14 bytes

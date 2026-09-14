@@ -70,6 +70,61 @@ namespace
 		++vcpu->vmexit_telemetry.overflowCount;
 		vcpu->vmexit_telemetry.overflowCycles += elapsed;
 	}
+
+	// virtual-NMI blocking 恢复：对应 Intel SDM Vol3C 27.7.1.2 与 KVM vmx_recover_nmi_blocking 的处理方式。
+	// 当 VM-exit 由 guest 执行 IRET 时发生的异常/NMI（或 EPT violation）触发，且硬件置位了
+	// “NMI unblocking due to IRET”(bit12) 时，IRET 实际并未完成，guest 的 virtual-NMI blocking 必须保持为 1。
+	// 部分硬件勘误（AAK134/BY25）可能没有保持该 blocking 位，因此在下次 VM-entry 前显式补齐，
+	// 否则 guest 会提前收到 NMI，破坏中断嵌套语义。
+	void recover_nmi_blocking(__vcpu* vcpu)
+	{
+		// 只有 pin-based 控制启用 virtual NMI 时该 blocking 位才具有虚拟 NMI 语义。
+		// 该位是静态控制，直接用 fill_vmcs 记录的有效值判断，避免每次 VM-exit 额外 VMREAD。
+		constexpr unsigned __int64 pinbased_virtual_nmis = 1ull << 5;
+		if ((vcpu->vmcs_effective_controls.pinbased & pinbased_virtual_nmis) == 0)
+		{
+			return;
+		}
+
+		// bit12 在 IDT-vectoring 信息有效时未定义（事件投递被 VM-exit 打断），此时不能据此修正状态。
+		__vmexit_interrupt_info vectoring = { 0 };
+		vectoring.all = static_cast<unsigned __int32>(hv::vmread(IDT_VECTORING_INFO_FIELD));
+		if (vectoring.valid != 0)
+		{
+			return;
+		}
+
+		bool nmi_unblocking = false;
+		if (vcpu->vmexit_info.reason == VMX_EXIT_REASON_EPT_VIOLATION)
+		{
+			// EPT violation 把该标志放在 exit qualification 的 bit12，含义与 interruption info 相同。
+			constexpr unsigned __int64 ept_violation_nmi_unblocking = 1ull << 12;
+			nmi_unblocking = (vcpu->vmexit_info.qualification & ept_violation_nmi_unblocking) != 0;
+		}
+		else
+		{
+			__vmexit_interrupt_info exit_interrupt = { 0 };
+			exit_interrupt.all = static_cast<unsigned __int32>(hv::vmread(VM_EXIT_INTERRUPTION_INFORMATION));
+			// 该位仅在退出由有效事件触发时可用，且 #DF(8) 时硬件定义为未定义值。
+			nmi_unblocking = exit_interrupt.valid != 0 &&
+				exit_interrupt.nmi_unblocking != 0 &&
+				exit_interrupt.vector != EXCEPTION_VECTOR_DOUBLE_FAULTT;
+		}
+
+		if (!nmi_unblocking)
+		{
+			return;
+		}
+
+		__vmx_interruptibility_state interruptibility = { hv::vmread(GUEST_INTERRUPTIBILITY_STATE) };
+		if (interruptibility.blocking_by_nmi != 0)
+		{
+			return; // 已经处于 virtual-NMI blocking 状态，无需写 VMCS。
+		}
+
+		interruptibility.blocking_by_nmi = 1;
+		hv::vmwrite(GUEST_INTERRUPTIBILITY_STATE, interruptibility.all);
+	}
 }
 
 EXTERN_C
@@ -148,16 +203,6 @@ bool vmexit_handler(guest_context* guest_registers, PFXSAVE64 fxsave) // VM-exit
 	unsigned __int64 exit_reason_raw = hv::vmread(VM_EXIT_REASON);
 	vcpu->vmexit_info.reason = exit_reason_raw & 0xffff; // 低 16 位是基础 exit reason，高位状态不参与 switch 分发。
 
-	// ✅ P0-005 修复：检查并处理 NMI unblocking 标志（bit 31）
-	constexpr unsigned __int64 VMX_EXIT_REASON_NMI_UNBLOCKING = 0x80000000ULL;
-	if ((exit_reason_raw & VMX_EXIT_REASON_NMI_UNBLOCKING) != 0)
-	{
-		// NMI unblocking：VM-Exit 发生时 NMI 阻塞被解除，需清除 interruptibility 中的 NMI blocking 位
-		unsigned __int64 interruptibility = hv::vmread(GUEST_INTERRUPTIBILITY_STATE);
-		constexpr unsigned __int64 GUEST_INTERRUPTIBILITY_NMI_BLOCKING = 0x00000008ULL;
-		interruptibility &= ~GUEST_INTERRUPTIBILITY_NMI_BLOCKING;
-		hv::vmwrite(GUEST_INTERRUPTIBILITY_STATE, interruptibility);
-	}
 	vcpu->vmexit_info.qualification = hv::vmread(EXIT_QUALIFICATION); // 保存 exit qualification，供 CR/DR/EPT 等 handler 解码。
 	vcpu->vmexit_info.guest_rflags.all = hv::vmread(GUEST_RFLAGS); // 保存 RFLAGS，后续单步、IF/TF 状态都依赖该快照。
 	vcpu->vmexit_info.guest_rip = hv::vmread(GUEST_RIP); // 保存触发 VM-exit 的 guest RIP，供模拟执行或日志定位。
@@ -165,6 +210,18 @@ bool vmexit_handler(guest_context* guest_registers, PFXSAVE64 fxsave) // VM-exit
 	vcpu->vmexit_info.instruction_information = hv::vmread(VM_EXIT_INSTRUCTION_INFORMATION); // 保存 VMX 指令解码信息，供部分 exit handler 使用。
 	vcpu->vmexit_info.guest_registers = guest_registers; // 暴露通用寄存器保存区，handler 可读写模拟后的寄存器值。
 	vcpu->vmexit_info.fxsave = fxsave; // 暴露浮点/SIMD 保存区，保留给需要处理 FXSAVE 状态的路径。
+	// VM_EXIT_REASON 的 bit31 是“VM-entry 失败”标志（Intel SDM Vol3C 表 24-3），不是 NMI unblocking；
+	// NMI unblocking due to IRET 位于 VM-exit interruption information / EPT violation exit qualification 的 bit12。
+	constexpr unsigned __int64 VMX_EXIT_REASON_VM_ENTRY_FAILURE = 0x80000000ULL;
+	if ((exit_reason_raw & VMX_EXIT_REASON_VM_ENTRY_FAILURE) != 0)
+	{
+		// VM-entry 失败时 VMCS guest 状态不可信，不做任何状态修正，交由 dispatch 走 vmexit_failed() 致命路径。
+		sLog("vm-entry failure: reason=%llu\n", vcpu->vmexit_info.reason);
+	}
+	else
+	{
+		recover_nmi_blocking(vcpu); // 仅真实 VM-exit 需要按虚拟 NMI 语义恢复 blocking_by_nmi。
+	}
 
 	vcpu->hide_vm_exit_overhead = false; // 每次退出默认不隐藏开销，只有 CPUID/RDTSC 等时间敏感路径主动开启。
 

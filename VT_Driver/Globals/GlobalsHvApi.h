@@ -137,4 +137,4 @@ namespace hv // Hypervisor 命名空间
     void InitGlobalVariables(); // 初始化全局保存的寄存器状态
 }
 
-typedef PEPROCESS(__fastcall* PFN_PSGETNEXTPROCESS)(_In_ PEPROCESS Process); // PsGetNextProcess 函数指针类型
+typedef PEPROCESS(__fastcall* PFN_PSGETNEXTPROCESS)(_In_opt_ PEPROCESS Process); // PsGetNextProcess 函数指针类型

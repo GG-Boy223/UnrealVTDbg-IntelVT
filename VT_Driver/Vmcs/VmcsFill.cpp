@@ -23,7 +23,7 @@ void fill_vmcs(__vcpu* vcpu, void* guest_rsp) // 填充 VMCS
     set_exception_bitmap(exception_bitmap); // 设置异常拦截
 
 #ifndef _MINIMAL // 非精简模式
-    memset(vcpu->vcpu_bitmaps.msr_bitmap, 0xff, PAGE_SIZE); // 初始化 MSR 位图为全拦截
+    memset(&vcpu->msr_bitmap, 0xff, PAGE_SIZE); // 初始化 MSR 位图为全拦截（vmx_msr_bitmap 为 4KB 且按页对齐）
 #endif
 
     vcpu->vmcs_effective_controls.pinbased = ajdust_controls(pinbased_controls.all, vmx_basic.true_controls ? IA32_VMX_TRUE_PINBASED_CTLS : IA32_VMX_PINBASED_CTLS);
