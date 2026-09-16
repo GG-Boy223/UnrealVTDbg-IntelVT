@@ -300,6 +300,16 @@ union __ept_violation // EPT 违规信息字段
     };
 };
 
+// 非 RAM（MMIO / 地址空洞）区域按需映射使用的 PD 页池条目。
+// PD 页在 EPT 构建期一次性分配，并在这里缓存物理页帧号：
+// EPT violation 处理运行在来宾 IRQL 上，只能做纯内存写入，
+// 不允许再调用 MmGetPhysicalAddress 或任何内核分配接口。
+struct __ept_mmio_pd_page
+{
+    __ept_pde* entries; // 512 个 2MB EPT 条目（页对齐）
+    unsigned __int64 page_frame_number; // PD 页自身的物理页帧号（构建期缓存）
+};
+
 struct __ept_state // EPT 状态（每 VCPU 一份）
 {
     LIST_ENTRY hooked_page_list;  //hook页列表   被hook的页面会被加入到该列表
@@ -316,6 +326,13 @@ struct __ept_state // EPT 状态（每 VCPU 一份）
     unsigned __int32 physical_memory_range_count; // RAM 范围数量，0 表示保留旧 MTRR-only 行为。
     unsigned __int32 mapped_pml4_count; // 已填充的 PML4 条目数
     unsigned __int32 mapped_pdpte_count; // 已填充的 flat PDPTE/PD 页数量
+    __ept_mmio_pd_page* mmio_pd_pool; // 非RAM区域按需映射的PD页池（仅CPU不支持1GB EPT大页时分配）
+    unsigned __int32 mmio_pd_pool_capacity; // 池容量（页数）；初始化期间保存已成功分配的页数，供失败清理使用
+    unsigned __int32 mmio_pd_pool_used; // 已取用页数，只由持有该EPT的VCPU在VM-exit路径递增
+    bool ept_1gb_pages_supported; // 本CPU是否支持1GB EPT大页（构建期查询IA32_VMX_EPT_VPID_CAP[17]并缓存）
+    unsigned __int64 mmio_mapped_region_count; // 运行期补映射过的非RAM区域数量（VM-exit内只累加，日志在安全上下文输出）
+    unsigned __int64 last_mmio_mapped_guest_physical; // 最近一次补映射的GPA，用于安全上下文诊断输出
+    unsigned __int64 mmio_mapping_failure_count; // 按需映射失败次数（超出覆盖范围/页表状态异常/PD池耗尽）
     __ept_hooked_page_info* page_to_change; // 当前需要切换的页（用于 MTF）
     bool mtf_pending; // page_to_change 是否属于当前活跃 MTF 窗口
     unsigned __int64 unhandled_ept_violation_count; // 未匹配到 hook/watch 的 EPT violation 累计次数

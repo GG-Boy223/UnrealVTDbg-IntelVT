@@ -51,25 +51,30 @@ bool init_vcpu(__vcpu* vcpu) // 为单个VCPU分配位图和EPT状态等基础�
 	RtlSecureZeroMemory(&vcpu->host_gdt, sizeof(segment_descriptor_32) * HOST_GDT_DESCRIPTOR_COUNT); // 清零宿主GDT缓冲，后续填充
 	RtlSecureZeroMemory(&vcpu->host_idt, sizeof(segment_descriptor_interrupt_gate_64) * HOST_IDT_DESCRIPTOR_COUNT); // 清零宿主IDT缓冲，后续填充
 
-	//
-	// Initialize ept structure
-	// 初始化 ept 结构
-	//
-	outFile("[进行中][VCPU] 开始初始化EPT结构：VCPU=0x%p", vcpu);
-	//
-	// Initialize ept structure
-	// 初始化 ept 结构
-	if (ept::initialize(*vcpu->ept_state) == false) // 初始化EPT页表与控制字段，确保硬件可用
+	outFile("---------- VCPU基础资源初始化完成：VCPU=0x%p ----------", vcpu);
+
+	return true;
+}
+
+// 在目标逻辑处理器上构建该核的 EPT 页表。
+// IA32_VMX_EPT_VPID_CAP（1GB 大页支持）、CPUID.80000008H（MAXPHYADDR）、MTRR 都是每逻辑处理器
+// 状态，所以 EPT 必须由它所属的那个核来构建：在一个核上替所有核统一建表，遇到大小核
+//（P-core/E-core）能力不一致时会写出该核并不支持的条目（例如 1GB EPT 大页）。
+bool init_vcpu_ept(__vcpu* vcpu)
+{
+	outFile("[进行中][CPU%u][VCPU] 开始初始化EPT结构：VCPU=0x%p", KeGetCurrentProcessorNumber(), vcpu);
+
+	if (ept::initialize(*vcpu->ept_state) == false)
 	{
-		outFile("[失败][VCPU] EPT结构初始化失败：VCPU=0x%p", vcpu);
+		outFile("[失败][CPU%u][VCPU] EPT结构初始化失败：VCPU=0x%p", KeGetCurrentProcessorNumber(), vcpu);
 		return false; // 返回失败避免无EPT进入VMX
 	}
-	outFile("[成功][VCPU] EPT结构初始化完成：EPTP=0x%llX MappedPDPTE=%u MappedPML4=%u",
+
+	outFile("[成功][CPU%u][VCPU] EPT结构初始化完成：EPTP=0x%llX MappedPDPTE=%u MappedPML4=%u",
+		KeGetCurrentProcessorNumber(),
 		vcpu->ept_state->ept_pointer != nullptr ? vcpu->ept_state->ept_pointer->all : 0,
 		vcpu->ept_state->mapped_pdpte_count,
 		vcpu->ept_state->mapped_pml4_count);
-
-	outFile("---------- VCPU基础资源初始化完成：VCPU=0x%p ----------", vcpu);
 
 	return true;
 }

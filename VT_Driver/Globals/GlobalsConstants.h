@@ -12,6 +12,11 @@
 #define EPTO_HOOK_FUNCTION         2 // EPT hook 选项：函数 hook 类型（切换到伪页执行）
 
 #define EPT_PD_COUNT 512 // EPT 中 PML2（PDE）数组的数量，覆盖 512 * 2MB = 1GB 的 PDPTE 段
+// 不支持 1GB EPT 大页（IA32_VMX_EPT_VPID_CAP[17]=0）的 CPU 上，非 RAM（MMIO/地址空洞）区域
+// 改为首次访问时按需映射：每个 1GB 区域需要一个 PD 页，这里是每 vCPU 预分配的 PD 页池容量。
+// 128 页 = 128 个独立 1GB MMIO 窗口；池必须在 VMLAUNCH 之前分配完成，
+// 因为 EPT violation 处理运行在来宾 IRQL 上，不允许在根模式调用可能阻塞的内核分配接口。
+#define EPT_MMIO_PD_POOL_PAGE_COUNT 128
 // #define HOST_PHYSICAL_MEMORY_PD_COUNT 64 // 旧逻辑：Host物理直映只覆盖64GB，高内存平台VMX root访问页表/内存时可能越界
 #define HOST_PHYSICAL_MEMORY_PD_COUNT 512 // 宿主物理内存映射使用的 PDE 组数量（512 * 1GB = 512GB）
 #define HOST_DYNAMIC_PAGE_TABLE_POOL_COUNT 1024 // Host关键虚拟页补映射页表池容量，仅扩大覆盖，不作为VT进入条件

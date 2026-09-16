@@ -118,6 +118,37 @@
 - VT_Driver/Globals/HostTables.cpp 第 791 行：ensure_host_virtual_range 调用写成单行，便于审阅。
 - VT_Driver/Globals/GlobalsHvApi.h 第 140 行：PFN_PSGETNEXTPROCESS 的参数标注改为 _In_opt_，与调用点允许传空的语义一致。
 
+### B16 EPT 只覆盖 0..512GB，来宾访问高地址 MMIO 触发 Arg1=7 蓝屏（Ultra 9 275HX）
+
+- 现象：i 系列平台运行正常；Ultra 9 275HX（Arrow Lake-HX，Win11 26100，24 逻辑核）进入 VT 后数分钟整机蓝屏，代码 0x00020001。
+- 转储证据（F:\001\VT\蓝屏文件\Ultral9 275hx，本机首手复核）：
+  - 091526-15453-01.dmp：Bugcheck code 00020001，Arguments 00000007 / 00000001 / 000003ffaf000c60 / 00000d81。
+  - 091526-14343-01.dmp：同一 Bugcheck，Arg2（处理器号）= 0x17 = 23，Arg3、Arg4 与第一份完全相同。
+  - 栈：nt+0x4f9280（KeBugCheckEx）← VT_Driver+0x1c849（vmx_fatal_error）← VT_Driver+0x1b5f4（vmexit_ept_violation_handler）← VT_Driver+0x1950e。
+- 参数解码：Arg1=7 对应 VT_Driver/VmExit/VmxFatal.h 的 vmx_fatal_unhandled_ept_violation；Arg3=0x3FFAF000C60 是 GPA≈4.0TB；Arg4=0xD81 按 __ept_violation 位域解码为 bit0=1（数据读）、bit3/bit4/bit5=0（EPT 条目读/写/执行权限全为 0，即条目不存在）、bit7/bit8=1（GLA 有效且来自线性地址翻译）、bit9=0（内核态），符合 MmMapIoSpace 映射显卡 BAR 的访问特征。
+- 根因：VT_Driver/Ept/Build/EptPageTables.cpp 的 query_required_pdpt_count() 只用 MmGetPhysicalMemoryRanges() 的 RAM 上界算覆盖范围，再被 Common/Ring0/Hvm/EptCoveragePolicy.h 的 minimum_pdpte_count=512 抬底，因此 ≤512GB 内存的机器 EPT 只覆盖 0..512GB。本机显卡/PCIe MMIO 窗口位于 ≈4TB（PML4 索引 7、PML3 索引 510、flat PDPTE 4094），而页表只填了 PML4[0]，条目不存在 → EPT violation → vmexit_ept_violation_handler 的 unhandled 分支只 INVEPT 后重试 → 连续 64 次（kMaxUnhandledEptViolationRetries）后 vmx_fatal_error → 蓝屏。两份转储 GPA 与 qualification 完全相同、处理器号不同，属确定性触发；i 系列平台 MMIO 窗口在 512GB 以内，所以从未暴露。
+- 修法（分支 assistant/ept-coverage-fix，基线 20ee6bb）：
+  1. EptPageTables.cpp:129 query_required_pdpt_count() 把覆盖范围抬到 max(RAM 上界, 1<<CPUID.80000008H.MAXPHYADDR)，并打印 MAXPHYADDR；EptCoveragePolicy.h:15 新增 four_level_limit_bytes，超过 4 级 EPT 的 2^48(256TB) 硬上限时裁剪（状态名改为 clamped_to_four_level_limit）而不是拒绝加载。
+  2. EptPageTables.cpp:568 构建期对完全不含 RAM 的 1GB 区域只留 not-present 的 PDPTE（PML4 与 PDPT 结构本身仍按覆盖范围建满）；否则 MAXPHYADDR=46 需要 65536 个 PD 页（约 256MB/每 vCPU），既耗尽非分页池又拖慢加载。
+  3. EptPageTables.cpp:708 新增 ept::ensure_mmio_mapping()：EPT violation 首次访问时补映射，支持 1GB EPT 大页（IA32_VMX_EPT_VPID_CAP[17]）的 CPU 直接填一个 1GB UC 条目，否则用 EptPageTables.cpp:659 publish_mmio_2mb_mapping() 从构建期预分配的 PD 页池取页填 512 个 2MB UC 条目（EPT_MMIO_PD_POOL_PAGE_COUNT=128）；VmExitEpt.cpp:162 在 unhandled 计数与 64 次限次保护之前调用，成功后 INVEPT 并直接返回（EPT violation 语义就是来宾重试该指令）。
+  4. GlobalsEptPageTypes.h:83 增加 PDPTE 的 1GB 大页视图（地址字段 bit30 起，PFN = 1GB 区域索引）；EptAddressing.cpp:28、MtrrMemoryTypes.cpp:125/174、HostTables.cpp:779 按 pml2_pages[i] == nullptr 跳过 PDPTE 大页区域，并把按需映射 PD 池登记进 HOST_CR3（否则根模式首次写池页会因宿主页表缺页而崩）。
+- 关键约束：ensure_mmio_mapping()/publish_mmio_2mb_mapping() 运行在 VM-exit（VMX root + 宿主私有栈）中，只做纯内存写入：不写文件日志（outFile 最终会 ZwCreateFile，在私有栈上做文件 IO 会触发 FAST_FAIL_INCORRECT_STACK）、不再调用任何会阻塞的分配接口。运行期统计只累加 ept_state 计数器，由 EptPageTables.cpp:252 在 cleanup_page_table() 的安全上下文输出。
+- 验证：
+  - VT_Driver Release x64 全量重建（WDKContentRoot=D:\Windows Kits\10）：0 error、0 warning，产出并签名 VT_Driver.sys。
+  - 离线复算（用 GlobalsMacros.h 的真实掩码）：GPA 0x3FFAF000C60 → PML4 索引 7、PML3 索引 510、PML2 索引 376、flat_pdpte=4094、所在 1GB 区域基址 0x3FF80000000。修复前无论内存多大覆盖都是 512 个 1GB 区域（512GB），该 GPA 必然超出范围；修复后 MAXPHYADDR=42/46/48 位分别覆盖 4TB/64TB/256TB，该 GPA 均在范围内且落入“非 RAM → 首次访问按需映射”分支。
+  - 上机核对点（VTLoad.log）：先出现 “[信息][EPT覆盖范围] 全平台MAXPHYADDR最大值=..位”（逐核扫描 CPUID.80000008H 的汇总）；随后每个核各出现一组带 CPU 前缀的行，例如 “[信息][CPU0][EPT能力] IA32_VMX_EPT_VPID_CAP=0x... 2MB大页=支持 1GB大页=支持”、“[信息][CPU0][EPT覆盖范围] 全平台MAXPHYADDR物理上界=0x.. 所需PDPT数量=..”、“[信息][CPU0][EPT页表] 映射规模：PDPT=65536 PML4=128”（46 位机；不再是 512/1）、“[信息][CPU0][EPT页表] 页表构成：含RAM的1GB区域=.. 非RAM按需映射区域=..”；24 个逻辑核应各有一套完整行，且各核的 1GB 大页能力按本核 MSR 取值；访问高地址 MMIO 后不再出现 Arg1=7 蓝屏，清理/卸载时可见 “[信息][EPT按需映射] 运行期统计：已补映射区域=.. 失败次数=0”。
+
+### B17 每核 EPT 由“引导核统一构建”改为“在所属逻辑处理器上构建”，覆盖范围改用全平台最大 MAXPHYADDR
+
+- 问题（混合架构隐患，12 代及以后 P-core + E-core）：VT_Driver/Vmm/VmmContext.cpp 的 allocate_vmm_context() 在原实现里一次循环调用 init_vcpu() 构建全部 vCPU 的 EPT，而这段代码运行在驱动程序所在的那个逻辑处理器上。IA32_VMX_EPT_VPID_CAP（1GB EPT 大页支持位 bit17）、CPUID.80000008H.MAXPHYADDR 与 MTRR 都是每逻辑处理器状态：在 P-core 上读出的能力被用来给 E-core 建表时，如果两者能力不一致（例如某核不支持 1GB EPT 大页），该核的 PDPTE 会带上 PS=1，硬件判 EPT misconfiguration（VM-exit reason 49，qualification 恒为 0），表现为加载即 0x00020001 Arg1=8。
+- 修法：
+  1. Vmm/VmmVcpu.cpp：init_vcpu() 只保留位图、__ept_state、宿主 GDT/IDT/TSS 等资源分配；新增 init_vcpu_ept()，把 ept::initialize() 放到该核自己的逻辑处理器上执行（打印 [CPU%u] 便于逐核核对）。
+  2. Vmm/VmmProcessor.cpp：init_logical_processor2() 开头（KeSetSystemGroupAffinityThread 之后、VMXON 之前）调用 init_vcpu_ept()；失败直接返回 false，由 vmm_init() 现有的回滚路径 vmoff(iter) + free_vmm_context() 收尾（free_vmm_context 对 ept_pointer == nullptr 的部分初始化状态是安全的）。
+  3. Vmm/VmmContext.cpp：新增 query_platform_physical_address_limit()，逐核读 CPUID.80000008H 取全平台最大物理地址上界并缓存到 g_vmm_context.platform_max_physical_end；Vmm/VmmEntry.cpp 在 vmm_init() 开头（IRQL <= APC_LEVEL）调用一次，失败则 free_vmm_context() 后放弃加载。
+  4. Ept/Build/EptPageTables.cpp：query_required_pdpt_count() 改用 g_vmm_context.platform_max_physical_end（不再在 EPT 构建函数里读本核 CPUID）；覆盖范围必须取平台最大值，因为 MMIO/BAR 是操作系统按全平台解码能力分配的，按单核较小值建表会让该核访问高地址 BAR 时命中未映射条目。
+- 不改动项：MTRR 仍全局读一次（build_mtrr_map()）。MTRR 由固件/操作系统在各核上统一编程，Intel 同包内取值一致；HyperPlatform（EptInitializeMtrrEntries）与 HyperDbg（EptCheckFeatures 顶部读 IA32_MTRR_DEF_TYPE）也都是初始化时读一次。
+- 验证：VT_Driver Release x64 全量重建：0 error、0 warning，产出并签名 VT_Driver.sys。
+- 上机核对点：VTLoad.log 中每个 CPU 都有一组 [CPU%u] 前缀的 [EPT能力]/[EPT覆盖范围]/[EPT页表] 行；若某个核不支持 1GB EPT 大页，该核应打印 1GB大页=不支持 并走 “非RAM按需映射：粒度=2MB页” 分支，不再出现 Arg1=8 的 EPT misconfiguration。
 ## 待确认与已记录但未改动
 
 ### C01 NtRemoveProcessDebug 的访问模式差异（Win11 与 Win10 不一致）

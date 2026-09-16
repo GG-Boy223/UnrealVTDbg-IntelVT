@@ -1,5 +1,6 @@
 ﻿#include "VmExitEpt.h"
 #include "../Ept/EptCommon.h"
+#include "../Ept/EptBuild.h"
 #include "../Cr3/Cr3Tracker.h"
 
 namespace
@@ -154,6 +155,17 @@ unhandled_after_release:
 	hooked_page_info = nullptr;
 
 unhandled:
+	// 非 RAM 区域（MMIO / 地址空洞）在 EPT 构建期刻意留空：首次访问在这里补映射。
+	// 补映射成功后刷新 EPT 缓存并直接返回 —— EPT violation 的语义就是“来宾重试该指令”，
+	// 不需要（也不能）在这里改写 GUEST_RIP。
+	if (vcpu != nullptr && vcpu->ept_state != nullptr && vcpu->ept_state->ept_pointer != nullptr &&
+		ept::ensure_mmio_mapping(*vcpu->ept_state, guest_physical_adddress))
+	{
+		_mm_mfence();
+		invept_single_context_func(vcpu->ept_state->ept_pointer->all);
+		return;
+	}
+
 	// EPT violation 可能由未跟踪页、并发清理后的权限状态或非预期访问触发。
 	// 先刷新 EPT TLB,让硬件按当前页表状态重试,同时保留现场信息供后续诊断。
 	if (vcpu != nullptr && vcpu->ept_state != nullptr)

@@ -6,6 +6,25 @@ namespace ept
 	static constexpr unsigned __int32 ept_default_pdpt_count = coverage_policy::minimum_pdpte_count;
 	static_assert(EPT_PD_COUNT == ept_default_pdpt_count, "Embedded EPT table must match the minimum coverage policy");
 
+	static constexpr unsigned __int64 ept_1gb_page_size = 0x40000000ull; // 1GB EPT 大页
+
+	// 1GB EPT 大页（PDPTE.PS=1）不是所有 CPU 都支持，必须查 IA32_VMX_EPT_VPID_CAP[17]。
+	// 在不支持该位的 CPU 上把 PDPTE 的 PS 置 1，硬件会判为 EPT misconfiguration
+	// （VM-exit reason 49，该退出下 qualification 无意义、恒为 0），
+	// 表现为加载后立即蓝屏 HYPERVISOR_ERROR(0x20001) Arg1=8。
+	// 支持则用 1GB 页一次映射完无 RAM 的高地址 MMIO 区域；不支持则退回逐 PDPTE 分配 PD、用 2MB 页覆盖。
+	static bool query_1gb_ept_page_support()
+	{
+		__vmx_ept_vpid_cap capabilities = {};
+		capabilities.all = __readmsr(IA32_VMX_EPT_VPID_CAP);
+		outFile("[信息][CPU%u][EPT能力] IA32_VMX_EPT_VPID_CAP=0x%llX 2MB大页=%s 1GB大页=%s",
+			KeGetCurrentProcessorNumber(),
+			capabilities.all,
+			capabilities.ept_support_2mb_page != 0 ? "支持" : "不支持",
+			capabilities.ept_support_1gb_page != 0 ? "支持" : "不支持");
+		return capabilities.ept_support_1gb_page != 0;
+	}
+
 	static bool add_overflow_u64(unsigned __int64 left, unsigned __int64 right, unsigned __int64& result)
 	{
 		result = left + right;
@@ -18,7 +37,8 @@ namespace ept
 		switch (calculation.calculation_status)
 		{
 		case coverage_policy::status::ok:
-			outFile("[信息][EPT覆盖范围] 物理地址上界=0x%llX 所需PDPT数量=%u",
+			outFile("[信息][CPU%u][EPT覆盖范围] 物理地址上界=0x%llX 所需PDPT数量=%u",
+				KeGetCurrentProcessorNumber(),
 				highest_physical_end,
 				calculation.pdpte_count);
 			return calculation.pdpte_count;
@@ -30,12 +50,17 @@ namespace ept
 			LogError("EPT identity map size overflow: highest_end=0x%llX", highest_physical_end);
 			outFile("[失败][EPT覆盖范围] 物理地址上界计算溢出：HighestEnd=0x%llX", highest_physical_end);
 			return 0;
-		case coverage_policy::status::exceeds_four_level_limit:
-			LogError("EPT identity map exceeds the 4-level EPT limit: highest_end=0x%llX", highest_physical_end);
-			outFile("[失败][EPT覆盖范围] 物理地址上界超过4级EPT限制：HighestEnd=0x%llX MaxPDPT=%u",
+		case coverage_policy::status::clamped_to_four_level_limit:
+			// 4 级 EPT 只能翻译 2^48（256TB）以内的 GPA。部分 CPU（带 MKTME/TDX 的 Xeon 等）
+			// 报告 MAXPHYADDR=52，按 1<<MAXPHYADDR 推导覆盖范围必然超过该上限；超出部分硬件
+			// 本来也无法翻译，因此裁剪到上限继续加载，而不是让驱动整体拒绝加载。
+			LogInfo("EPT identity map clamped to the 4-level EPT limit: highest_end=0x%llX limit=0x%llX",
 				highest_physical_end,
-				coverage_policy::maximum_pdpte_count);
-			return 0;
+				coverage_policy::four_level_limit_bytes);
+			outFile("[警告][EPT覆盖范围] 物理地址上界=0x%llX 超过4级EPT可翻译上限=0x%llX(256TB)，已裁剪到上限，超出部分无法翻译",
+				highest_physical_end,
+				coverage_policy::four_level_limit_bytes);
+			return calculation.pdpte_count;
 		default:
 			LogError("Unknown EPT coverage policy status");
 			return 0;
@@ -112,6 +137,25 @@ namespace ept
 			return 0;
 		}
 
+		// 来宾可以合法访问 MAXPHYADDR 以内的任意 GPA —— 尤其是落在高地址窗口的 MMIO
+		// （显卡/PCIe BAR 可以远高于 4GB；实测 Ultra 9 275HX 上 nvlddmkm 会访问 ≈4TB 的 GPA）。
+		// 只按 RAM 上界取整的话 EPT 仅覆盖 512GB：来宾一旦碰到 512GB 以上的 MMIO，
+		// 就会命中 not-present 的 EPT 条目 → EPT violation → 反复重试 → 被判为
+		// vmx_fatal_unhandled_ept_violation 直接蓝屏。所以覆盖范围必须拉到 MAXPHYADDR。
+		// 注意：4 级 EPT 的分页结构最多表达 2^48（256TB）的 GPA，MAXPHYADDR 更大时由
+		// coverage_policy 裁剪到该硬上限（多出的 GPA 硬件本来就无法翻译）。
+		// 覆盖范围用“全平台最大物理地址上界”（各逻辑处理器 CPUID.80000008H 的最大值，
+		// 由 query_platform_physical_address_limit() 预先扫描得到），而不是当前核报的值：
+		// MMIO/BAR 由操作系统按全平台解码能力分配，按单核较小值建表会让该核访问高地址 BAR 时缺映射。
+		if (highest_physical_end < g_vmm_context.platform_max_physical_end)
+		{
+			highest_physical_end = g_vmm_context.platform_max_physical_end;
+		}
+
+		outFile("[信息][CPU%u][EPT覆盖范围] 全平台MAXPHYADDR物理上界=0x%llX，4级EPT可翻译上限=256TB(0x%llX)",
+			KeGetCurrentProcessorNumber(),
+			g_vmm_context.platform_max_physical_end,
+			coverage_policy::four_level_limit_bytes);
 		return round_up_pdpt_count(highest_physical_end);
 	}
 
@@ -182,6 +226,38 @@ namespace ept
 			free_pool(ept_state.extended_pml3_pages);
 			ept_state.extended_pml3_pages = nullptr;
 		}
+
+		if (ept_state.mmio_pd_pool != nullptr)
+		{
+			// capacity 记录的是已成功分配的页数：初始化中途失败时也只释放真实存在的页。
+			for (unsigned __int32 i = 0; i < ept_state.mmio_pd_pool_capacity; ++i)
+			{
+				if (ept_state.mmio_pd_pool[i].entries != nullptr)
+				{
+					free_vmm_page_aligned(ept_state.mmio_pd_pool[i].entries);
+					ept_state.mmio_pd_pool[i].entries = nullptr;
+				}
+			}
+
+			free_pool(ept_state.mmio_pd_pool);
+			ept_state.mmio_pd_pool = nullptr;
+		}
+		ept_state.mmio_pd_pool_capacity = 0;
+		ept_state.mmio_pd_pool_used = 0;
+
+		if (ept_state.mmio_mapped_region_count != 0 || ept_state.mmio_mapping_failure_count != 0)
+		{
+			// VM-exit 里只累加计数，真实日志在这里（安全上下文）补输出。
+			outFile("[信息][EPT按需映射] 运行期统计：已补映射区域=%llu 失败次数=%llu 最近GPA=0x%llX 1GB大页=%s",
+				ept_state.mmio_mapped_region_count,
+				ept_state.mmio_mapping_failure_count,
+				ept_state.last_mmio_mapped_guest_physical,
+				ept_state.ept_1gb_pages_supported ? "支持" : "不支持");
+		}
+		ept_state.mmio_mapped_region_count = 0;
+		ept_state.mmio_mapping_failure_count = 0;
+		ept_state.last_mmio_mapped_guest_physical = 0;
+		ept_state.ept_1gb_pages_supported = false;
 
 		ept_state.mapped_pml4_count = 0;
 		ept_state.mapped_pdpte_count = 0;
@@ -301,6 +377,46 @@ namespace ept
 		}
 	}
 
+	// 非 RAM 区域按需映射使用的 PD 页池：池页全部在构建期分配，并缓存自身物理页帧号。
+	// EPT violation 处理运行在来宾 IRQL 上，只允许做纯内存写入，因此这里一次性把资源备齐。
+	// 返回 false 时 mmio_pd_pool_capacity 只包含已成功分配的页数，由 cleanup_page_table 负责释放。
+	static bool allocate_mmio_pd_pool(__ept_state& ept_state)
+	{
+		ept_state.mmio_pd_pool =
+			allocate_pool<__ept_mmio_pd_page*>(sizeof(__ept_mmio_pd_page) * EPT_MMIO_PD_POOL_PAGE_COUNT);
+		if (ept_state.mmio_pd_pool == nullptr)
+		{
+			LogError("Failed to allocate EPT on-demand MMIO PD pool descriptors");
+			outFile("[失败][EPT页表] MMIO按需PD池描述表分配失败：Pages=%u", EPT_MMIO_PD_POOL_PAGE_COUNT);
+			return false;
+		}
+
+		RtlSecureZeroMemory(ept_state.mmio_pd_pool, sizeof(__ept_mmio_pd_page) * EPT_MMIO_PD_POOL_PAGE_COUNT);
+		ept_state.mmio_pd_pool_used = 0;
+
+		for (unsigned __int32 i = 0; i < EPT_MMIO_PD_POOL_PAGE_COUNT; ++i)
+		{
+			__ept_pde_page* pd_page = allocate_page_aligned_pool<__ept_pde_page*>(sizeof(__ept_pde_page));
+			if (pd_page == nullptr)
+			{
+				LogError("Failed to allocate EPT on-demand MMIO PD page %u of %u", i, EPT_MMIO_PD_POOL_PAGE_COUNT);
+				outFile("[失败][EPT页表] MMIO按需PD池页分配失败：Index=%u Total=%u", i, EPT_MMIO_PD_POOL_PAGE_COUNT);
+				return false;
+			}
+
+			RtlSecureZeroMemory(pd_page, sizeof(__ept_pde_page));
+			ept_state.mmio_pd_pool[i].entries = &pd_page->entries[0];
+			ept_state.mmio_pd_pool[i].page_frame_number = GET_PFN(MmGetPhysicalAddress(pd_page).QuadPart);
+			ept_state.mmio_pd_pool_capacity = i + 1; // 逐个提交：初始化中途失败时只释放已经分配成功的页
+		}
+
+		outFile("[成功][EPT页表] MMIO按需PD池分配完成：Pages=%u Bytes=%llu 可覆盖MMIO窗口=%u个1GB区域",
+			ept_state.mmio_pd_pool_capacity,
+			static_cast<unsigned __int64>(ept_state.mmio_pd_pool_capacity) * PAGE_SIZE,
+			ept_state.mmio_pd_pool_capacity);
+		return true;
+	}
+
 	/// <summary>
 	/// Create ept page table
 	/// 创建ept页表
@@ -323,6 +439,9 @@ namespace ept
 		__vmm_ept_page_table* page_table = ept_state.ept_page_table;
 		RtlSecureZeroMemory(page_table, sizeof(__vmm_ept_page_table));
 
+		bool const use_1gb_ept_pages = query_1gb_ept_page_support();
+		ept_state.ept_1gb_pages_supported = use_1gb_ept_pages; // 运行期按需映射按它选粒度，构建期只查一次
+
 		unsigned __int32 required_pdpt_count = query_required_pdpt_count(ept_state);
 		if (required_pdpt_count == 0)
 		{
@@ -336,7 +455,8 @@ namespace ept
 		unsigned __int32 required_pml4_count = (required_pdpt_count + 511) >> 9;
 		ept_state.mapped_pdpte_count = required_pdpt_count;
 		ept_state.mapped_pml4_count = required_pml4_count;
-		outFile("[信息][EPT页表] 映射规模：PDPT=%u PML4=%u CoverageGB=%u",
+		outFile("[信息][CPU%u][EPT页表] 映射规模：PDPT=%u PML4=%u CoverageGB=%u",
+			KeGetCurrentProcessorNumber(),
 			required_pdpt_count,
 			required_pml4_count,
 			required_pdpt_count);
@@ -368,6 +488,16 @@ namespace ept
 			}
 			RtlSecureZeroMemory(ept_state.extended_pml3_pages, sizeof(__ept_pdpte_page*) * (required_pml4_count - 1));
 			outFile("[成功][EPT页表] 扩展PDPT指针表分配完成：ExtCount=%u", required_pml4_count - 1);
+		}
+
+		// 不支持 1GB EPT 大页的 CPU 上，非 RAM 区域只能按 2MB 粒度按需映射，
+		// 因此必须在进入 VMLAUNCH 前把 PD 页池准备好（EPT violation 路径不允许再分配内存）。
+		if (!use_1gb_ept_pages && !allocate_mmio_pd_pool(ept_state))
+		{
+			cleanup_page_table(ept_state);
+			free_vmm_page_aligned(ept_state.ept_page_table);
+			ept_state.ept_page_table = nullptr;
+			return false;
 		}
 
 		//
@@ -424,6 +554,31 @@ namespace ept
 
 		for (unsigned __int32 i = 0; i < required_pdpt_count; ++i)
 		{
+			__ept_pdpte* pdpte = get_pdpte_entry(ept_state, i);
+			if (pdpte == nullptr)
+			{
+				LogError("EPT PDPTE lookup failed for index %u", i);
+				outFile("[失败][EPT页表] PDPTE查找失败：FlatPDPT=%u", i);
+				cleanup_page_table(ept_state);
+				free_vmm_page_aligned(ept_state.ept_page_table);
+				ept_state.ept_page_table = nullptr;
+				return false;
+			}
+
+			// 该 1GB 区域完全不含 RAM（纯 MMIO / 地址空洞）：构建期只留 not-present 条目，
+			// 首次访问时由 ensure_mmio_mapping 按需补映射 —— 支持 1GB EPT 大页的 CPU 填一个 1GB UC 条目，
+			// 否则从预分配 PD 池取一页填 512 个 2MB UC 条目。
+			// 必须按需的原因：若构建期给每个空洞区域都分配 PD 页，MAXPHYADDR=46 的 CPU 需要 65536 个
+			// PD 页（≈256MB/每 vCPU），既耗尽非分页池，也让 VT 加载时间不可接受。
+			// EPT 条目的 not-present 编码是 R/W/X 三位全 0，因此这里把 PDPTE 整体清零。
+			unsigned __int64 const region_base = static_cast<unsigned __int64>(i) * ept_1gb_page_size;
+			if (!physical_range_overlaps_ram(ept_state, region_base, ept_1gb_page_size))
+			{
+				pdpte->all = 0; // 非 RAM 区域：留空，等首次访问补映射
+				ept_state.pml2_pages[i] = nullptr; // 没有 PD 页，hook/MTRR 遍历会跳过该区域
+				continue;
+			}
+
 			__ept_pde_page* dynamic_pde_page = allocate_page_aligned_pool<__ept_pde_page*>(sizeof(__ept_pde_page));
 			if (dynamic_pde_page == nullptr)
 			{
@@ -443,17 +598,6 @@ namespace ept
 			// 与分配同一个循环完成整页大页模板填充：pml2_pages[i] 一旦发布即为完整条目
 			__stosq((unsigned __int64*)pde_page, pde_template.all, 512);
 
-			__ept_pdpte* pdpte = get_pdpte_entry(ept_state, i);
-			if (pdpte == nullptr)
-			{
-				LogError("EPT PDPTE lookup failed for index %u", i);
-				outFile("[失败][EPT页表] PDPTE查找失败：FlatPDPT=%u", i);
-				cleanup_page_table(ept_state);
-				free_vmm_page_aligned(ept_state.ept_page_table);
-				ept_state.ept_page_table = nullptr;
-				return false;
-			}
-
 			pdpte->all = pdpte_template.all;
 			pdpte->page_frame_number = GET_PFN(MmGetPhysicalAddress(pde_page).QuadPart);
 		}
@@ -461,8 +605,17 @@ namespace ept
 		// MTRR data for setting memory types
 		// 用于设置内存类型的 MTRR 数据
 		auto const mtrrs = hv::read_mtrr_data();
+		unsigned __int32 pd_page_count = 0;
+		unsigned __int32 on_demand_region_count = 0;
 		for (unsigned __int32 i = 0; i < required_pdpt_count; i++)
 		{
+			if (ept_state.pml2_pages[i] == nullptr)
+			{
+				++on_demand_region_count; // 非 RAM 区域：构建期不建 PD，首次访问时由 ensure_mmio_mapping 补映射
+				continue;
+			}
+
+			++pd_page_count;
 			for (int j = 0; j < 512; j++)
 			{
 				unsigned __int64 pde_pfn = (static_cast<unsigned __int64>(i) * 512) + j;
@@ -478,6 +631,20 @@ namespace ept
 			}
 		}
 
+		outFile("[信息][CPU%u][EPT页表] 页表构成：含RAM的1GB区域=%u 个（PD页），非RAM按需映射区域=%u 个",
+			KeGetCurrentProcessorNumber(),
+			pd_page_count,
+			on_demand_region_count);
+		if (use_1gb_ept_pages)
+		{
+			outFile("[信息][EPT页表] 非RAM按需映射：粒度=1GB EPT大页（每个区域首次访问时补一个1GB条目）");
+		}
+		else
+		{
+			outFile("[信息][EPT页表] 非RAM按需映射：粒度=2MB页（CPU不支持1GB EPT大页） MMIO_PD池=%u页（每页覆盖1个1GB窗口）",
+				ept_state.mmio_pd_pool_capacity);
+		}
+
 		outFile("---------- EPT页表构建完成：MappedPDPT=%u MappedPML4=%u ----------", ept_state.mapped_pdpte_count, ept_state.mapped_pml4_count);
 		return true;
 	}
@@ -485,6 +652,117 @@ namespace ept
 	bool create_ept_page_table2(__ept_state& ept_state)
 	{
 		return create_ept_page_table(ept_state);
+	}
+
+	// 从预分配 PD 池取一页，填 512 个 UC 的 2MB EPT 条目，最后发布 PDPTE。
+	// 写序要求：PD 页内容必须先对页表遍历可见，PDPTE 才能指向它（mfence 保证写序）。
+	// 本函数运行在 VM-exit 路径：只做纯内存写入，不分配内存、不写文件日志。
+	static bool publish_mmio_2mb_mapping(__ept_state& ept_state, __ept_pdpte* pdpte, unsigned __int64 flat_pdpt_index)
+	{
+		if (ept_state.mmio_pd_pool == nullptr ||
+			ept_state.mmio_pd_pool_used >= ept_state.mmio_pd_pool_capacity)
+		{
+			return false; // PD 池耗尽：上层按未处理 violation 走限次保护，bugcheck 现场会带出 GPA
+		}
+
+		__ept_mmio_pd_page const& slot = ept_state.mmio_pd_pool[ept_state.mmio_pd_pool_used];
+		__ept_pde* pd_page = slot.entries;
+
+		__ept_pde entry_template = { 0 };
+		entry_template.page_directory_entry.read = 1;
+		entry_template.page_directory_entry.write = 1;
+		entry_template.page_directory_entry.execute = 1;
+		entry_template.page_directory_entry.memory_type = MEMORY_TYPE_UNCACHEABLE; // MMIO 必须 UC，否则整机卡死
+		entry_template.page_directory_entry.large_page = 1; // PS=1：2MB 大页
+		entry_template.page_directory_entry.execute_for_usermode = 0;
+
+		unsigned __int64 const first_2mb_pfn = flat_pdpt_index * 512; // 2MB 页帧号 = 物理地址 >> 21
+		for (unsigned __int32 j = 0; j < 512; ++j)
+		{
+			__ept_pde entry = entry_template;
+			entry.page_directory_entry.page_frame_number = first_2mb_pfn + j;
+			pd_page[j] = entry;
+		}
+
+		++ept_state.mmio_pd_pool_used;
+
+		_mm_mfence(); // 先把 PD 页内容写穿，再让 PDPTE 指向它
+
+		__ept_pdpte new_pdpte = { 0 };
+		new_pdpte.read = 1;
+		new_pdpte.write = 1;
+		new_pdpte.execute = 1;
+		new_pdpte.execute_for_usermode = 0;
+		new_pdpte.page_frame_number = slot.page_frame_number;
+		pdpte->all = new_pdpte.all;
+
+		return true;
+	}
+
+	/// <summary>
+	/// 按需映射非 RAM 区域（MMIO / 地址空洞）。
+	/// 构建期对“完全不含 RAM”的 1GB 区域刻意留空（PDPTE 的 R/W/X 全 0），首次访问时在这里补映射：
+	/// 支持 1GB EPT 大页的 CPU 直接填一个 1GB UC 条目，否则从预分配 PD 池取一页填 512 个 2MB UC 条目。
+	/// 只允许在 EPT violation 处理路径调用（VMX root + 宿主私有栈）：函数内不写文件日志、不分配内存。
+	/// 返回 true 后调用方必须刷新 EPT 缓存（INVEPT）再让来宾重试指令。
+	/// </summary>
+	bool ensure_mmio_mapping(__ept_state& ept_state, unsigned __int64 physical_address)
+	{
+		unsigned __int64 const flat_pdpt_index =
+			(MASK_EPT_PML4_INDEX(physical_address) << 9) + MASK_EPT_PML3_INDEX(physical_address);
+		if (flat_pdpt_index >= ept_state.mapped_pdpte_count)
+		{
+			++ept_state.mmio_mapping_failure_count; // GPA 超出 EPT 覆盖范围：交给未处理路径统计与限次保护
+			return false;
+		}
+
+		__ept_pdpte* pdpte = get_pdpte_entry(ept_state, static_cast<unsigned __int32>(flat_pdpt_index));
+		if (pdpte == nullptr)
+		{
+			++ept_state.mmio_mapping_failure_count;
+			return false;
+		}
+
+		if (pdpte->read != 0 || pdpte->write != 0 || pdpte->execute != 0)
+		{
+			return false; // 该区域已有映射（RAM 或已补映射的 MMIO）：只让上层刷新缓存重试，不计失败
+		}
+
+		unsigned __int64 const region_base = flat_pdpt_index * ept_1gb_page_size;
+		if (physical_range_overlaps_ram(ept_state, region_base, ept_1gb_page_size))
+		{
+			++ept_state.mmio_mapping_failure_count; // 含 RAM 的区域构建期必须已映射：留空说明页表状态异常，不在热路径猜测
+			return false;
+		}
+
+		if (!ept_state.ept_1gb_pages_supported)
+		{
+			if (!publish_mmio_2mb_mapping(ept_state, pdpte, flat_pdpt_index))
+			{
+				++ept_state.mmio_mapping_failure_count;
+				return false;
+			}
+		}
+		else
+		{
+			// 支持 1GB EPT 大页：一个 PDPTE 直接覆盖整段 1GB MMIO，零额外内存。
+			__ept_pdpte entry = { 0 };
+			entry.large_page.read = 1;
+			entry.large_page.write = 1;
+			entry.large_page.execute = 1;
+			entry.large_page.memory_type = MEMORY_TYPE_UNCACHEABLE; // MMIO 必须 UC，否则整机卡死
+			entry.large_page.ignore_pat = 0;
+			entry.large_page.large_page = 1; // PS=1：本条目直接映射 1GB 大页
+			entry.large_page.execute_for_usermode = 0;
+			entry.large_page.page_frame_number = flat_pdpt_index; // 地址字段在 bit 30 起，值即 1GB 区域索引
+
+			_mm_mfence();
+			pdpte->all = entry.all;
+		}
+
+		++ept_state.mmio_mapped_region_count;
+		ept_state.last_mmio_mapped_guest_physical = physical_address;
+		return true;
 	}
 
 	/// <summary>

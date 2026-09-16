@@ -776,6 +776,24 @@ namespace hv
                     vcpu->ept_state->pml2_pages,
                     static_cast<unsigned __int64>(vcpu->ept_state->mapped_pdpte_count) * sizeof(vcpu->ept_state->pml2_pages[0])) && ok;
             }
+            if (vcpu->ept_state->mmio_pd_pool != nullptr && vcpu->ept_state->mmio_pd_pool_capacity != 0)
+            {
+                // 非 RAM 区域的按需映射 PD 页会在 VM-exit 里被写入，必须先挂进 HOST_CR3：
+                // 否则根模式下第一次补映射就会因宿主页表缺页触发的异常而崩掉。
+                ok = ensure_host_virtual_range("EPT MMIO按需PD池描述表",
+                    vcpu->ept_state->mmio_pd_pool,
+                    static_cast<unsigned __int64>(vcpu->ept_state->mmio_pd_pool_capacity) * sizeof(vcpu->ept_state->mmio_pd_pool[0])) && ok;
+
+                for (unsigned __int32 i = 0; i < vcpu->ept_state->mmio_pd_pool_capacity; ++i)
+                {
+                    if (vcpu->ept_state->mmio_pd_pool[i].entries != nullptr)
+                    {
+                        ok = ensure_host_virtual_range("EPT MMIO按需PD页",
+                            vcpu->ept_state->mmio_pd_pool[i].entries,
+                            PAGE_SIZE) && ok;
+                    }
+                }
+            }
             if (vcpu->ept_state->extended_pml3_pages != nullptr && vcpu->ept_state->mapped_pml4_count > 1)
             {
                 ok = ensure_host_virtual_range("EPT扩展PML3指针表",

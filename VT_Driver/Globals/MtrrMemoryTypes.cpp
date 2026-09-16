@@ -122,6 +122,11 @@ namespace hv
 
         for (size_t i = 0; i < ept_state.mapped_pdpte_count; ++i)
         {
+            if (ept_state.pml2_pages[i] == nullptr)
+            {
+                continue; // 该 1GB 区域由 PDPTE 大页直接映射（或按需映射待补），没有 PD 可遍历
+            }
+
             for (size_t j = 0; j < 512; ++j)
             {
                 auto& pde = ept_state.pml2_pages[i][j];
@@ -166,6 +171,11 @@ namespace hv
 
         for (size_t i = 0; i < ept_state.mapped_pdpte_count; ++i)
         {
+            if (ept_state.pml2_pages[i] == nullptr)
+            {
+                continue; // 该 1GB 区域由 PDPTE 大页直接映射，没有 PD 可遍历
+            }
+
             for (size_t j = 0; j < 512; ++j)
             {
                 auto& pde = ept_state.pml2_pages[i][j];

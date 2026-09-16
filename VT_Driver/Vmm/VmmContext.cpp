@@ -175,6 +175,51 @@ void free_vmm_context() // 释放VMM全局资源与每核VCPU相关内存，避�
 	g_vmm_context.lifecycle_state = hv::vmm_release_policy::lifecycle_state::empty;
 }
 
+// 扫描每个逻辑处理器上的 CPUID.80000008H，取全平台最大的物理地址上界。
+// EPT 覆盖范围按“平台最大值”而不是“当前核报的值”计算：来宾（宿主操作系统）的 MMIO/BAR
+// 是按全平台解码能力分配的，某个核若按自己较小的 MAXPHYADDR 建表，访问高地址 BAR 时会命中未映射条目。
+bool query_platform_physical_address_limit()
+{
+	unsigned __int64 platform_max_physical_end = 0;
+	unsigned __int32 widest_physical_bits = 0;
+
+	for (unsigned int iter = 0; iter < g_vmm_context.processor_count; ++iter)
+	{
+		GROUP_AFFINITY orig_affinity = {};
+		KeSetSystemGroupAffinityThread(&g_vmm_context.vcpu[iter].processor_affinity, &orig_affinity);
+
+		int cpuid_regs[4] = {};
+		__cpuid(cpuid_regs, 0x80000008);
+		unsigned __int32 const max_phys_addr_bits = static_cast<unsigned __int32>(cpuid_regs[0]) & 0xFFu;
+
+		KeRevertToUserGroupAffinityThread(&orig_affinity);
+
+		if (max_phys_addr_bits != 0 && max_phys_addr_bits < 64)
+		{
+			unsigned __int64 const max_phys_end = 1ull << max_phys_addr_bits;
+			if (max_phys_end > platform_max_physical_end)
+			{
+				platform_max_physical_end = max_phys_end;
+				widest_physical_bits = max_phys_addr_bits;
+			}
+		}
+	}
+
+	if (platform_max_physical_end == 0)
+	{
+		LogError("CPUID.80000008H MAXPHYADDR is unavailable on every logical processor");
+		outFile("[失败][EPT覆盖范围] 所有逻辑处理器都未报告有效的MAXPHYADDR，停止VT加载");
+		return false;
+	}
+
+	g_vmm_context.platform_max_physical_end = platform_max_physical_end;
+		outFile("[信息][EPT覆盖范围] 全平台MAXPHYADDR最大值=%u位 物理上界=0x%llX（已扫描%u个逻辑处理器）",
+			widest_physical_bits,
+			g_vmm_context.platform_max_physical_end,
+			g_vmm_context.processor_count);
+	return true;
+}
+
 //分配g_vmm_context上下文
 bool allocate_vmm_context() // 初始化全局VMM资源，包含每核VCPU与EPT基础结构，为启动VMM做准备
 {

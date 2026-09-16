@@ -209,6 +209,7 @@ struct __vmm_context // 全局 VMM 上下文
 
     unsigned __int32 processor_count;  //处理器数量
     unsigned __int32 highest_basic_leaf; // CPUID 最大基础叶
+    unsigned __int64 platform_max_physical_end; // 全平台最大物理地址上界（各逻辑处理器 CPUID.80000008H 取最大值），EPT 覆盖范围按它计算
     bool hv_presence;  //标识hy对象已经创建
     volatile hv::vmm_release_policy::lifecycle_state lifecycle_state; // VMM 资源所有权阶段
 };

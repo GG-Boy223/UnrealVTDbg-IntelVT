@@ -31,6 +31,16 @@ namespace ept
 	bool create_ept_page_table(__ept_state& ept_state);
 
 	/// <summary>
+	/// 按需映射非 RAM 区域（MMIO / 地址空洞）。
+	/// 只允许在 EPT violation 处理路径调用：构建期对“完全不含 RAM”的 1GB 区域刻意留空 PDPTE，
+	/// CPU 支持 1GB EPT 大页时补一个 1GB UC 条目，否则从预分配 PD 页池取一页填 512 个 2MB UC 条目。
+	/// 该函数运行在 VM-exit（VMX root）里，只做纯内存写入，不做文件日志、不再分配内存。
+	/// 成功返回后调用方必须执行 INVEPT，让新映射对硬件页表遍历可见。
+	/// </summary>
+	/// <returns> true=已完成补映射，需要刷新 EPT 缓存 </returns>
+	bool ensure_mmio_mapping(__ept_state& ept_state, unsigned __int64 physical_address);
+
+	/// <summary>
 	/// Create ept page table (alternative implementation)
 	/// 创建ept页表（替代实现）
 	/// </summary>

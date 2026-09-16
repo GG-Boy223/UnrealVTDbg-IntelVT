@@ -61,6 +61,26 @@ union __ept_pdpte // EPT PDPTE 条目
         unsigned __int64 reserved2 : 4; // bit 51:N
         unsigned __int64 ignored3 : 12; // bit 63:52
     };
+    // See Table 28-4：直接映射 1GB 大页的视图（PS=1）。
+    // 地址字段位于 bit 30-(MAXPHYADDR-1)，因此这里的 PFN 是“物理地址 >> 30”，
+    // 也就是 1GB 区域的索引；不要和指向 PD 的视图（bit 12 起）混用。
+    struct
+    {
+        unsigned __int64 read : 1; // bit 0
+        unsigned __int64 write : 1; // bit 1
+        unsigned __int64 execute : 1; // bit 2
+        unsigned __int64 memory_type : 3; // bit 5:3 EPT 内存类型
+        unsigned __int64 ignore_pat : 1; // bit 6
+        unsigned __int64 large_page : 1; // bit 7 必须为 1，否则该条目指向 PD
+        unsigned __int64 accessed : 1; // bit 8
+        unsigned __int64 dirty : 1; // bit 9
+        unsigned __int64 execute_for_usermode : 1; // bit 10
+        unsigned __int64 ignored : 1; // bit 11
+        unsigned __int64 reserved1 : 18; // bit 29:12
+        unsigned __int64 page_frame_number : 18; // bit 47:30 物理地址 >> 30
+        unsigned __int64 reserved2 : 15; // bit 62:48
+        unsigned __int64 suppressve : 1; // bit 63
+    } large_page;
 };
 
 // See Table 28-5

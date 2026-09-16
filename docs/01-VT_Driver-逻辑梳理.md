@@ -45,8 +45,15 @@ Vmm/VmmEntry.cpp 按 CPU 亲和调用 VmmProcessor 的 init_logical_processor2�
 
 ## 5 EPT
 
-- 物理内存范围来自 MmGetPhysicalMemoryRanges() 缓存；RAM 映射为可读写执行，MMIO 视为 UC，非 RAM 或未知范围不映射且不可执行。
+- 每个逻辑处理器一份完整 EPT（__ept_state 挂在 __vcpu 上，Vmm/VmmVcpu.cpp 的 init_vcpu() 只分配资源，init_vcpu_ept() 在目标核上逐核建表），互不共享页表。
+- 覆盖范围按 max(RAM 上界, 全平台最大物理地址上界) 计算，再由 Common/Ring0/Hvm/EptCoveragePolicy.h 裁剪到 4 级 EPT 的 2^48(256TB) 硬上限；不再只按 RAM 上界取整（旧逻辑在 ≤512GB 内存的机器上只覆盖 0..512GB，来宾访问高地址 MMIO 会走到未处理 violation 的 64 次上限并蓝屏）。
+- 全平台最大物理地址上界由 Vmm/VmmContext.cpp 的 query_platform_physical_address_limit() 在 vmm_init() 开始时逐核读 CPUID.80000008H 取最大值（Vmm/VmmEntry.cpp 调用）：MMIO/BAR 是操作系统按全平台解码能力分配的，按单核较小的 MAXPHYADDR 建表会让该核访问高地址 BAR 时命中未映射条目。
+- EPT 页表由所属逻辑处理器自己构建：IA32_VMX_EPT_VPID_CAP（1GB 大页支持）、CPUID.80000008H、MTRR 都是每逻辑处理器状态；混合架构（P-core + E-core）上大小核能力可能不同，在一个核上替所有核统一建表会写出该核不支持的条目（例如 1GB EPT 大页 → EPT misconfiguration）。构建点位于 Vmm/VmmProcessor.cpp 的 init_logical_processor2()，在 VMXON 之前、Host 页表补映射与 fill_vmcs 之前。
+- 物理内存范围来自 MmGetPhysicalMemoryRanges() 缓存；含 RAM 的 1GB 区域建 PD 页并用 2MB 大页映射（RAM 取 MTRR 类型，区域内非 RAM 的 2MB 页取 UC），完全不含 RAM 的 1GB 区域构建期只留 not-present 的 PDPTE。
+- MTRR 数据仍全局读一次（Ept/EptMtrr.cpp build_mtrr_map()）：MTRR 由固件/操作系统在各核上统一编程，Intel 平台上同包内取值一致，与 HyperPlatform（EptInitializeMtrrEntries 只在初始化时读一次）的处理方式相同。
+- 非 RAM 区域的按需映射：首次访问触发 EPT violation 时由 ept::ensure_mmio_mapping() 补映射 —— CPU 支持 1GB EPT 大页（IA32_VMX_EPT_VPID_CAP[17]）时填一个 1GB UC 条目，否则从构建期预分配的 PD 页池（EPT_MMIO_PD_POOL_PAGE_COUNT）取一页填 512 个 2MB UC 条目；该函数只做纯内存写入（VM-exit 里禁止文件 IO 与内存分配），统计在 cleanup_page_table() 的安全上下文输出。
 - 页表构建在 Ept/Build/EptPageTables.cpp，运行期大页拆分在 Ept/Build/EptRuntimeSplit.cpp；地址换算在 Ept/Build/EptAddressing.cpp，带 kHostPhysicalLimit 边界检查。
+- pml2_pages[i] == nullptr 表示该 1GB 区域由 PDPTE 大页覆盖（含 RAM 区域的常规 PD 页之外，或按需补映射的 1GB 页），hook/watch 安装、MTRR 刷新与 Host 页表登记都必须先判空跳过。
 - EPT violation 处理在 VmExit/VmExitEpt.cpp：先 acquire_page_hot_reference 取热引用，处理完 release_page_hot_reference；已核对 handled_return 与 unhandled_after_release 两条路径不存在双重释放与空指针解引用。
 - 未处理 violation 的累计规则：只有连续相同的 GPA 与 qualification 才累加，达到 64 次后 vmx_fatal_error(vmx_fatal_unhandled_ept_violation)。
 

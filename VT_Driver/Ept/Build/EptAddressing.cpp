@@ -23,6 +23,13 @@ namespace ept
 			return nullptr; // 失败返回空指针
 		}
 
+		// 该 1GB 区域由 PDPTE 大页直接映射，没有 PD：不能解引用空指针。
+		// 调用方（hook/watch 安装）会按“拿不到 PDE”处理，不会误改页表。
+		if (ept_state.pml2_pages[flat_pdpt_index] == nullptr)
+		{
+			return nullptr; // 失败返回空指针
+		}
+
 		//从ept页表中取pde
 		return &ept_state.pml2_pages[flat_pdpt_index][pml2_index];
 	}
