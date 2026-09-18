@@ -2,14 +2,15 @@
 
 namespace hv
 {
-    volatile long vmcs_dump_lock = 0; // 用于 VMCS 转储的自旋锁，防止多核同时输出导致混乱
-
     /// <summary>
     /// 转储整个 VMCS 结构（用于调试）
     /// </summary>
     void dump_vmcs() // 输出完整 VMCS 字段，便于调试
     {
-        spinlock::lock(&vmcs_dump_lock); // 加锁，确保只由一个 CPU 输出 VMCS 转储
+        // 原 vmcs_dump_lock 已删除：用一把跨核自旋锁保护调试输出，代价大于收益。
+        // 说明：本函数中约 150 行 LogDump 在未定义 DEBUG_WinSys 时是空宏（见 Common/Ring0/SymbolicAccess/Utils/Log.h:60），
+        // 当前构建真正执行的只有首尾两行 DbgPrintEx + 150 次 VMREAD，持锁时间本就极短，锁无实际意义。
+        // 并发转储时输出可能交错，属调试功能的可接受代价。
 
         DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "-----------------------------------VMCS CORE %u DUMP-----------------------------------\r\n", KeGetCurrentProcessorIndex()); // 打印标题并标注 CPU 编号
 
@@ -209,7 +210,5 @@ namespace hv
         LogDump("VM_EXIT_INSTRUCTION_INFORMATION: 0x%llX", vmread(VM_EXIT_INSTRUCTION_INFORMATION)); // 输出 VM-exit 指令信息
 
         DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "-----------------------------------VMCS CORE %u DUMP-----------------------------------\r\n", KeGetCurrentProcessorIndex()); // 打印结束分隔线
-
-        spinlock::unlock(&vmcs_dump_lock); // 解锁
     }
 }

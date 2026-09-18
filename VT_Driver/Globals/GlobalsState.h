@@ -21,9 +21,7 @@ extern volatile long eptWatchList_lock; // 监视表自旋锁
 extern volatile long eptWatchTransaction_lock; // EPT watch 安装/删除事务锁
 extern EPTWatchEntry eptWatchList[EPTWATCHLISTSIZE]; // 监视断点表
 
-// ✅ P0-003 修复：多核 VMXON 同步锁
-extern volatile long g_vmx_init_lock; // VMX 初始化自旋锁
-extern volatile long g_vmx_initialized_count; // 已成功初始化 VMX 的 CPU 数量
+extern volatile long g_vmx_initialized_count; // 已成功初始化 VMX 的 CPU 数量（当前仅递增、无读取方，待清理）
 
 namespace ethread_offset // ETHREAD 结构偏移集合
 {

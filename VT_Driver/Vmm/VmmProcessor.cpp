@@ -100,10 +100,8 @@ bool init_logical_processor2(unsigned int iter) // 在指定CPU上完成VMXON/VM
 	//调节控制寄存器 cr4 cr0来启用vmx模式
 	outFile("[进行中][CPU%u] 调整CR0/CR4与IA32_FEATURE_CONTROL，准备满足VMXON硬件条件", iter);
 
-	// ✅ P0-003 修复：使用自旋锁保护关键的 VMX 初始化操作
-	spinlock::lock(&g_vmx_init_lock);
-
-	//调节控制寄存器 cr4 cr0来启用vmx模式
+	// 逐核初始化由单个控制线程按亲和性绑定的顺序循环执行（Vmm/VmmEntry.cpp:29-61），
+	// 不存在并发 VMXON，因此这里不需要自旋锁（原 g_vmx_init_lock 已删除）。
 	adjust_control_registers(); // 满足VMX进入条件，否则VMXON可能失败
 	outFile("[成功][CPU%u] VMX控制寄存器调整完成：CR0=0x%llX CR4=0x%llX", iter, __readcr0(), __readcr4());
 
@@ -112,14 +110,11 @@ bool init_logical_processor2(unsigned int iter) // 在指定CPU上完成VMXON/VM
 	{
 		LogError("Failed to put vcpu %d into VMX operation.\n", processor_number); // VMXON失败
 		outFile("[失败][CPU%u] VMXON失败，停止后续VMCS操作", iter);
-		spinlock::unlock(&g_vmx_init_lock); // 释放锁
 		return false; // 无法进入VMX根模式，后续VMCS操作无效
 	}
 
 	vcpu->vcpu_status.vmx_on = true; // 标记该VCPU已进入VMX根模式，供状态判断
 	InterlockedIncrement(&g_vmx_initialized_count); // 原子递增成功初始化计数
-
-	spinlock::unlock(&g_vmx_init_lock); // 释放锁
 
 	outFile("[成功][CPU%u] VMXON成功，当前CPU已进入VMX Root", iter);
 
