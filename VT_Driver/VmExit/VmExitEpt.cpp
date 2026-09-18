@@ -170,9 +170,15 @@ unhandled:
 	// 先刷新 EPT TLB,让硬件按当前页表状态重试,同时保留现场信息供后续诊断。
 	if (vcpu != nullptr && vcpu->ept_state != nullptr)
 	{
-		// 只有连续相同 GPA+qualification 才累计,普通瞬时 violation 不会无限增长计数。
-		if (vcpu->ept_state->last_unhandled_ept_violation_guest_physical == guest_physical_adddress &&
-			vcpu->ept_state->last_unhandled_ept_violation_qualification == ept_violation.all)
+		// 按 GPA 页帧累计（忽略页内偏移与 qualification）。
+		// 原实现要求「连续且完全相同」（GPA 与 qualification 都要逐位相等），因此只要来宾在两个
+		// GPA 之间交替触发未处理 violation，计数每次都被重置为 1，永远到不了上限。
+		// 此时没有任何一条指令会退休，来宾永远碰不到「可投递中断的指令边界」，
+		// 该处理器就在 root/guest 之间无限往返 —— 这是 0x101 CLOCK_WATCHDOG_TIMEOUT 的一条通路。
+		// 改为按页累计后，交替循环同样会被计入，最终收敛为一个带完整现场的可诊断致命错误，
+		// 而不是让处理器无解释地卡死。
+		const unsigned __int64 guest_physical_page = guest_physical_adddress & ~0xFFFull;
+		if (vcpu->ept_state->last_unhandled_ept_violation_guest_physical == guest_physical_page)
 		{
 			++vcpu->ept_state->unhandled_ept_violation_count;
 		}
@@ -181,7 +187,7 @@ unhandled:
 			vcpu->ept_state->unhandled_ept_violation_count = 1;
 		}
 
-		vcpu->ept_state->last_unhandled_ept_violation_guest_physical = guest_physical_adddress;
+		vcpu->ept_state->last_unhandled_ept_violation_guest_physical = guest_physical_page;
 		vcpu->ept_state->last_unhandled_ept_violation_qualification = ept_violation.all;
 		vcpu->ept_state->last_unhandled_ept_violation_guest_rip = vcpu->vmexit_info.guest_rip;
 

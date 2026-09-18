@@ -335,8 +335,8 @@ struct __ept_state // EPT 状态（每 VCPU 一份）
     unsigned __int64 mmio_mapping_failure_count; // 按需映射失败次数（超出覆盖范围/页表状态异常/PD池耗尽）
     __ept_hooked_page_info* page_to_change; // 当前需要切换的页（用于 MTF）
     bool mtf_pending; // page_to_change 是否属于当前活跃 MTF 窗口
-    unsigned __int64 unhandled_ept_violation_count; // 未匹配到 hook/watch 的 EPT violation 累计次数
-    unsigned __int64 last_unhandled_ept_violation_guest_physical; // 最近一次未匹配 violation 的 GPA
-    unsigned __int64 last_unhandled_ept_violation_qualification; // 最近一次未匹配 violation 的 qualification
-    unsigned __int64 last_unhandled_ept_violation_guest_rip; // 最近一次未匹配 violation 的 guest RIP
+    unsigned __int64 unhandled_ept_violation_count; // 同一 GPA 页帧上连续未匹配 EPT violation 的累计次数（达上限即致命错误）
+    unsigned __int64 last_unhandled_ept_violation_guest_physical; // 最近一次未匹配 violation 的 GPA 页帧（低 12 位已清零，用于按页累计）
+    unsigned __int64 last_unhandled_ept_violation_qualification; // 最近一次未匹配 violation 的 qualification（仅留作现场记录，不参与计数比较）
+    unsigned __int64 last_unhandled_ept_violation_guest_rip; // 最近一次未匹配 violation 的 guest RIP（仅留作现场记录）
 };

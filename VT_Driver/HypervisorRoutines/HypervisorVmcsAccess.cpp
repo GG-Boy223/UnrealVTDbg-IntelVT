@@ -9,9 +9,15 @@ namespace hv
     /// <returns></returns>
     unsigned __int64 vmread(unsigned __int64 vmcs_field) // 封装 VMREAD，读取指定 VMCS 字段
     {
-        unsigned __int64 value; // 用于保存 VMREAD 读取的结果
-        __vmx_vmread(vmcs_field, &value); // 执行 VMREAD，从当前 VMCS 读取指定字段
-        return value; // 返回读取结果
+        // 必须先清零再读：按 Intel SDM，VMREAD 失败（VMfailValid / VMfailInvalid）时
+        // **不会修改目标操作数**，目标保留原值。原实现把未初始化的栈变量交给 VMREAD，
+        // 失败时返回的就是上一帧遗留的栈内容 —— 一个看起来完全合理的伪造值。
+        // 这个伪造值会直接进入 VM-exit 快照（EXIT_QUALIFICATION / GUEST_RIP /
+        // GUEST_PHYSICAL_ADDRESS 都走本函数），进而参与 EPT 覆盖判定与致命错误记录，
+        // 使真正的失败变成无法诊断的错误现场。清零 + 判返回码后，失败一定是显式的 0。
+        unsigned __int64 value = 0;
+        __vmx_vmread(vmcs_field, &value); // 返回码非 0 表示失败，此时 value 保持 0
+        return value; // 返回读取结果（失败时为 0，而不是栈垃圾）
     }
 
     /// <summary>
