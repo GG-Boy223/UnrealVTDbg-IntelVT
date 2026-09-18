@@ -1,4 +1,4 @@
-#include "Cr3Internal.h"
+﻿#include "Cr3Internal.h"
 
 namespace
 {
@@ -106,27 +106,40 @@ namespace
     }
 
     BOOLEAN HasExpectedPml4Layout(
-        PULONG64 pml4,
         unsigned __int64 candidateCr3)
     {
-        if (pml4 == NULL || !EnsureBaseline())
+        if (candidateCr3 == 0 || !EnsureBaseline())
         {
             return FALSE;
         }
 
-        __try
-        {
-            const unsigned __int64 selfEntry = pml4[g_Baseline.selfIndex];
-            const unsigned __int64 kernelEntry = pml4[g_Baseline.kernelIndex];
-            return (selfEntry & kPresentBit) != 0 &&
-                (selfEntry & kEntryAddressMask) == candidateCr3 &&
-                (kernelEntry & kPresentBit) != 0 &&
-                (kernelEntry & kEntryAddressMask) == g_Baseline.kernelEntryAddress;
-        }
-        __except (EXCEPTION_EXECUTE_HANDLER)
+        // 这里必须按物理地址读，不能把 MmGetVirtualForPhysical 的返回值直接解引用。
+        //
+        // MmGetVirtualForPhysical 只是「物理内存窗口基址 + 物理地址」的纯加法，它不校验该物理页
+        // 是否真实存在、是否已被映射进窗口；而 MmGetPhysicalMemoryRanges 报出来的区间并不保证
+        // 每一页都落在窗口内。一旦扫描到的页帧正好落在窗口空洞里，解引用就会立刻触发非分页区
+        // 缺页 —— 这种缺页由内存管理器直接 KeBugCheckEx(0x50 PAGE_FAULT_IN_NONPAGED_AREA) 上报，
+        // **根本不会变成可分发的异常，__try/__except 拦不住**（本函数原先的保护是假的）。
+        //
+        // ReadPhysical 走 MmCopyMemory(MM_COPY_MEMORY_PHYSICAL)，先校验 PFN 再拷贝，非法地址
+        // 返回失败状态而不是缺页。同文件的 Cr3ValidateCandidate 一直就是这么做的，这里只是把
+        // 两条路径统一到同一个安全姿势上。
+        unsigned __int64 selfEntry = 0;
+        if (!ReadPhysical(candidateCr3 + g_Baseline.selfIndex * sizeof(ULONG64), &selfEntry, sizeof(selfEntry)) ||
+            (selfEntry & kPresentBit) == 0 ||
+            (selfEntry & kEntryAddressMask) != candidateCr3)
         {
             return FALSE;
         }
+
+        unsigned __int64 kernelEntry = 0;
+        if (!ReadPhysical(candidateCr3 + g_Baseline.kernelIndex * sizeof(ULONG64), &kernelEntry, sizeof(kernelEntry)))
+        {
+            return FALSE;
+        }
+
+        return (kernelEntry & kPresentBit) != 0 &&
+            (kernelEntry & kEntryAddressMask) == g_Baseline.kernelEntryAddress;
     }
 
     unsigned __int64 TranslateVirtualAddress(
@@ -246,10 +259,7 @@ unsigned __int64 Cr3ScanPhysicalMemory(
                 ++(*scannedPages);
             }
 
-            PHYSICAL_ADDRESS address = { 0 };
-            address.QuadPart = candidate;
-            PULONG64 pml4 = static_cast<PULONG64>(MmGetVirtualForPhysical(address));
-            if (HasExpectedPml4Layout(pml4, candidate) && ValidateImage(candidate, probe))
+            if (HasExpectedPml4Layout(candidate) && ValidateImage(candidate, probe))
             {
                 resolvedCr3 = candidate;
                 break;
