@@ -214,7 +214,7 @@ bool query_platform_physical_address_limit()
 	}
 
 	g_vmm_context.platform_max_physical_end = platform_max_physical_end;
-		outFile("[信息][EPT覆盖范围] 全平台MAXPHYADDR最大值=%u位 物理上界=0x%llX（已扫描%u个逻辑处理器）",
+	outFile("[信息][EPT覆盖范围] 全平台MAXPHYADDR最大值=%u位 物理上界=0x%llX（已扫描%u个逻辑处理器）",
 			widest_physical_bits,
 			g_vmm_context.platform_max_physical_end,
 			g_vmm_context.processor_count);

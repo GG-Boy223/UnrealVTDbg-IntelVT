@@ -154,7 +154,7 @@ struct __ept_dynamic_split // 将 2MB PDE 拆分为 512 个 PTE
     volatile long ref_count; // 运行期引用计数：有多少"hook/watch 页面记录"正在使用这个 split
 
     bool reclaimable_runtime_split; // true=这是运行期为 hook/watch 临时拆出来的 split，可回收
-    // false=初始化阶段因 MTRR 边界拆出的 split，不做自动合并回收
+    // false=初始化阶段为跨越 RAM/MMIO 边界的页面拆出的 split，不做自动合并回收
 };
 
 struct __ept_pdpte_page // 单个 PDPT 页，覆盖 512GB 的 GPA 空间

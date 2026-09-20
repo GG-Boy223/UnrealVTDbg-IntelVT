@@ -376,10 +376,12 @@ namespace ept
 		bool const fully_ram = is_physical_range_ram(ept_state, physical_address, LARGE_PAGE_SIZE);
 		bool const overlaps_ram = physical_range_overlaps_ram(ept_state, physical_address, LARGE_PAGE_SIZE);
 
-		//判断是否是大页面
-		if (is_valid_for_large_page(pfn) == true && (fully_ram || !overlaps_ram))
+		// 判断是否是大页面。
+		// EPT 的最终内存类型由 EPT 条目与 guest PAT 决定，宿主 MTRR 不参与
+		// （SDM 3C 31.3.7.1/31.3.7.2）。RAM 整页使用 WB，纯 MMIO 使用 UC；
+		// 只有跨越 RAM/MMIO 边界的 2MB 页才必须拆成 4KB。
+		if (fully_ram || !overlaps_ram)
 		{
-			// entry.page_directory_entry.memory_type = get_memory_type(pfn, true); // 旧逻辑：只看MTRR，RAM上界内的MMIO空洞可能被默认WB覆盖。
 			entry.page_directory_entry.memory_type = get_ept_memory_type_for_range(mtrrs, ept_state, physical_address, LARGE_PAGE_SIZE);
 			//entry.page_directory_entry.memory_type = hv::calc_mtrr_mem_type(mtrrs, pfn << 21, 0x1000 << 9);
 			return true;
