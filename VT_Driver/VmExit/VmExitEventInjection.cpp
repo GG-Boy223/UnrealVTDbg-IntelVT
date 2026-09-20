@@ -153,7 +153,7 @@ bool reinject_idt_vectoring_event_if_needed(__vcpu* vcpu) // VM-exit 打断 IDT 
 	{
 		if (vm_entry_event_pending())
 		{
-			++vcpu->queued_nmis; // 已有 pending event 时不能覆盖 VM-entry 字段，改用 NMI 队列延后投递。
+			InterlockedIncrement(&vcpu->queued_nmis); // 已有 pending event 时不能覆盖 VM-entry 字段，改用 NMI 队列延后投递。
 			auto ctrl = hv::read_ctrl_proc_based(); // 读取 primary processor-based controls。
 			ctrl.nmi_window_exiting = 1; // 打开 NMI-window exiting，等待 guest 可接收 NMI 时再次退出。
 			hv::write_ctrl_proc_based(ctrl); // 写回控制位，使队列中的 NMI 有机会投递。
@@ -209,7 +209,7 @@ void vmexit_exception_or_nmi_handler(__vcpu* vcpu) // 处理 exception-or-NMI �
 	if (exit_interrupt.interruption_type == INTERRUPT_TYPE_NMI &&
 		exit_interrupt.vector == EXCEPTION_VECTOR_NMII)
 	{
-		++vcpu->queued_nmis; // 真正的 NMI 进入队列，由 NMI-window handler 在可投递窗口注入。
+		InterlockedIncrement(&vcpu->queued_nmis); // 真正的 NMI 进入队列，由 NMI-window handler 在可投递窗口注入。
 		auto ctrl = hv::read_ctrl_proc_based(); // 读取 VM-execution control。
 		ctrl.nmi_window_exiting = 1; // 请求 guest 解除 NMI blocking 后再次 VM-exit。
 		hv::write_ctrl_proc_based(ctrl); // 写回控制位，保证 queued_nmis 不会长期滞留。

@@ -34,7 +34,7 @@ struct __vcpu // 每逻辑 CPU 的 VMM 状态
 
     // the number of NMIs that need to be delivered
     // 需要交付的 NMI 数量
-    uint32_t volatile queued_nmis; // 待注入 NMI 数量
+    volatile LONG queued_nmis; // 待注入 NMI 数量；host NMI 可异步打断 VM-exit 路径，必须原子更新
 
     struct __vm_entry_event_queue
     {

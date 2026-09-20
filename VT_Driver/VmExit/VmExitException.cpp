@@ -1,5 +1,21 @@
 ﻿#include "VmExitException.h"
 
+namespace
+{
+	void update_nmi_window_from_queue(__vcpu* vcpu)
+	{
+		auto ctrl = hv::read_ctrl_proc_based();
+		ctrl.nmi_window_exiting = 0;
+		hv::write_ctrl_proc_based(ctrl);
+
+		if (InterlockedCompareExchange(&vcpu->queued_nmis, 0, 0) > 0)
+		{
+			ctrl.nmi_window_exiting = 1;
+			hv::write_ctrl_proc_based(ctrl);
+		}
+	}
+}
+
 void vmexit_unimplemented(__vcpu* vcpu) // 未实现 VM-exit 的兜底处理，向 guest 注入 #GP 避免静默继续。
 {
 	sLog("\n"); // 记录未实现路径，便于后续补齐具体 reason。
@@ -9,11 +25,9 @@ void vmexit_unimplemented(__vcpu* vcpu) // 未实现 VM-exit 的兜底处理，�
 void vmexit_nmi_window_handler(__vcpu* vcpu) // 在 guest 解除 NMI blocking 后投递 queued_nmis。
 {
 	sLog("\n"); // NMI-window 是敏感路径，保留最小日志占位。
-	if (vcpu->queued_nmis == 0)
+	if (InterlockedCompareExchange(&vcpu->queued_nmis, 0, 0) == 0)
 	{
-		auto ctrl = hv::read_ctrl_proc_based(); // 没有待投递 NMI 时读取控制字段准备关闭窗口退出。
-		ctrl.nmi_window_exiting = 0; // 关闭 NMI-window exiting，避免无意义高频 VM-exit。
-		hv::write_ctrl_proc_based(ctrl); // 写回 VM-execution control。
+		update_nmi_window_from_queue(vcpu); // NMI 可异步入队，先清窗口再按原子计数决定是否重开。
 		return; // 队列为空，无需注入事件。
 	}
 
@@ -25,23 +39,11 @@ void vmexit_nmi_window_handler(__vcpu* vcpu) // 在 guest 解除 NMI blocking �
 		return; // 本轮不投递 NMI，避免丢失已有事件。
 	}
 
-	--vcpu->queued_nmis; // 消耗一个排队 NMI，后续通过 VM-entry 投递给 guest。
+	InterlockedDecrement(&vcpu->queued_nmis); // 消耗一个排队 NMI，后续通过 VM-entry 投递给 guest。
 
 	hv::inject_nmi(); // 安排 VM-entry 注入 NMI。
 
-	if (vcpu->queued_nmis == 0)
-	{
-		auto ctrl = hv::read_ctrl_proc_based(); // 队列清空后关闭 NMI-window exiting。
-		ctrl.nmi_window_exiting = 0; // 防止继续因窗口开放而退出。
-		hv::write_ctrl_proc_based(ctrl); // 写回控制位。
-	}
-
-	if (vcpu->queued_nmis > 0)
-	{
-		auto ctrl = hv::read_ctrl_proc_based(); // 队列仍有 NMI 时保持窗口退出。
-		ctrl.nmi_window_exiting = 1; // 请求下一次可注入窗口。
-		hv::write_ctrl_proc_based(ctrl); // 写回控制位。
-	}
+	update_nmi_window_from_queue(vcpu); // 处理期间新到的 NMI 会重新打开窗口，避免覆盖 host NMI handler 的写回。
 }
 
 //void vmexit_monitor_trap_flag_handler(__vcpu* vcpu) // 处理 MTF（Monitor Trap Flag）VM-exit，用于单步式的 EPT 钩子收尾

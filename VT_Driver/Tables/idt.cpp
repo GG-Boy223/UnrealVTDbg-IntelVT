@@ -73,7 +73,7 @@ namespace hv
 			write_ctrl_proc_based(ctrl);
 
 			auto const cpu = reinterpret_cast<__vcpu*>(_readfsbase_u64());
-			++cpu->queued_nmis;
+			InterlockedIncrement(&cpu->queued_nmis);
 			sLog("\n");
 			break;
 		}				
