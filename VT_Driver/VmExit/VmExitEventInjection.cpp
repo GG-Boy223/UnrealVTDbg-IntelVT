@@ -32,14 +32,17 @@ namespace
 			type == INTERRUPT_TYPE_OTHER_EVENT; // 其他可投递事件保留 VMX 事件分类，不强行改写成异常。
 	}
 
-	void sync_cr2_for_page_fault(__vcpu* vcpu, unsigned __int32 vector) // #PF 重注入前恢复 CR2，保证 guest 页错误处理器看到原始 fault address。
+	void sync_cr2_for_page_fault(
+		__vcpu* vcpu,
+		unsigned __int32 vector,
+		unsigned __int64 fault_address) // #PF 重注入前恢复 CR2，保证 guest 页错误处理器看到原始 fault address。
 	{
 		if (vector == EXCEPTION_VECTOR_PAGE_FAULT &&
 			vcpu != nullptr &&
 			vcpu->vmexit_info.guest_registers != nullptr)
 		{
-			//__writecr2(hv::vmread(GUEST_LINEAR_ADDRESS));
-			__writecr2(vcpu->vmexit_info.guest_registers->cr2); // 使用汇编入口保存的 guest CR2，避免 host fault 覆盖页错误地址。
+			vcpu->vmexit_info.guest_registers->cr2 = fault_address; // 汇编 VMRESUME 前会从该槽恢复 CR2。
+			__writecr2(fault_address);
 		}
 	}
 }
@@ -173,7 +176,10 @@ bool reinject_idt_vectoring_event_if_needed(__vcpu* vcpu) // VM-exit 打断 IDT 
 
 	const unsigned __int32 error_code = vectoring.error_code_valid ?
 		static_cast<unsigned __int32>(hv::vmread(IDT_VECTORING_ERROR_CODE)) : 0; // 只有 error_code_valid=1 时读取 IDT-vectoring 错误码。
-	sync_cr2_for_page_fault(vcpu, vectoring.vector); // #PF 必须先恢复 CR2，再通过 VM-entry 重注入。
+	sync_cr2_for_page_fault(
+		vcpu,
+		vectoring.vector,
+		vcpu->vmexit_info.guest_registers->cr2); // original #PF 是间接退出，硬件已更新 CR2。
 	//	vectoring.interruption_type,
 	//	error_code,
 	//hv::inject_interruption(vectoring.vector,
@@ -222,7 +228,10 @@ void vmexit_exception_or_nmi_handler(__vcpu* vcpu) // 处理 exception-or-NMI �
 
 	const unsigned __int32 error_code = exit_interrupt.error_code_valid ?
 		static_cast<unsigned __int32>(hv::vmread(VM_EXIT_INTERRUPTION_ERROR_CODE)) : 0; // 仅对带错误码异常读取 VM-exit error code。
-	sync_cr2_for_page_fault(vcpu, exit_interrupt.vector); // #PF 重注入前恢复 guest CR2。
+	sync_cr2_for_page_fault(
+		vcpu,
+		exit_interrupt.vector,
+		vcpu->vmexit_info.qualification); // 直接 #PF 退出不更新 CR2，故障地址在 exit qualification。
 	//	exit_interrupt.interruption_type,
 	//	error_code,
 	//hv::inject_interruption(exit_interrupt.vector,
