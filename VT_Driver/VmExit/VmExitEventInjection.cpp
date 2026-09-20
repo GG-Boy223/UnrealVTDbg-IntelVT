@@ -28,8 +28,7 @@ namespace
 			type == INTERRUPT_TYPE_HARDWARE_EXCEPTION || // #PF/#GP/#DB 等硬件异常需要按原类型回灌给 guest。
 			type == INTERRUPT_TYPE_SOFTWARE_INTERRUPT || // INT n 需要保留软件中断语义和指令长度。
 			type == INTERRUPT_TYPE_PRIVILEGED_SOFTWARE_INTERRUPT || // INT1 等特权软件中断需要保留原始类型。
-			type == INTERRUPT_TYPE_SOFTWARE_EXCEPTION || // #BP/#OF 等软件异常需要按 VMX 定义重注入。
-			type == INTERRUPT_TYPE_OTHER_EVENT; // 其他可投递事件保留 VMX 事件分类，不强行改写成异常。
+			type == INTERRUPT_TYPE_SOFTWARE_EXCEPTION; // #BP/#OF 等软件异常需要按 VMX 定义重注入。
 	}
 
 	void sync_cr2_for_page_fault(
