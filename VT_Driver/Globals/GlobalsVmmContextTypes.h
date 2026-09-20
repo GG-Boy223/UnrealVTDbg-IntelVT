@@ -4,6 +4,14 @@
 #include <Ring0/Hvm/VmmReleasePolicy.h>
 
 constexpr unsigned int kVmExitTelemetryReasonCapacity = 256;
+constexpr unsigned int kVmEntryEventQueueCapacity = 8;
+
+struct __pending_vm_entry_event
+{
+    unsigned __int32 interrupt_info; // VM-entry interruption-information 字段原值
+    unsigned __int32 instruction_length; // 软件中断/软件异常注入所需指令长度
+    unsigned __int32 error_code; // 需要随异常投递的错误码
+};
 
 struct __vcpu // 每逻辑 CPU 的 VMM 状态
 {
@@ -27,6 +35,14 @@ struct __vcpu // 每逻辑 CPU 的 VMM 状态
     // the number of NMIs that need to be delivered
     // 需要交付的 NMI 数量
     uint32_t volatile queued_nmis; // 待注入 NMI 数量
+
+    struct __vm_entry_event_queue
+    {
+        __pending_vm_entry_event entries[kVmEntryEventQueueCapacity];
+        unsigned __int32 head;
+        unsigned __int32 tail;
+        unsigned __int32 count;
+    }pending_vm_entry_events; // 同一 VM-exit 内无法立即写入 VM-entry 字段的事件按 FIFO 延后
 
     // current preemption timer
     uint64_t preemption_timer; // VMX 抢占计时器
@@ -156,9 +172,12 @@ struct __vcpu // 每逻辑 CPU 的 VMM 状态
 
     __ept_state* ept_state; // EPT 状态指针
 
+    __guest_mtrr_state guest_mtrr_state; // 每逻辑处理器独立的 guest MTRR 影子状态
+
     unsigned __int32 logical_processor_index; // KeQueryActiveProcessorCountEx 的全局处理器索引
     PROCESSOR_NUMBER processor_number; // 处理器组内编号
     GROUP_AFFINITY processor_affinity; // 可跨 processor group 的线程亲和性
+    unsigned __int32 max_physical_address_bits; // 当前逻辑处理器的 CPUID.80000008H MAXPHYADDR 位数
 
     CLIENT_ID Cid; //记录触发监视断点的guest的线程id
     unsigned __int64 breakpoint_detected; //记录触发的地址

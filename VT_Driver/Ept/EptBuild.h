@@ -41,6 +41,14 @@ namespace ept
 	bool ensure_mmio_mapping(__ept_state& ept_state, unsigned __int64 physical_address);
 
 	/// <summary>
+	/// 确保指定 GPA 的 PDPTE 下存在可用的 2MB 粒度 PD 页。
+	/// 空 PDPTE 或 1GB EPT 大页会按 MMIO 语义转换为 2MB UC 映射；RAM 区域必须已有 PD。
+	/// 调用成功后，get_pml2_entry/split_pml2 才能继续执行 2MB -> 4KB 拆分。
+	/// </summary>
+	/// <returns> true=PD 页已存在且可访问 </returns>
+	bool prepare_pml2_for_address(__ept_state& ept_state, unsigned __int64 physical_address);
+
+	/// <summary>
 	/// Create ept page table (alternative implementation)
 	/// 创建ept页表（替代实现）
 	/// </summary>

@@ -22,6 +22,7 @@ namespace ept
 		int firstID = -1;
 		int ids[EPTWATCHLISTSIZE] = { 0 };
 		unsigned int committed_vcpus[EPTWATCHLISTSIZE] = { 0 };
+		unsigned __int64 installed_physical_addresses[EPTWATCHLISTSIZE] = { 0 };
 		int id_count = 0;
 
 		spinlock::lock(&eptWatchTransaction_lock);
@@ -92,6 +93,7 @@ namespace ept
 			eptWatchList[ID].GroupId = firstID;
 			eptWatchList[ID].Cr3TrackerId = tracker_id;
 			eptWatchList[ID].inuse = EPT_WATCH_INSTALLING;
+			installed_physical_addresses[id_count - 1] = eptWatchList[ID].PhysicalAddress;
 			spinlock::unlock(&eptWatchList_lock);
 
 			// EPT split、池操作和跨 VCPU commit 均在表锁外执行，VM-exit 热路径不会长时间自旋。
@@ -159,8 +161,8 @@ namespace ept
 			bool page_already_rolled_back = false;
 			for (int previous = index + 1; previous < id_count; previous++)
 			{
-				if (eptWatchList[ids[previous]].PhysicalAddress ==
-					eptWatchList[ID].PhysicalAddress)
+				if (installed_physical_addresses[previous] ==
+					installed_physical_addresses[index])
 				{
 					page_already_rolled_back = true;
 					break;
@@ -172,7 +174,7 @@ namespace ept
 				for (unsigned int cpu = committed_vcpus[index]; cpu > 0; cpu--)
 				{
 					__vcpu* vcpu = &g_vmm_context.vcpu[cpu - 1];
-					ept_watch_deactivate_internal(vcpu,
+					if (!ept_watch_deactivate_internal(vcpu,
 						*vcpu->ept_state,
 						eptWatchList[ID].VirtualAddress,
 						eptWatchList[ID].PhysicalAddress,
@@ -180,7 +182,15 @@ namespace ept
 						eptWatchList[ID].bpType,
 						eptWatchList[ID].OriginalByte,
 						has,
-						ID);
+						ID))
+					{
+						KeBugCheckEx(
+							0x00020001,
+							0x45505457,
+							3,
+							ID,
+							cpu - 1);
+					}
 				}
 			}
 

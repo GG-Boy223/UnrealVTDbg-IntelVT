@@ -9,23 +9,26 @@ namespace cr3_tracker_internal
     namespace
     {
         constexpr unsigned __int64 kEntryAddressMask = 0x000ffffffffff000ull;
-        constexpr unsigned __int64 kHostPhysicalLimit =
-            static_cast<unsigned __int64>(HOST_PHYSICAL_MEMORY_PD_COUNT) << 30;
 
         BOOLEAN ReadPhysicalEntry(
             unsigned __int64 physicalAddress,
             unsigned __int64* value)
         {
             if (value == nullptr ||
-                physicalAddress >= kHostPhysicalLimit ||
-                kHostPhysicalLimit - physicalAddress < sizeof(*value))
+                (physicalAddress & 0xfffull) > PAGE_SIZE - sizeof(*value))
+            {
+                return FALSE;
+            }
+
+            void* virtualAddress = nullptr;
+            if (!hv::get_physical_mapping_va(physicalAddress, &virtualAddress))
             {
                 return FALSE;
             }
 
             hv::host_exception_info e = { 0 };
             hv::memcpy_safe(e, value,
-                reinterpret_cast<void*>(hv::host_physical_memory_base + physicalAddress),
+                virtualAddress,
                 sizeof(*value));
             return !e.exception_occurred;
         }
@@ -34,7 +37,7 @@ namespace cr3_tracker_internal
     unsigned __int64 NormalizeCr3(unsigned __int64 value)
     {
         const unsigned __int64 root = value & ~0xfffull;
-        return root != 0 && root < kHostPhysicalLimit ? root : 0;
+        return root != 0 ? root : 0;
     }
 
     unsigned __int64 ReadPml4Fingerprint(

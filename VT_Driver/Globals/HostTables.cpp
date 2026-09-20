@@ -4,26 +4,83 @@ namespace hv
 {
     namespace
     {
-        bool get_physical_mapping_va(uint64_t physical_address, void** virtual_address)
+        __vcpu* current_vcpu_from_fs_if_valid()
         {
-            if (virtual_address == nullptr)
+            if (g_vmm_context.vcpu == nullptr || g_vmm_context.processor_count == 0)
             {
-                return false;
+                return nullptr;
             }
 
-            PHYSICAL_ADDRESS address;
-            address.QuadPart = physical_address & ~0xfffull;
-            uint8_t* mapped = static_cast<uint8_t*>(MmGetVirtualForPhysical(address));
-            if (mapped == nullptr)
+            auto const begin = reinterpret_cast<unsigned __int64>(g_vmm_context.vcpu);
+            auto const size = static_cast<unsigned __int64>(sizeof(__vcpu)) * g_vmm_context.processor_count;
+            auto const candidate = _readfsbase_u64();
+            if (candidate < begin || candidate - begin >= size ||
+                (candidate - begin) % sizeof(__vcpu) != 0)
+            {
+                return nullptr;
+            }
+
+            return reinterpret_cast<__vcpu*>(candidate);
+        }
+    }
+
+    bool get_physical_mapping_va(uint64_t physical_address, void** virtual_address)
+    {
+        if (virtual_address == nullptr)
+        {
+            return false;
+        }
+
+        PHYSICAL_ADDRESS address;
+        address.QuadPart = physical_address & ~0xfffull;
+        uint8_t* mapped = static_cast<uint8_t*>(MmGetVirtualForPhysical(address));
+        if (mapped == nullptr)
+        {
+            *virtual_address = nullptr;
+            return false;
+        }
+
+        uint8_t* const result = mapped + (physical_address & 0xfffull);
+
+        // VM-exit 路径可能高于 DISPATCH_LEVEL，不能调用 MmIsAddressValid。
+        // 来宾页表页必须来自缓存的 RAM 范围；先用该范围拒绝空洞 PFN，
+        // 再返回宿主物理映射，避免对非分页区空洞解引用触发 0x50。
+        __vcpu* const current_vcpu = current_vcpu_from_fs_if_valid();
+        if (current_vcpu != nullptr &&
+            current_vcpu->ept_state != nullptr &&
+            current_vcpu->ept_state->physical_memory_ranges != nullptr &&
+            current_vcpu->ept_state->physical_memory_range_count != 0)
+        {
+            if (!ept::is_physical_range_ram(*current_vcpu->ept_state, physical_address, 1))
             {
                 *virtual_address = nullptr;
                 return false;
             }
 
-            *virtual_address = mapped + (physical_address & 0xfffull);
+            *virtual_address = result;
             return true;
         }
 
+        // 非 VM-exit 上下文（初始化、IOCTL 等）最多在 DISPATCH_LEVEL，
+        // 使用 Windows 提供的地址有效性检查再解引用。
+        if (KeGetCurrentIrql() <= DISPATCH_LEVEL && !MmIsAddressValid(result))
+        {
+            *virtual_address = nullptr;
+            return false;
+        }
+
+        if (KeGetCurrentIrql() > DISPATCH_LEVEL)
+        {
+            *virtual_address = nullptr;
+            return false;
+        }
+
+        *virtual_address = result;
+        return true;
+    }
+
+    namespace
+    {
         bool translate_host_virtual_address(void const* virtual_address, uint64_t* physical_address)
         {
             if (virtual_address == nullptr)

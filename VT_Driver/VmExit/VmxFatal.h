@@ -11,6 +11,7 @@ enum vmx_fatal_reason : unsigned __int64
     vmx_fatal_unhandled_ept_violation = 7,
     vmx_fatal_ept_misconfiguration = 8,
     vmx_fatal_release_active_context = 9,
+    vmx_fatal_vm_entry_event_queue_overflow = 10,
 };
 
 extern "C" __declspec(noreturn)

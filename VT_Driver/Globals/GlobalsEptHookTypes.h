@@ -81,6 +81,12 @@ struct __ept_hooked_page_info // 被 hook 的页面信息
     LIST_ENTRY hooked_functions_list; // 挂钩函数链表
 
     //
+    // 延迟回收函数记录。卸载时先从活动链摘除，等热路径引用归零后再释放，
+    // 避免在 VM-exit 持有函数记录期间把池对象交还给分配器。
+    //
+    LIST_ENTRY retired_functions_list; // 待回收函数记录链表
+
+    //
     // The base address of the page. Used to find this structure in the list of page hooks
     // 源函数的页帧号
     //
@@ -313,6 +319,7 @@ struct __ept_mmio_pd_page
 struct __ept_state // EPT 状态（每 VCPU 一份）
 {
     LIST_ENTRY hooked_page_list;  //hook页列表   被hook的页面会被加入到该列表
+    LIST_ENTRY retired_page_list; // 待回收页记录列表
     volatile long hooked_page_list_lock; // hooked_page_list 并发访问锁
     __eptp* ept_pointer; // EPTP 指针
     __vmm_ept_page_table* ept_page_table;  //ept页表
@@ -326,7 +333,7 @@ struct __ept_state // EPT 状态（每 VCPU 一份）
     unsigned __int32 physical_memory_range_count; // RAM 范围数量，0 表示保留旧 MTRR-only 行为。
     unsigned __int32 mapped_pml4_count; // 已填充的 PML4 条目数
     unsigned __int32 mapped_pdpte_count; // 已填充的 flat PDPTE/PD 页数量
-    __ept_mmio_pd_page* mmio_pd_pool; // 非RAM区域按需映射的PD页池（仅CPU不支持1GB EPT大页时分配）
+    __ept_mmio_pd_page* mmio_pd_pool; // 非RAM区域按需映射/降级使用的PD页池
     unsigned __int32 mmio_pd_pool_capacity; // 池容量（页数）；初始化期间保存已成功分配的页数，供失败清理使用
     unsigned __int32 mmio_pd_pool_used; // 已取用页数，只由持有该EPT的VCPU在VM-exit路径递增
     bool ept_1gb_pages_supported; // 本CPU是否支持1GB EPT大页（构建期查询IA32_VMX_EPT_VPID_CAP[17]并缓存）

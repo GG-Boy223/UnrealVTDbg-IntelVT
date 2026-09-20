@@ -130,8 +130,15 @@ namespace pool_manager
 		if (new_pool == true &&
 			address == nullptr)
 		{
-			(void)request_allocation(size, 1, intention);
-			(void)perform_allocation();
+			// ExAllocatePoolWithTag/MmAllocateContiguousMemory 只能在不高于
+			// DISPATCH_LEVEL 的上下文调用。运行时 EPT 事务通常由 KeGenericCallDpc
+			// 在 IPI_LEVEL 执行；此时禁止在根态同步补充池，直接让调用方看到
+			// 资源耗尽并失败，避免非法 IRQL 分配或长时间阻塞。
+			if (KeGetCurrentIrql() <= DISPATCH_LEVEL)
+			{
+				(void)request_allocation(size, 1, intention);
+				(void)perform_allocation();
+			}
 			scan_for_pool();
 		}
 

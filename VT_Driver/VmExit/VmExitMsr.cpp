@@ -30,6 +30,177 @@ namespace
 
 		return true;
 	}
+
+	bool is_valid_guest_efer_value(unsigned __int64 value)
+	{
+		constexpr unsigned __int64 supported_bits =
+			(1ull << 0) |  // SCE
+			(1ull << 8) |  // LME
+			(1ull << 10) | // LMA
+			(1ull << 11);  // NXE
+		return (value & ~supported_bits) == 0;
+	}
+
+	bool is_valid_mtrr_type(unsigned __int64 value)
+	{
+		return value < 8 && ((1ull << value) & 0x73ull) != 0;
+	}
+
+	bool is_fixed_mtrr_msr(unsigned __int32 msr_index)
+	{
+		return msr_index == IA32_MTRR_FIX64K_00000 ||
+			msr_index == IA32_MTRR_FIX16K_80000 ||
+			msr_index == IA32_MTRR_FIX16K_A0000 ||
+			(msr_index >= IA32_MTRR_FIX4K_C0000 && msr_index <= IA32_MTRR_FIX4K_F8000);
+	}
+
+	bool is_variable_mtrr_msr(unsigned __int32 msr_index)
+	{
+		return msr_index >= IA32_MTRR_PHYSBASE0 && msr_index <= IA32_MTRR_PHYSMASK0 + 511;
+	}
+
+	bool try_read_guest_mtrr_msr(__vcpu const* vcpu, unsigned __int32 msr_index,
+		unsigned __int64& value, bool& fault)
+	{
+		__guest_mtrr_state const& state = vcpu->guest_mtrr_state;
+		fault = false;
+
+		if (msr_index == IA32_MTRRCAP)
+		{
+			value = state.cap;
+			return true;
+		}
+
+		if (msr_index == IA32_MTRR_DEF_TYPE)
+		{
+			value = state.def_type;
+			return true;
+		}
+
+		if (is_fixed_mtrr_msr(msr_index))
+		{
+			if (msr_index == IA32_MTRR_FIX64K_00000)
+			{
+				value = state.fixed_64k;
+			}
+			else if (msr_index == IA32_MTRR_FIX16K_80000 || msr_index == IA32_MTRR_FIX16K_A0000)
+			{
+				value = state.fixed_16k[msr_index - IA32_MTRR_FIX16K_80000];
+			}
+			else
+			{
+				value = state.fixed_4k[msr_index - IA32_MTRR_FIX4K_C0000];
+			}
+			return true;
+		}
+
+		if (is_variable_mtrr_msr(msr_index))
+		{
+			unsigned __int32 const index = msr_index - IA32_MTRR_PHYSBASE0;
+			unsigned __int32 const variable_range_count = static_cast<unsigned __int32>(state.cap & 0xff);
+			if (index >= variable_range_count * 2)
+			{
+				fault = true;
+				return true;
+			}
+
+			value = state.variable[index];
+			return true;
+		}
+
+		return false;
+	}
+
+	bool try_write_guest_mtrr_msr(__vcpu* vcpu, unsigned __int32 msr_index,
+		unsigned __int64 value, bool& fault)
+	{
+		__guest_mtrr_state& state = vcpu->guest_mtrr_state;
+		fault = false;
+
+		if (msr_index == IA32_MTRRCAP)
+		{
+			fault = true; // IA32_MTRRCAP 是只读 MSR
+			return true;
+		}
+
+		if (msr_index == IA32_MTRR_DEF_TYPE)
+		{
+			if ((value & ~0xcffull) != 0 || !is_valid_mtrr_type(value & 0xff))
+			{
+				fault = true;
+				return true;
+			}
+
+			state.def_type = value;
+			return true;
+		}
+
+		if (is_fixed_mtrr_msr(msr_index))
+		{
+			for (unsigned int index = 0; index < 8; ++index)
+			{
+				if (!is_valid_mtrr_type((value >> (index * 8)) & 0xff))
+				{
+					fault = true;
+					return true;
+				}
+			}
+
+			if (msr_index == IA32_MTRR_FIX64K_00000)
+			{
+				state.fixed_64k = value;
+			}
+			else if (msr_index == IA32_MTRR_FIX16K_80000 || msr_index == IA32_MTRR_FIX16K_A0000)
+			{
+				state.fixed_16k[msr_index - IA32_MTRR_FIX16K_80000] = value;
+			}
+			else
+			{
+				state.fixed_4k[msr_index - IA32_MTRR_FIX4K_C0000] = value;
+			}
+			return true;
+		}
+
+		if (is_variable_mtrr_msr(msr_index))
+		{
+			unsigned __int32 const index = msr_index - IA32_MTRR_PHYSBASE0;
+			unsigned __int32 const variable_range_count = static_cast<unsigned __int32>(state.cap & 0xff);
+			if (index >= variable_range_count * 2)
+			{
+				fault = true;
+				return true;
+			}
+
+			unsigned __int32 const max_physical_address_bits = vcpu->max_physical_address_bits;
+			unsigned __int64 const address_mask = max_physical_address_bits >= 64
+				? MAXULONG64
+				: ((1ull << max_physical_address_bits) - 1);
+
+			if ((msr_index & 1) == 0)
+			{
+				if (!is_valid_mtrr_type(value & 0xff) ||
+					(value & 0xf00ull) != 0 ||
+					(value & ~address_mask) != 0)
+				{
+					fault = true;
+					return true;
+				}
+			}
+			else
+			{
+				if ((value & 0x7ffull) != 0 || (value & ~address_mask) != 0)
+				{
+					fault = true;
+					return true;
+				}
+			}
+
+			state.variable[index] = value;
+			return true;
+		}
+
+		return false;
+	}
 }
 
 // 处理 RDMSR 指令引发的 VM-exit，根据需要读取或伪装 MSR，最后返回到 EDX:EAX
@@ -78,6 +249,21 @@ void vmexit_msr_read_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 	}
 	default:
 	{
+		unsigned __int64 guest_mtrr_value = 0;
+		bool mtrr_fault = false;
+		if (try_read_guest_mtrr_msr(vcpu, msr_index, guest_mtrr_value, mtrr_fault))
+		{
+			if (mtrr_fault)
+			{
+				hv::inject_interruption(EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT,
+					INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, true);
+				return;
+			}
+
+			msr.all = guest_mtrr_value;
+			break;
+		}
+
 		// hv::host_exception_info e; // 旧逻辑：未清零会让safe RDMSR异常状态受旧栈内容影响。
 		hv::host_exception_info e = { 0 }; // safe RDMSR通过Host IDT写回异常状态，必须先清零避免读取旧栈值。
 		msr.all = hv::rdmsr_safe(e, msr_index); // 参数1：异常信息结构；参数2：MSR 编号；结果：安全读取 MSR 值
@@ -126,9 +312,47 @@ void vmexit_msr_write_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 	}
 	if (msr_index == IA32_EFER)
 	{
-		// EFER 是 VMCS guest-state 之一,不能直接写宿主 MSR。任何不一致写入都按硬件语义拒绝,
-		// 防止 guest 篡改 VMX root 的 LMA/LME/NXE 等状态。
-		if (msr.all != hv::vmread(GUEST_EFER))
+		if (!is_valid_guest_efer_value(msr.all))
+		{
+			hv::inject_interruption(EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT,
+				INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, true);
+			return;
+		}
+
+		__ia32_efer_t current_efer = { 0 };
+		__ia32_efer_t requested_efer = { 0 };
+		current_efer.all = hv::vmread(GUEST_EFER);
+		requested_efer.all = msr.all;
+
+		// WRMSR 对 LMA 的修改被硬件忽略，保留当前 LMA。
+		requested_efer.long_mode_active = current_efer.long_mode_active;
+
+		auto const current_cr0 = hv::read_effective_guest_cr0();
+		if (current_cr0.paging_enable &&
+			requested_efer.long_mode_enable != current_efer.long_mode_enable)
+		{
+			hv::inject_interruption(EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT,
+				INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, true);
+			return;
+		}
+
+		bool const execute_disable_changed =
+			requested_efer.execute_disable != current_efer.execute_disable;
+		hv::vmwrite<unsigned __int64>(GUEST_EFER, requested_efer.all);
+		if (execute_disable_changed)
+		{
+			invvpid_single_context_func(guest_vpid);
+		}
+
+		set_hide_vm_exit_overhead(vcpu, true);
+		adjust_rip(vcpu);
+		return;
+	}
+
+	bool mtrr_fault = false;
+	if (try_write_guest_mtrr_msr(vcpu, msr_index, msr.all, mtrr_fault))
+	{
+		if (mtrr_fault)
 		{
 			hv::inject_interruption(EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT,
 				INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, true);
@@ -149,21 +373,6 @@ void vmexit_msr_write_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 		hv::inject_interruption(EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT,
 			INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, true);
 		return;
-	}
-
-	// MTRR 影响内存类型，如果修改后需同步 EPT
-	// 原理：MTRR 影响内存类型，来宾修改后需更新 EPT；作用：检测相关 MSR 写入；结果：必要时刷新 EPT 缓存
-	if (msr_index == IA32_MTRR_DEF_TYPE || msr_index == IA32_MTRR_FIX64K_00000 ||
-		msr_index == IA32_MTRR_FIX16K_80000 || msr_index == IA32_MTRR_FIX16K_A0000 ||
-		(msr_index >= IA32_MTRR_FIX4K_C0000 && msr_index <= IA32_MTRR_FIX4K_F8000) ||
-		(msr_index >= IA32_MTRR_PHYSBASE0 && msr_index <= IA32_MTRR_PHYSBASE0 + 511))
-	{
-		// 原理：只有在缓存开启时更新 EPT 类型才有意义；作用：避免无效更新；结果：按条件执行更新
-		if (!hv::read_effective_guest_cr0().cache_disable)
-			hv::update_ept_memory_type(*vcpu->ept_state); // 参数：EPT 状态；原理：根据 MTRR 重算类型；结果：EPT 内存类型同步
-
-		_mm_mfence(); // 原理：内存屏障确保类型更新先于后续访问；作用：避免乱序；结果：更新有序生效
-		invept_single_context_func(vcpu->ept_state->ept_pointer->all);
 	}
 
 	set_hide_vm_exit_overhead(vcpu, true);

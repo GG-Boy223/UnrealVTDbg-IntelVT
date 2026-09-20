@@ -53,6 +53,5 @@ namespace ept
 	void remove_hooked_function(
 		__ept_hooked_page_info* hooked_page_info,
 		__ept_hooked_function_info* hooked_function_info);
-	void wait_for_page_quiescence(__ept_hooked_page_info* hooked_page_info);
-	void wait_for_function_quiescence(__ept_hooked_function_info* hooked_function_info);
+	void reclaim_retired_resources(__ept_state& ept_state);
 }

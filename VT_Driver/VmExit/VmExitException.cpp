@@ -125,6 +125,12 @@ void vmexit_monitor_trap_flag_handler(__vcpu* vcpu) // MTF 单步窗口结束后
 		return; // 无可恢复页面，直接返回 guest。
 	}
 
+	if (InterlockedCompareExchange(&hooked_page_info->removing, 0, 0) != 0)
+	{
+		CleanUp(vcpu, hooked_page_info); // 删除事务已接管该页，不能再写 EPT 或重建 watch 权限。
+		return;
+	}
+
 	if (hooked_page_info->Options == EPTO_HOOK_FUNCTION) // 原理：函数钩子需要在执行/读写时切换页权限；作用：区分钩子类型；结果：进入函数钩子处理
 	{
 		hooked_page_info->original_entry.execute = 0; // 函数 EPT hook 恢复为不可执行原页，下一次执行继续触发 EPT violation。
@@ -137,33 +143,56 @@ void vmexit_monitor_trap_flag_handler(__vcpu* vcpu) // MTF 单步窗口结束后
 
 	if (hooked_page_info->Options == EPTO_VIRTUAL_BREAKPOINT)
 	{
-		spinlock::lock(&eptWatchList_lock); // watch 列表是共享状态，MTF 恢复时必须持锁检查 ID 有效性。
-		int ID = hooked_page_info->ID; // 取出 watch ID，后续访问 eptWatchList 前做边界/状态检查。
-		if ((ID == -1) || (!ept_watch_entry_owns_hardware(eptWatchList[ID])))
+		int const ID = hooked_page_info->ID;
+		bool const is_int3 = hooked_page_info->isInt3;
+		bool const is_bp = hooked_page_info->isBp;
+		cr3 guest_cr3 = {};
+		unsigned __int64 watch_virtual_address = 0;
+		unsigned __int64 watch_physical_address = 0;
+
+		spinlock::lock(&eptWatchList_lock); // 只在读取 watch 快照时持有全局锁。
+		if ((ID < 0) ||
+			(ID >= EPTWATCHLISTSIZE) ||
+			!ept_watch_entry_owns_hardware(eptWatchList[ID]) ||
+			GET_PFN(eptWatchList[ID].PhysicalAddress) != hooked_page_info->pfn_of_hooked_page)
 		{
 			CleanUp(vcpu, hooked_page_info); // watch 已删除或 ID 无效时清理 hook 临时状态。
-			spinlock::unlock(&eptWatchList_lock); // 异常返回前释放锁，避免全局 watch 死锁。
+			spinlock::unlock(&eptWatchList_lock);
 			return; // 不再访问失效 watch 条目。
 		}
 
-		if (hooked_page_info->isInt3)
-		{
-			cr3 guest_cr3; // 构造目标进程 CR3，用于按 guest 虚拟地址读取真实页面内容。
-			guest_cr3.flags = eptWatchList[ID].cr3; // 使用 watch 记录中的 CR3，避免读到当前进程地址空间。
+		guest_cr3.flags = eptWatchList[ID].cr3; // 使用 watch 记录中的 CR3，避免读到当前进程地址空间。
+		watch_virtual_address = eptWatchList[ID].VirtualAddress;
+		watch_physical_address = eptWatchList[ID].PhysicalAddress;
+		spinlock::unlock(&eptWatchList_lock);
 
+		if (is_int3)
+		{
 			if (!hooked_page_info->fake_page_synced || hooked_page_info->fake_page_needs_full_sync)
 			{
-				if (PAGE_SIZE != hv::read_guest_virtual_memory(guest_cr3, PAGE_ALIGN(eptWatchList[ID].VirtualAddress), &hooked_page_info->fake_page_contents, PAGE_SIZE))
+				if (PAGE_SIZE != hv::read_guest_virtual_memory(guest_cr3, PAGE_ALIGN(watch_virtual_address), &hooked_page_info->fake_page_contents, PAGE_SIZE))
 				{
 					hooked_page_info->fake_page_synced = false; // 读取失败时标记 fake page 不可信。
 					hooked_page_info->fake_page_needs_full_sync = true; // 下次命中必须重新整页同步。
 					CleanUp(vcpu, hooked_page_info); // 清理本次 pending 状态，避免卡住 MTF 生命周期。
-					spinlock::unlock(&eptWatchList_lock); // 失败路径释放 watch 锁。
 					return; // 无法构造 fake page 时不切换 EPT entry。
 				}
 
 				hooked_page_info->fake_page_synced = true; // fake page 内容已经与 guest 原页同步。
 				hooked_page_info->fake_page_needs_full_sync = false; // 清除强制全量同步标记。
+			}
+
+			spinlock::lock(&eptWatchList_lock);
+			if (InterlockedCompareExchange(&hooked_page_info->removing, 0, 0) != 0 ||
+				(ID < 0) ||
+				(ID >= EPTWATCHLISTSIZE) ||
+				!ept_watch_entry_owns_hardware(eptWatchList[ID]) ||
+				eptWatchList[ID].bpType != 3 ||
+				GET_PFN(eptWatchList[ID].PhysicalAddress) != GET_PFN(watch_physical_address))
+			{
+				spinlock::unlock(&eptWatchList_lock);
+				CleanUp(vcpu, hooked_page_info);
+				return;
 			}
 
 			for (int i = 0; i < EPTWATCHLISTSIZE; i++)
@@ -176,6 +205,8 @@ void vmexit_monitor_trap_flag_handler(__vcpu* vcpu) // MTF 单步窗口结束后
 			}
 
 			hooked_page_info->original_entry.execute = 0; // 恢复原页不可执行，让下一次执行再次进入 EPT watch 逻辑。
+			spinlock::unlock(&eptWatchList_lock);
+
 			ept::swap_pml1_and_invalidate_tlb(*vcpu->ept_state,
 				hooked_page_info->entry_address,
 				hooked_page_info->original_entry,
@@ -183,9 +214,23 @@ void vmexit_monitor_trap_flag_handler(__vcpu* vcpu) // MTF 单步窗口结束后
 		}
 		else
 		{
-			ept::apply_active_watch_permissions_locked(hooked_page_info); // 按当前仍有效的 watch 列表恢复读/写/执行权限。
+			spinlock::lock(&eptWatchList_lock);
+			if (InterlockedCompareExchange(&hooked_page_info->removing, 0, 0) != 0 ||
+				(ID < 0) ||
+				(ID >= EPTWATCHLISTSIZE) ||
+				!ept_watch_entry_owns_hardware(eptWatchList[ID]) ||
+				eptWatchList[ID].bpType == 3 ||
+				GET_PFN(eptWatchList[ID].PhysicalAddress) != GET_PFN(watch_physical_address))
+			{
+				spinlock::unlock(&eptWatchList_lock);
+				CleanUp(vcpu, hooked_page_info);
+				return;
+			}
 
-			if (hooked_page_info->isBp)
+			ept::apply_active_watch_permissions_locked(hooked_page_info); // 按当前仍有效的 watch 列表恢复读/写/执行权限。
+			spinlock::unlock(&eptWatchList_lock);
+
+			if (is_bp)
 			{
 				hv::inject_single_step(vcpu); // 命中硬件式 watch 后补一次 #DB，交给调试器处理单步事件。
 			}
@@ -194,7 +239,6 @@ void vmexit_monitor_trap_flag_handler(__vcpu* vcpu) // MTF 单步窗口结束后
 			invept_single_context_func(vcpu->ept_state->ept_pointer->all); // 刷新当前 EPTP 上下文，避免旧权限缓存残留。
 		}
 		CleanUp(vcpu, hooked_page_info); // watch 恢复完成后清理一次性命中状态。
-		spinlock::unlock(&eptWatchList_lock); // 释放全局 watch 列表锁。
 	}
 }
 

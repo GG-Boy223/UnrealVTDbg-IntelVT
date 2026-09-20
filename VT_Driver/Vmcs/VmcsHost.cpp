@@ -33,10 +33,12 @@ void fill_vmcs_host_fields(__vcpu* vcpu) // 填充宿主字段
 
     constexpr unsigned __int64 cr4_cet_bit = 1ull << 23;
     constexpr unsigned __int64 cr4_pks_bit = 1ull << 24;
+    constexpr unsigned __int64 cr4_pcid_bit = 1ull << 17;
     auto const raw_host_cr4 = __readcr4();
     auto const raw_la57_enabled = (raw_host_cr4 & (1ull << 12)) != 0;
     auto const raw_cet_enabled = (raw_host_cr4 & cr4_cet_bit) != 0;
     auto const raw_pks_enabled = (raw_host_cr4 & cr4_pks_bit) != 0;
+    auto const raw_pcid_enabled = (raw_host_cr4 & cr4_pcid_bit) != 0;
 
     cr4 host_cr4; // 定义 CR4 结构
     // host_cr4.flags = __readcr4(); // 旧逻辑：直接复制CR4会把LA57/CET/PKS带入自建Host页表/Host栈，部分新平台首次VM-exit会卡死。
@@ -44,6 +46,7 @@ void fill_vmcs_host_fields(__vcpu* vcpu) // 填充宿主字段
     host_cr4.linear_addresses_57_bit = 0; // 当前dwm.exe Host页表链路构造的是4级PML4，HOST_CR4必须与4级页表匹配。
     host_cr4.flags &= ~cr4_cet_bit; // VMX Root Host栈没有配置shadow stack，清Host CET不改变Guest CET/VT功能。
     host_cr4.flags &= ~cr4_pks_bit; // 未启用VM-exit load PKRS时清Host PKS，避免继承Guest PKRS造成Host页访问异常。
+    host_cr4.flags &= ~cr4_pcid_bit; // HOST_CR3固定使用PCID=0；Host不能继承Windows的PCIDE，否则guest与root的TLB条目可能按同一PCID别名。
 
 
     __msr fixed0 = { 0 };
@@ -60,12 +63,13 @@ void fill_vmcs_host_fields(__vcpu* vcpu) // 填充宿主字段
 
 
     hv::vmwrite<unsigned __int64>(HOST_CR4, host_cr4.flags); // 写入宿主 CR4
-    outFile("[信息][VMCS Host] HOST_CR4=0x%llX RawCR4=0x%llX 原始LA57=%u 原始CET=%u 原始PKS=%u",
+    outFile("[信息][VMCS Host] HOST_CR4=0x%llX RawCR4=0x%llX 原始LA57=%u 原始CET=%u 原始PKS=%u 原始PCIDE=%u",
         host_cr4.flags,
         raw_host_cr4,
         raw_la57_enabled ? 1 : 0,
         raw_cet_enabled ? 1 : 0,
-        raw_pks_enabled ? 1 : 0);
+        raw_pks_enabled ? 1 : 0,
+        raw_pcid_enabled ? 1 : 0);
     if (raw_la57_enabled)
     {
         outFile("[警告][VMCS Host] 原始CR4.LA57=1，但当前Host页表为4级PML4；已仅在VMX Root Host状态清除LA57，Guest状态不变");
@@ -73,6 +77,10 @@ void fill_vmcs_host_fields(__vcpu* vcpu) // 填充宿主字段
     if (raw_cet_enabled || raw_pks_enabled)
     {
         outFile("[警告][VMCS Host] 原始CR4包含CET/PKS：已仅在VMX Root Host状态清除未配套的CET/PKS，避免Host栈/PKRS异常，Guest状态不变");
+    }
+    if (raw_pcid_enabled)
+    {
+        outFile("[信息][VMCS Host] 原始CR4.PCIDE=1，已在VMX Root Host状态清除；HOST_CR3的PCID固定为0，Guest状态不受影响");
     }
 
     // 设置宿主栈指针，保证 16 字节对齐

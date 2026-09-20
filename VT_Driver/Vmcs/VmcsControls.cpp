@@ -15,7 +15,7 @@ void set_entry_control(__vmx_entry_control& entry_control) // 设置 VM-entry �
     // 是否在 VM-entry 时加载 IA32_PAT（页属性表）
     entry_control.load_ia32_pat = true; // 保证来宾内存类型行为与宿主/来宾设置一致
     // 是否在 VM-entry 时加载 IA32_EFER
-    entry_control.load_ia32_efer = false; // 这里选择不加载，避免与宿主控制冲突
+    entry_control.load_ia32_efer = true; // 从 GUEST_EFER 原子加载 guest EFER，避免 guest WRMSR 只改影子状态
     // 是否在 VM-entry 时加载 IA32_BNDCFGS
     entry_control.load_ia32_bndcfgs = false; // 这里未启用 MPX 相关寄存器加载
     // 是否对 Intel PT 隐藏 VMX（不产生 PIP/VMCS 包）
@@ -45,9 +45,9 @@ void set_exit_control(__vmx_exit_control& exit_control) // 设置 VM-exit 控制
     // VM-exit 时是否加载 IA32_PAT
     exit_control.load_ia32_pat = true; // 恢复宿主 PAT
     // VM-exit 时是否保存 IA32_EFER
-    exit_control.save_ia32_efer = false; // 这里未保存 EFER
+    exit_control.save_ia32_efer = true; // 先保存 guest EFER，保证 WRMSR 处理读到硬件退出时的真实值
     // VM-exit 时是否加载 IA32_EFER
-    exit_control.load_ia32_efer = false; // 这里未加载 EFER
+    exit_control.load_ia32_efer = true; // 恢复宿主 EFER，避免 guest NXE/SCE 污染 VMX root
     // VM-exit 时是否保存 VMX 预抢占计时器
     exit_control.save_vmx_preemption_timer_value = false; // 不需要保存计时器值
     // VM-exit 时是否清除 IA32_BNDCFGS

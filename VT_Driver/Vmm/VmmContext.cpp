@@ -191,6 +191,7 @@ bool query_platform_physical_address_limit()
 		int cpuid_regs[4] = {};
 		__cpuid(cpuid_regs, 0x80000008);
 		unsigned __int32 const max_phys_addr_bits = static_cast<unsigned __int32>(cpuid_regs[0]) & 0xFFu;
+		g_vmm_context.vcpu[iter].max_physical_address_bits = max_phys_addr_bits;
 
 		KeRevertToUserGroupAffinityThread(&orig_affinity);
 

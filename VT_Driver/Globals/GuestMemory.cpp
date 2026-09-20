@@ -14,7 +14,12 @@ namespace hv
         // 由于我们将所有的物理地址映射在了host pt.pml4[255]开始的地方
         // 故我们需要控制GPA pml4_idx从host pml4[255]处开始
         // 从host pt.pml4[255]处开始
-        auto const pml4 = reinterpret_cast<pml4e_64*>(host_physical_memory_base + (guest_cr3.address_of_page_directory << 12)); // 通过 CR3 取 PML4
+        void* pml4_va = nullptr;
+        if (!get_physical_mapping_va(guest_cr3.address_of_page_directory << 12, &pml4_va))
+        {
+            return 0;
+        }
+        auto const pml4 = reinterpret_cast<pml4e_64*>(pml4_va); // 通过 CR3 取 PML4
         auto const pml4e = pml4[vaddr.pml4_idx]; // 获取 PML4E
 
         //判断该页是否存在
@@ -28,7 +33,12 @@ namespace hv
         // 因为vm里的所以地址，对于host来说都是虚拟地址
         // 所以我们在host里仍然是将gpa的地址当做线性地址来解析
         // 我们仍需要将线性地址的pml4_idx从pml4[255]处开始
-        auto const pdpt = reinterpret_cast<pdpte_64*>(host_physical_memory_base + (pml4e.page_frame_number << 12)); // 通过 PML4E 定位 PDPT
+        void* pdpt_va = nullptr;
+        if (!get_physical_mapping_va(pml4e.page_frame_number << 12, &pdpt_va))
+        {
+            return 0;
+        }
+        auto const pdpt = reinterpret_cast<pdpte_64*>(pdpt_va); // 通过 PML4E 定位 PDPT
         auto const pdpte = pdpt[vaddr.pdpt_idx]; // 获取 PDPTE
 
         if (!pdpte.present)
@@ -52,7 +62,12 @@ namespace hv
         }
 
         // guest PD
-        auto const pd = reinterpret_cast<pde_64*>(host_physical_memory_base + (pdpte.page_frame_number << 12)); // 通过 PDPTE 定位 PD
+        void* pd_va = nullptr;
+        if (!get_physical_mapping_va(pdpte.page_frame_number << 12, &pd_va))
+        {
+            return 0;
+        }
+        auto const pd = reinterpret_cast<pde_64*>(pd_va); // 通过 PDPTE 定位 PD
         auto const pde = pd[vaddr.pd_idx]; // 获取 PDE
 
         if (!pde.present)
@@ -76,7 +91,12 @@ namespace hv
         }
 
         // guest PT
-        auto const pt = reinterpret_cast<pte_64*>(host_physical_memory_base + (pde.page_frame_number << 12)); // 通过 PDE 定位 PT
+        void* pt_va = nullptr;
+        if (!get_physical_mapping_va(pde.page_frame_number << 12, &pt_va))
+        {
+            return 0;
+        }
+        auto const pt = reinterpret_cast<pte_64*>(pt_va); // 通过 PDE 定位 PT
         auto const pte = pt[vaddr.pt_idx]; // 获取 PTE
 
         if (!pte.present)
@@ -101,7 +121,12 @@ namespace hv
             return nullptr; // 失败返回空指针
         }
 
-        return host_physical_memory_base + gpa; // 利用物理直映返回 HVA
+        void* hva = nullptr;
+        if (!get_physical_mapping_va(gpa, &hva))
+        {
+            return nullptr;
+        }
+        return hva; // 返回物理页的内核虚拟映射
     }
 
     void* gva2hva(void* const gva, size_t* const offset_to_next_page)

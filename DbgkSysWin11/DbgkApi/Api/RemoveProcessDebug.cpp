@@ -19,12 +19,14 @@ NtRemoveProcessDebug(
         return STATUS_DELETE_PENDING;
     }
 
+    KPROCESSOR_MODE const PreviousMode = KeGetPreviousMode();
+
     // /* Reference the process */
     Status = ObReferenceObjectByHandle(ProcessHandle,
         PROCESS_SET_PORT,
         *PsProcessType,
         // *PsProcessType,
-        KernelMode,
+        PreviousMode,
         (PVOID*)&Process,
         NULL);
 
@@ -38,7 +40,7 @@ NtRemoveProcessDebug(
     Status = ObReferenceObjectByHandle(DebugObjectHandle,
         DEBUG_PROCESS_ASSIGN,
         Hvm_DbgkDebugObjectType,
-        KernelMode,
+        PreviousMode,
         (PVOID*)&DebugObject,
         NULL);
 

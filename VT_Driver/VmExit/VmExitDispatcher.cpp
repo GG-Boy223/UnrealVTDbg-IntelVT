@@ -255,6 +255,7 @@ void dispatch_vm_exit(__vcpu* vcpu) // 按 VM-exit 原因码分发，保持所�
 	//hv::vmwrite<unsigned __int64>(VM_ENTRY_EXCEPTION_ERROR_CODE, 0);
 	//hv::vmwrite<unsigned __int64>(VM_ENTRY_INSTRUCTION_LENGTH, 0);
 	clear_vm_entry_event_fields(); // 先清理上一轮 VM-entry 注入状态，后续 handler 再按当前 exit 决定是否写入。
+	hv::drain_pending_vm_entry_event(vcpu); // 队首事件优先恢复，确保同一 exit 内后续注入按 FIFO 排队。
 	if (vcpu->vmexit_info.reason != VMX_EXIT_REASON_EXCEPTION_OR_NMI) // Exception/NMI handler 会直接读取 exit interruption 信息，其他 exit 需先处理 IDT-vectoring。
 	{
 		reinject_idt_vectoring_event_if_needed(vcpu); // VM-exit 打断事件投递时重注入，避免 guest 异常/中断丢失。
@@ -310,5 +311,10 @@ void dispatch_vm_exit(__vcpu* vcpu) // 按 VM-exit 原因码分发，保持所�
 		hv::inject_interruption(EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT, INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, true); // 默认给 guest #GP(0)，避免静默继续导致状态错乱。
 		break; // 结束 default 分支，回到 VMRESUME 路径。
 	}
+	}
+
+	if (!vcpu->vmx_off_state.vmx_off_executed)
+	{
+		hv::ensure_pending_vm_entry_event_progress(vcpu); // 队列仍有事件时用 MTF 强制下一次 VM-exit 排空，不依赖偶发中断。
 	}
 }

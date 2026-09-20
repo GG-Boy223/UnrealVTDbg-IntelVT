@@ -27,10 +27,6 @@ namespace hv
     {
         __vmentry_interrupt_info pending = { 0 };
         pending.all = static_cast<unsigned __int32>(hv::vmread(VM_ENTRY_INTERRUPTION_INFO_FIELD));
-        if (pending.valid)
-        {
-            return;
-        }
 
         __vmentry_interrupt_info interrupt = { 0 };
 
@@ -39,9 +35,25 @@ namespace hv
         interrupt.deliver_error_code = deliver_error_code ? 1 : 0;
         interrupt.valid = 1;
 
+        unsigned __int32 instruction_length = 0;
         if (type == INTERRUPT_TYPE_SOFTWARE_EXCEPTION || type == INTERRUPT_TYPE_PRIVILEGED_SOFTWARE_INTERRUPT || type == INTERRUPT_TYPE_SOFTWARE_INTERRUPT)
         {
-            hv::vmwrite<unsigned __int64>(VM_ENTRY_INSTRUCTION_LENGTH, hv::vmread(VM_EXIT_INSTRUCTION_LENGTH));
+            instruction_length = static_cast<unsigned __int32>(hv::vmread(VM_EXIT_INSTRUCTION_LENGTH));
+        }
+
+        if (pending.valid)
+        {
+            hv::queue_pending_vm_entry_event(
+                reinterpret_cast<__vcpu*>(_readfsbase_u64()),
+                interrupt.all,
+                instruction_length,
+                error_code);
+            return;
+        }
+
+        if (instruction_length != 0)
+        {
+            hv::vmwrite<unsigned __int64>(VM_ENTRY_INSTRUCTION_LENGTH, instruction_length);
         }
 
         if (deliver_error_code == true)

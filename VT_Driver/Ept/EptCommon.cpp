@@ -57,6 +57,8 @@ namespace ept
 		hooked_page_info->removing = 0;
 		hooked_page_info->hot_reference_count = 0;
 		hooked_page_info->functions_lock = 0;
+		InitializeListHead(&hooked_page_info->hooked_functions_list);
+		InitializeListHead(&hooked_page_info->retired_functions_list);
 	}
 
 	void initialize_hooked_function_runtime_fields(__ept_hooked_function_info* hooked_function_info)
@@ -179,6 +181,7 @@ namespace ept
 
 		spinlock::lock(&ept_state.hooked_page_list_lock);
 		RemoveEntryList(&hooked_page_info->hooked_page_list);
+		InsertTailList(&ept_state.retired_page_list, &hooked_page_info->hooked_page_list);
 		spinlock::unlock(&ept_state.hooked_page_list_lock);
 	}
 	__ept_hooked_function_info* acquire_function_hot_reference(
@@ -296,35 +299,126 @@ namespace ept
 
 		spinlock::lock(&hooked_page_info->functions_lock);
 		RemoveEntryList(&hooked_function_info->hooked_function_list);
+		InsertTailList(
+			&hooked_page_info->retired_functions_list,
+			&hooked_function_info->hooked_function_list);
 		spinlock::unlock(&hooked_page_info->functions_lock);
 	}
-	void wait_for_page_quiescence(__ept_hooked_page_info* hooked_page_info)
+
+	static void reclaim_retired_functions(__ept_hooked_page_info* hooked_page_info)
 	{
 		if (hooked_page_info == nullptr)
 		{
 			return;
 		}
 
-		while (InterlockedCompareExchange(
-			&hooked_page_info->hot_reference_count, 0, 0) != 0 ||
-			InterlockedCompareExchange(
-				&hooked_page_info->mtf_reference_count, 0, 0) != 0)
+		for (;;)
 		{
-			_mm_pause();
+			__ept_hooked_function_info* victim = nullptr;
+			spinlock::lock(&hooked_page_info->functions_lock);
+			for (PLIST_ENTRY current = hooked_page_info->retired_functions_list.Flink;
+				current != &hooked_page_info->retired_functions_list;
+				current = current->Flink)
+			{
+				__ept_hooked_function_info* candidate =
+					CONTAINING_RECORD(
+						current,
+						__ept_hooked_function_info,
+						hooked_function_list);
+
+				if (InterlockedCompareExchange(
+					&candidate->hot_reference_count, 0, 0) == 0)
+				{
+					RemoveEntryList(&candidate->hooked_function_list);
+					victim = candidate;
+					break;
+				}
+			}
+			spinlock::unlock(&hooked_page_info->functions_lock);
+
+			if (victim == nullptr)
+			{
+				return;
+			}
+
+			unsigned __int8* const first_trampoline_address =
+				victim->first_trampoline_address;
+			pool_manager::release_pool(victim);
+			if (first_trampoline_address != nullptr)
+			{
+				pool_manager::release_pool(first_trampoline_address);
+			}
 		}
 	}
 
-	void wait_for_function_quiescence(__ept_hooked_function_info* hooked_function_info)
+	void reclaim_retired_resources(__ept_state& ept_state)
 	{
-		if (hooked_function_info == nullptr)
+		for (;;)
 		{
-			return;
-		}
+			__ept_hooked_page_info* victim = nullptr;
+			__ept_dynamic_split* owner_split = nullptr;
 
-		while (InterlockedCompareExchange(
-			&hooked_function_info->hot_reference_count, 0, 0) != 0)
-		{
-			_mm_pause();
+			spinlock::lock(&ept_state.hooked_page_list_lock);
+
+			// 活动页上的函数记录也可能已摘到待回收链，先按页清理它们。
+			for (PLIST_ENTRY current = ept_state.hooked_page_list.Flink;
+				current != &ept_state.hooked_page_list;
+				current = current->Flink)
+			{
+				__ept_hooked_page_info* hooked_page_info =
+					CONTAINING_RECORD(
+						current,
+						__ept_hooked_page_info,
+						hooked_page_list);
+				reclaim_retired_functions(hooked_page_info);
+			}
+
+			for (PLIST_ENTRY current = ept_state.retired_page_list.Flink;
+				current != &ept_state.retired_page_list;
+				current = current->Flink)
+			{
+				__ept_hooked_page_info* hooked_page_info =
+					CONTAINING_RECORD(
+						current,
+						__ept_hooked_page_info,
+						hooked_page_list);
+
+				reclaim_retired_functions(hooked_page_info);
+
+				if (InterlockedCompareExchange(
+					&hooked_page_info->hot_reference_count, 0, 0) != 0 ||
+					InterlockedCompareExchange(
+						&hooked_page_info->mtf_reference_count, 0, 0) != 0)
+				{
+					continue;
+				}
+
+				spinlock::lock(&hooked_page_info->functions_lock);
+				const bool functions_empty =
+					IsListEmpty(&hooked_page_info->hooked_functions_list) &&
+					IsListEmpty(&hooked_page_info->retired_functions_list);
+				spinlock::unlock(&hooked_page_info->functions_lock);
+
+				if (!functions_empty)
+				{
+					continue;
+				}
+
+				RemoveEntryList(&hooked_page_info->hooked_page_list);
+				owner_split = hooked_page_info->owner_split;
+				victim = hooked_page_info;
+				break;
+			}
+
+			spinlock::unlock(&ept_state.hooked_page_list_lock);
+
+			if (victim == nullptr)
+			{
+				return;
+			}
+
+			pool_manager::release_pool(victim);
+			ept_split_ref_dec_and_maybe_release(ept_state, owner_split);
 		}
 	}
 }

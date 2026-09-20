@@ -71,7 +71,11 @@ void fill_vmcs_guest_fields(__vcpu* vcpu, void* guest_rsp) // 填充来宾字段
     vcpu->cr3_target_cursor = 0;
     hv::vmwrite<unsigned __int64>(GUEST_CR4, __readcr4()); // 来宾 CR4
     hv::vmwrite<unsigned __int64>(CR4_READ_SHADOW, __readcr4() & ~0x2000); // CR4 影子值（屏蔽 VMXE）
-    hv::vmwrite<unsigned __int64>(CR4_GUEST_HOST_MASK, 0x2000); // 仅监视 VMXE 位
+    // 监视 VMXE 与 LA57。当前来宾地址翻译和 Host 页表均为 4 级；
+    // 若来宾尝试开启 LA57，必须进入 mov_to_cr4_handler 按现有规则拒绝。
+    constexpr unsigned __int64 cr4_vmxe_bit = 1ull << 13;
+    constexpr unsigned __int64 cr4_la57_bit = 1ull << 12;
+    hv::vmwrite<unsigned __int64>(CR4_GUEST_HOST_MASK, cr4_vmxe_bit | cr4_la57_bit);
 
     // 写入来宾调试寄存器
     hv::vmwrite<unsigned __int64>(GUEST_DR7, __readdr(7)); // DR7

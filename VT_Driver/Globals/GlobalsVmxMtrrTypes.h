@@ -116,3 +116,16 @@ struct mtrr_data // MTRR 汇总数据结构
     // 有效的可变范围 MTRRs 的数量
     size_t var_count; // 实际有效条目数
 };
+
+// Guest MTRR 是按逻辑处理器保存的软件状态。启用 EPT 后，MTRR 不参与
+// GPA 访问的最终内存类型计算，因此这里只负责让 guest 的 RDMSR/WRMSR
+// 看到一致的可写影子值，绝不能把 guest 写入透传到宿主物理 MTRR。
+struct __guest_mtrr_state
+{
+    unsigned __int64 cap;
+    unsigned __int64 def_type;
+    unsigned __int64 fixed_64k;
+    unsigned __int64 fixed_16k[2];
+    unsigned __int64 fixed_4k[8];
+    unsigned __int64 variable[512];
+};

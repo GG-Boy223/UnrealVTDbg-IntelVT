@@ -22,8 +22,10 @@ void fill_vmcs(__vcpu* vcpu, void* guest_rsp) // 填充 VMCS
     // 设置异常位图
     set_exception_bitmap(exception_bitmap); // 设置异常拦截
 
-#ifndef _MINIMAL // 非精简模式
-    memset(&vcpu->msr_bitmap, 0xff, PAGE_SIZE); // 初始化 MSR 位图为全拦截（vmx_msr_bitmap 为 4KB 且按页对齐）
+#ifdef _MINIMAL
+    RtlSecureZeroMemory(&vcpu->msr_bitmap, sizeof(vcpu->msr_bitmap)); // 精简模式只拦截需要虚拟化的 MSR
+#else
+    memset(&vcpu->msr_bitmap, 0xff, sizeof(vcpu->msr_bitmap)); // 完整模式拦截全部 MSR，由 handler 统一模拟
 #endif
 
     vcpu->vmcs_effective_controls.pinbased = ajdust_controls(pinbased_controls.all, vmx_basic.true_controls ? IA32_VMX_TRUE_PINBASED_CTLS : IA32_VMX_PINBASED_CTLS);
@@ -57,7 +59,28 @@ void fill_vmcs(__vcpu* vcpu, void* guest_rsp) // 填充 VMCS
         vcpu->vmcs_effective_controls.entry,
         ept_vpid_cap);
 
-    hv::set_msr_bitmap(vcpu->msr_bitmap, IA32_FEATURE_CONTROL, true); // 监视 IA32_FEATURE_CONTROL
+#ifdef _MINIMAL
+    // 这些 MSR 有 VMCS 影子状态或会改变 EPT 内存类型，不能透传给宿主硬件。
+    hv::set_msr_bitmap(vcpu->msr_bitmap, IA32_FEATURE_CONTROL, true);
+    hv::set_msr_bitmap(vcpu->msr_bitmap, IA32_PAT, true);
+    hv::set_msr_bitmap(vcpu->msr_bitmap, IA32_EFER, true);
+    hv::set_msr_bitmap(vcpu->msr_bitmap, IA32_MTRRCAP, true);
+    hv::set_msr_bitmap(vcpu->msr_bitmap, IA32_MTRR_DEF_TYPE, true);
+    hv::set_msr_bitmap(vcpu->msr_bitmap, IA32_MTRR_FIX64K_00000, true);
+    hv::set_msr_bitmap(vcpu->msr_bitmap, IA32_MTRR_FIX16K_80000, true);
+    hv::set_msr_bitmap(vcpu->msr_bitmap, IA32_MTRR_FIX16K_A0000, true);
+    for (unsigned int index = 0; index < 8; ++index)
+    {
+        hv::set_msr_bitmap(vcpu->msr_bitmap, IA32_MTRR_FIX4K_C0000 + index, true);
+    }
+    for (unsigned int index = 0; index < 256; ++index)
+    {
+        hv::set_msr_bitmap(vcpu->msr_bitmap, IA32_MTRR_PHYSBASE0 + index * 2, true);
+        hv::set_msr_bitmap(vcpu->msr_bitmap, IA32_MTRR_PHYSMASK0 + index * 2, true);
+    }
+#else
+    hv::set_msr_bitmap(vcpu->msr_bitmap, IA32_FEATURE_CONTROL, true);
+#endif
     hv::vmwrite<unsigned __int64>(PIN_BASED_VM_EXEC_CONTROL, vcpu->vmcs_effective_controls.pinbased);
     hv::vmwrite<unsigned __int64>(PRIMARY_PROCESSOR_BASED_VM_EXEC_CONTROL, vcpu->vmcs_effective_controls.primary);
     hv::vmwrite<unsigned __int64>(SECONDARY_PROCESSOR_BASED_VM_EXEC_CONTROL, vcpu->vmcs_effective_controls.secondary);

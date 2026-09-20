@@ -17,9 +17,9 @@ bool mov_to_cr3_handler(__vcpu* vcpu, unsigned __int64 guest_cr3) // vcpu=当前
 		new_cr3.flags &= ~(1ull << 63); // 原理：bit63 是控制位不是地址位；作用：清除此位再写回 CR3；结果：CR3 地址字段合法
 	}
 
-	cpuid_eax_80000008 cpuid_80000008; // 原理：CPUID 0x80000008 返回 MAXPHYSADDR；作用：准备接收硬件能力；结果：结构体待填充
-	__cpuid(reinterpret_cast<int*>(&cpuid_80000008), 0x80000008); // 参数1：输出缓冲区地址；参数2：CPUID 叶号；结果：填充物理地址位数信息
-	uint64_t max_phys_addr = cpuid_80000008.eax.number_of_physical_address_bits; // 原理：EAX 字段给出有效物理地址位数；作用：用于构造保留位掩码；结果：得到 MAXPHYSADDR
+	// MAXPHYADDR 已由 query_platform_physical_address_limit 在进入 VT 前逐核缓存；
+	// CR3 写入是热路径，不再每次执行 CPUID。
+	uint64_t const max_phys_addr = vcpu->max_physical_address_bits;
 
 	auto const reserved_mask = ~((1ull << max_phys_addr) - 1); // 原理：MAXPHYSADDR 以上位是保留位；作用：构造非法位掩码；结果：reserved_mask 标识所有必须为 0 的位
 	if (new_cr3.flags & reserved_mask) // 原理：CR3 保留位为 1 属于非法写入；作用：检测非法高位；结果：非法则注入 #GP

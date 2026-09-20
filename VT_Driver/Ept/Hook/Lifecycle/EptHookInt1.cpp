@@ -83,6 +83,12 @@ namespace ept
 
 		//判断2mb pde是否已经进行分割
 		__ept_dynamic_split* runtime_split = nullptr;
+		if (!prepare_pml2_for_address(ept_state, physical_address))
+		{
+			LogError("Failed to prepare PML2 for INT1 hook");
+			return false;
+		}
+
 		if (is_page_splitted(ept_state, physical_address) == false)
 		{
 			void* split_buffer = pool_manager::request_pool<void*>(

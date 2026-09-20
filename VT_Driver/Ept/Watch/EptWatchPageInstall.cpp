@@ -91,6 +91,12 @@ namespace ept
         }
 
         __ept_dynamic_split* runtime_split = nullptr;
+        if (!prepare_pml2_for_address(ept_state, physical_address))
+        {
+            LogError("Failed to prepare PML2 for watch page");
+            return false;
+        }
+
         if (!is_page_splitted(ept_state, physical_address))
         {
             void* split_buffer = pool_manager::request_pool<void*>(

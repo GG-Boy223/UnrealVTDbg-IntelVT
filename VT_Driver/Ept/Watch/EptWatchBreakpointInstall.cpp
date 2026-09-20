@@ -206,7 +206,7 @@ namespace ept
 			for (unsigned int cpu = committed_vcpus[index]; cpu > 0; cpu--)
 			{
 				__vcpu* vcpu = &g_vmm_context.vcpu[cpu - 1];
-				ept_watch_deactivate_internal(vcpu,
+				if (!ept_watch_deactivate_internal(vcpu,
 					*vcpu->ept_state,
 					eptWatchList[ID].VirtualAddress,
 					eptWatchList[ID].PhysicalAddress,
@@ -214,7 +214,15 @@ namespace ept
 					eptWatchList[ID].bpType,
 					eptWatchList[ID].OriginalByte,
 					has,
-					ID);
+					ID))
+				{
+					KeBugCheckEx(
+						0x00020001,
+						0x45505457,
+						4,
+						ID,
+						cpu - 1);
+				}
 			}
 
 			spinlock::lock(&eptWatchList_lock);

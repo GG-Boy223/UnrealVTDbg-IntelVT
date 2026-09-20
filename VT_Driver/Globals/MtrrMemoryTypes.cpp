@@ -140,7 +140,12 @@ namespace hv
                 else
                 {
                     // PDE 指向一个 PT
-                    auto const pt = reinterpret_cast<ept_pte*>(host_physical_memory_base + (pde.large_page.page_frame_number << 12)); // 定位 PTE 表
+                    void* pt_va = nullptr;
+                    if (!get_physical_mapping_va(static_cast<uint64_t>(pde.large_page.page_frame_number) << 12, &pt_va))
+                    {
+                        return;
+                    }
+                    auto const pt = reinterpret_cast<ept_pte*>(pt_va); // 定位 PTE 表
 
                     // update the memory type for every PTE
                     // 更新每个 PTE 的内存类型
@@ -165,10 +170,6 @@ namespace hv
             return;
         }
 
-        // TODO: completely virtualize the guest MTRRs
-        // 完全虚拟化guest MTRR
-        auto const mtrrs = read_mtrr_data(); // 获取当前 MTRR 配置
-
         for (size_t i = 0; i < ept_state.mapped_pdpte_count; ++i)
         {
             if (ept_state.pml2_pages[i] == nullptr)
@@ -184,28 +185,33 @@ namespace hv
                 // 2MB 大页面
                 if (pde.page_directory_entry.large_page)
                 {
-                    // pde.page_directory_entry.memory_type = calc_mtrr_mem_type(mtrrs,
-                    //     pde.page_directory_entry.page_frame_number << 21, 0x1000 << 9); // 旧逻辑：运行期MTRR刷新不区分RAM与MMIO空洞。
                     uint64_t const pde_physical_address =
                         static_cast<uint64_t>(pde.page_directory_entry.page_frame_number) << 21; // 位域先转成64位，避免MSVC在多行实参里解析异常。
-                    pde.page_directory_entry.memory_type = ept::get_ept_memory_type_for_range(mtrrs,
-                        ept_state,
+                    pde.page_directory_entry.memory_type = ept::is_physical_range_ram(ept_state,
                         pde_physical_address,
-                        0x1000ull << 9);
+                        0x1000ull << 9)
+                        ? MEMORY_TYPE_WRITE_BACK
+                        : MEMORY_TYPE_UNCACHEABLE;
                 }
                 else
                 {
                     // PDE 指向一个 PT
-                    auto const pt = reinterpret_cast<ept_pte*>(host_physical_memory_base + (pde.large_page.page_frame_number << 12)); // 定位 PTE 表
+                    void* pt_va = nullptr;
+                    if (!get_physical_mapping_va(static_cast<uint64_t>(pde.large_page.page_frame_number) << 12, &pt_va))
+                    {
+                        return;
+                    }
+                    auto const pt = reinterpret_cast<ept_pte*>(pt_va); // 定位 PTE 表
 
                     // update the memory type for every PTE
                     // 更新每个 PTE 的内存类型
                     for (size_t k = 0; k < 512; ++k)
                     {
-                        // pt[k].memory_type = calc_mtrr_mem_type(mtrrs, pt[k].page_frame_number << 12, 0x1000); // 旧逻辑：split页刷新后仍可能把MMIO设为WB。
                         uint64_t const pte_physical_address =
                             static_cast<uint64_t>(pt[k].page_frame_number) << 12; // 4KB页同样按64位物理地址计算，避免高物理地址截断。
-                        pt[k].memory_type = ept::get_ept_memory_type_for_range(mtrrs, ept_state, pte_physical_address, 0x1000);
+                        pt[k].memory_type = ept::is_physical_range_ram(ept_state, pte_physical_address, 0x1000)
+                            ? MEMORY_TYPE_WRITE_BACK
+                            : MEMORY_TYPE_UNCACHEABLE;
                     }
                 }
             }

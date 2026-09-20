@@ -1,5 +1,31 @@
 ﻿#include "VmmInternal.h"
 
+namespace
+{
+	void initialize_guest_mtrr_state(__vcpu* vcpu)
+	{
+		__guest_mtrr_state& state = vcpu->guest_mtrr_state;
+
+		state.cap = __readmsr(IA32_MTRRCAP);
+		state.def_type = __readmsr(IA32_MTRR_DEF_TYPE);
+		state.fixed_64k = __readmsr(IA32_MTRR_FIX64K_00000);
+		state.fixed_16k[0] = __readmsr(IA32_MTRR_FIX16K_80000);
+		state.fixed_16k[1] = __readmsr(IA32_MTRR_FIX16K_A0000);
+
+		for (unsigned int index = 0; index < 8; ++index)
+		{
+			state.fixed_4k[index] = __readmsr(IA32_MTRR_FIX4K_C0000 + index);
+		}
+
+		unsigned int const variable_range_count = static_cast<unsigned int>(state.cap & 0xff);
+		for (unsigned int index = 0; index < variable_range_count; ++index)
+		{
+			state.variable[index * 2] = __readmsr(IA32_MTRR_PHYSBASE0 + index * 2);
+			state.variable[index * 2 + 1] = __readmsr(IA32_MTRR_PHYSMASK0 + index * 2);
+		}
+	}
+}
+
 //分配vcpu结构内存
 bool init_vcpu(__vcpu* vcpu) // 为单个VCPU分配位图和EPT状态等基础资源，满足VMCS依赖
 {
@@ -44,12 +70,14 @@ bool init_vcpu(__vcpu* vcpu) // 为单个VCPU分配位图和EPT状态等基础�
 	}
 	RtlSecureZeroMemory(vcpu->ept_state, sizeof(__ept_state)); // 清零EPT状态，避免残留指针
 	InitializeListHead(&vcpu->ept_state->hooked_page_list); // 初始化EPT hook列表头，便于后续管理
+	InitializeListHead(&vcpu->ept_state->retired_page_list); // 初始化延迟回收页记录链表
 	vcpu->ept_state->hooked_page_list_lock = 0; // 初始化每VCPU的EPT hook列表锁。
 	outFile("[成功][VCPU] EPT状态结构分配完成：VA=0x%p", vcpu->ept_state);
 
 	RtlSecureZeroMemory(&vcpu->host_tss, sizeof(task_state_segment_64)); // 清零宿主TSS，避免旧值影响任务切换
 	RtlSecureZeroMemory(&vcpu->host_gdt, sizeof(segment_descriptor_32) * HOST_GDT_DESCRIPTOR_COUNT); // 清零宿主GDT缓冲，后续填充
 	RtlSecureZeroMemory(&vcpu->host_idt, sizeof(segment_descriptor_interrupt_gate_64) * HOST_IDT_DESCRIPTOR_COUNT); // 清零宿主IDT缓冲，后续填充
+	initialize_guest_mtrr_state(vcpu); // 建立该逻辑处理器的 guest MTRR 软件影子，后续 WRMSR 只修改影子
 
 	outFile("---------- VCPU基础资源初始化完成：VCPU=0x%p ----------", vcpu);
 

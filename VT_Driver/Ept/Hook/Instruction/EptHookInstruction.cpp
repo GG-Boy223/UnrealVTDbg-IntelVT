@@ -287,9 +287,8 @@ namespace ept
 		// 获得线性地址的低12位 页偏移
 		unsigned __int64 page_offset = MASK_EPT_PML1_OFFSET((unsigned __int64)target_function);
 
-		// If first 14 bytes of function are on 2 separate pages then return (Hypervisor doesn't support function hooking at page boundaries)
-		// 判断页偏移 >4095  即判断是否跨入到下一个4K页面
-		if ((page_offset + 14) > PAGE_SIZE - 1)
+		// 14 字节绝对跳转必须完整落在目标页内，避免 LDE 越过页尾读取。
+		if ((page_offset + kAbsoluteJumpSize) > PAGE_SIZE)
 		{
 			LogError("Function at page boundary");
 			return false;
@@ -300,13 +299,6 @@ namespace ept
 		if (decode_hooked_instructions_size(target_function, page_offset, kAbsoluteJumpSize, hooked_instructions_size) == false)
 		{
 			LogError("解析被覆盖指令长度失败");
-			return false;
-		}
-
-		// If instructions to hook are on two seperate pages then return (Hypervisor doesn't support function hooking at page boundaries)
-		if ((hooked_instructions_size + 14) > PAGE_SIZE - 1)
-		{
-			LogError("Function at page boundary");
 			return false;
 		}
 

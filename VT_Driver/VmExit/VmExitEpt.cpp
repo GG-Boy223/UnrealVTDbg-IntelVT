@@ -26,6 +26,13 @@ void vmexit_ept_violation_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 	ept_violation.all = vcpu->vmexit_info.qualification; // 原理:将 qualification 原值写入位域结构;作用:解析读/写/执行违规;结果:ept_violation 填充
 	unsigned __int64 guest_physical_adddress = hv::vmread(GUEST_PHYSICAL_ADDRESS); // 固定读取GPA
 
+	// 已摘链的页/函数记录在这里尝试回收。回收只处理引用计数已经归零的对象，
+	// 不等待其他 VCPU；仍有引用的对象留到后续安全点继续回收。
+	if (vcpu != nullptr && vcpu->ept_state != nullptr)
+	{
+		ept::reclaim_retired_resources(*vcpu->ept_state);
+	}
+
 	__ept_hooked_page_info* hooked_page_info = nullptr;
 	__ept_hooked_function_info* hooked_function_info = nullptr;
 
@@ -55,12 +62,13 @@ void vmexit_ept_violation_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 			{
 				if (bpType == 3)
 				{
-					hooked_page_info->isInt3 = true;
-					hooked_page_info->original_entry.execute = 1;
 					if (!hv::mark_pending_mtf_page(vcpu, hooked_page_info))
 					{
+						hv::set_mtf(false);
 						goto handled_return;
 					}
+					hooked_page_info->isInt3 = true;
+					hooked_page_info->original_entry.execute = 1;
 					hv::set_mtf(true);
 					ept::swap_pml1_and_invalidate_tlb(*vcpu->ept_state,
 						hooked_page_info->entry_address,
@@ -71,6 +79,7 @@ void vmexit_ept_violation_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 				{
 					if (!hv::mark_pending_mtf_page(vcpu, hooked_page_info))
 					{
+						hv::set_mtf(false);
 						goto handled_return;
 					}
 					_mm_mfence();
@@ -82,11 +91,11 @@ void vmexit_ept_violation_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 
 		if (hooked_page_info->Options == EPTO_HOOK_FUNCTION)
 		{
-			hooked_page_info->original_entry.execute = 1;
 			if (!hv::mark_pending_mtf_page(vcpu, hooked_page_info))
 			{
 				goto handled_return;
 			}
+			hooked_page_info->original_entry.execute = 1;
 			hv::set_mtf(true);
 			ept::swap_pml1_and_invalidate_tlb(*vcpu->ept_state,
 				hooked_page_info->entry_address,

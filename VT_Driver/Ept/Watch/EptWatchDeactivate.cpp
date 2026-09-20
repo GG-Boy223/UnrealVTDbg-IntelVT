@@ -71,28 +71,8 @@ namespace ept
 							hv::clear_pending_mtf_metadata(vcpu);
 						}
 
-						ept::wait_for_page_quiescence(hooked_page_info);
-
-						hooked_page_info->ID = -1;
-						hooked_page_info->isBp = false;
-						hooked_page_info->isInt3 = false;
-						hooked_page_info->last_watch_id = -1;
-						hooked_page_info->fake_page_synced = false;
-						hooked_page_info->fake_page_needs_full_sync = false;
-
-						// 先取出 owner_split，再释放 hooked_page_info。
-						__ept_dynamic_split* owner_split = hooked_page_info->owner_split;
-						if (owner_split == nullptr)
-						{
-							// 兼容旧记录：若没填 owner_split，则按 entry_address 反推一次。
-							owner_split = ept_get_split_from_pml1(hooked_page_info->entry_address);
-						}
-
 						ept::remove_hooked_page(ept_state, hooked_page_info);
-						// 关键修复：失败路径要回收 hooked_page_info（旧代码这里直接 return false，导致池对象泄漏）。
-						pool_manager::release_pool(hooked_page_info);
-						// 关键：watch 页记录被删除后，对 split 做 ref--，必要时合并回 2MB 并回收。
-						ept_split_ref_dec_and_maybe_release(ept_state, owner_split);
+						ept::reclaim_retired_resources(ept_state);
 					}
 					return true;
 				}

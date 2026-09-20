@@ -1,4 +1,4 @@
-#include "EptWatchInternal.h"
+﻿#include "EptWatchInternal.h"
 
 namespace ept
 {
@@ -64,14 +64,17 @@ namespace ept
         hooked_page_info->ID = transitional_id;
         hooked_page_info->isInt3 = true;
         hooked_page_info->isBp = false;
-        hooked_page_info->original_entry.execute = 1;
         spinlock::unlock(&eptWatchList_lock);
 
         if (!hv::mark_pending_mtf_page(vcpu, hooked_page_info))
         {
-            return false;
+            // removing 已由删除事务置位。删除事务会在本热引用释放后恢复
+            // EPT 权限并回收记录；本次不能再切换表项或启用 MTF。
+            hv::set_mtf(false);
+            return true;
         }
 
+        hooked_page_info->original_entry.execute = 1;
         hv::set_mtf(true);
         swap_pml1_and_invalidate_tlb(
             *vcpu->ept_state,

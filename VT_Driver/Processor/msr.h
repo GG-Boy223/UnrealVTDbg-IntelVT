@@ -70,7 +70,7 @@ union __vmx_misc_msr_t
         unsigned __int64 max_msr_vmexit : 3;
         unsigned __int64 allow_smi_blocking : 1;
         unsigned __int64 vmwrite_to_any : 1;
-        unsigned __int64 interrupt_mod : 1;
+        unsigned __int64 zero_length_instruction_vmentry_injection : 1;
         unsigned __int64 reserved_1 : 1;
         unsigned __int64 mseg_revision_identifier : 32;
     };

@@ -106,6 +106,34 @@ namespace hv // Hypervisor 核心例程命名空间
 	void inject_interruption(unsigned __int32 vector, unsigned __int32 type, unsigned __int32 error_code, bool deliver_error_code); // 向 Guest 注入中断/异常
 
 	/// <summary>
+	/// Queue a VM-entry event when the VMCS injected-event field is already occupied.
+	/// </summary>
+	void queue_pending_vm_entry_event(
+		__vcpu* vcpu,
+		unsigned __int32 interrupt_info,
+		unsigned __int32 instruction_length,
+		unsigned __int32 error_code);
+
+	/// <summary>
+	/// Pop one queued VM-entry event.
+	/// </summary>
+	bool pop_pending_vm_entry_event(
+		__vcpu* vcpu,
+		unsigned __int32* interrupt_info,
+		unsigned __int32* instruction_length,
+		unsigned __int32* error_code);
+
+	/// <summary>
+	/// Inject the oldest queued event if the VM-entry injected-event field is free.
+	/// </summary>
+	void drain_pending_vm_entry_event(__vcpu* vcpu);
+
+	/// <summary>
+	/// Keep MTF armed while queued events still need a following VM exit.
+	/// </summary>
+	void ensure_pending_vm_entry_event_progress(__vcpu* vcpu);
+
+	/// <summary>
 	/// Write to reset io port to perform hard reset
 	/// </summary>
 	void hard_reset(); // 通过 I/O 端口触发硬复位

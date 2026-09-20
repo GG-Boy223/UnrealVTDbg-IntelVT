@@ -187,6 +187,24 @@ namespace ept
 		return &pdpt_page->entries[pml3_index];
 	}
 
+	static bool pml2_page_is_owned_by_mmio_pool(__ept_state const& ept_state, __ept_pde* page)
+	{
+		if (page == nullptr || ept_state.mmio_pd_pool == nullptr)
+		{
+			return false;
+		}
+
+		for (unsigned __int32 i = 0; i < ept_state.mmio_pd_pool_capacity; ++i)
+		{
+			if (ept_state.mmio_pd_pool[i].entries == page)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	void cleanup_page_table(__ept_state& ept_state)
 	{
 		if (ept_state.physical_memory_ranges != nullptr)
@@ -202,7 +220,11 @@ namespace ept
 			{
 				if (ept_state.pml2_pages[i] != nullptr)
 				{
-					free_vmm_page_aligned(ept_state.pml2_pages[i]);
+					// MMIO 池页由池描述表统一释放；普通 RAM PD 页才在这里释放，避免双重释放。
+					if (!pml2_page_is_owned_by_mmio_pool(ept_state, ept_state.pml2_pages[i]))
+					{
+						free_vmm_page_aligned(ept_state.pml2_pages[i]);
+					}
 					ept_state.pml2_pages[i] = nullptr;
 				}
 			}
@@ -332,12 +354,13 @@ namespace ept
 
 	unsigned __int8 get_ept_memory_type_for_range(mtrr_data const& mtrrs, __ept_state const& ept_state, unsigned __int64 physical_address, unsigned __int64 size)
 	{
+		UNREFERENCED_PARAMETER(mtrrs); // EPT 下 guest MTRR 不参与 GPA 访问的最终内存类型计算。
 		if (!is_physical_range_ram(ept_state, physical_address, size))
 		{
 			return MEMORY_TYPE_UNCACHEABLE; // 非RAM/MMIO必须保守映射为UC，避免设备空间被WB缓存造成整机卡死。
 		}
 
-		return hv::calc_mtrr_mem_type(mtrrs, physical_address, size);
+		return MEMORY_TYPE_WRITE_BACK; // RAM 固定使用 WB EPT 类型；guest PAT 仍可按 VMCS GUEST_PAT 参与组合。
 	}
 
 	/// <summary>
@@ -377,8 +400,8 @@ namespace ept
 		}
 	}
 
-	// 非 RAM 区域按需映射使用的 PD 页池：池页全部在构建期分配，并缓存自身物理页帧号。
-	// EPT violation 处理运行在来宾 IRQL 上，只允许做纯内存写入，因此这里一次性把资源备齐。
+	// 非 RAM 区域按需映射/降级使用的 PD 页池：池页全部在构建期分配，并缓存自身物理页帧号。
+	// EPT violation 与 VMCALL hook/watch 安装都不能在热路径重新分配内存，因此这里一次性把资源备齐。
 	// 返回 false 时 mmio_pd_pool_capacity 只包含已成功分配的页数，由 cleanup_page_table 负责释放。
 	static bool allocate_mmio_pd_pool(__ept_state& ept_state)
 	{
@@ -490,9 +513,9 @@ namespace ept
 			outFile("[成功][EPT页表] 扩展PDPT指针表分配完成：ExtCount=%u", required_pml4_count - 1);
 		}
 
-		// 不支持 1GB EPT 大页的 CPU 上，非 RAM 区域只能按 2MB 粒度按需映射，
-		// 因此必须在进入 VMLAUNCH 前把 PD 页池准备好（EPT violation 路径不允许再分配内存）。
-		if (!use_1gb_ept_pages && !allocate_mmio_pd_pool(ept_state))
+		// 即使 CPU 支持 1GB EPT 大页，运行期 hook/watch 仍可能要求把 1GB MMIO 降级到 2MB，
+		// 所以两类 CPU 都必须预分配 PD 页池；1GB 路径只在首次需要 4KB 粒度时取用池页。
+		if (!allocate_mmio_pd_pool(ept_state))
 		{
 			cleanup_page_table(ept_state);
 			free_vmm_page_aligned(ept_state.ept_page_table);
@@ -694,7 +717,57 @@ namespace ept
 		new_pdpte.execute = 1;
 		new_pdpte.execute_for_usermode = 0;
 		new_pdpte.page_frame_number = slot.page_frame_number;
+		ept_state.pml2_pages[flat_pdpt_index] = pd_page;
 		pdpte->all = new_pdpte.all;
+
+		return true;
+	}
+
+	// 将空 PDPTE 或 1GB EPT 大页转换为可拆分的 2MB PD。
+	// 这里不负责 2MB -> 4KB 拆分；调用方在拿到 PDE 后继续走原有 split_pml2 路径。
+	bool prepare_pml2_for_address(__ept_state& ept_state, unsigned __int64 physical_address)
+	{
+		unsigned __int64 const flat_pdpt_index =
+			(MASK_EPT_PML4_INDEX(physical_address) << 9) + MASK_EPT_PML3_INDEX(physical_address);
+		if (ept_state.pml2_pages == nullptr || flat_pdpt_index >= ept_state.mapped_pdpte_count)
+		{
+			LogError("EPT PML2 preparation outside identity map: pa=0x%llX flat_pdpt=%llu mapped=%u",
+				physical_address,
+				flat_pdpt_index,
+				ept_state.mapped_pdpte_count);
+			return false;
+		}
+
+		if (ept_state.pml2_pages[flat_pdpt_index] != nullptr)
+		{
+			return true;
+		}
+
+		__ept_pdpte* pdpte = get_pdpte_entry(ept_state, static_cast<unsigned __int32>(flat_pdpt_index));
+		if (pdpte == nullptr)
+		{
+			LogError("EPT PDPTE lookup failed during PML2 preparation: flat_pdpt=%llu", flat_pdpt_index);
+			return false;
+		}
+
+		if (pdpte->all != 0 && pdpte->large_page.large_page == 0)
+		{
+			LogError("EPT PDPTE already points to a PD but pml2_pages is empty: flat_pdpt=%llu", flat_pdpt_index);
+			return false;
+		}
+
+		unsigned __int64 const region_base = flat_pdpt_index * ept_1gb_page_size;
+		if (physical_range_overlaps_ram(ept_state, region_base, ept_1gb_page_size))
+		{
+			LogError("EPT RAM region has no PD during PML2 preparation: flat_pdpt=%llu", flat_pdpt_index);
+			return false;
+		}
+
+		if (!publish_mmio_2mb_mapping(ept_state, pdpte, flat_pdpt_index))
+		{
+			LogError("Failed to publish MMIO 2MB mapping during PML2 preparation: flat_pdpt=%llu", flat_pdpt_index);
+			return false;
+		}
 
 		return true;
 	}

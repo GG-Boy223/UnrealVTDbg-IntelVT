@@ -1,4 +1,4 @@
-#include "GlobalsInternal.h"
+﻿#include "GlobalsInternal.h"
 
 namespace hv
 {
@@ -38,6 +38,17 @@ namespace hv
         }
 
         __ept_state* ept_state = vcpu->ept_state;
+        if (InterlockedCompareExchange(&hooked_page_info->removing, 0, 0) != 0)
+        {
+            // 删除事务已经接管该页。若本核仍持有同页 pending 引用，
+            // 立即撤销，避免把旧引用带到延迟回收链。
+            if (ept_state->mtf_pending && ept_state->page_to_change == hooked_page_info)
+            {
+                clear_pending_mtf_metadata(ept_state);
+            }
+            return false;
+        }
+
         if (ept_state->mtf_pending && ept_state->page_to_change == hooked_page_info)
         {
             return true;
@@ -72,11 +83,6 @@ namespace hv
             }
 
             clear_pending_mtf_metadata(ept_state);
-        }
-
-        if (InterlockedCompareExchange(&hooked_page_info->removing, 0, 0) != 0)
-        {
-            return false;
         }
 
         InterlockedIncrement(&hooked_page_info->mtf_reference_count);

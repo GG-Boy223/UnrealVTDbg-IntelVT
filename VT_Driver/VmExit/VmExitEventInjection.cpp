@@ -2,6 +2,26 @@
 
 namespace
 {
+	void write_vm_entry_event_to_vmcs(
+		unsigned __int32 interrupt_info,
+		unsigned __int32 instruction_length,
+		unsigned __int32 error_code)
+	{
+		if (instruction_length != 0)
+		{
+			hv::vmwrite<unsigned __int64>(VM_ENTRY_INSTRUCTION_LENGTH, instruction_length);
+		}
+
+		__vmentry_interrupt_info info = { 0 };
+		info.all = interrupt_info;
+		if (info.deliver_error_code != 0)
+		{
+			hv::vmwrite<unsigned __int64>(VM_ENTRY_EXCEPTION_ERROR_CODE, error_code);
+		}
+
+		hv::vmwrite<unsigned __int64>(VM_ENTRY_INTERRUPTION_INFO_FIELD, interrupt_info);
+	}
+
 	bool vmexit_event_type_can_be_reinjected(unsigned __int32 type) // 判断 VM-exit 携带的事件类型是否可通过 VM-entry 字段重新投递。
 	{
 		return type == INTERRUPT_TYPE_EXTERNAL_INTERRUPT || // 外部中断可由 VM-entry interruption info 重新注入。
@@ -20,6 +40,87 @@ namespace
 		{
 			//__writecr2(hv::vmread(GUEST_LINEAR_ADDRESS));
 			__writecr2(vcpu->vmexit_info.guest_registers->cr2); // 使用汇编入口保存的 guest CR2，避免 host fault 覆盖页错误地址。
+		}
+	}
+}
+
+namespace hv
+{
+	void queue_pending_vm_entry_event(
+		__vcpu* vcpu,
+		unsigned __int32 interrupt_info,
+		unsigned __int32 instruction_length,
+		unsigned __int32 error_code)
+	{
+		if (vcpu == nullptr)
+		{
+			vmx_fatal_error(vmx_fatal_missing_vcpu, 0, 0);
+		}
+
+		auto& queue = vcpu->pending_vm_entry_events;
+		if (queue.count >= kVmEntryEventQueueCapacity)
+		{
+			vmx_fatal_error(
+				vmx_fatal_vm_entry_event_queue_overflow,
+				interrupt_info,
+				queue.count);
+		}
+
+		__pending_vm_entry_event& entry = queue.entries[queue.tail];
+		entry.interrupt_info = interrupt_info;
+		entry.instruction_length = instruction_length;
+		entry.error_code = error_code;
+		queue.tail = (queue.tail + 1) % kVmEntryEventQueueCapacity;
+		++queue.count;
+	}
+
+	bool pop_pending_vm_entry_event(
+		__vcpu* vcpu,
+		unsigned __int32* interrupt_info,
+		unsigned __int32* instruction_length,
+		unsigned __int32* error_code)
+	{
+		if (vcpu == nullptr || interrupt_info == nullptr || instruction_length == nullptr || error_code == nullptr)
+		{
+			return false;
+		}
+
+		auto& queue = vcpu->pending_vm_entry_events;
+		if (queue.count == 0)
+		{
+			return false;
+		}
+
+		__pending_vm_entry_event const& entry = queue.entries[queue.head];
+		*interrupt_info = entry.interrupt_info;
+		*instruction_length = entry.instruction_length;
+		*error_code = entry.error_code;
+		queue.head = (queue.head + 1) % kVmEntryEventQueueCapacity;
+		--queue.count;
+		return true;
+	}
+
+	void drain_pending_vm_entry_event(__vcpu* vcpu)
+	{
+		if (vcpu == nullptr || vm_entry_event_pending())
+		{
+			return;
+		}
+
+		unsigned __int32 interrupt_info = 0;
+		unsigned __int32 instruction_length = 0;
+		unsigned __int32 error_code = 0;
+		if (pop_pending_vm_entry_event(vcpu, &interrupt_info, &instruction_length, &error_code))
+		{
+			write_vm_entry_event_to_vmcs(interrupt_info, instruction_length, error_code);
+		}
+	}
+
+	void ensure_pending_vm_entry_event_progress(__vcpu* vcpu)
+	{
+		if (vcpu != nullptr && vcpu->pending_vm_entry_events.count != 0)
+		{
+			hv::set_mtf(true);
 		}
 	}
 }
@@ -70,14 +171,6 @@ bool reinject_idt_vectoring_event_if_needed(__vcpu* vcpu) // VM-exit 打断 IDT 
 		return false; // 不支持的事件类型不强行转换，避免破坏 VMX 事件语义。
 	}
 
-	if (vm_entry_event_pending())
-	{
-		sLog("pending VM-entry event blocks IDT-vectoring reinjection type:%u vector:%u\n",
-			vectoring.interruption_type,
-			vectoring.vector);
-		return false; // 已有注入事件时保持现状，防止覆盖更早的异常/中断。
-	}
-
 	const unsigned __int32 error_code = vectoring.error_code_valid ?
 		static_cast<unsigned __int32>(hv::vmread(IDT_VECTORING_ERROR_CODE)) : 0; // 只有 error_code_valid=1 时读取 IDT-vectoring 错误码。
 	sync_cr2_for_page_fault(vcpu, vectoring.vector); // #PF 必须先恢复 CR2，再通过 VM-entry 重注入。
@@ -125,14 +218,6 @@ void vmexit_exception_or_nmi_handler(__vcpu* vcpu) // 处理 exception-or-NMI �
 			exit_interrupt.vector,
 			exit_interrupt.all);
 		return; // 不支持类型只记录日志，不做语义不明的转换。
-	}
-
-	if (vm_entry_event_pending())
-	{
-		sLog("pending VM-entry event blocks reinjection type:%u vector:%u\n",
-			exit_interrupt.interruption_type,
-			exit_interrupt.vector);
-		return; // 保护已存在的 VM-entry 事件，避免后写覆盖先写。
 	}
 
 	const unsigned __int32 error_code = exit_interrupt.error_code_valid ?
