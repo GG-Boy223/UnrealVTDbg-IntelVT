@@ -2,14 +2,14 @@
 #include "invalid_ept.h"   // INVEPT 描述符与接口声明
 #include "AsmCallset.h"    // 汇编封装的 INVEPT 指令调用
 
-// 刷新全部 EPT 上下文（所有逻辑处理器）
+// 刷新当前逻辑处理器上的所有 EPT 上下文
 void invept_all_contexts_func() // 供上层统一刷新 EPT 缓存的入口，确保所有 EPT 映射变化生效
 {
     __invept_descriptor descriptor = { 0 }; // 描述符置零，符合 INVEPT(all-context) 的格式要求
     __invept(invept_all_context, &descriptor); // 执行 INVEPT(all-context)，清空所有 EPT 派生缓存
 }
 
-// 刷新指定 EPTP 的上下文（单一上下文无效化）
+// 刷新当前逻辑处理器上指定 EPTP 的 EPT 上下文
 void invept_single_context_func(unsigned __int64 ept_pointer) // 仅刷新某个 EPTP，避免全局失效导致的性能开销
 {
     __invept_descriptor descriptor = { 0 }; // 初始化描述符，避免残留位导致 #GP 异常
