@@ -54,9 +54,18 @@ namespace
 			(msr_index >= IA32_MTRR_FIX4K_C0000 && msr_index <= IA32_MTRR_FIX4K_F8000);
 	}
 
-	bool is_variable_mtrr_msr(unsigned __int32 msr_index)
+	bool is_variable_mtrr_msr(__guest_mtrr_state const& state, unsigned __int32 msr_index)
 	{
-		return msr_index >= IA32_MTRR_PHYSBASE0 && msr_index <= IA32_MTRR_PHYSMASK0 + 511;
+		if (msr_index < IA32_MTRR_PHYSBASE0)
+		{
+			return false;
+		}
+
+		// Only the pairs reported by IA32_MTRRCAP[7:0] are variable MTRRs.
+		// The same numeric window contains architectural PMU MSRs (0x38E+).
+		unsigned __int32 const index = msr_index - IA32_MTRR_PHYSBASE0;
+		unsigned __int32 const variable_range_count = static_cast<unsigned __int32>(state.cap & 0xff);
+		return index < variable_range_count * 2;
 	}
 
 	bool try_read_guest_mtrr_msr(__vcpu const* vcpu, unsigned __int32 msr_index,
@@ -94,16 +103,9 @@ namespace
 			return true;
 		}
 
-		if (is_variable_mtrr_msr(msr_index))
+		if (is_variable_mtrr_msr(state, msr_index))
 		{
 			unsigned __int32 const index = msr_index - IA32_MTRR_PHYSBASE0;
-			unsigned __int32 const variable_range_count = static_cast<unsigned __int32>(state.cap & 0xff);
-			if (index >= variable_range_count * 2)
-			{
-				fault = true;
-				return true;
-			}
-
 			value = state.variable[index];
 			return true;
 		}
@@ -161,16 +163,9 @@ namespace
 			return true;
 		}
 
-		if (is_variable_mtrr_msr(msr_index))
+		if (is_variable_mtrr_msr(state, msr_index))
 		{
 			unsigned __int32 const index = msr_index - IA32_MTRR_PHYSBASE0;
-			unsigned __int32 const variable_range_count = static_cast<unsigned __int32>(state.cap & 0xff);
-			if (index >= variable_range_count * 2)
-			{
-				fault = true;
-				return true;
-			}
-
 			unsigned __int32 const max_physical_address_bits = vcpu->max_physical_address_bits;
 			unsigned __int64 const address_mask = max_physical_address_bits >= 64
 				? MAXULONG64

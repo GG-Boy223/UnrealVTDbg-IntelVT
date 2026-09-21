@@ -200,7 +200,31 @@
     <Filter Include="Header Files\Core\IoctlHandlers">
       <UniqueIdentifier>{4588c462-4a0e-4c18-a820-f2505065d613}</UniqueIdentifier>
     </Filter>
-<Filter Include="Source Files\DbgkApi\Api"><UniqueIdentifier>{c0252062-e8df-4aea-afb3-3a81f8ebee32}</UniqueIdentifier></Filter><Filter Include="Header Files\DbgkApi\Api"><UniqueIdentifier>{d646ca67-522d-44b2-b52d-320b1e2797bf}</UniqueIdentifier></Filter><Filter Include="Source Files\Globals"><UniqueIdentifier>{d4218484-c2a0-48dc-89ce-06282093b025}</UniqueIdentifier></Filter><Filter Include="Header Files\Globals"><UniqueIdentifier>{f1c69d17-f0c6-4f07-9318-4e45d3d9c896}</UniqueIdentifier></Filter><Filter Include="Header Files\Protect\Process"><UniqueIdentifier>{c16deb1c-720a-43a4-9d56-d704d7fc0da3}</UniqueIdentifier></Filter><Filter Include="Header Files\Protect\Thread"><UniqueIdentifier>{894f8bdc-3829-4612-8ad9-cf8c2d74b9a5}</UniqueIdentifier></Filter><Filter Include="Header Files\Protect\Windows"><UniqueIdentifier>{0df4cb3c-6fdf-46f2-ba3a-be509ba22124}</UniqueIdentifier></Filter><Filter Include="Header Files\NativeApi"><UniqueIdentifier>{a576eaf7-9c84-4fb2-900e-fba0344af60b}</UniqueIdentifier></Filter></ItemGroup>
+    <Filter Include="Source Files\DbgkApi\Api">
+      <UniqueIdentifier>{c0252062-e8df-4aea-afb3-3a81f8ebee32}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\DbgkApi\Api">
+      <UniqueIdentifier>{d646ca67-522d-44b2-b52d-320b1e2797bf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Globals">
+      <UniqueIdentifier>{d4218484-c2a0-48dc-89ce-06282093b025}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Globals">
+      <UniqueIdentifier>{f1c69d17-f0c6-4f07-9318-4e45d3d9c896}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Protect\Process">
+      <UniqueIdentifier>{c16deb1c-720a-43a4-9d56-d704d7fc0da3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Protect\Thread">
+      <UniqueIdentifier>{894f8bdc-3829-4612-8ad9-cf8c2d74b9a5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Protect\Windows">
+      <UniqueIdentifier>{0df4cb3c-6fdf-46f2-ba3a-be509ba22124}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\NativeApi">
+      <UniqueIdentifier>{a576eaf7-9c84-4fb2-900e-fba0344af60b}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Core\DebugEvents\DebugRuntimeEvents.cpp">
       <Filter>Source Files\Core\DebugEvents</Filter>
@@ -241,7 +265,6 @@
     <ClCompile Include="Core\IoctlHandlers\ProtectListHandlers.cpp">
       <Filter>Source Files\Core\IoctlHandlers</Filter>
     </ClCompile>
-
     <ClCompile Include="Globals\Globals.cpp">
       <Filter>Source Files\Globals</Filter>
     </ClCompile>
@@ -437,7 +460,6 @@
     <ClCompile Include="DbgkApi\Api\DebugObjectLifecycle.cpp">
       <Filter>Source Files\DbgkApi\Api</Filter>
     </ClCompile>
-
     <ClCompile Include="DbgkApi\Api\DebugProcessUnload.cpp">
       <Filter>Source Files\DbgkApi\Api</Filter>
     </ClCompile>
@@ -458,6 +480,15 @@
     </ClCompile>
     <ClCompile Include="DbgkApi\Api\DebugExitEvents.cpp">
       <Filter>Source Files\DbgkApi\Api</Filter>
+    </ClCompile>
+    <ClCompile Include="Cr3\Cr3Candidate.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Cr3\Cr3Probe.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Cr3\Cr3Resolver.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -683,7 +714,25 @@
     <ClInclude Include="DbgkApi\Api\DebugEventHandlersInternal.h">
       <Filter>Header Files\DbgkApi\Api</Filter>
     </ClInclude>
-  <ClInclude Include="Globals\Globals.h"><Filter>Header Files\Globals</Filter></ClInclude><ClInclude Include="Protect\Process\ProtectProcess.h"><Filter>Header Files\Protect\Process</Filter></ClInclude><ClInclude Include="Protect\Thread\ProtectDrxX64.h"><Filter>Header Files\Protect\Thread</Filter></ClInclude><ClInclude Include="Protect\Windows\BypassFindWnd.h"><Filter>Header Files\Protect\Windows</Filter></ClInclude></ItemGroup>
+    <ClInclude Include="Globals\Globals.h">
+      <Filter>Header Files\Globals</Filter>
+    </ClInclude>
+    <ClInclude Include="Protect\Process\ProtectProcess.h">
+      <Filter>Header Files\Protect\Process</Filter>
+    </ClInclude>
+    <ClInclude Include="Protect\Thread\ProtectDrxX64.h">
+      <Filter>Header Files\Protect\Thread</Filter>
+    </ClInclude>
+    <ClInclude Include="Protect\Windows\BypassFindWnd.h">
+      <Filter>Header Files\Protect\Windows</Filter>
+    </ClInclude>
+    <ClInclude Include="Cr3\Cr3Internal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Cr3\Cr3Resolver.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
   <ItemGroup>
     <MASM Include="Hvm\ASM\AsmCallset.asm">
       <Filter>Source Files\Hvm\Asm</Filter>

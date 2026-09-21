@@ -73,7 +73,12 @@ void fill_vmcs(__vcpu* vcpu, void* guest_rsp) // 填充 VMCS
     {
         hv::set_msr_bitmap(vcpu->msr_bitmap, IA32_MTRR_FIX4K_C0000 + index, true);
     }
-    for (unsigned int index = 0; index < 256; ++index)
+    // IA32_MTRRCAP[7:0] gives the number of variable MTRR pairs. Do not
+    // intercept the whole 0x200..0x3FF range: architectural PMU MSRs such as
+    // IA32_PERF_GLOBAL_STATUS/CTRL also live in that range.
+    unsigned int const variable_range_count =
+        static_cast<unsigned int>(vcpu->guest_mtrr_state.cap & 0xff);
+    for (unsigned int index = 0; index < variable_range_count; ++index)
     {
         hv::set_msr_bitmap(vcpu->msr_bitmap, IA32_MTRR_PHYSBASE0 + index * 2, true);
         hv::set_msr_bitmap(vcpu->msr_bitmap, IA32_MTRR_PHYSMASK0 + index * 2, true);
