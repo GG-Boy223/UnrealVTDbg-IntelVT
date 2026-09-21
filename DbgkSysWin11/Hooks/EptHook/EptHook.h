@@ -158,4 +158,7 @@ VOID Hook_ValidateHwnd();
 EXTERN_C
 VOID Hook_NtUserWindowFromPoint();
 
+EXTERN_C
+VOID Hook_NtUserSetWindowsHookEx();
+
 #endif // !_EPT_HOOK_H

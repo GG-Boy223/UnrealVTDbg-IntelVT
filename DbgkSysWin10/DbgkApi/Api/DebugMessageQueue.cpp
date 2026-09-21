@@ -30,10 +30,13 @@ NTSTATUS DbgkpQueueMessage(
     NewEvent = (Flags & DEBUG_EVENT_NOWAIT) ? TRUE : FALSE;
     if (NewEvent)
     {
+#pragma warning(push)
+#pragma warning(disable: 4996)
         DebugEvent = (PDEBUG_EVENT)ExAllocatePoolWithTag(
             NonPagedPool,
             sizeof(DEBUG_EVENT),
             'EgbD');
+#pragma warning(pop)
         if (!DebugEvent)
         {
             return STATUS_INSUFFICIENT_RESOURCES; // 显式返回内存不足，避免隐式成功。

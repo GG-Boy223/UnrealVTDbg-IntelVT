@@ -51,6 +51,7 @@ VOID UnEptHook()
         Original_ValidateHwnd = NULL;
         Original_NtUserFindWindowEx = NULL;
         Original_NtUserWindowFromPoint = NULL;
+        Original_NtUserSetWindowsHookEx = NULL;
         Original_NtTerminateProcess = NULL;
         Original_NtSuspendThread = NULL;
         Original_NtResumeThread = NULL;
@@ -125,5 +126,6 @@ VOID SetupEptHook()
         Hook_ValidateHwnd(); //win32k中此函数必须先hook
         Hook_NtUserFindWindowEx();
         Hook_NtUserWindowFromPoint();
+        Hook_NtUserSetWindowsHookEx();
     }
 }

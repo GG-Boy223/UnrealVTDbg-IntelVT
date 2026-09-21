@@ -26,3 +26,12 @@ VOID Hook_NtUserWindowFromPoint()
         HookEptRoutine(Sys_NtUserWindowFromPoint, NewNtUserWindowFromPoint, (PVOID*)&Original_NtUserWindowFromPoint, "NtUserWindowFromPoint", "NtUserWindowFromPoint");
     }
 }
+
+EXTERN_C
+VOID Hook_NtUserSetWindowsHookEx()
+{
+    if (g_IsInitGlobalVariable)
+    {
+        HookEptRoutine(Sys_NtUserSetWindowsHookEx, NewNtUserSetWindowsHookEx, (PVOID*)&Original_NtUserSetWindowsHookEx, "NtUserSetWindowsHookEx", "NtUserSetWindowsHookEx");
+    }
+}

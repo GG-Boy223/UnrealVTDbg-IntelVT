@@ -14,5 +14,14 @@ HWND NewNtUserFindWindowEx(IN HWND hwndParent,
 //API WindowFromPoint
 HWND NewNtUserWindowFromPoint(POINT Point);
 
+//API SetWindowsHookEx
+PVOID NewNtUserSetWindowsHookEx(
+    IN PVOID Mod,
+    IN PUNICODE_STRING UnsafeModuleName,
+    IN ULONG ThreadId,
+    IN int HookId,
+    IN PVOID HookProc,
+    IN int Ansi);
+
 
 #endif // !_INIT_WIN32K_FULL_H

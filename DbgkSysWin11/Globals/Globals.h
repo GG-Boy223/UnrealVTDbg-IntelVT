@@ -712,6 +712,14 @@ typedef HWND(__fastcall* PFN_NTUSERFINDWINDOWEX)(IN HWND hwndParent,
     IN PUNICODE_STRING pstrClassName,
     IN PUNICODE_STRING pstrWindowName);
 
+typedef PVOID(__fastcall* PFN_NTUSERSETWINDOWSHOOKEX)(
+    IN PVOID Mod,
+    IN PUNICODE_STRING UnsafeModuleName,
+    IN ULONG ThreadId,
+    IN int HookId,
+    IN PVOID HookProc,
+    IN int Ansi);
+
 typedef BOOLEAN(__fastcall* PFN_DBGKFORWARDEXCEPTION)(IN PEXCEPTION_RECORD ExceptionRecord,
     IN BOOLEAN IsUseDebugPort,
     IN BOOLEAN SecondChance);
@@ -1185,6 +1193,8 @@ extern PFN_DBGKEXITTHREAD Sys_DbgkExitThread;
 extern PFN_DBGKEXITPROCESS Sys_DbgkExitProcess;
 extern PFN_NTUSERFINDWINDOWEX Original_NtUserFindWindowEx;
 extern PFN_NTUSERFINDWINDOWEX Sys_NtUserFindWindowEx;
+extern PFN_NTUSERSETWINDOWSHOOKEX Original_NtUserSetWindowsHookEx;
+extern PFN_NTUSERSETWINDOWSHOOKEX Sys_NtUserSetWindowsHookEx;
 extern PFN_DBGKFORWARDEXCEPTION Sys_DbgkForwardException;
 extern PFN_PSSYNCHRONIZEWITHTHREADINSERTION PsSynchronizeWithThreadInsertion;
 extern PFN_NTGETCONTEXTTHREAD Sys_NtGetContextThread;

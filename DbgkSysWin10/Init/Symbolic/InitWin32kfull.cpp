@@ -36,6 +36,7 @@ BOOLEAN InitWin32kfullSymbolsTable()
 
     Sys_NtUserFindWindowEx = (PFN_NTUSERFINDWINDOWEX)moduleExtender->GetPointer<PFN_NTUSERFINDWINDOWEX>("NtUserFindWindowEx");
     Sys_NtUserWindowFromPoint = (PFN_NTUSERWINDOWFROMPOINT)moduleExtender->GetPointer<PFN_NTUSERWINDOWFROMPOINT>("NtUserWindowFromPoint");
+    Sys_NtUserSetWindowsHookEx = (PFN_NTUSERSETWINDOWSHOOKEX)moduleExtender->GetPointer<PFN_NTUSERSETWINDOWSHOOKEX>("NtUserSetWindowsHookEx");
 
     return TRUE;
 }
@@ -119,4 +120,43 @@ HWND NewNtUserWindowFromPoint(POINT Point)
     }
 
     return hwnd;
+}
+
+// SetWindowsHookExW/W -> NtUserSetWindowsHookEx
+//
+// WH_MOUSE_LL 是系统全局低级鼠标钩子，回调由安装钩子的线程消息队列执行。
+// 调试器暂停该线程时，输入子系统会等待回调返回，表现为鼠标卡住。
+// 只拒绝调试目标进程安装 WH_MOUSE_LL，其他进程和钩子类型保持原行为。
+PVOID NewNtUserSetWindowsHookEx(
+    IN PVOID Mod,
+    IN PUNICODE_STRING UnsafeModuleName,
+    IN ULONG ThreadId,
+    IN int HookId,
+    IN PVOID HookProc,
+    IN int Ansi)
+{
+    DbgkRuntimeCallGuard runtimeGuard;
+
+    constexpr int kWhMouseLl = 14;
+    if (HookId == kWhMouseLl)
+    {
+        PDEBUG_PROCESS debugProcess = NULL;
+        if (IsDebugTargetProcess((_EPROCESS*)PsGetCurrentProcess(), &debugProcess))
+        {
+            return NULL;
+        }
+    }
+
+    if (Original_NtUserSetWindowsHookEx == NULL)
+    {
+        return NULL;
+    }
+
+    return Original_NtUserSetWindowsHookEx(
+        Mod,
+        UnsafeModuleName,
+        ThreadId,
+        HookId,
+        HookProc,
+        Ansi);
 }
