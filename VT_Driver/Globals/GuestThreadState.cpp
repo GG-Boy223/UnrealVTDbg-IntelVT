@@ -190,6 +190,7 @@ namespace hv
             if (vcpu_breakpoint_matches(target_vcpu, request))
             {
                 target_vcpu->breakpoint_detected = NULL;
+                target_vcpu->breakpoint_debug_register = -1;
                 target_vcpu->Cid = { 0 };
             }
 
@@ -256,6 +257,7 @@ namespace hv
         if (detected_vcpu != nullptr)
         {
             tmp_vmcallinfo.breakpoint_detected = detected_vcpu->breakpoint_detected; // 回填触发地址
+            tmp_vmcallinfo.debugRegister = detected_vcpu->breakpoint_debug_register;
 
             if (sizeof(BREAKPOINT_DETECTED) != hv::write_guest_virtual_memory(vmcallinfo, &tmp_vmcallinfo, sizeof(BREAKPOINT_DETECTED)))
             {
@@ -264,6 +266,7 @@ namespace hv
 
             //这说明该断点事件即将被调试器处理，是时候将它移除了
             detected_vcpu->breakpoint_detected = NULL; // 清空触发地址，避免重复上报
+            detected_vcpu->breakpoint_debug_register = -1;
             detected_vcpu->Cid = { 0 }; // 清空线程 ID 记录
             return true; // 成功返回
         }

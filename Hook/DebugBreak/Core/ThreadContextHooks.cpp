@@ -108,21 +108,31 @@ BOOL WINAPI NewGetThreadContext(
         DEBUG_HIT_RECORD hitRecord = { 0 };
         const bool hasThreadHitRecord = DebugBreakInternal::GetDebugHitRecord(threadId, &hitRecord);
         const bool useGlobalHitRecord = !hasThreadHitRecord && threadId == 0;
-        const LONG debugCondition = hasThreadHitRecord ?
+        LONG debugCondition = hasThreadHitRecord ?
             hitRecord.Condition :
             (useGlobalHitRecord ? InterlockedCompareExchange(&g_debug_condition_detected, 0, 0) : 0);
         const LONG rawDebugRegisterStatus = (hasThreadHitRecord ?
             hitRecord.RegisterStatus :
             (useGlobalHitRecord ? InterlockedCompareExchange(&g_debug_register_status, 0, 0) : 0)) & 0xF;
-        const LONG debugRegisterStatus = hardwareBridgeEnabled ? rawDebugRegisterStatus : 0;
-        const bool hasCapturedDr6Status = debugRegisterStatus != 0;
+        LONG debugRegisterStatus = hardwareBridgeEnabled ? rawDebugRegisterStatus : 0;
+        bool hasCapturedDr6Status = debugRegisterStatus != 0;
         ULONG64 detectedBreakpointAddress = hasThreadHitRecord ? hitRecord.DetectedAddress : 0;
 
-        if (hardwareBridgeEnabled && debugCondition == 1 && !hasCapturedDr6Status && detectedBreakpointAddress == 0)
+        if (hardwareBridgeEnabled && !hasCapturedDr6Status && detectedBreakpointAddress == 0)
         {
-            detectedBreakpointAddress = DebugBreakInternal::QueryDetectedBreakpointAddress(hThread);
+            int detectedDebugRegister = -1;
+            detectedBreakpointAddress = DebugBreakInternal::QueryDetectedBreakpointAddress(
+                hThread,
+                &detectedDebugRegister);
             if (detectedBreakpointAddress != 0)
             {
+                debugCondition = 1;
+                if (detectedDebugRegister >= 0 &&
+                    detectedDebugRegister < DebugBreakInternal::kDebugRegisterCount)
+                {
+                    debugRegisterStatus = 1L << detectedDebugRegister;
+                    hasCapturedDr6Status = true;
+                }
                 DebugBreakInternal::UpdateDebugHitDetectedAddress(
                     threadId,
                     debugCondition,

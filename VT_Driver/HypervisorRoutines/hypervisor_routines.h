@@ -106,13 +106,25 @@ namespace hv // Hypervisor 核心例程命名空间
 	void inject_interruption(unsigned __int32 vector, unsigned __int32 type, unsigned __int32 error_code, bool deliver_error_code); // 向 Guest 注入中断/异常
 
 	/// <summary>
+	/// Inject an interrupt/exception together with its guest debug-register state.
+	/// </summary>
+	void inject_interruption_with_debug_state(
+		unsigned __int32 vector,
+		unsigned __int32 type,
+		unsigned __int32 error_code,
+		bool deliver_error_code,
+		unsigned __int64 debug_register_state);
+
+	/// <summary>
 	/// Queue a VM-entry event when the VMCS injected-event field is already occupied.
 	/// </summary>
 	void queue_pending_vm_entry_event(
 		__vcpu* vcpu,
 		unsigned __int32 interrupt_info,
 		unsigned __int32 instruction_length,
-		unsigned __int32 error_code);
+		unsigned __int32 error_code,
+		unsigned __int64 debug_register_state,
+		bool has_debug_register_state);
 
 	/// <summary>
 	/// Pop one queued VM-entry event.
@@ -121,7 +133,9 @@ namespace hv // Hypervisor 核心例程命名空间
 		__vcpu* vcpu,
 		unsigned __int32* interrupt_info,
 		unsigned __int32* instruction_length,
-		unsigned __int32* error_code);
+		unsigned __int32* error_code,
+		unsigned __int64* debug_register_state,
+		bool* has_debug_register_state);
 
 	/// <summary>
 	/// Inject the oldest queued event if the VM-entry injected-event field is free.

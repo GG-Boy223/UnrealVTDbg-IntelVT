@@ -18,6 +18,7 @@ bool AddHardwareBreakpoint(PBREAKPOINT_RECORD Breakpoint)
     vmcallinfo.CPUCount = Breakpoint->CPUCount;
     vmcallinfo.LoopUserMode = Breakpoint->LoopUserMode;
     vmcallinfo.pid = Breakpoint->pid;
+    vmcallinfo.debugRegister = Breakpoint->debugRegister;
     vmcallinfo.watchid = -1;
 
     NTSTATUS status = CaptureProcessCr3(Breakpoint->pid, Breakpoint->cr3, &vmcallinfo.cr3);

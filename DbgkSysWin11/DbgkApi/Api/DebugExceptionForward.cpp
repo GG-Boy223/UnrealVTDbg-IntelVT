@@ -144,30 +144,6 @@ DbgkForwardException(
             return FALSE;
         }
 
-        if (ExceptionRecord->ExceptionCode == STATUS_SINGLE_STEP)
-        {
-            _ETHREAD* Thread = (_ETHREAD*)PsGetCurrentThread();
-            //    || Thread->Tcb.ApcStateIndex == 1)
-            //if (Thread->Tcb.MiscFlags & PS_MISC_FLAGS_SYSTEM_THREAD
-            //{
-            //    Teb = NULL;
-            //}
-            //else
-            size_t kthread_base = (size_t)Thread + ethread_offset::Tcb;
-            size_t ptr_TrapFrame = kthread_base + kthread_offset::TrapFrame;
-            PKTRAP_FRAME TrapFrame = *(PKTRAP_FRAME*)ptr_TrapFrame;
-
-            Dr6 dr6;
-            dr6.flags = TrapFrame->Dr6;
-            if (dr6.BS == 0) //判断是否是tf单步执行
-            {
-                //在vt中通过向guest注入#DB异常并不会修改dr6寄存器
-                if (dr6.B0 || dr6.B1 || dr6.B2 || dr6.B3)
-                {
-                    return FALSE;
-                }
-            }
-        }
     }
 
     // /* Fill out the exception information */

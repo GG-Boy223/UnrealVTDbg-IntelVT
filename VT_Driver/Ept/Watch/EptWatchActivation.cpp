@@ -90,6 +90,7 @@ namespace ept
 			eptWatchList[ID].Type = Type;
 			eptWatchList[ID].Options = EPTO_VIRTUAL_BREAKPOINT;
 			eptWatchList[ID].bpType = 1;
+			eptWatchList[ID].debugRegister = vmcallinfo.debugRegister;
 			eptWatchList[ID].GroupId = firstID;
 			eptWatchList[ID].Cr3TrackerId = tracker_id;
 			eptWatchList[ID].inuse = EPT_WATCH_INSTALLING;

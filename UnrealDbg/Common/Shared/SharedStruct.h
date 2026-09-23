@@ -121,12 +121,14 @@ typedef struct _VT_BREAK_POINT {
     unsigned char OriginalBytes; //原字节
     unsigned char buffer[16];
     unsigned long pid; //进程pid
+    int debugRegister; //来源 DR0-DR3 槽位，供驱动命中后回填 DR6
 }VT_BREAK_POINT, * PVT_BREAK_POINT;
 
 typedef struct _BREAKPOINT_DETECTED {
     unsigned __int64 command;
     MY_CLIENT_ID Cid;
     unsigned __int64 breakpoint_detected; //记录触发的地址
+    int debugRegister; //命中的 DR0-DR3 槽位，-1 表示无效
 }BREAKPOINT_DETECTED,*PBREAKPOINT_DETECTED;
 
 typedef struct _RING3_PROCESS_INFO {

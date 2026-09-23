@@ -97,6 +97,7 @@ namespace ept
 			if (vcpu->breakpoint_detected == virtual_address)
 			{
 				vcpu->breakpoint_detected = NULL;
+				vcpu->breakpoint_debug_register = -1;
 				vcpu->Cid = { 0 };
 			}
 		}

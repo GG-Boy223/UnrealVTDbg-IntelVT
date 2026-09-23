@@ -31,18 +31,6 @@ namespace DebugEventInternal
         return !IsEnvironmentFlagEnabled(L"UNREALVTDBG_DISABLE_HARDWARE_BREAKPOINTS");
     }
 
-    bool HasActiveHardwareBreakpoints()
-    {
-        // 显式关闭硬件桥时，#DB 按普通单步处理，避免旧硬件断点计数污染 Step Over/Step Into。
-        if (!IsHardwareBreakpointBridgeEnabled())
-        {
-            // 处理打开进程失败的情况
-            return false;
-        }
-
-        return InterlockedCompareExchange(&g_active_hardware_breakpoint_count, 0, 0) > 0;
-    }
-
     bool IsSingleStepExceptionCode(DWORD exceptionCode)
     {
         return exceptionCode == EXCEPTION_SINGLE_STEP;

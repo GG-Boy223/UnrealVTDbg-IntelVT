@@ -89,7 +89,7 @@ namespace DebugBreakInternal
         DebugHitList.UnLock();
     }
 
-    ULONG64 QueryDetectedBreakpointAddress(HANDLE hThread)
+    ULONG64 QueryDetectedBreakpointAddress(HANDLE hThread, int* debugRegister)
     {
         const DWORD threadId = GetThreadId(hThread);
         if (threadId == 0)
@@ -107,6 +107,10 @@ namespace DebugBreakInternal
             return 0;
         }
 
+        if (debugRegister != nullptr)
+        {
+            *debugRegister = vmcallinfo.debugRegister;
+        }
         return vmcallinfo.breakpoint_detected;
     }
 }

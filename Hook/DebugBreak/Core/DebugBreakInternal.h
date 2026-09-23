@@ -58,7 +58,7 @@ namespace DebugBreakInternal
         ULONG64 detectedAddress);
     void ClearDebugHitRecord(DWORD threadId);
     void ClearAllDebugHitRecords();
-    ULONG64 QueryDetectedBreakpointAddress(HANDLE hThread);
+    ULONG64 QueryDetectedBreakpointAddress(HANDLE hThread, int* debugRegister = nullptr);
 }
 
 #endif

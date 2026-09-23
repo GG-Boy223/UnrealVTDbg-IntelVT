@@ -277,6 +277,7 @@ namespace ept
 				{
 					hooked_page_info->isBp = true;
 					vcpu->breakpoint_detected = eptWatchList[ID].VirtualAddress;
+					vcpu->breakpoint_debug_register = eptWatchList[ID].debugRegister;
 				}
 			}
 			RestoreEptPageProperties(hooked_page_info, ID);

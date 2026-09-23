@@ -72,25 +72,6 @@ BOOLEAN DbgkForwardException(
             return FALSE;
         }
 
-        if (ExceptionRecord->ExceptionCode == STATUS_SINGLE_STEP)
-        {
-            DbgPrint("#DB exception address: %p\n", ExceptionRecord->ExceptionAddress);
-            _ETHREAD* Thread = (_ETHREAD*)PsGetCurrentThread();
-            size_t kthread_base = (size_t)Thread + ethread_offset::Tcb;
-            size_t ptr_TrapFrame = kthread_base + kthread_offset::TrapFrame;
-            PKTRAP_FRAME TrapFrame = *(PKTRAP_FRAME*)ptr_TrapFrame;
-
-            Dr6 dr6;
-            dr6.flags = TrapFrame->Dr6;
-            if (dr6.BS == 0) //判断是否是tf单步执行
-            {
-                //在vt中通过向guest注入#DB异常并不会修改dr6寄存器
-                if (dr6.B0 || dr6.B1 || dr6.B2 || dr6.B3)
-                {
-                    return FALSE;
-                }
-            }
-        }
     }
 
     // /* Fill out the exception information */

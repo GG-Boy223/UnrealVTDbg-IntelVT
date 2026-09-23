@@ -11,6 +11,8 @@ struct __pending_vm_entry_event
     unsigned __int32 interrupt_info; // VM-entry interruption-information 字段原值
     unsigned __int32 instruction_length; // 软件中断/软件异常注入所需指令长度
     unsigned __int32 error_code; // 需要随异常投递的错误码
+    unsigned __int64 debug_register_state; // 与调试异常原子投递的 guest DR6 快照
+    unsigned __int8 has_debug_register_state; // 区分普通事件和需要恢复 DR6 的调试异常
 };
 
 struct __vcpu // 每逻辑 CPU 的 VMM 状态
@@ -181,6 +183,7 @@ struct __vcpu // 每逻辑 CPU 的 VMM 状态
 
     CLIENT_ID Cid; //记录触发监视断点的guest的线程id
     unsigned __int64 breakpoint_detected; //记录触发的地址
+    int breakpoint_debug_register; //记录触发的 DR0-DR3 槽位，-1 表示无效
 
     unsigned __int64 cr3_target_values[4];
     unsigned __int32 cr3_target_count;

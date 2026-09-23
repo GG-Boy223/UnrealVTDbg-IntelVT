@@ -1,6 +1,6 @@
 ﻿#include "HypervisorInternal.h"
 
-namespace hv
+namespace
 {
     /// <summary>
     /// 向来宾系统注入中断或异常
@@ -23,8 +23,15 @@ namespace hv
     //			hv::vmwrite<unsigned __int64>(VM_ENTRY_EXCEPTION_ERROR_CODE, error_code); // 如果该异常需要错误码，则写入 VM-entry 错误码字段
     //		hv::vmwrite<unsigned __int64>(VM_ENTRY_INTERRUPTION_INFO_FIELD, interrupt.all); // 将构造好的中断信息写入 VMCS，等待 VM-entry 注入
     //	}
-    void inject_interruption(unsigned __int32 vector, unsigned __int32 type, unsigned __int32 error_code, bool deliver_error_code) // Safe VM-entry event injection.
+    void inject_interruption_impl(
+        unsigned __int32 vector,
+        unsigned __int32 type,
+        unsigned __int32 error_code,
+        bool deliver_error_code,
+        unsigned __int64 debug_register_state,
+        bool has_debug_register_state)
     {
+        __vcpu* vcpu = reinterpret_cast<__vcpu*>(_readfsbase_u64());
         __vmentry_interrupt_info pending = { 0 };
         pending.all = static_cast<unsigned __int32>(hv::vmread(VM_ENTRY_INTERRUPTION_INFO_FIELD));
 
@@ -44,11 +51,18 @@ namespace hv
         if (pending.valid)
         {
             hv::queue_pending_vm_entry_event(
-                reinterpret_cast<__vcpu*>(_readfsbase_u64()),
+                vcpu,
                 interrupt.all,
                 instruction_length,
-                error_code);
+                error_code,
+                debug_register_state,
+                has_debug_register_state);
             return;
+        }
+
+        if (has_debug_register_state)
+        {
+            vcpu->vmexit_info.guest_registers->dr6 = debug_register_state;
         }
 
         if (instruction_length != 0)
@@ -62,6 +76,38 @@ namespace hv
         }
 
         hv::vmwrite<unsigned __int64>(VM_ENTRY_INTERRUPTION_INFO_FIELD, interrupt.all);
+    }
+
+}
+
+namespace hv
+{
+    /// <summary>
+    /// 向来宾系统注入中断或异常
+    /// </summary>
+    /// <param name="vector">中断/异常向量号</param>
+    /// <param name="type">中断类型（外部/异常/软件等）</param>
+    /// <param name="error_code">需要注入的错误码</param>
+    /// <param name="deliver_error_code">是否需要携带错误码</param>
+    void inject_interruption(unsigned __int32 vector, unsigned __int32 type, unsigned __int32 error_code, bool deliver_error_code) // Safe VM-entry event injection.
+    {
+        inject_interruption_impl(vector, type, error_code, deliver_error_code, 0, false);
+    }
+
+    void inject_interruption_with_debug_state(
+        unsigned __int32 vector,
+        unsigned __int32 type,
+        unsigned __int32 error_code,
+        bool deliver_error_code,
+        unsigned __int64 debug_register_state)
+    {
+        inject_interruption_impl(
+            vector,
+            type,
+            error_code,
+            deliver_error_code,
+            debug_register_state,
+            true);
     }
 
     /// <summary>

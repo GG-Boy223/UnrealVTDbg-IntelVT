@@ -30,6 +30,7 @@ namespace
 bool init_vcpu(__vcpu* vcpu) // 为单个VCPU分配位图和EPT状态等基础资源，满足VMCS依赖
 {
 	outFile("---------- VCPU基础资源初始化开始：VCPU=0x%p ----------", vcpu);
+	vcpu->breakpoint_debug_register = -1; // 0 是合法 DR0，未发生命中时必须用 -1 哨兵值
 
 	//vcpu->vmm_stack = allocate_pool<void*>(VMM_STACK_SIZE);
 	//if (vcpu->vmm_stack == nullptr)

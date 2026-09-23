@@ -46,6 +46,7 @@ typedef struct // EPT 监视断点条目（描述一个监视点）
     int Size; // 断点覆盖的字节数
     int inuse; // EPT_WATCH_ENTRY_STATE：区分预留、生效和删除事务
     int bpType; // 断点类型 3=int3  1=debugreg
+    int debugRegister; // 命中的 DR0-DR3 槽位
     int GroupId; // 多页 watch 的根句柄；删除任一成员时撤销整组
     int Cr3TrackerId; // CR3 shuffle 跟踪器槽位，watch 生命周期持有一份引用
     unsigned char OriginalByte; // 原始字节（int3 断点恢复用）

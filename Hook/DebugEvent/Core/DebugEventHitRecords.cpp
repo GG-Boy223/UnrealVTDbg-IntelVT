@@ -31,11 +31,11 @@ namespace DebugEventInternal
         DebugHitList.UnLock();
     }
 
-    ULONG64 QueryDetectedBreakpointAddress(DWORD threadId)
+    bool QueryDetectedBreakpoint(DWORD threadId, BREAKPOINT_DETECTED* detectedBreakpoint)
     {
-        if (threadId == 0)
+        if (threadId == 0 || detectedBreakpoint == nullptr)
         {
-            return 0;
+            return false;
         }
 
         BREAKPOINT_DETECTED vmcallinfo = { 0 };
@@ -44,10 +44,11 @@ namespace DebugEventInternal
 
         if (!vmcall2(&vmcallinfo))
         {
-            return 0;
+            return false;
         }
 
-        return vmcallinfo.breakpoint_detected;
+        *detectedBreakpoint = vmcallinfo;
+        return true;
     }
 
     void CaptureSingleStepDebugState(DWORD threadId)
@@ -57,22 +58,11 @@ namespace DebugEventInternal
             return;
         }
 
-        if (!HasActiveHardwareBreakpoints())
+        if (!IsHardwareBreakpointBridgeEnabled())
         {
             InterlockedExchange(&g_debug_condition_detected, 2);
             InterlockedExchange(&g_debug_register_status, 0);
             StoreDebugHitRecord(threadId, 2, 0);
-            return;
-        }
-
-        // EPT watch 命中地址由驱动一次性消费。必须先保存本次命中，避免旧 DR6.BS/B0-B3
-        // 提前走普通单步回退，导致调试器把 watch 命中误判为 TF 单步。
-        const ULONG64 detectedAddress = QueryDetectedBreakpointAddress(threadId);
-        if (detectedAddress != 0)
-        {
-            InterlockedExchange(&g_debug_condition_detected, 1);
-            InterlockedExchange(&g_debug_register_status, 0);
-            StoreDebugHitRecord(threadId, 1, 0, detectedAddress);
             return;
         }
 
@@ -85,39 +75,51 @@ namespace DebugEventInternal
         CONTEXT Context = { 0 };
         Context.ContextFlags = CONTEXT_DEBUG_REGISTERS;
         const BOOL boSuccess = Sys_GetThreadContext(hThread, &Context);
-        if (boSuccess)
+        LONG registerStatus = boSuccess ? static_cast<LONG>(Context.Dr6 & 0xF) : 0;
+        const bool singleStep = boSuccess && ((Context.Dr6 & (1ULL << 14)) != 0);
+
+        // EPT watch 查询会消费驱动的一次性命中状态，必须在读取真实 DR6 之后执行。
+        BREAKPOINT_DETECTED detectedBreakpoint = { 0 };
+        ULONG64 detectedAddress = 0;
+        if (QueryDetectedBreakpoint(threadId, &detectedBreakpoint))
         {
-            Dr6 dr6;
-            dr6.flags = Context.Dr6;
-            if (dr6.BS)
+            detectedAddress = detectedBreakpoint.breakpoint_detected;
+            if (detectedAddress != 0 &&
+                detectedBreakpoint.debugRegister >= 0 &&
+                detectedBreakpoint.debugRegister < 4)
             {
-                InterlockedExchange(&g_debug_condition_detected, 2);
-                InterlockedExchange(&g_debug_register_status, 0);
-                StoreDebugHitRecord(threadId, 2, 0);
-            }
-            // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
-            else
-            {
-                const LONG registerStatus = static_cast<LONG>(Context.Dr6 & 0xF);
-                if (registerStatus != 0)
-                {
-                    InterlockedExchange(&g_debug_condition_detected, 1);
-                    InterlockedExchange(&g_debug_register_status, registerStatus);
-                    StoreDebugHitRecord(threadId, 1, registerStatus);
-                }
-                // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
-                else
-                {
-                    InterlockedExchange(&g_debug_condition_detected, 2);
-                    InterlockedExchange(&g_debug_register_status, 0);
-                    StoreDebugHitRecord(threadId, 2, 0);
-                }
+                registerStatus = 1L << detectedBreakpoint.debugRegister;
             }
         }
-        // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
+
+        if (registerStatus != 0)
+        {
+            InterlockedExchange(&g_debug_condition_detected, 1);
+            InterlockedExchange(&g_debug_register_status, registerStatus);
+            StoreDebugHitRecord(threadId, 1, registerStatus, detectedAddress);
+        }
+        else if (detectedAddress != 0)
+        {
+            InterlockedExchange(&g_debug_condition_detected, 1);
+            InterlockedExchange(&g_debug_register_status, 0);
+            StoreDebugHitRecord(threadId, 1, 0, detectedAddress);
+        }
+        // Intel DR6.BS 只表示 TF 单步；B0-B3 能共存时必须优先按硬件断点处理。
+        else if (singleStep)
+        {
+            InterlockedExchange(&g_debug_condition_detected, 2);
+            InterlockedExchange(&g_debug_register_status, 0);
+            StoreDebugHitRecord(threadId, 2, 0);
+        }
         else
         {
-            logger.Log("获取调试寄存器Context失败! (error: %d)", GetLastError());
+            InterlockedExchange(&g_debug_condition_detected, 2);
+            InterlockedExchange(&g_debug_register_status, 0);
+            StoreDebugHitRecord(threadId, 2, 0);
+            if (!boSuccess)
+            {
+                logger.Log("获取调试寄存器Context失败! (error: %d)", GetLastError());
+            }
         }
         CloseHandle(hThread);
     }

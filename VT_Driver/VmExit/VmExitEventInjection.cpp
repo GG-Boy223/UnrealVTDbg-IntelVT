@@ -5,8 +5,16 @@ namespace
 	void write_vm_entry_event_to_vmcs(
 		unsigned __int32 interrupt_info,
 		unsigned __int32 instruction_length,
-		unsigned __int32 error_code)
+		unsigned __int32 error_code,
+		__vcpu* vcpu,
+		unsigned __int64 debug_register_state,
+		bool has_debug_register_state)
 	{
+		if (has_debug_register_state)
+		{
+			vcpu->vmexit_info.guest_registers->dr6 = debug_register_state;
+		}
+
 		if (instruction_length != 0)
 		{
 			hv::vmwrite<unsigned __int64>(VM_ENTRY_INSTRUCTION_LENGTH, instruction_length);
@@ -52,7 +60,9 @@ namespace hv
 		__vcpu* vcpu,
 		unsigned __int32 interrupt_info,
 		unsigned __int32 instruction_length,
-		unsigned __int32 error_code)
+		unsigned __int32 error_code,
+		unsigned __int64 debug_register_state,
+		bool has_debug_register_state)
 	{
 		if (vcpu == nullptr)
 		{
@@ -72,6 +82,8 @@ namespace hv
 		entry.interrupt_info = interrupt_info;
 		entry.instruction_length = instruction_length;
 		entry.error_code = error_code;
+		entry.debug_register_state = debug_register_state;
+		entry.has_debug_register_state = has_debug_register_state ? 1 : 0;
 		queue.tail = (queue.tail + 1) % kVmEntryEventQueueCapacity;
 		++queue.count;
 	}
@@ -80,9 +92,16 @@ namespace hv
 		__vcpu* vcpu,
 		unsigned __int32* interrupt_info,
 		unsigned __int32* instruction_length,
-		unsigned __int32* error_code)
+		unsigned __int32* error_code,
+		unsigned __int64* debug_register_state,
+		bool* has_debug_register_state)
 	{
-		if (vcpu == nullptr || interrupt_info == nullptr || instruction_length == nullptr || error_code == nullptr)
+		if (vcpu == nullptr ||
+			interrupt_info == nullptr ||
+			instruction_length == nullptr ||
+			error_code == nullptr ||
+			debug_register_state == nullptr ||
+			has_debug_register_state == nullptr)
 		{
 			return false;
 		}
@@ -97,6 +116,8 @@ namespace hv
 		*interrupt_info = entry.interrupt_info;
 		*instruction_length = entry.instruction_length;
 		*error_code = entry.error_code;
+		*debug_register_state = entry.debug_register_state;
+		*has_debug_register_state = entry.has_debug_register_state != 0;
 		queue.head = (queue.head + 1) % kVmEntryEventQueueCapacity;
 		--queue.count;
 		return true;
@@ -112,9 +133,23 @@ namespace hv
 		unsigned __int32 interrupt_info = 0;
 		unsigned __int32 instruction_length = 0;
 		unsigned __int32 error_code = 0;
-		if (pop_pending_vm_entry_event(vcpu, &interrupt_info, &instruction_length, &error_code))
+		unsigned __int64 debug_register_state = 0;
+		bool has_debug_register_state = false;
+		if (pop_pending_vm_entry_event(
+			vcpu,
+			&interrupt_info,
+			&instruction_length,
+			&error_code,
+			&debug_register_state,
+			&has_debug_register_state))
 		{
-			write_vm_entry_event_to_vmcs(interrupt_info, instruction_length, error_code);
+			write_vm_entry_event_to_vmcs(
+				interrupt_info,
+				instruction_length,
+				error_code,
+				vcpu,
+				debug_register_state,
+				has_debug_register_state);
 		}
 	}
 
