@@ -65,6 +65,17 @@ namespace DebugEventInternal
             return;
         }
 
+        // EPT watch 命中地址由驱动一次性消费。必须先保存本次命中，避免旧 DR6.BS/B0-B3
+        // 提前走普通单步回退，导致调试器把 watch 命中误判为 TF 单步。
+        const ULONG64 detectedAddress = QueryDetectedBreakpointAddress(threadId);
+        if (detectedAddress != 0)
+        {
+            InterlockedExchange(&g_debug_condition_detected, 1);
+            InterlockedExchange(&g_debug_register_status, 0);
+            StoreDebugHitRecord(threadId, 1, 0, detectedAddress);
+            return;
+        }
+
         HANDLE hThread = OpenThread(THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION, FALSE, threadId);
         if (hThread == nullptr)
         {
@@ -97,20 +108,9 @@ namespace DebugEventInternal
                 // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
                 else
                 {
-                    const ULONG64 detectedAddress = QueryDetectedBreakpointAddress(threadId);
-                    if (detectedAddress != 0)
-                    {
-                        InterlockedExchange(&g_debug_condition_detected, 1);
-                        InterlockedExchange(&g_debug_register_status, 0);
-                        StoreDebugHitRecord(threadId, 1, 0, detectedAddress);
-                    }
-                    // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
-                    else
-                    {
-                        InterlockedExchange(&g_debug_condition_detected, 2);
-                        InterlockedExchange(&g_debug_register_status, 0);
-                        StoreDebugHitRecord(threadId, 2, 0);
-                    }
+                    InterlockedExchange(&g_debug_condition_detected, 2);
+                    InterlockedExchange(&g_debug_register_status, 0);
+                    StoreDebugHitRecord(threadId, 2, 0);
                 }
             }
         }
