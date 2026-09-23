@@ -5,10 +5,19 @@
 #include "Interface/Interface.h"
 #include "Crypter/xorstr.hpp"
 
+#include <cstdint>
+#include <new>
+
 namespace
 {
 	constexpr wchar_t kInjectDll32[] = L"Hook.dll";
 	constexpr wchar_t kInjectDll64[] = L"Hook64.dll";
+
+	struct StartupRequest
+	{
+		std::wstring executablePath;
+		std::wstring basePath;
+	};
 
 	bool QueryProcessIs64Bit(HANDLE process, bool* is64Bit)
 	{
@@ -191,6 +200,183 @@ namespace
 		}
 		(void)WaitForSingleObject(processInformation->hProcess, INFINITE);
 	}
+
+	BOOL StartProcessInternal(const wchar_t* szExe, const wchar_t* sPath)
+	{
+		STARTUPINFOW startupInfo = {};
+		startupInfo.cb = sizeof(startupInfo);
+		PROCESS_INFORMATION processInformation = {};
+		if (!CreateProcessW(
+			szExe,
+			nullptr,
+			nullptr,
+			nullptr,
+			FALSE,
+			CREATE_SUSPENDED,
+			nullptr,
+			nullptr,
+			&startupInfo,
+			&processInformation))
+		{
+			logger.outDebug(_T("调试器启动失败！(error:%lu)"), GetLastError());
+			return FALSE;
+		}
+
+		BOOL result = FALSE;
+		HANDLE readyEvent = nullptr;
+		do
+		{
+			bool is64Process = false;
+			if (!QueryProcessIs64Bit(processInformation.hProcess, &is64Process))
+			{
+				logger.outDebug(_T("调试器架构判定失败！(error:%lu)"), GetLastError());
+				break;
+			}
+
+			std::wstring const hookDllPath = BuildPath(
+				sPath,
+				is64Process ? kInjectDll64 : kInjectDll32);
+			if (hookDllPath.empty() || !IsRegularFile(hookDllPath))
+			{
+				logger.outDebug(_T("Hook DLL不存在：%s"), hookDllPath.c_str());
+				break;
+			}
+
+			DWORD const bootstrapSuspendCount = ResumeThread(processInformation.hThread);
+			if (bootstrapSuspendCount != 1)
+			{
+				logger.outDebug(_T("调试器初始化线程首次恢复失败！(count:%lu error:%lu)"),
+					bootstrapSuspendCount,
+					bootstrapSuspendCount == static_cast<DWORD>(-1) ? GetLastError() : ERROR_INVALID_STATE);
+				break;
+			}
+
+			bool shouldResuspendMainThread = false;
+			ULONGLONG const initializationDeadline =
+				GetTickCount64() + DEBUGGER_INITIALIZATION_WAIT_TIMEOUT_MS;
+			if (!WaitForDebuggerInitialization(
+				processInformation.hProcess,
+				initializationDeadline,
+				&shouldResuspendMainThread))
+			{
+				logger.outDebug(_T("调试器初始化等待失败！(error:%lu)"), GetLastError());
+				break;
+			}
+
+			if (shouldResuspendMainThread)
+			{
+				DWORD const suspendCount = SuspendThread(processInformation.hThread);
+				if (suspendCount != 0)
+				{
+					logger.outDebug(_T("调试器初始化线程重新挂起失败！(count:%lu error:%lu)"),
+						suspendCount,
+						suspendCount == static_cast<DWORD>(-1) ? GetLastError() : ERROR_INVALID_STATE);
+					break;
+				}
+			}
+
+			std::wstring const readyEventName = BuildHookReadyEventName(processInformation.dwProcessId);
+			SetLastError(ERROR_SUCCESS);
+			readyEvent = CreateEventW(nullptr, TRUE, FALSE, readyEventName.c_str());
+			DWORD const createEventError = GetLastError();
+			if (readyEvent == nullptr || createEventError == ERROR_ALREADY_EXISTS)
+			{
+				logger.outDebug(_T("Hook ready event创建失败！(error:%lu)"), createEventError);
+				break;
+			}
+
+			logger.outDebug(_T("%s"), hookDllPath.c_str());
+			if (!InjectDll_0(
+				processInformation.dwProcessId,
+				const_cast<TCHAR*>(hookDllPath.c_str()),
+				is64Process ? TRUE : FALSE))
+			{
+				break;
+			}
+
+			HANDLE waitHandles[] = { readyEvent, processInformation.hProcess };
+			ULONGLONG const hookReadyDeadline =
+				GetTickCount64() + HOOK_READY_WAIT_TIMEOUT_MS;
+			DWORD const remainingWait = GetRemainingWaitTime(hookReadyDeadline);
+			if (remainingWait == 0)
+			{
+				logger.outDebug(_T("Hook runtime等待超时！"));
+				break;
+			}
+			DWORD const waitResult = WaitForMultipleObjects(
+				_countof(waitHandles),
+				waitHandles,
+				FALSE,
+				remainingWait);
+			if (waitResult != WAIT_OBJECT_0)
+			{
+				logger.outDebug(_T("Hook runtime未就绪！(wait:0x%08lX)"), waitResult);
+				break;
+			}
+
+			if (WaitForSingleObject(processInformation.hProcess, 0) != WAIT_TIMEOUT)
+			{
+				logger.outDebug(_T("调试器在Hook就绪后提前退出！"));
+				break;
+			}
+
+			if (!SendDebuggerDataToDriver(processInformation.dwProcessId))
+			{
+				logger.outDebug(_T("调试器登记到驱动失败！(error:%lu)"), GetLastError());
+				break;
+			}
+
+			if (shouldResuspendMainThread)
+			{
+				DWORD const previousSuspendCount = ResumeThread(processInformation.hThread);
+				if (previousSuspendCount != 1)
+				{
+					if (previousSuspendCount == static_cast<DWORD>(-1))
+					{
+						logger.outDebug(_T("调试器主线程恢复失败！(error:%lu)"), GetLastError());
+					}
+					else
+					{
+						logger.outDebug(_T("调试器主线程挂起计数异常！(count:%lu)"), previousSuspendCount);
+					}
+					break;
+				}
+			}
+
+			result = TRUE;
+		} while (false);
+
+		if (!result)
+		{
+			TerminateSuspendedProcess(&processInformation);
+		}
+
+		if (readyEvent != nullptr)
+		{
+			CloseHandle(readyEvent);
+		}
+		CloseHandle(processInformation.hThread);
+		CloseHandle(processInformation.hProcess);
+
+		if (result)
+		{
+			logger.outDebug(_T("调试器启动成功！"));
+		}
+		return result;
+	}
+
+	unsigned __stdcall StartProcessThread(void* context)
+	{
+		StartupRequest* request = static_cast<StartupRequest*>(context);
+		if (request != nullptr)
+		{
+			(void)StartProcessInternal(
+				request->executablePath.c_str(),
+				request->basePath.c_str());
+			delete request;
+		}
+		return 0;
+	}
 }
 
 //下发调试器信息给驱动
@@ -241,161 +427,39 @@ BOOL StartProcess(TCHAR* szExe, TCHAR* sPath)
 		return FALSE;
 	}
 
-	STARTUPINFOW startupInfo = {};
-	startupInfo.cb = sizeof(startupInfo);
-	PROCESS_INFORMATION processInformation = {};
-	if (!CreateProcessW(
-		szExe,
-		nullptr,
-		nullptr,
-		nullptr,
-		FALSE,
-		CREATE_SUSPENDED,
-		nullptr,
-		nullptr,
-		&startupInfo,
-		&processInformation))
+	StartupRequest* request = new (std::nothrow) StartupRequest;
+	if (request == nullptr)
 	{
-		logger.outDebug(_T("调试器启动失败！(error:%lu)"), GetLastError());
+		SetLastError(ERROR_NOT_ENOUGH_MEMORY);
 		return FALSE;
 	}
 
-	BOOL result = FALSE;
-	HANDLE readyEvent = nullptr;
-	ULONGLONG const launchDeadline = GetTickCount64() + HOOK_READY_WAIT_TIMEOUT_MS;
-	do
+	try
 	{
-		bool is64Process = false;
-		if (!QueryProcessIs64Bit(processInformation.hProcess, &is64Process))
-		{
-			logger.outDebug(_T("调试器架构判定失败！(error:%lu)"), GetLastError());
-			break;
-		}
-
-		std::wstring const hookDllPath = BuildPath(
-			sPath,
-			is64Process ? kInjectDll64 : kInjectDll32);
-		if (hookDllPath.empty() || !IsRegularFile(hookDllPath))
-		{
-			logger.outDebug(_T("Hook DLL不存在：%s"), hookDllPath.c_str());
-			break;
-		}
-
-		DWORD const bootstrapSuspendCount = ResumeThread(processInformation.hThread);
-		if (bootstrapSuspendCount != 1)
-		{
-			logger.outDebug(_T("调试器初始化线程首次恢复失败！(count:%lu error:%lu)"),
-				bootstrapSuspendCount,
-				bootstrapSuspendCount == static_cast<DWORD>(-1) ? GetLastError() : ERROR_INVALID_STATE);
-			break;
-		}
-
-		bool shouldResuspendMainThread = false;
-		if (!WaitForDebuggerInitialization(
-			processInformation.hProcess,
-			launchDeadline,
-			&shouldResuspendMainThread))
-		{
-			logger.outDebug(_T("调试器初始化等待失败！(error:%lu)"), GetLastError());
-			break;
-		}
-
-		if (shouldResuspendMainThread)
-		{
-			DWORD const suspendCount = SuspendThread(processInformation.hThread);
-			if (suspendCount != 0)
-			{
-				logger.outDebug(_T("调试器初始化线程重新挂起失败！(count:%lu error:%lu)"),
-					suspendCount,
-					suspendCount == static_cast<DWORD>(-1) ? GetLastError() : ERROR_INVALID_STATE);
-				break;
-			}
-		}
-
-		std::wstring const readyEventName = BuildHookReadyEventName(processInformation.dwProcessId);
-		SetLastError(ERROR_SUCCESS);
-		readyEvent = CreateEventW(nullptr, TRUE, FALSE, readyEventName.c_str());
-		DWORD const createEventError = GetLastError();
-		if (readyEvent == nullptr || createEventError == ERROR_ALREADY_EXISTS)
-		{
-			logger.outDebug(_T("Hook ready event创建失败！(error:%lu)"), createEventError);
-			break;
-		}
-
-		logger.outDebug(_T("%s"), hookDllPath.c_str());
-		if (!InjectDll_0(
-			processInformation.dwProcessId,
-			const_cast<TCHAR*>(hookDllPath.c_str()),
-			is64Process ? TRUE : FALSE))
-		{
-			break;
-		}
-
-		HANDLE waitHandles[] = { readyEvent, processInformation.hProcess };
-		DWORD const remainingWait = GetRemainingWaitTime(launchDeadline);
-		if (remainingWait == 0)
-		{
-			logger.outDebug(_T("Hook runtime等待超时！"));
-			break;
-		}
-		DWORD const waitResult = WaitForMultipleObjects(
-			_countof(waitHandles),
-			waitHandles,
-			FALSE,
-			remainingWait);
-		if (waitResult != WAIT_OBJECT_0)
-		{
-			logger.outDebug(_T("Hook runtime未就绪！(wait:0x%08lX)"), waitResult);
-			break;
-		}
-
-		if (WaitForSingleObject(processInformation.hProcess, 0) != WAIT_TIMEOUT)
-		{
-			logger.outDebug(_T("调试器在Hook就绪后提前退出！"));
-			break;
-		}
-
-		if (!SendDebuggerDataToDriver(processInformation.dwProcessId))
-		{
-			logger.outDebug(_T("调试器登记到驱动失败！(error:%lu)"), GetLastError());
-			break;
-		}
-
-		if (shouldResuspendMainThread)
-		{
-			DWORD const previousSuspendCount = ResumeThread(processInformation.hThread);
-			if (previousSuspendCount != 1)
-			{
-				if (previousSuspendCount == static_cast<DWORD>(-1))
-				{
-					logger.outDebug(_T("调试器主线程恢复失败！(error:%lu)"), GetLastError());
-				}
-				else
-				{
-					logger.outDebug(_T("调试器主线程挂起计数异常！(count:%lu)"), previousSuspendCount);
-				}
-				break;
-			}
-		}
-
-		result = TRUE;
-	} while (false);
-
-	if (!result)
+		request->executablePath.assign(szExe);
+		request->basePath.assign(sPath);
+	}
+	catch (const std::bad_alloc&)
 	{
-		TerminateSuspendedProcess(&processInformation);
+		delete request;
+		SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+		return FALSE;
 	}
 
-	if (readyEvent != nullptr)
+	uintptr_t const threadHandle = _beginthreadex(
+		nullptr,
+		0,
+		StartProcessThread,
+		request,
+		0,
+		nullptr);
+	if (threadHandle == 0)
 	{
-		CloseHandle(readyEvent);
+		delete request;
+		SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+		return FALSE;
 	}
-	CloseHandle(processInformation.hThread);
-	CloseHandle(processInformation.hProcess);
 
-	if (result)
-	{
-		logger.outDebug(_T("调试器启动成功！"));
-	}
-	return result;
+	CloseHandle(reinterpret_cast<HANDLE>(threadHandle));
+	return TRUE;
 }
