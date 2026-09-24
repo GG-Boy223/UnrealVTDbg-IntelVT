@@ -99,6 +99,19 @@ bool init_logical_processor2(unsigned int iter) // 在指定CPU上完成VMXON/VM
 
 	//调节控制寄存器 cr4 cr0来启用vmx模式
 	outFile("[进行中][CPU%u] 调整CR0/CR4与IA32_FEATURE_CONTROL，准备满足VMXON硬件条件", iter);
+	const unsigned __int64 original_cr0 = __readcr0();
+	const unsigned __int64 original_cr4 = __readcr4();
+	auto restore_original_control_registers = [&]()
+	{
+		const bool interrupts_were_enabled = (__readeflags() & (1ull << 9)) != 0;
+		_disable();
+		__writecr0(original_cr0);
+		__writecr4(original_cr4);
+		if (interrupts_were_enabled)
+		{
+			_enable();
+		}
+	};
 
 	// 逐核初始化由单个控制线程按亲和性绑定的顺序循环执行（Vmm/VmmEntry.cpp:29-61），
 	// 不存在并发 VMXON，因此这里不需要自旋锁（原 g_vmx_init_lock 已删除）。
@@ -108,7 +121,8 @@ bool init_logical_processor2(unsigned int iter) // 在指定CPU上完成VMXON/VM
 	outFile("[进行中][CPU%u] 开始执行VMXON：VMXON_VA=0x%p", iter, &vcpu->vmxon);
 	if (!hv::enter_vmx_operation(vcpu->vmxon))  //进入vmx模式
 	{
-		LogError("Failed to put vcpu %d into VMX operation.\n", processor_number); // VMXON失败
+		LogError("Failed to put vcpu %llu into VMX operation.\n", processor_number); // VMXON失败
+		restore_original_control_registers();
 		outFile("[失败][CPU%u] VMXON失败，停止后续VMCS操作", iter);
 		return false; // 无法进入VMX根模式，后续VMCS操作无效
 	}
@@ -121,8 +135,9 @@ bool init_logical_processor2(unsigned int iter) // 在指定CPU上完成VMXON/VM
 	outFile("[进行中][CPU%u] 开始加载VMCS：VMCS_VA=0x%p", iter, &vcpu->vmcs);
 	if (!hv::load_vmcs_pointer(vcpu->vmcs)) // 让VMCS成为当前活动VMCS，后续vmwrite/vmread生效
 	{
-		LogError("load_vmcs_pointer失败.\n", processor_number); // VMCS加载失败
+		LogError("load_vmcs_pointer失败 on vcpu %llu.\n", processor_number); // VMCS加载失败
 		vmxoff_after_failed_initialization(vcpu, 1); // 仅在确认VMXOFF成功后清除状态并允许外层释放资源
+		restore_original_control_registers();
 		outFile("[失败][CPU%u] VMCLEAR/VMPTRLD失败，已执行VMXOFF回滚", iter);
 		return false; // 无法继续配置VMCS
 	}
@@ -132,7 +147,7 @@ bool init_logical_processor2(unsigned int iter) // 在指定CPU上完成VMXON/VM
 	outFile("[进行中][CPU%u] 开始准备Host GDT/IDT/TSS结构", iter);
 	//创建host的idt和gdt
 	hv::prepare_external_structures(vcpu); // 构造宿主GDT/IDT/TSS等必需结构，确保VM-Exit能正确返回宿主
-	LogInfo("vcpu %d is now in VMX operation.\n", processor_number); // 输出调试信息
+	LogInfo("vcpu %llu is now in VMX operation.\n", processor_number); // 输出调试信息
 	outFile("[成功][CPU%u] Host GDT/IDT/TSS结构准备完成", iter);
 
 	// if (!hv::validate_host_page_tables_for_vcpu(vcpu)) // 旧逻辑：只靠自检发现缺页，无法主动补齐Host CR3下的VM-exit关键页。
@@ -140,6 +155,7 @@ bool init_logical_processor2(unsigned int iter) // 在指定CPU上完成VMXON/VM
 	{
 		outFile("[失败][CPU%u] Host关键页补映射不完整，回滚当前CPU的VMXON状态", iter);
 		vmxoff_after_failed_initialization(vcpu, 2);
+		restore_original_control_registers();
 		return false;
 	}
 
@@ -147,6 +163,7 @@ bool init_logical_processor2(unsigned int iter) // 在指定CPU上完成VMXON/VM
 	{
 		outFile("[失败][CPU%u] Host页表自检未通过，回滚当前CPU的VMXON状态", iter);
 		vmxoff_after_failed_initialization(vcpu, 3);
+		restore_original_control_registers();
 		return false;
 	}
 
@@ -166,6 +183,7 @@ bool init_logical_processor2(unsigned int iter) // 在指定CPU上完成VMXON/VM
 		LogError("Vmlaunch failed error: %d", vcpu->vmexit_info.instruction_error); // 输出失败原因
 		vcpu->vcpu_status.vmm_launched = false; // 回滚启动标记，防止卸载误判
 		vmxoff_after_failed_initialization(vcpu, 4);
+		restore_original_control_registers();
 		outFile("[失败][CPU%u] VMLAUNCH失败：VM_INSTRUCTION_ERROR=%llu，已执行VMXOFF回滚",
 			iter,
 			vcpu->vmexit_info.instruction_error);

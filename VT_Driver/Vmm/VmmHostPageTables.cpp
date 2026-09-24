@@ -30,13 +30,8 @@ bool create_host_page_tables() // 构建宿主页表并映射全部物理内存,
 			if (RtlEqualUnicodeString(&ImageFileName, &targetImage, TRUE)) // 找到dwm进程
 			{
 				found_dwm = true;
-				unsigned __int64 eprocess_directory_table_base =
-					*reinterpret_cast<unsigned __int64*>(
-						reinterpret_cast<uint8_t*>(current_process) + hv::ghv.kprocess_directory_table_base_offset); // 旧来源:EPROCESS.DirectoryTableBase,仅保留为诊断对照。
-
-				outFile("[信息][Host页表] 命中dwm.exe:EPROCESS=0x%p DirectoryTableBase=0x%llX",
-					current_process,
-					eprocess_directory_table_base);
+				outFile("[信息][Host页表] 命中dwm.exe:EPROCESS=0x%p",
+					current_process);
 
 				KAPC_STATE ApcState = {};
 				bool attached = false;
@@ -78,8 +73,8 @@ bool create_host_page_tables() // 构建宿主页表并映射全部物理内存,
 						{
 							// hv::ghv.system_cr3.flags = eprocess_directory_table_base; // 旧逻辑:只使用EPROCESS字段,KVA/PCID/新系统上可能不是当前硬件实际CR3。
 							hv::ghv.system_cr3.flags = __readcr3(); // 新逻辑:attach到dwm.exe后读取当前硬件CR3,保证Host页表来源与实际dwm地址空间一致。
-							outFile("[信息][Host页表] dwm.exe CR3=0x%llX EPROCESS_DTB=0x%llX CR4=0x%llX",
-								hv::ghv.system_cr3.flags,eprocess_directory_table_base,__readcr4());
+							outFile("[信息][Host页表] dwm.exe CR3=0x%llX CR4=0x%llX",
+								hv::ghv.system_cr3.flags,__readcr4());
 
 							if (hv::ghv.system_cr3.flags == 0 || hv::ghv.system_cr3.address_of_page_directory == 0)
 							{

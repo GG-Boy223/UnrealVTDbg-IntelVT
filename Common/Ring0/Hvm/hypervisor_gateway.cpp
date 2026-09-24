@@ -190,15 +190,22 @@ namespace hvgt
 		RtlInitUnicodeString(&airhv_name, L"\\Device\\airhv");
 
 		NTSTATUS status = IoGetDeviceObjectPointer(&airhv_name, 0, &file_object, &airhv_device_object);
+		if (!NT_SUCCESS(status) || file_object == nullptr || airhv_device_object == nullptr)
+		{
+			LogError("Couldn't get hypervisor device object pointer: 0x%X", status);
+			return false;
+		}
 
-		ObReferenceObjectByPointer(airhv_device_object, FILE_ALL_ACCESS, NULL, KernelMode);
+		NTSTATUS const reference_status =
+			ObReferenceObjectByPointer(airhv_device_object, FILE_ALL_ACCESS, NULL, KernelMode);
 
-		// We don't need this so we instantly dereference file object
+		// Keep the explicit device-object reference; the file-object reference is
+		// no longer needed after IoGetDeviceObjectPointer succeeds.
 		ObDereferenceObject(file_object);
 
-		if (NT_SUCCESS(status) == false)
+		if (!NT_SUCCESS(reference_status))
 		{
-			LogError("Couldn't get hypervisor device object pointer");
+			LogError("Couldn't reference hypervisor device object: 0x%X", reference_status);
 			return false;
 		}
 
