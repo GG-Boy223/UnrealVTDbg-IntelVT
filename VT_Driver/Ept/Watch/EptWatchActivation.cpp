@@ -23,6 +23,7 @@ namespace ept
 		int ids[EPTWATCHLISTSIZE] = { 0 };
 		unsigned int committed_vcpus[EPTWATCHLISTSIZE] = { 0 };
 		unsigned __int64 installed_physical_addresses[EPTWATCHLISTSIZE] = { 0 };
+		unsigned __int64 committed_cpu_masks[EPTWATCHLISTSIZE] = { 0 };
 		int id_count = 0;
 
 		spinlock::lock(&eptWatchTransaction_lock);
@@ -104,6 +105,7 @@ namespace ept
 				if (ept::ept_watch_activate_internal(*vcpu->ept_state, physical_address, Type))
 				{
 					committed_vcpus[id_count - 1]++;
+					committed_cpu_masks[id_count - 1] |= 1ull << i;
 					continue;
 				}
 
@@ -159,39 +161,47 @@ namespace ept
 			}
 			spinlock::unlock(&eptWatchList_lock);
 
-			bool page_already_rolled_back = false;
-			for (int previous = index + 1; previous < id_count; previous++)
+			for (unsigned int cpu = 0; cpu < cpu_count; cpu++)
 			{
-				if (installed_physical_addresses[previous] ==
-					installed_physical_addresses[index])
+				if ((committed_cpu_masks[index] & (1ull << cpu)) == 0)
 				{
-					page_already_rolled_back = true;
-					break;
+					continue;
 				}
-			}
 
-			if (!page_already_rolled_back)
-			{
-				for (unsigned int cpu = committed_vcpus[index]; cpu > 0; cpu--)
+				bool page_already_rolled_back_on_cpu = false;
+				for (int previous = index + 1; previous < id_count; previous++)
 				{
-					__vcpu* vcpu = &g_vmm_context.vcpu[cpu - 1];
-					if (!ept_watch_deactivate_internal(vcpu,
-						*vcpu->ept_state,
-						eptWatchList[ID].VirtualAddress,
-						eptWatchList[ID].PhysicalAddress,
-						eptWatchList[ID].Type,
-						eptWatchList[ID].bpType,
-						eptWatchList[ID].OriginalByte,
-						has,
-						ID))
+					if (installed_physical_addresses[previous] ==
+						installed_physical_addresses[index] &&
+						(committed_cpu_masks[previous] & (1ull << cpu)) != 0)
 					{
-						KeBugCheckEx(
-							0x00020001,
-							0x45505457,
-							3,
-							ID,
-							cpu - 1);
+						page_already_rolled_back_on_cpu = true;
+						break;
 					}
+				}
+
+				if (page_already_rolled_back_on_cpu)
+				{
+					continue;
+				}
+
+				__vcpu* vcpu = &g_vmm_context.vcpu[cpu];
+				if (!ept_watch_deactivate_internal(vcpu,
+					*vcpu->ept_state,
+					eptWatchList[ID].VirtualAddress,
+					eptWatchList[ID].PhysicalAddress,
+					eptWatchList[ID].Type,
+					eptWatchList[ID].bpType,
+					eptWatchList[ID].OriginalByte,
+					has,
+					ID))
+				{
+					KeBugCheckEx(
+						0x00020001,
+						0x45505457,
+						3,
+						ID,
+						cpu);
 				}
 			}
 
