@@ -56,7 +56,6 @@ namespace ept
 		hooked_page_info->mtf_reference_count = 0;
 		hooked_page_info->removing = 0;
 		hooked_page_info->hot_reference_count = 0;
-		hooked_page_info->functions_lock = 0;
 		InitializeListHead(&hooked_page_info->hooked_functions_list);
 		InitializeListHead(&hooked_page_info->retired_functions_list);
 	}
@@ -77,44 +76,6 @@ namespace ept
 		return ID >= 0 && ID < EPTWATCHLISTSIZE;
 	}
 
-	__ept_hooked_page_info* acquire_page_hot_reference(
-		__ept_state& ept_state,
-		unsigned __int64 pfn,
-		int required_options)
-	{
-		spinlock::lock(&ept_state.hooked_page_list_lock);
-
-		for (PLIST_ENTRY current = ept_state.hooked_page_list.Flink;
-			current != &ept_state.hooked_page_list;
-			current = current->Flink)
-		{
-			__ept_hooked_page_info* hooked_page_info =
-				CONTAINING_RECORD(current, __ept_hooked_page_info, hooked_page_list);
-
-			if (hooked_page_info->pfn_of_hooked_page != pfn ||
-				(required_options != 0 &&
-					hooked_page_info->Options != required_options) ||
-				hooked_page_info->removing != 0)
-			{
-				continue;
-			}
-
-			InterlockedIncrement(&hooked_page_info->hot_reference_count);
-			if (hooked_page_info->removing == 0)
-			{
-				spinlock::unlock(&ept_state.hooked_page_list_lock);
-				return hooked_page_info;
-			}
-
-			InterlockedDecrement(&hooked_page_info->hot_reference_count);
-			spinlock::unlock(&ept_state.hooked_page_list_lock);
-			return nullptr;
-		}
-
-		spinlock::unlock(&ept_state.hooked_page_list_lock);
-		return nullptr;
-	}
-
 	void release_page_hot_reference(
 		__ept_state& ept_state,
 		__ept_hooked_page_info* hooked_page_info)
@@ -132,7 +93,6 @@ namespace ept
 		unsigned __int64 pfn,
 		int required_options)
 	{
-		spinlock::lock(&ept_state.hooked_page_list_lock);
 		for (PLIST_ENTRY current = ept_state.hooked_page_list.Flink;
 			current != &ept_state.hooked_page_list;
 			current = current->Flink)
@@ -148,11 +108,9 @@ namespace ept
 				continue;
 			}
 
-			spinlock::unlock(&ept_state.hooked_page_list_lock);
 			return hooked_page_info;
 		}
 
-		spinlock::unlock(&ept_state.hooked_page_list_lock);
 		return nullptr;
 	}
 
@@ -165,9 +123,7 @@ namespace ept
 			return;
 		}
 
-		spinlock::lock(&ept_state.hooked_page_list_lock);
 		InsertHeadList(&ept_state.hooked_page_list, &hooked_page_info->hooked_page_list);
-		spinlock::unlock(&ept_state.hooked_page_list_lock);
 	}
 
 	void remove_hooked_page(
@@ -179,10 +135,8 @@ namespace ept
 			return;
 		}
 
-		spinlock::lock(&ept_state.hooked_page_list_lock);
 		RemoveEntryList(&hooked_page_info->hooked_page_list);
 		InsertTailList(&ept_state.retired_page_list, &hooked_page_info->hooked_page_list);
-		spinlock::unlock(&ept_state.hooked_page_list_lock);
 	}
 	__ept_hooked_function_info* acquire_function_hot_reference(
 		__ept_hooked_page_info* hooked_page_info,
@@ -193,7 +147,6 @@ namespace ept
 			return nullptr;
 		}
 
-		spinlock::lock(&hooked_page_info->functions_lock);
 		for (PLIST_ENTRY current = hooked_page_info->hooked_functions_list.Flink;
 			current != &hooked_page_info->hooked_functions_list;
 			current = current->Flink)
@@ -213,16 +166,13 @@ namespace ept
 			InterlockedIncrement(&hooked_function_info->hot_reference_count);
 			if (hooked_function_info->removing == 0)
 			{
-				spinlock::unlock(&hooked_page_info->functions_lock);
 				return hooked_function_info;
 			}
 
 			InterlockedDecrement(&hooked_function_info->hot_reference_count);
-			spinlock::unlock(&hooked_page_info->functions_lock);
 			return nullptr;
 		}
 
-		spinlock::unlock(&hooked_page_info->functions_lock);
 		return nullptr;
 	}
 
@@ -237,12 +187,11 @@ namespace ept
 		InterlockedDecrement(&hooked_function_info->hot_reference_count);
 	}
 
-	__ept_hooked_page_info* acquire_any_page_hot_reference(
+	static __ept_hooked_page_info* acquire_page_hot_reference_unsynchronized(
 		__ept_state& ept_state,
-		unsigned __int64 pfn)
+		unsigned __int64 pfn,
+		int required_options)
 	{
-		spinlock::lock(&ept_state.hooked_page_list_lock);
-
 		for (PLIST_ENTRY current = ept_state.hooked_page_list.Flink;
 			current != &ept_state.hooked_page_list;
 			current = current->Flink)
@@ -251,6 +200,8 @@ namespace ept
 				CONTAINING_RECORD(current, __ept_hooked_page_info, hooked_page_list);
 
 			if (hooked_page_info->pfn_of_hooked_page != pfn ||
+				(required_options != 0 &&
+					hooked_page_info->Options != required_options) ||
 				hooked_page_info->removing != 0)
 			{
 				continue;
@@ -259,17 +210,70 @@ namespace ept
 			InterlockedIncrement(&hooked_page_info->hot_reference_count);
 			if (hooked_page_info->removing == 0)
 			{
-				spinlock::unlock(&ept_state.hooked_page_list_lock);
 				return hooked_page_info;
 			}
 
 			InterlockedDecrement(&hooked_page_info->hot_reference_count);
-			spinlock::unlock(&ept_state.hooked_page_list_lock);
 			return nullptr;
 		}
 
-		spinlock::unlock(&ept_state.hooked_page_list_lock);
 		return nullptr;
+	}
+
+	__ept_hooked_page_info* acquire_page_hot_reference(
+		__ept_state& ept_state,
+		unsigned __int64 pfn,
+		int required_options)
+	{
+		return acquire_page_hot_reference_unsynchronized(ept_state, pfn, required_options);
+	}
+
+	__ept_hooked_page_info* acquire_any_page_hot_reference(
+		__ept_state& ept_state,
+		unsigned __int64 pfn)
+	{
+		return acquire_page_hot_reference_unsynchronized(ept_state, pfn, 0);
+	}
+
+	__ept_hooked_page_info* acquire_any_page_hot_reference(
+		__ept_state& ept_state,
+		unsigned __int64 pfn,
+		int required_options)
+	{
+		return acquire_page_hot_reference_unsynchronized(ept_state, pfn, required_options);
+	}
+
+	static __ept_hooked_page_info* acquire_first_active_page_hot_reference_unsynchronized(
+		__ept_state& ept_state)
+	{
+		for (PLIST_ENTRY current = ept_state.hooked_page_list.Flink;
+			current != &ept_state.hooked_page_list;
+			current = current->Flink)
+		{
+			__ept_hooked_page_info* hooked_page_info =
+				CONTAINING_RECORD(current, __ept_hooked_page_info, hooked_page_list);
+
+			if (hooked_page_info->removing != 0)
+			{
+				continue;
+			}
+
+			InterlockedIncrement(&hooked_page_info->hot_reference_count);
+			if (hooked_page_info->removing == 0)
+			{
+				return hooked_page_info;
+			}
+
+			InterlockedDecrement(&hooked_page_info->hot_reference_count);
+		}
+
+		return nullptr;
+	}
+
+	__ept_hooked_page_info* acquire_any_page_hot_reference(
+		__ept_state& ept_state)
+	{
+		return acquire_first_active_page_hot_reference_unsynchronized(ept_state);
 	}
 
 	void insert_hooked_function(
@@ -281,11 +285,9 @@ namespace ept
 			return;
 		}
 
-		spinlock::lock(&hooked_page_info->functions_lock);
 		InsertHeadList(
 			&hooked_page_info->hooked_functions_list,
 			&hooked_function_info->hooked_function_list);
-		spinlock::unlock(&hooked_page_info->functions_lock);
 	}
 
 	void remove_hooked_function(
@@ -297,12 +299,10 @@ namespace ept
 			return;
 		}
 
-		spinlock::lock(&hooked_page_info->functions_lock);
 		RemoveEntryList(&hooked_function_info->hooked_function_list);
 		InsertTailList(
 			&hooked_page_info->retired_functions_list,
 			&hooked_function_info->hooked_function_list);
-		spinlock::unlock(&hooked_page_info->functions_lock);
 	}
 
 	static void reclaim_retired_functions(__ept_hooked_page_info* hooked_page_info)
@@ -315,7 +315,6 @@ namespace ept
 		for (;;)
 		{
 			__ept_hooked_function_info* victim = nullptr;
-			spinlock::lock(&hooked_page_info->functions_lock);
 			for (PLIST_ENTRY current = hooked_page_info->retired_functions_list.Flink;
 				current != &hooked_page_info->retired_functions_list;
 				current = current->Flink)
@@ -334,7 +333,6 @@ namespace ept
 					break;
 				}
 			}
-			spinlock::unlock(&hooked_page_info->functions_lock);
 
 			if (victim == nullptr)
 			{
@@ -357,8 +355,6 @@ namespace ept
 		{
 			__ept_hooked_page_info* victim = nullptr;
 			__ept_dynamic_split* owner_split = nullptr;
-
-			spinlock::lock(&ept_state.hooked_page_list_lock);
 
 			// 活动页上的函数记录也可能已摘到待回收链，先按页清理它们。
 			for (PLIST_ENTRY current = ept_state.hooked_page_list.Flink;
@@ -393,11 +389,9 @@ namespace ept
 					continue;
 				}
 
-				spinlock::lock(&hooked_page_info->functions_lock);
 				const bool functions_empty =
 					IsListEmpty(&hooked_page_info->hooked_functions_list) &&
 					IsListEmpty(&hooked_page_info->retired_functions_list);
-				spinlock::unlock(&hooked_page_info->functions_lock);
 
 				if (!functions_empty)
 				{
@@ -409,8 +403,6 @@ namespace ept
 				victim = hooked_page_info;
 				break;
 			}
-
-			spinlock::unlock(&ept_state.hooked_page_list_lock);
 
 			if (victim == nullptr)
 			{

@@ -16,69 +16,79 @@ namespace ept
 			return false;
 		}
 
-		PLIST_ENTRY current_hooked_page = &ept_state.hooked_page_list;
-		while (&ept_state.hooked_page_list != current_hooked_page->Flink)
+		__ept_hooked_page_info* hooked_page_info =
+			ept::acquire_page_hot_reference(
+				ept_state,
+				GET_PFN(physical_address),
+				EPTO_VIRTUAL_BREAKPOINT);
+		if (hooked_page_info == nullptr)
 		{
-			current_hooked_page = current_hooked_page->Flink;
-			__ept_hooked_page_info* hooked_page_info = CONTAINING_RECORD(current_hooked_page, __ept_hooked_page_info, hooked_page_list);
+			return false;
+		}
 
-			// 检查函数 pfn 是否等于挂钩页面信息中保存的 pfn
-			//
-			if (hooked_page_info->pfn_of_hooked_page == GET_PFN(physical_address))
+		// last_watch_id 由 VM-exit 在 eptWatchList_lock 下读取和更新。
+		spinlock::lock(&eptWatchList_lock);
+		if (hooked_page_info->last_watch_id == ignoredID)
+		{
+			hooked_page_info->last_watch_id = -1;
+		}
+		spinlock::unlock(&eptWatchList_lock);
+
+		if (bpType == 3) // 原理：bpType 表示断点类型；作用：区分 INT3 等类型；结果：决定是否设置 MTF
+		{
+			int offset = VirtualAddress & 0xFFF;
+			hooked_page_info->fake_page_contents[offset] = OriginalByte;
+
+			if (has == 0) //如果has为0则说明没有存在其他的监视断点，那么我们可以将页进行回收
 			{
-				if (hooked_page_info->Options == EPTO_VIRTUAL_BREAKPOINT)
-				{
-					if (hooked_page_info->last_watch_id == ignoredID)
-					{
-						hooked_page_info->last_watch_id = -1;
-					}
-
-					if (bpType == 3) // 原理：bpType 表示断点类型；作用：区分 INT3 等类型；结果：决定是否设置 MTF
-					{
-						int offset = VirtualAddress & 0xFFF;
-						hooked_page_info->fake_page_contents[offset] = OriginalByte;
-
-						if (has == 0) //如果has为0则说明没有存在其他的监视断点，那么我们可以将页进行回收
-						{
-							hooked_page_info->original_entry.execute = 1;
-							swap_pml1_and_invalidate_tlb(ept_state, hooked_page_info->entry_address, hooked_page_info->original_entry, invept_single_context);
-						}
-						else
-						{
-							apply_active_watch_permissions_locked(hooked_page_info, ignoredID);
-						}
-					}
-					else
-					{
-						if (has == 0)
-						{
-							hooked_page_info->entry_address->read = 1;
-							hooked_page_info->entry_address->write = 1;
-							hooked_page_info->entry_address->execute = 1;
-						}
-						else
-						{
-							apply_active_watch_permissions_locked(hooked_page_info, ignoredID);
-						}
-					}
-
-					if (has == 0) //如果has为0则说明没有存在其他的监视断点，那么我们可以将页进行回收
-					{
-						InterlockedExchange(&hooked_page_info->removing, 1);
-
-						if (ept_state.page_to_change == hooked_page_info)
-						{
-							hv::clear_pending_mtf_metadata(vcpu);
-						}
-
-						ept::remove_hooked_page(ept_state, hooked_page_info);
-						ept::reclaim_retired_resources(ept_state);
-					}
-					return true;
-				}
+				hooked_page_info->original_entry.execute = 1;
+				swap_pml1_and_invalidate_tlb(ept_state, hooked_page_info->entry_address, hooked_page_info->original_entry, invept_single_context);
+			}
+			else
+			{
+				spinlock::lock(&eptWatchList_lock);
+				apply_active_watch_permissions_locked(hooked_page_info, ignoredID);
+				spinlock::unlock(&eptWatchList_lock);
 			}
 		}
-		return false;
+		else
+		{
+			if (has == 0)
+			{
+				hooked_page_info->entry_address->read = 1;
+				hooked_page_info->entry_address->write = 1;
+				hooked_page_info->entry_address->execute = 1;
+			}
+			else
+			{
+				spinlock::lock(&eptWatchList_lock);
+				apply_active_watch_permissions_locked(hooked_page_info, ignoredID);
+				spinlock::unlock(&eptWatchList_lock);
+			}
+		}
+
+		if (has == 0) //如果has为0则说明没有存在其他的监视断点，那么我们可以将页进行回收
+		{
+			InterlockedExchange(&hooked_page_info->removing, 1);
+
+			if (ept_state.page_to_change == hooked_page_info)
+			{
+				hv::clear_pending_mtf_metadata(vcpu);
+			}
+
+			// 摘链仍需要访问页对象，必须在释放热引用之前完成。
+			ept::remove_hooked_page(ept_state, hooked_page_info);
+			ept::release_page_hot_reference(ept_state, hooked_page_info);
+			hooked_page_info = nullptr;
+			ept::reclaim_retired_resources(ept_state);
+		}
+		else
+		{
+			ept::release_page_hot_reference(ept_state, hooked_page_info);
+			hooked_page_info = nullptr;
+		}
+
+		return true;
 	}
 
 	int ept_watch_deactivate(VT_BREAK_POINT vmcallinfo, int ID)
@@ -93,20 +103,17 @@ namespace ept
 		int group_count = 0;
 		int group_id = -1;
 
-		spinlock::lock(&eptWatchTransaction_lock);
 		spinlock::lock(&eptWatchList_lock);
 
 		if (ID < 0 || ID >= EPTWATCHLISTSIZE)
 		{
 			spinlock::unlock(&eptWatchList_lock);
-			spinlock::unlock(&eptWatchTransaction_lock);
 			return 1;
 		}
 
 		if (!ept_watch_entry_is_active(eptWatchList[ID]))
 		{
 			spinlock::unlock(&eptWatchList_lock);
-			spinlock::unlock(&eptWatchTransaction_lock);
 			return 2;
 		}
 
@@ -116,7 +123,6 @@ namespace ept
 			eptWatchList[group_id].GroupId != group_id)
 		{
 			spinlock::unlock(&eptWatchList_lock);
-			spinlock::unlock(&eptWatchTransaction_lock);
 			return 5;
 		}
 
@@ -142,30 +148,19 @@ namespace ept
 				__vcpu* vcpu = &g_vmm_context.vcpu[cpu];
 				if (vcpu->ept_state == nullptr)
 				{
-					spinlock::unlock(&eptWatchTransaction_lock);
 					return 3;
 				}
 
-				bool found = false;
-				PLIST_ENTRY current = &vcpu->ept_state->hooked_page_list;
-				while (&vcpu->ept_state->hooked_page_list != current->Flink)
-				{
-					current = current->Flink;
-					auto hooked_page_info = CONTAINING_RECORD(
-						current,
-						__ept_hooked_page_info,
-						hooked_page_list);
-					if (hooked_page_info->pfn_of_hooked_page == GET_PFN(entry.PhysicalAddress) &&
-						hooked_page_info->Options == EPTO_VIRTUAL_BREAKPOINT)
-					{
-						found = true;
-						break;
-					}
-				}
+				__ept_hooked_page_info* hooked_page_info =
+					ept::acquire_page_hot_reference(
+						*vcpu->ept_state,
+						GET_PFN(entry.PhysicalAddress),
+						EPTO_VIRTUAL_BREAKPOINT);
+				const bool found = hooked_page_info != nullptr;
+				ept::release_page_hot_reference(*vcpu->ept_state, hooked_page_info);
 
 				if (!found)
 				{
-					spinlock::unlock(&eptWatchTransaction_lock);
 					return 3;
 				}
 			}
@@ -179,7 +174,6 @@ namespace ept
 				eptWatchList[entry_id].GroupId != group_id)
 			{
 				spinlock::unlock(&eptWatchList_lock);
-				spinlock::unlock(&eptWatchTransaction_lock);
 				return 5;
 			}
 
@@ -270,7 +264,6 @@ namespace ept
 			Cr3TrackerRelease(entry.Cr3TrackerId);
 		}
 
-		spinlock::unlock(&eptWatchTransaction_lock);
 		return 0;
 	}
 }

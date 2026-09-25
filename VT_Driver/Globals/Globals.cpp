@@ -12,7 +12,6 @@ uint16_t guest_vpid = 1; // 来宾 VPID：当前仅单 VM，固定为 1，便于
 int eptWatchListSize; // 监视表大小：保留字段（当前未用），为未来动态扩展监视表做准备
 int eptWatchListPos; // 监视表位置游标：保留字段（当前未用），未来可用于快速分配
 volatile long eptWatchList_lock = 0; // 监视表自旋锁：多核并发访问时防止竞态与数据破坏
-volatile long eptWatchTransaction_lock = 0; // 安装/删除事务锁：重操作可在表锁外串行执行
 
 volatile long g_vmx_initialized_count = 0; // 已成功初始化 VMX 的 CPU 数量（当前仅递增、无读取方，待清理）
 

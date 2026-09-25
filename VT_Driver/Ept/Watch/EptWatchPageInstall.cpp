@@ -21,6 +21,8 @@ namespace ept
         hooked_page_info->Options = EPTO_VIRTUAL_BREAKPOINT;
     }
 
+    // 调用方必须持有 eptWatchList_lock。该函数读取全局 watch 表并按当前有效条目
+    // 重算页面权限；页面生命周期由调用方的热引用固定。
     void apply_active_watch_permissions_locked(
         __ept_hooked_page_info* hooked_page_info,
         int ignoredID)
@@ -73,21 +75,16 @@ namespace ept
             return false;
         }
 
-        PLIST_ENTRY current = &ept_state.hooked_page_list;
-        while (&ept_state.hooked_page_list != current->Flink)
+        __ept_hooked_page_info* existing_hooked_page_info =
+            ept::acquire_page_hot_reference(
+                ept_state,
+                GET_PFN(physical_address),
+                EPTO_VIRTUAL_BREAKPOINT);
+        if (existing_hooked_page_info != nullptr)
         {
-            current = current->Flink;
-            __ept_hooked_page_info* hooked_page_info = CONTAINING_RECORD(
-                current,
-                __ept_hooked_page_info,
-                hooked_page_list);
-
-            if (hooked_page_info->pfn_of_hooked_page == GET_PFN(physical_address) &&
-                hooked_page_info->Options == EPTO_VIRTUAL_BREAKPOINT)
-            {
-                set_ept_watch(hooked_page_info, Type);
-                return true;
-            }
+            set_ept_watch(existing_hooked_page_info, Type);
+            ept::release_page_hot_reference(ept_state, existing_hooked_page_info);
+            return true;
         }
 
         __ept_dynamic_split* runtime_split = nullptr;

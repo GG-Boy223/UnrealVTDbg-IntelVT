@@ -53,6 +53,7 @@ namespace ept
 		hv::set_mtf(true); //开启mtf
 	}
 
+	// 调用方必须持有 eptWatchList_lock；本函数只读表，不自行加锁。
 	//判断是否是监视的地址
 	int ept_isWatchAddress(unsigned __int64 guest_physical_adddress, int ID)
 	{
@@ -61,6 +62,7 @@ namespace ept
 			(guest_physical_adddress < eptWatchList[ID].PhysicalAddress + eptWatchList[ID].Size)));
 	}
 
+	// 调用方必须持有 eptWatchList_lock；本函数只读表，不自行加锁。
 	//判断是否是监视的页
 	int ept_isWatchPage(unsigned __int64 pfn, int ID)
 	{
@@ -68,6 +70,7 @@ namespace ept
 		return (ept_watch_entry_is_active(eptWatchList[ID]) && (GET_PFN(eptWatchList[ID].PhysicalAddress) == pfn));
 	}
 
+	// 调用方必须持有 eptWatchList_lock；本函数遍历全局 watch 表。
 	int ept_getWatchID(unsigned __int64 guest_physical_adddress)
 	{
 		unsigned __int64 pfn = GET_PFN(guest_physical_adddress); //获取页帧

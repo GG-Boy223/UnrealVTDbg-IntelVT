@@ -22,17 +22,16 @@ namespace ept
 			return false;
 		}
 
-		// 安装/卸载事务由调用方串行化;这里只做 hot path 与删除路径之间的引用隔离。
-		// 页面正在删除时 find_hooked_page_for_pfn 不会返回记录,热路径也不可能再取得引用。
+		// 页面热引用固定记录生命周期；页面正在删除时取不到引用，
+		// 热路径也不会再对该页建立新引用。
 		__ept_hooked_page_info* hooked_page_info =
-			ept::find_hooked_page_for_pfn(ept_state, GET_PFN(physical_address), EPTO_HOOK_FUNCTION);
+			ept::acquire_page_hot_reference(ept_state, GET_PFN(physical_address), EPTO_HOOK_FUNCTION);
 		if (hooked_page_info == nullptr)
 		{
 			return false;
 		}
 
 		__ept_hooked_function_info* hooked_function_info = nullptr;
-		spinlock::lock(&hooked_page_info->functions_lock);
 		for (PLIST_ENTRY current_hooked_function = hooked_page_info->hooked_functions_list.Flink;
 			&hooked_page_info->hooked_functions_list != current_hooked_function;
 			current_hooked_function = current_hooked_function->Flink)
@@ -49,10 +48,10 @@ namespace ept
 				break;
 			}
 		}
-		spinlock::unlock(&hooked_page_info->functions_lock);
 
 		if (hooked_function_info == nullptr)
 		{
+			ept::release_page_hot_reference(ept_state, hooked_page_info);
 			return false;
 		}
 
@@ -84,9 +83,15 @@ namespace ept
 			if (second_trampoline_address != nullptr &&
 				reinterpret_cast<unsigned __int64>(second_trampoline_address) != virtual_address)
 			{
+					ept::release_page_hot_reference(ept_state, hooked_page_info);
+					hooked_page_info = nullptr;
 					(void)unhook_function(ept_state, reinterpret_cast<unsigned __int64>(second_trampoline_address));
+					ept::reclaim_retired_resources(ept_state);
+					return true;
 			}
 			// 函数记录已在待回收链上；引用归零后由安全点统一释放。
+			ept::release_page_hot_reference(ept_state, hooked_page_info);
+			hooked_page_info = nullptr;
 			ept::reclaim_retired_resources(ept_state);
 			return true;
 		}
@@ -108,15 +113,17 @@ namespace ept
 				invept_single_context);
 		}
 
+		// 先摘链再释放热引用：记录仍被本引用固定时不会被其它 CPU 回收。
 		ept::remove_hooked_page(ept_state, hooked_page_info);
-
-		ept::reclaim_retired_resources(ept_state);
+		ept::release_page_hot_reference(ept_state, hooked_page_info);
+		hooked_page_info = nullptr;
 
 		if (second_trampoline_address != nullptr &&
 			reinterpret_cast<unsigned __int64>(second_trampoline_address) != virtual_address)
 		{
 			(void)unhook_function(ept_state, reinterpret_cast<unsigned __int64>(second_trampoline_address));
 		}
+		ept::reclaim_retired_resources(ept_state);
 		return true;
 	}
 
@@ -125,12 +132,16 @@ namespace ept
 	/// </summary>
 	void unhook_all_functions(__ept_state& ept_state)
 	{
-		PLIST_ENTRY current_hooked_page = ept_state.hooked_page_list.Flink;
-		while (&ept_state.hooked_page_list != current_hooked_page)
+		for (;;)
 		{
+			// 每次只取一个活动页并持有热引用。页对象的摘链和释放都在引用保护范围内，
+			// 因此其它 VCPU 的 VM-exit 不可能在本函数访问期间回收该页。
 			__ept_hooked_page_info* hooked_entry =
-				CONTAINING_RECORD(current_hooked_page, __ept_hooked_page_info, hooked_page_list);
-			PLIST_ENTRY next_hooked_page = current_hooked_page->Flink;
+				ept::acquire_any_page_hot_reference(ept_state);
+			if (hooked_entry == nullptr)
+			{
+				break;
+			}
 
 			// 先禁止新的 hot path 引用和 MTF 引用，再把记录摘到待回收链。
 			InterlockedExchange(&hooked_entry->removing, 1);
@@ -139,7 +150,6 @@ namespace ept
 				hv::clear_pending_mtf_metadata(&ept_state);
 				hv::set_mtf(false);
 			}
-			spinlock::lock(&hooked_entry->functions_lock);
 			PLIST_ENTRY current_hooked_function = hooked_entry->hooked_functions_list.Flink;
 			while (&hooked_entry->hooked_functions_list != current_hooked_function)
 			{
@@ -171,7 +181,6 @@ namespace ept
 					&hooked_function_info->hooked_function_list);
 				current_hooked_function = next_hooked_function;
 			}
-			spinlock::unlock(&hooked_entry->functions_lock);
 
 			__ept_pte restored_entry = hooked_entry->entry_address != nullptr
 				? *hooked_entry->entry_address
@@ -196,7 +205,10 @@ namespace ept
 
 			ept::remove_hooked_page(ept_state, hooked_entry);
 
-			current_hooked_page = next_hooked_page;
+			// 摘链完成后才能释放热引用；释放后不得再访问 hooked_entry。
+			ept::release_page_hot_reference(ept_state, hooked_entry);
+			hooked_entry = nullptr;
+			ept::reclaim_retired_resources(ept_state);
 		}
 
 		// 引用归零的记录在安全点回收；仍有热引用的记录留在待回收链，

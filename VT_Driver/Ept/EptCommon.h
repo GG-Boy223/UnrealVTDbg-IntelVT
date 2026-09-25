@@ -36,6 +36,14 @@ namespace ept
 	__ept_hooked_page_info* acquire_any_page_hot_reference(
 		__ept_state& ept_state,
 		unsigned __int64 pfn);
+	__ept_hooked_page_info* acquire_any_page_hot_reference(
+		__ept_state& ept_state,
+		unsigned __int64 pfn,
+		int required_options);
+	// 无 PFN 版本：每次返回活动链表中任意一个已加安全引用的页面，
+	// 供全量卸载等需要逐个处理页面、但事先不知道 PFN 的调用方使用。
+	__ept_hooked_page_info* acquire_any_page_hot_reference(
+		__ept_state& ept_state);
 
 	__ept_hooked_page_info* find_hooked_page_for_pfn(
 		__ept_state& ept_state,

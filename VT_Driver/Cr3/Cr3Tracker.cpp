@@ -7,7 +7,6 @@
 
 namespace cr3_tracker_internal
 {
-    volatile long g_TrackerLock = 0;
     volatile LONG g_ActiveTrackerCount = 0;
     TRACKER_ENTRY g_Trackers[kTrackerCount] = { 0 };
     volatile LONG64 g_AcquireCount = 0;
@@ -29,7 +28,6 @@ namespace
     int SnapshotTrackers(TRACKER_SNAPSHOT* snapshots)
     {
         int snapshotCount = 0;
-        spinlock::lock(&g_TrackerLock);
         for (int index = 0; index < kTrackerCount; ++index)
         {
             const TRACKER_ENTRY& entry = g_Trackers[index];
@@ -45,7 +43,6 @@ namespace
             snapshot.pml4Fingerprint = entry.pml4Fingerprint;
             snapshot.generation = entry.generation;
         }
-        spinlock::unlock(&g_TrackerLock);
         return snapshotCount;
     }
 
@@ -54,7 +51,7 @@ namespace
         unsigned __int64 root)
     {
         bool matched = false;
-        spinlock::lock(&g_TrackerLock);
+        spinlock::lock(&eptWatchList_lock);
         TRACKER_ENTRY& entry = g_Trackers[snapshot.trackerId];
         if (entry.active &&
             entry.generation == snapshot.generation &&
@@ -69,7 +66,6 @@ namespace
                 entry.cr3 = root;
                 ++entry.generation;
 
-                spinlock::lock(&eptWatchList_lock);
                 for (int index = 0; index < EPTWATCHLISTSIZE; ++index)
                 {
                     if (ept_watch_entry_is_reserved(eptWatchList[index]) &&
@@ -81,11 +77,10 @@ namespace
                             static_cast<LONG64>(root));
                     }
                 }
-                spinlock::unlock(&eptWatchList_lock);
                 InterlockedIncrement64(&g_UpdateCount);
             }
         }
-        spinlock::unlock(&g_TrackerLock);
+        spinlock::unlock(&eptWatchList_lock);
         return matched;
     }
 }
@@ -109,7 +104,6 @@ int Cr3TrackerAcquire(
     }
 
     int freeIndex = kInvalidCr3TrackerId;
-    spinlock::lock(&g_TrackerLock);
     for (int index = 0; index < kTrackerCount; ++index)
     {
         TRACKER_ENTRY& entry = g_Trackers[index];
@@ -127,7 +121,6 @@ int Cr3TrackerAcquire(
         {
             entry.cr3 = root;
             ++entry.referenceCount;
-            spinlock::unlock(&g_TrackerLock);
             return index;
         }
     }
@@ -144,7 +137,6 @@ int Cr3TrackerAcquire(
         entry.active = TRUE;
         InterlockedIncrement(&g_ActiveTrackerCount);
     }
-    spinlock::unlock(&g_TrackerLock);
 
     if (freeIndex == kInvalidCr3TrackerId)
     {
@@ -162,14 +154,12 @@ void Cr3TrackerRelease(int trackerId)
         return;
     }
 
-    spinlock::lock(&g_TrackerLock);
     TRACKER_ENTRY& entry = g_Trackers[trackerId];
     if (entry.active && --entry.referenceCount <= 0)
     {
         entry = { 0 };
         InterlockedDecrement(&g_ActiveTrackerCount);
     }
-    spinlock::unlock(&g_TrackerLock);
 }
 
 void Cr3TrackerObserve(unsigned __int64 candidateCr3)
@@ -220,10 +210,8 @@ void Cr3TrackerReset()
 {
     using namespace cr3_tracker_internal;
 
-    spinlock::lock(&g_TrackerLock);
     RtlZeroMemory(g_Trackers, sizeof(g_Trackers));
     InterlockedExchange(&g_ActiveTrackerCount, 0);
-    spinlock::unlock(&g_TrackerLock);
 
     InterlockedExchange64(&g_AcquireCount, 0);
     InterlockedExchange64(&g_AcquireFailureCount, 0);

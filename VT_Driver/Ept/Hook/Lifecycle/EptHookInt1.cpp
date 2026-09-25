@@ -23,62 +23,62 @@ namespace ept
 			return false;
 		}
 
-		PLIST_ENTRY current = &ept_state.hooked_page_list;
-		while (&ept_state.hooked_page_list != current->Flink) // 遍历链表直到回到表头
+		// 已挂钩页面通过热引用固定记录，池分配和指令写入不再依赖页面链锁。
+		__ept_hooked_page_info* existing_hooked_page_info =
+			ept::acquire_any_page_hot_reference(ept_state, GET_PFN(physical_address));
+		if (existing_hooked_page_info != nullptr)
 		{
-			current = current->Flink;
-			__ept_hooked_page_info* hooked_page_info = CONTAINING_RECORD(current, __ept_hooked_page_info, hooked_page_list);
-
-			if (hooked_page_info->pfn_of_hooked_page == GET_PFN(physical_address))
+			__ept_hooked_function_info* hooked_function_info = pool_manager::request_pool<__ept_hooked_function_info*>(
+				pool_manager::INTENTION_TRACK_HOOKED_FUNCTIONS,
+				TRUE,
+				sizeof(__ept_hooked_function_info));
+			if (hooked_function_info == nullptr)
 			{
-				__ept_hooked_function_info* hooked_function_info = pool_manager::request_pool<__ept_hooked_function_info*>(
-					pool_manager::INTENTION_TRACK_HOOKED_FUNCTIONS,
-					TRUE,
-					sizeof(__ept_hooked_function_info));
-				if (hooked_function_info == nullptr)
-				{
-					LogError("挂钩函数结构没有预先分配池内存");
-					return false;
-				}
-
-				// If we are hooking code cave for second trampoline
-				// then origin function in null and we don't have to get pool for trampoline
-				//
-				if (origin_function != nullptr)
-				{
-					hooked_function_info->first_trampoline_address = pool_manager::request_pool<unsigned __int8*>(
-						pool_manager::INTENTION_EXEC_TRAMPOLINE,
-						TRUE,
-						kTrampolineBufferSize);
-					if (hooked_function_info->first_trampoline_address == nullptr)
-					{
-						pool_manager::release_pool(hooked_function_info);
-						LogError("There is no pre-allocated pool for trampoline");
-						return false;
-					}
-				}
-
-		initialize_hooked_function_runtime_fields(hooked_function_info);
-				hooked_function_info->virtual_address = target_function;
-				hooked_function_info->breakpoint_address = NULL;
-				hooked_function_info->fake_page_contents = hooked_page_info->fake_page_contents;
-
-				//开始hook
-				if (write_int1_instruction_to_memory(hooked_function_info, target_function, proxy_function, origin_function) == false)
-				{
-					if (hooked_function_info->first_trampoline_address != nullptr)
-					{
-						pool_manager::release_pool(hooked_function_info->first_trampoline_address);
-					}
-					pool_manager::release_pool(hooked_function_info);
-					LogError("Hook failed");
-					return false;
-				}
-
-				// Track all hooked functions within page
-				ept::insert_hooked_function(hooked_page_info, hooked_function_info);
-				return true;
+				LogError("挂钩函数结构没有预先分配池内存");
+				ept::release_page_hot_reference(ept_state, existing_hooked_page_info);
+				return false;
 			}
+
+			// If we are hooking code cave for second trampoline
+			// then origin function in null and we don't have to get pool for trampoline
+			//
+			if (origin_function != nullptr)
+			{
+				hooked_function_info->first_trampoline_address = pool_manager::request_pool<unsigned __int8*>(
+					pool_manager::INTENTION_EXEC_TRAMPOLINE,
+					TRUE,
+					kTrampolineBufferSize);
+				if (hooked_function_info->first_trampoline_address == nullptr)
+				{
+					pool_manager::release_pool(hooked_function_info);
+					LogError("There is no pre-allocated pool for trampoline");
+					ept::release_page_hot_reference(ept_state, existing_hooked_page_info);
+					return false;
+				}
+			}
+
+			initialize_hooked_function_runtime_fields(hooked_function_info);
+			hooked_function_info->virtual_address = target_function;
+			hooked_function_info->breakpoint_address = NULL;
+			hooked_function_info->fake_page_contents = existing_hooked_page_info->fake_page_contents;
+
+			//开始hook
+			if (write_int1_instruction_to_memory(hooked_function_info, target_function, proxy_function, origin_function) == false)
+			{
+				if (hooked_function_info->first_trampoline_address != nullptr)
+				{
+					pool_manager::release_pool(hooked_function_info->first_trampoline_address);
+				}
+				pool_manager::release_pool(hooked_function_info);
+				ept::release_page_hot_reference(ept_state, existing_hooked_page_info);
+				LogError("Hook failed");
+				return false;
+			}
+
+			// Track all hooked functions within page
+			ept::insert_hooked_function(existing_hooked_page_info, hooked_function_info);
+			ept::release_page_hot_reference(ept_state, existing_hooked_page_info);
+			return true;
 		}
 
 		//判断2mb pde是否已经进行分割

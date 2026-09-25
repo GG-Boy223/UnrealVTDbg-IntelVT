@@ -27,7 +27,6 @@ namespace cr3_tracker_internal
         unsigned __int64 generation;
     };
 
-    extern volatile long g_TrackerLock;
     extern volatile LONG g_ActiveTrackerCount;
     extern TRACKER_ENTRY g_Trackers[kTrackerCount];
     extern volatile LONG64 g_AcquireCount;

@@ -40,6 +40,7 @@ namespace hv
         vcpu->breakpoint_debug_register = -1;
     }
 
+    // 调用方必须持有 eptWatchList_lock；本函数只做表内查找，不自行加锁。
     int getIdleWatchID()
     {
         for (int i = 0; i < EPTWATCHLISTSIZE; i++)

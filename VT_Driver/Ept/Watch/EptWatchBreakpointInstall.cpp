@@ -38,13 +38,11 @@ namespace ept
 		unsigned __int64 va = tmp_vmcallinfo.VirtualAddress;
 		unsigned __int64 left = tmp_vmcallinfo.Size;
 		int ids[EPTWATCHLISTSIZE] = { 0 };
-		unsigned int committed_vcpus[EPTWATCHLISTSIZE] = { 0 };
+		unsigned __int64 committed_cpu_masks[EPTWATCHLISTSIZE] = { 0 };
 		int id_count = 0;
 		int firstID = -1;
 		unsigned __int64 first_phys = 0;
 		bool guest_id_written = false;
-
-		spinlock::lock(&eptWatchTransaction_lock);
 
 		while (left > 0)
 		{
@@ -139,7 +137,7 @@ namespace ept
 				__vcpu* vcpu = &g_vmm_context.vcpu[i];
 				if (hide_cc_breakpoint(*vcpu->ept_state, page_info, physical_address, EPTW_READWRITE))
 				{
-					committed_vcpus[id_count - 1]++;
+					committed_cpu_masks[id_count - 1] |= 1ull << i;
 					continue;
 				}
 
@@ -162,13 +160,23 @@ namespace ept
 		for (int index = 0; index < id_count; index++)
 		{
 			const int ID = ids[index];
-			for (unsigned int cpu = 0; cpu < committed_vcpus[index]; cpu++)
+			EPTWatchEntry entry = { 0 };
+			spinlock::lock(&eptWatchList_lock);
+			entry = eptWatchList[ID];
+			spinlock::unlock(&eptWatchList_lock);
+
+			for (unsigned int cpu = 0; cpu < cpu_count; cpu++)
 			{
+				if ((committed_cpu_masks[index] & (1ull << cpu)) == 0)
+				{
+					continue;
+				}
+
 				__vcpu* vcpu = &g_vmm_context.vcpu[cpu];
 				if (!commit_hide_cc_breakpoint(
 					*vcpu->ept_state,
-					eptWatchList[ID].VirtualAddress,
-					eptWatchList[ID].PhysicalAddress))
+					entry.VirtualAddress,
+					entry.PhysicalAddress))
 				{
 					goto rollback;
 				}
@@ -184,35 +192,42 @@ namespace ept
 
 		_mm_mfence();
 		invept_all_contexts_func();
-		spinlock::unlock(&eptWatchTransaction_lock);
 		return true;
 
 	rollback:
 		for (int index = id_count - 1; index >= 0; index--)
 		{
 			const int ID = ids[index];
+			EPTWatchEntry entry = { 0 };
 			int has = 0;
 			spinlock::lock(&eptWatchList_lock);
+			entry = eptWatchList[ID];
 			for (int other = 0; other < EPTWATCHLISTSIZE; other++)
 			{
 				if (other != ID && ept_watch_entry_is_active(eptWatchList[other]) &&
-					GET_PFN(eptWatchList[other].PhysicalAddress) == GET_PFN(eptWatchList[ID].PhysicalAddress))
+					GET_PFN(eptWatchList[other].PhysicalAddress) == GET_PFN(entry.PhysicalAddress))
 				{
 					has = 1;
 				}
 			}
 			spinlock::unlock(&eptWatchList_lock);
 
-			for (unsigned int cpu = committed_vcpus[index]; cpu > 0; cpu--)
+			for (unsigned int cpu = cpu_count; cpu > 0; cpu--)
 			{
-				__vcpu* vcpu = &g_vmm_context.vcpu[cpu - 1];
+				const unsigned int cpu_index = cpu - 1;
+				if ((committed_cpu_masks[index] & (1ull << cpu_index)) == 0)
+				{
+					continue;
+				}
+
+				__vcpu* vcpu = &g_vmm_context.vcpu[cpu_index];
 				if (!ept_watch_deactivate_internal(vcpu,
 					*vcpu->ept_state,
-					eptWatchList[ID].VirtualAddress,
-					eptWatchList[ID].PhysicalAddress,
-					eptWatchList[ID].Type,
-					eptWatchList[ID].bpType,
-					eptWatchList[ID].OriginalByte,
+					entry.VirtualAddress,
+					entry.PhysicalAddress,
+					entry.Type,
+					entry.bpType,
+					entry.OriginalByte,
 					has,
 					ID))
 				{
@@ -221,7 +236,7 @@ namespace ept
 						0x45505457,
 						4,
 						ID,
-						cpu - 1);
+						cpu_index);
 				}
 			}
 
@@ -242,9 +257,8 @@ namespace ept
 			hv::write_guest_virtual_memory(
 				vmcallinfo,
 				&tmp_vmcallinfo,
-				sizeof(VT_BREAK_POINT));
+					sizeof(VT_BREAK_POINT));
 		}
-		spinlock::unlock(&eptWatchTransaction_lock);
 		return false;
 	}
 }

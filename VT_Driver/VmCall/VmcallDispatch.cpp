@@ -89,13 +89,11 @@ namespace
 
 	bool ExecuteEptRipHook(__vcpu* vcpu, VmcallDispatch::Request const& request)
 	{
-		spinlock::lock(&eptWatchTransaction_lock);
 		bool const status = ept::vmcall_hook_function(*vcpu->ept_state,
 			(void*)request.parameter1,
 			(void*)request.parameter2,
 			(void**)request.parameter3,
 			request.parameter4);
-		spinlock::unlock(&eptWatchTransaction_lock);
 		return status;
 	}
 
@@ -103,7 +101,6 @@ namespace
 	{
 		bool status = true;
 
-		spinlock::lock(&eptWatchTransaction_lock);
 		if (request.parameter1 != 0)
 		{
 			hv::clear_pending_mtf_metadata(vcpu);
@@ -113,14 +110,12 @@ namespace
 		{
 			status = ept::unhook_function(*vcpu->ept_state, request.parameter2);
 		}
-		spinlock::unlock(&eptWatchTransaction_lock);
 
 		return status;
 	}
 
 	bool ExecuteEptFunctionHook(__vcpu* vcpu, VmcallDispatch::Request const& request)
 	{
-		spinlock::lock(&eptWatchTransaction_lock);
 		bool status = false;
 		switch (request.reason)
 		{
@@ -148,7 +143,6 @@ namespace
 		default:
 			break;
 		}
-		spinlock::unlock(&eptWatchTransaction_lock);
 		return status;
 	}
 
@@ -186,7 +180,6 @@ namespace
 		cr3 guest_cr3;
 		guest_cr3.flags = request.parameter4;
 
-		spinlock::lock(&eptWatchTransaction_lock);
 		if (g_vmm_context.vcpu != nullptr && g_vmm_context.processor_count > 0)
 		{
 			for (unsigned __int32 i = 0; i < g_vmm_context.processor_count; ++i)
@@ -215,7 +208,6 @@ namespace
 				break;
 			}
 		}
-		spinlock::unlock(&eptWatchTransaction_lock);
 
 		return found &&
 			request.parameter3 == hv::write_guest_virtual_memory(
@@ -238,7 +230,6 @@ namespace
 			return false;
 		}
 
-		spinlock::lock(&eptWatchTransaction_lock);
 		bool status = false;
 		if (request.reason == VMCALL_SET_SOFTWARE_BREAKPOINT_BUFFER)
 		{
@@ -296,20 +287,15 @@ namespace
 
 			status = found;
 		}
-		spinlock::unlock(&eptWatchTransaction_lock);
 		return status;
 	}
 
-	// 读取隐形软件断点：get_hide_software_breakpoint 内部遍历 hooked_page_list，
-	// 该遍历不持 hooked_page_list_lock（与其它安装/删除路径一致依赖事务锁），
-	// 因此这里必须与安装/删除事务互斥，否则删除事务可能在遍历过程中回收页面记录。
+	// 读取隐形软件断点：get_hide_software_breakpoint 通过页面热引用固定记录生命周期。
 	bool ExecuteReadSoftwareBreakpoint(__vcpu* vcpu, VmcallDispatch::Request const& request)
 	{
-		spinlock::lock(&eptWatchTransaction_lock);
 		const bool status = ept::get_hide_software_breakpoint(
 			*vcpu->ept_state,
 			(PVT_BREAK_POINT)request.parameter1);
-		spinlock::unlock(&eptWatchTransaction_lock);
 		return status;
 	}
 

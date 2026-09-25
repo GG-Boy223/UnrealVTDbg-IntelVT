@@ -202,39 +202,39 @@ namespace ept
 			tmp_vmcallinfo.PhysicalAddress = physical_address;
 		}
 
-		PLIST_ENTRY current = &ept_state.hooked_page_list;
-		while (&ept_state.hooked_page_list != current->Flink) // 遍历链表直到回到表头
+		__ept_hooked_page_info* hooked_page_info =
+			ept::acquire_page_hot_reference(
+				ept_state,
+				GET_PFN(tmp_vmcallinfo.PhysicalAddress),
+				EPTO_VIRTUAL_BREAKPOINT);
+		if (hooked_page_info == nullptr)
 		{
-			current = current->Flink;
-			//从列表中取出挂钩页
-			__ept_hooked_page_info* hooked_page_info = CONTAINING_RECORD(current, __ept_hooked_page_info, hooked_page_list);
-
-			//判断目标地址是否是被挂钩的页
-			//仅比较页帧号
-			if (hooked_page_info->pfn_of_hooked_page == GET_PFN(tmp_vmcallinfo.PhysicalAddress))
-			{
-				if (hooked_page_info->Options == EPTO_VIRTUAL_BREAKPOINT)
-				{
-					unsigned __int64 offset = tmp_vmcallinfo.VirtualAddress & 0xFFF;
-					if (tmp_vmcallinfo.Size > kEptPageSize - offset)
-					{
-						return false;
-					}
-
-					memcpy(&tmp_vmcallinfo.buffer[0], &hooked_page_info->fake_page_contents[offset], tmp_vmcallinfo.Size);
-
-					//返回给调试器
-					if (sizeof(VT_BREAK_POINT) != hv::write_guest_virtual_memory(vmcallinfo, &tmp_vmcallinfo, sizeof(VT_BREAK_POINT)))
-					{
-						return false;
-					}
-
-					return true;
-				}
-			}
+			return false;
 		}
 
-		return false;
+		const unsigned __int64 offset = tmp_vmcallinfo.VirtualAddress & 0xFFF;
+		if (tmp_vmcallinfo.Size > kEptPageSize - offset)
+		{
+			ept::release_page_hot_reference(ept_state, hooked_page_info);
+			return false;
+		}
+
+		memcpy(
+			&tmp_vmcallinfo.buffer[0],
+			&hooked_page_info->fake_page_contents[offset],
+			tmp_vmcallinfo.Size);
+		ept::release_page_hot_reference(ept_state, hooked_page_info);
+
+		//返回给调试器
+		if (sizeof(VT_BREAK_POINT) != hv::write_guest_virtual_memory(
+			vmcallinfo,
+			&tmp_vmcallinfo,
+			sizeof(VT_BREAK_POINT)))
+		{
+			return false;
+		}
+
+		return true;
 	}
 
 	bool hide_cc_breakpoint(__ept_state& ept_state, VT_BREAK_POINT vmcallinfo, unsigned __int64 physical_address, unsigned __int64 Type)
@@ -249,36 +249,39 @@ namespace ept
 			return false;
 		}
 
-		PLIST_ENTRY current = &ept_state.hooked_page_list;
-		while (&ept_state.hooked_page_list != current->Flink) // 遍历链表直到回到表头
+		__ept_hooked_page_info* existing_hooked_page_info =
+			ept::acquire_page_hot_reference(
+				ept_state,
+				GET_PFN(physical_address),
+				EPTO_VIRTUAL_BREAKPOINT);
+		if (existing_hooked_page_info != nullptr)
 		{
-			current = current->Flink;
-			__ept_hooked_page_info* hooked_page_info = CONTAINING_RECORD(current, __ept_hooked_page_info, hooked_page_list);
+			cr3 guest_cr3; // 临时 CR3
+			guest_cr3.flags = vmcallinfo.cr3;
 
-			if (hooked_page_info->pfn_of_hooked_page == GET_PFN(physical_address))
+			prepare_int3_fake_page_entries(existing_hooked_page_info);
+			if (!existing_hooked_page_info->fake_page_synced ||
+				existing_hooked_page_info->fake_page_needs_full_sync)
 			{
-				if (hooked_page_info->Options == EPTO_VIRTUAL_BREAKPOINT)
+				//备份目标进程原页内容
+				if (!sync_int3_fake_page_from_guest(
+					existing_hooked_page_info,
+					guest_cr3,
+					vmcallinfo.VirtualAddress))
 				{
-					cr3 guest_cr3; // 临时 CR3
-					guest_cr3.flags = vmcallinfo.cr3;
-
-					prepare_int3_fake_page_entries(hooked_page_info);
-					if (!hooked_page_info->fake_page_synced || hooked_page_info->fake_page_needs_full_sync)
-					{
-						//备份目标进程原页内容
-						if (!sync_int3_fake_page_from_guest(hooked_page_info, guest_cr3, vmcallinfo.VirtualAddress))
-						{
-							return false;
-						}
-					}
-
-					// 安装阶段只准备 fake page 与 EPT 权限；0xCC 在来宾收到 watch ID 后统一提交。
-					apply_active_watch_permissions_locked(hooked_page_info, -1);
-					hooked_page_info->entry_address->execute = 0;
-
-					return true;
+					ept::release_page_hot_reference(ept_state, existing_hooked_page_info);
+					return false;
 				}
 			}
+
+			// 安装阶段只准备 fake page 与 EPT 权限；0xCC 在来宾收到 watch ID 后统一提交。
+			spinlock::lock(&eptWatchList_lock);
+			apply_active_watch_permissions_locked(existing_hooked_page_info, -1);
+			existing_hooked_page_info->entry_address->execute = 0;
+			spinlock::unlock(&eptWatchList_lock);
+
+			ept::release_page_hot_reference(ept_state, existing_hooked_page_info);
+			return true;
 		}
 
 		// 仅当 PDE 还是 2MB 大页时，才申请 split 缓冲并拆页。
@@ -390,26 +393,19 @@ namespace ept
 		unsigned __int64 virtual_address,
 		unsigned __int64 physical_address)
 	{
-		PLIST_ENTRY current = &ept_state.hooked_page_list;
-		while (&ept_state.hooked_page_list != current->Flink)
+		__ept_hooked_page_info* hooked_page_info =
+			ept::acquire_page_hot_reference(
+				ept_state,
+				GET_PFN(physical_address),
+				EPTO_VIRTUAL_BREAKPOINT);
+		if (hooked_page_info == nullptr)
 		{
-			current = current->Flink;
-			__ept_hooked_page_info* hooked_page_info = CONTAINING_RECORD(
-				current,
-				__ept_hooked_page_info,
-				hooked_page_list);
-
-			if (hooked_page_info->pfn_of_hooked_page != GET_PFN(physical_address) ||
-				hooked_page_info->Options != EPTO_VIRTUAL_BREAKPOINT)
-			{
-				continue;
-			}
-
-			const int offset = static_cast<int>(virtual_address & 0xFFF);
-			hooked_page_info->fake_page_contents[offset] = 0xCC;
-			return true;
+			return false;
 		}
 
-		return false;
+		const int offset = static_cast<int>(virtual_address & 0xFFF);
+		hooked_page_info->fake_page_contents[offset] = 0xCC;
+		ept::release_page_hot_reference(ept_state, hooked_page_info);
+		return true;
 	}
 }

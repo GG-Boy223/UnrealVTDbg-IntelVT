@@ -21,12 +21,9 @@ namespace ept
 		unsigned __int64 left = vmcallinfo.Size;
 		int firstID = -1;
 		int ids[EPTWATCHLISTSIZE] = { 0 };
-		unsigned int committed_vcpus[EPTWATCHLISTSIZE] = { 0 };
 		unsigned __int64 installed_physical_addresses[EPTWATCHLISTSIZE] = { 0 };
 		unsigned __int64 committed_cpu_masks[EPTWATCHLISTSIZE] = { 0 };
 		int id_count = 0;
-
-		spinlock::lock(&eptWatchTransaction_lock);
 
 		while (left > 0)
 		{
@@ -104,7 +101,6 @@ namespace ept
 				__vcpu* vcpu = &g_vmm_context.vcpu[i];
 				if (ept::ept_watch_activate_internal(*vcpu->ept_state, physical_address, Type))
 				{
-					committed_vcpus[id_count - 1]++;
 					committed_cpu_masks[id_count - 1] |= 1ull << i;
 					continue;
 				}
@@ -136,23 +132,24 @@ namespace ept
 
 		_mm_mfence();
 		invept_all_contexts_func(); // 刷新 EPT 缓存，避免使用旧映射
-		spinlock::unlock(&eptWatchTransaction_lock);
 		return true;
 
 	rollback:
 		for (int index = id_count - 1; index >= 0; index--)
 		{
 			const int ID = ids[index];
+			EPTWatchEntry entry = { 0 };
 			int has = 0;
 			spinlock::lock(&eptWatchList_lock);
+			entry = eptWatchList[ID];
 			for (int other = 0; other < EPTWATCHLISTSIZE; other++)
 			{
 				if (other != ID &&
-					eptWatchList[other].GroupId != eptWatchList[ID].GroupId &&
+					eptWatchList[other].GroupId != entry.GroupId &&
 					ept_watch_entry_is_effective(eptWatchList[other]) &&
-					GET_PFN(eptWatchList[other].PhysicalAddress) == GET_PFN(eptWatchList[ID].PhysicalAddress))
+					GET_PFN(eptWatchList[other].PhysicalAddress) == GET_PFN(entry.PhysicalAddress))
 				{
-					has = eptWatchList[other].Type == eptWatchList[ID].Type ? 2 : 1;
+					has = eptWatchList[other].Type == entry.Type ? 2 : 1;
 					if (has == 2)
 					{
 						break;
@@ -188,11 +185,11 @@ namespace ept
 				__vcpu* vcpu = &g_vmm_context.vcpu[cpu];
 				if (!ept_watch_deactivate_internal(vcpu,
 					*vcpu->ept_state,
-					eptWatchList[ID].VirtualAddress,
-					eptWatchList[ID].PhysicalAddress,
-					eptWatchList[ID].Type,
-					eptWatchList[ID].bpType,
-					eptWatchList[ID].OriginalByte,
+					entry.VirtualAddress,
+					entry.PhysicalAddress,
+					entry.Type,
+					entry.bpType,
+					entry.OriginalByte,
 					has,
 					ID))
 				{
@@ -214,7 +211,6 @@ namespace ept
 
 		_mm_mfence();
 		invept_all_contexts_func();
-		spinlock::unlock(&eptWatchTransaction_lock);
 		return false;
 	}
 }

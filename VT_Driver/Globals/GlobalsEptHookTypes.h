@@ -136,8 +136,6 @@ struct __ept_hooked_page_info // 被 hook 的页面信息
     volatile long removing; // 删除事务已开始，禁止建立新的 pending-MTF 引用
 
     volatile long hot_reference_count; // 当前 VM-exit 热路径持有的引用
-
-    volatile long functions_lock; // hooked_functions_list 并发保护锁
 };
 
 union __ept_violation // EPT 违规信息字段
@@ -320,7 +318,6 @@ struct __ept_state // EPT 状态（每 VCPU 一份）
 {
     LIST_ENTRY hooked_page_list;  //hook页列表   被hook的页面会被加入到该列表
     LIST_ENTRY retired_page_list; // 待回收页记录列表
-    volatile long hooked_page_list_lock; // hooked_page_list 并发访问锁
     __eptp* ept_pointer; // EPTP 指针
     __vmm_ept_page_table* ept_page_table;  //ept页表
     __ept_pde** pml2_pages; // flat PDPT 索引到 PD 页的映射，支持超过 512GB 的 GPA
