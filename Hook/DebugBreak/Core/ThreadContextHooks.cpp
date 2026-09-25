@@ -118,8 +118,14 @@ BOOL WINAPI NewGetThreadContext(
         bool hasCapturedDr6Status = debugRegisterStatus != 0;
         ULONG64 detectedBreakpointAddress = hasThreadHitRecord ? hitRecord.DetectedAddress : 0;
 
-        if (hardwareBridgeEnabled && !hasCapturedDr6Status && detectedBreakpointAddress == 0)
+        const LONG activeHardwareBreakpointCount =
+            InterlockedCompareExchange(&g_active_hardware_breakpoint_count, 0, 0);
+        if (hardwareBridgeEnabled &&
+            activeHardwareBreakpointCount > 0 &&
+            !hasCapturedDr6Status &&
+            detectedBreakpointAddress == 0)
         {
+            // 该路径只窥探一次性命中状态，真实事件仍由 WaitForDebugEvent 消费。
             int detectedDebugRegister = -1;
             detectedBreakpointAddress = DebugBreakInternal::QueryDetectedBreakpointAddress(
                 hThread,

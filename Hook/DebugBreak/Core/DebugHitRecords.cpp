@@ -99,10 +99,11 @@ namespace DebugBreakInternal
         }
 
         BREAKPOINT_DETECTED vmcallinfo = { 0 };
-        vmcallinfo.command = VMCALL_GET_BREAKPOINT;
+        // 普通 GetThreadContext 只用于合成调试上下文，不能消费真实 #DB 事件。
+        vmcallinfo.command = VMCALL_PEEK_BREAKPOINT;
         vmcallinfo.Cid.UniqueThread = static_cast<ULONG64>(threadId);
 
-        if (!vmcall2(&vmcallinfo))
+        if (!current_vmcall(&vmcallinfo))
         {
             return 0;
         }

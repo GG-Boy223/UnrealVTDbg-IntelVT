@@ -215,62 +215,81 @@ namespace hv
         return true;
     }
 
-    //返回触发的断点给guest调试器
-    bool get_breakpoint_detected(__vcpu* vcpu, PBREAKPOINT_DETECTED vmcallinfo)
+    namespace
     {
-        BREAKPOINT_DETECTED tmp_vmcallinfo = { 0 }; // 临时结构，用于读取来宾传入的请求
-
-        if (sizeof(BREAKPOINT_DETECTED) != hv::read_guest_virtual_memory(vmcallinfo, &tmp_vmcallinfo, sizeof(BREAKPOINT_DETECTED)))
+        bool query_breakpoint_detected(__vcpu* vcpu,
+            PBREAKPOINT_DETECTED vmcallinfo,
+            bool consume)
         {
-            return false;
-        }
+            BREAKPOINT_DETECTED tmp_vmcallinfo = { 0 }; // 临时结构，用于读取来宾传入的请求
 
-        if (tmp_vmcallinfo.Cid.UniqueThread == 0)
-        {
-            return false;
-        }
-
-        __vcpu* detected_vcpu = nullptr;
-        if (g_vmm_context.vcpu != nullptr && g_vmm_context.processor_count != 0)
-        {
-            for (unsigned int i = 0; i < g_vmm_context.processor_count; i++)
+            if (sizeof(BREAKPOINT_DETECTED) != hv::read_guest_virtual_memory(vmcallinfo, &tmp_vmcallinfo, sizeof(BREAKPOINT_DETECTED)))
             {
-                __vcpu* candidate = &g_vmm_context.vcpu[i];
-                if (candidate->Cid.UniqueThread == (HANDLE)tmp_vmcallinfo.Cid.UniqueThread &&
-                    candidate->breakpoint_detected != NULL)
+                return false;
+            }
+
+            if (tmp_vmcallinfo.Cid.UniqueThread == 0)
+            {
+                return false;
+            }
+
+            __vcpu* detected_vcpu = nullptr;
+            if (g_vmm_context.vcpu != nullptr && g_vmm_context.processor_count != 0)
+            {
+                for (unsigned int i = 0; i < g_vmm_context.processor_count; i++)
                 {
-                    detected_vcpu = candidate;
-                    break;
+                    __vcpu* candidate = &g_vmm_context.vcpu[i];
+                    if (candidate->Cid.UniqueThread == (HANDLE)tmp_vmcallinfo.Cid.UniqueThread &&
+                        candidate->breakpoint_detected != NULL)
+                    {
+                        detected_vcpu = candidate;
+                        break;
+                    }
                 }
             }
-        }
 
-        // 兼容旧路径：如果全局 vcpu 数组尚未就绪，仍检查当前逻辑处理器。
-        if (detected_vcpu == nullptr &&
-            vcpu != nullptr &&
-            vcpu->Cid.UniqueThread == (HANDLE)tmp_vmcallinfo.Cid.UniqueThread &&
-            vcpu->breakpoint_detected != NULL)
-        {
-            detected_vcpu = vcpu;
-        }
+            // 兼容旧路径：如果全局 vcpu 数组尚未就绪，仍检查当前逻辑处理器。
+            if (detected_vcpu == nullptr &&
+                vcpu != nullptr &&
+                vcpu->Cid.UniqueThread == (HANDLE)tmp_vmcallinfo.Cid.UniqueThread &&
+                vcpu->breakpoint_detected != NULL)
+            {
+                detected_vcpu = vcpu;
+            }
 
-        if (detected_vcpu != nullptr)
-        {
+            if (detected_vcpu == nullptr)
+            {
+                return false;
+            }
+
             tmp_vmcallinfo.breakpoint_detected = detected_vcpu->breakpoint_detected; // 回填触发地址
             tmp_vmcallinfo.debugRegister = detected_vcpu->breakpoint_debug_register;
-
             if (sizeof(BREAKPOINT_DETECTED) != hv::write_guest_virtual_memory(vmcallinfo, &tmp_vmcallinfo, sizeof(BREAKPOINT_DETECTED)))
             {
                 return false;
             }
 
-            //这说明该断点事件即将被调试器处理，是时候将它移除了
-            detected_vcpu->breakpoint_detected = NULL; // 清空触发地址，避免重复上报
-            detected_vcpu->breakpoint_debug_register = -1;
-            detected_vcpu->Cid = { 0 }; // 清空线程 ID 记录
-            return true; // 成功返回
+            if (consume)
+            {
+                //这说明该断点事件即将被调试器处理，是时候将它移除了
+                detected_vcpu->breakpoint_detected = NULL; // 清空触发地址，避免重复上报
+                detected_vcpu->breakpoint_debug_register = -1;
+                detected_vcpu->Cid = { 0 }; // 清空线程 ID 记录
+            }
+            return true;
         }
-        return false;
+    }
+
+    //返回触发的断点给guest调试器，并消费一次性命中状态
+    bool get_breakpoint_detected(__vcpu* vcpu, PBREAKPOINT_DETECTED vmcallinfo)
+    {
+        return query_breakpoint_detected(vcpu, vmcallinfo, true);
+    }
+
+    //读取触发的断点给guest调试器，不消费一次性命中状态
+    bool peek_breakpoint_detected(__vcpu* vcpu, PBREAKPOINT_DETECTED vmcallinfo)
+    {
+        return query_breakpoint_detected(vcpu, vmcallinfo, false);
     }
 
 }

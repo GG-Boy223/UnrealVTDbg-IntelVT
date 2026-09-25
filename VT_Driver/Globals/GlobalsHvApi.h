@@ -123,6 +123,8 @@ namespace hv // Hypervisor 命名空间
 
     //返回触发的断点给guest调试器
     bool get_breakpoint_detected(__vcpu* vcpu, PBREAKPOINT_DETECTED vmcallinfo); // 返回断点触发信息
+    //读取触发的断点给guest调试器；不消费一次性命中状态
+    bool peek_breakpoint_detected(__vcpu* vcpu, PBREAKPOINT_DETECTED vmcallinfo); // 窥探断点触发信息
 
     //清理断点删除/继续运行后的 VT 侧临时状态，不修改监视表
     bool clear_breakpoint_state(__vcpu* vcpu, void* vmcallinfo); // 清理断点残留状态

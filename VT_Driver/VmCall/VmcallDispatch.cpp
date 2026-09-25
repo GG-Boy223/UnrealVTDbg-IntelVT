@@ -72,6 +72,7 @@ namespace
 			return AreAllEptStatesValid(true) && request.parameter1 != 0;
 
 		case VMCALL_GET_BREAKPOINT:
+		case VMCALL_PEEK_BREAKPOINT:
 		case VMCALL_INIT_OFFSET:
 			return request.parameter1 != 0;
 
@@ -405,6 +406,11 @@ namespace VmcallDispatch
 
 		case VMCALL_GET_BREAKPOINT:
 			return hv::get_breakpoint_detected(
+				vcpu,
+				(PBREAKPOINT_DETECTED)request.parameter1);
+
+		case VMCALL_PEEK_BREAKPOINT:
+			return hv::peek_breakpoint_detected(
 				vcpu,
 				(PBREAKPOINT_DETECTED)request.parameter1);
 

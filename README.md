@@ -120,12 +120,13 @@ UnrealVTDbg 是一个基于 Intel VT-x（Virtualization Technology）硬件虚�
 | 16 | `VMCALL_WATCH_READS` | 监控内存读/写操作（EPTW_READWRITE） |
 | 17 | `VMCALL_WATCH_EXECUTES` | 监控内存执行操作（EPTW_EXECUTE） |
 | 18 | `VMCALL_WATCH_DELETE` | 删除指定内存监控点 |
-| 19 | `VMCALL_GET_BREAKPOINT` | 获取断点触发信息 |
+| 19 | `VMCALL_GET_BREAKPOINT` | 获取并消费断点触发信息 |
 | 20 | `VMCALL_INIT_OFFSET` | 初始化内核结构偏移（符号解析） |
 | 21 | `VMCALL_CLEAR_BREAKPOINT_STATE` | 清除断点状态信息 |
 | 22 | `VMCALL_SYNC_CR3_EXIT_POLICY` | 同步 CR3 监控策略（进程切换跟踪） |
 | 23 | `VMCALL_SET_SOFTWARE_BREAKPOINT_BUFFER` | 写入伪页缓冲（隐形断点原字节） |
 | 24 | `VMCALL_GET_SOFTWARE_BREAKPOINT_BUFFER` | 读取伪页缓冲（隐形断点原字节） |
+| 25 | `VMCALL_PEEK_BREAKPOINT` | 非破坏性读取断点触发信息 |
 
 **跨核同步机制**（DPC 广播）：
 - 驱动通过 `KeGenericCallDpc` 向所有 CPU 广播 VMCALL 请求
