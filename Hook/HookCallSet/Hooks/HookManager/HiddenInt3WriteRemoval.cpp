@@ -50,8 +50,13 @@ namespace HookInternal
                 RemovalCandidate candidate = {};
                 candidate.breakpoint = breakpoint;
                 candidate.writeByte = writeByte;
+                // 恢复写入的长度与读侧共用同一常量：x64dbg / TitanEngine 的 DeleteBPX 写回
+                // BreakPointSize == UE_MAX_BREAKPOINT_SIZE == 2 字节（TitanEngine.Breakpoints.cpp:297），
+                // 而断点存在性校验 IsBPXEnabled 读的也是 2 字节。原判据写死 size == 1，
+                // 于是删除时的 2 字节写回永远被判成「非精确恢复」，HandleHiddenInt3Write 会把
+                // 写入透传给真实 WriteProcessMemory，多走一次 EPT violation。
                 candidate.exactRestore =
-                    size == 1 &&
+                    size <= kBreakpointVerifyIoSize &&
                     ToAddressValue(baseAddress) == breakpoint.VirtualAddress &&
                     writeByte == breakpoint.OriginalBytes;
                 candidates.push_back(candidate);

@@ -98,7 +98,11 @@ void vmexit_ept_violation_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 		{
 			if (!hv::mark_pending_mtf_page(vcpu, hooked_page_info))
 			{
-				goto handled_return;
+				// 页面已进入删除事务（removing != 0）。这里不改变任何状态，
+				// 若直接 handled_return，来宾会立刻重试同一条指令并再次走到这里，
+				// 该逻辑处理器被永久困在 VMX root（IF=0）。改走 unhandled 路径：
+				// 释放热引用、按页计数、本地 INVEPT 后让来宾重试。
+				goto unhandled_after_release;
 			}
 			hooked_page_info->original_entry.execute = 1;
 			hv::set_mtf(true);
@@ -122,7 +126,8 @@ void vmexit_ept_violation_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 				{
 					if (!hv::mark_pending_mtf_page(vcpu, hooked_page_info))
 					{
-						goto handled_return;
+						// 同 EPTO_HOOK_FUNCTION 分支：无进展的 handled_return 会造成 root 态永久自旋。
+						goto unhandled_after_release;
 					}
 					_mm_mfence();
 					invept_single_context_func(vcpu->ept_state->ept_pointer->all);

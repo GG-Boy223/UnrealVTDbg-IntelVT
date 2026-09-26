@@ -46,9 +46,13 @@ namespace ept
 	void RestoreEptPageProperties(__ept_hooked_page_info* hooked_page_info, int ID)
 	{
 		//还原ept页的属性，让guest程序能正常执行，正常读写
+		// 与 apply_active_watch_permissions_locked 同理：恢复整页权限时 entry 必须回到原页。
+		// 伪页是 VMM 的私有副本，guest 对伪页的写入不会同步回原页；把 entry 停在伪页上还会让
+		// 伪页里的隐藏断点字节继续生效。
 		hooked_page_info->entry_address->read = 1;
 		hooked_page_info->entry_address->write = 1;
 		hooked_page_info->entry_address->execute = 1;
+		hooked_page_info->entry_address->page_frame_number = hooked_page_info->pfn_of_hooked_page;
 		hooked_page_info->ID = ID;
 		hv::set_mtf(true); //开启mtf
 	}

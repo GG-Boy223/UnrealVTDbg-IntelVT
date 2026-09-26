@@ -20,6 +20,13 @@ bool RestoreBaseThreadInitThunkStartupBreakpoint();
 namespace HookInternal
 {
     constexpr ULONGLONG kInt3DuplicateRefreshDelayMs = 1500;
+
+    // TitanEngine 的断点存在性校验（IsBPXEnabled）与删除写回（DeleteBPX）都使用
+    // UE_MAX_BREAKPOINT_SIZE == 2（TitanEngine/stdafx.h:263）。
+    // 读侧（HiddenInt3MemoryRead）靠这个长度识别「校验读取」并返回 0xCC，
+    // 写侧（HiddenInt3WriteRemoval）靠它识别「恢复写入」并把写入就地吞掉；
+    // 两侧必须共用同一常量，否则删除路径会被判成「非精确恢复」而多透传一次内存写入。
+    constexpr SIZE_T kBreakpointVerifyIoSize = 2;
     extern LONG DebugSessionCleanupInProgress;
     extern LONG ActiveHiddenInt3Count;
 

@@ -119,10 +119,9 @@ namespace HookInternal
             // 被调试进程的读取不经过本 Hook（本 DLL 只注入调试器进程），它由 EPT 伪页隐藏：
             // 伪页 r/w=0，任何读取都会触发 EPT violation 并由 VMM 换回原页，隐藏效果不受影响。
             // ---------------------------------------------------------------------
-            constexpr SIZE_T kBreakpointVerifyReadSize = 2; // == TitanEngine UE_MAX_BREAKPOINT_SIZE
             constexpr BYTE kInt3Opcode = 0xCC;
             const bool is_breakpoint_verify_read =
-                actualBytesRead == kBreakpointVerifyReadSize &&
+                actualBytesRead == kBreakpointVerifyIoSize &&
                 ToAddressValue(baseAddress) == breakpoint.VirtualAddress;
 
             readBytes[offset] = is_breakpoint_verify_read

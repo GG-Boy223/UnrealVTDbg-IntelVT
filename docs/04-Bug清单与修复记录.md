@@ -149,6 +149,23 @@
 - 不改动项：MTRR 仍全局读一次（build_mtrr_map()）。MTRR 由固件/操作系统在各核上统一编程，Intel 同包内取值一致；HyperPlatform（EptInitializeMtrrEntries）与 HyperDbg（EptCheckFeatures 顶部读 IA32_MTRR_DEF_TYPE）也都是初始化时读一次。
 - 验证：VT_Driver Release x64 全量重建：0 error、0 warning，产出并签名 VT_Driver.sys。
 - 上机核对点：VTLoad.log 中每个 CPU 都有一组 [CPU%u] 前缀的 [EPT能力]/[EPT覆盖范围]/[EPT页表] 行；若某个核不支持 1GB EPT 大页，该核应打印 1GB大页=不支持 并走 “非RAM按需映射：粒度=2MB页” 分支，不再出现 Arg1=8 的 EPT misconfiguration。
+
+### B18 EPT 权限重算路径未把 entry 归一到原页，删掉断点后被调试进程仍卡
+
+- 现象（用户报告，分支 codex/vt-watch-lifecycle-adjustments-20260925，HEAD e0a132b）：附加调试（目标为 valorant，日志含 ACE-IDS64.dll）下在 0x141F02D60 下 INT3 断点，命中两次后禁用并删除断点，日志出现 EXCEPTION_SINGLE_STEP @ 0x141F02D6E（= 断点地址 + 0xE，一条 14 字节指令的步过收尾）；随后删除所有断点并恢复运行，被调试进程仍然卡住、调试器本身正常；点步进又能收到事件。
+- 判据：删除动作确实执行到了驱动（日志有“断点已删除”，且 Driver/DriverGuestCommands.cpp:78 的 RemoveBreakpoint 认 ept_watch_deactivate 的 0 与 2 为成功），所以不是 docs/21 记录的“IsBPXEnabled 读不到 0xCC → DeleteBPX 跳过写回”那条旧根因。
+- 根因：隐藏 INT3 用“原页 + 伪页”双映射实现，切页必须改 EPT 表项的 page_frame_number；但三处“重算权限”的代码只改 read/write/execute 三个权限位、不写 page_frame_number：
+  1. VT_Driver/Ept/Watch/EptWatchPageInstall.cpp:26 apply_active_watch_permissions_locked()；
+  2. VT_Driver/Ept/Watch/EptWatchQuery.cpp:46 RestoreEptPageProperties()；
+  3. VT_Driver/Ept/Watch/EptWatchDeactivate.cpp:56 ept_watch_deactivate_internal() 的 else（非 INT3）分支在 has == 0 时。
+  Globals/MtfPendingState.cpp:75 的 stale 页清理走的也是第 1 处。只要 entry 曾被 ept_handle_int3_execute() 的 has_active_watch 分支切到 changed_entry（伪页），上述任何一条都会把权限重算作用在伪页上：entry 从此长期停在伪页、伪页内容与原页分叉，删掉断点后 guest 仍在伪页上命中断点字节。
+- 与 e0a132b 的关系：同一提交把执行型硬件断点（DR7.RWn=00）从静默丢弃改为桥接 VMCALL_WATCH_EXECUTES（Hook/DebugBreak/Core/DebugRegisterHelpers.cpp），而 x64dbg / CE 的硬件断点默认就是执行型，于是“同页同时存在 bpType==3 与 bpType!=3 watch”的概率上升，删除时更容易走 has != 0 或上面的 else 分支。
+- 修法：三处都补上 entry_address->page_frame_number = hooked_page_info->pfn_of_hooked_page;，把“归一到原页”变成重算权限时的无条件动作；伪页只在 ept_handle_int3_execute() 的命中窗口内被指向。
+- 附带修复 1（无进展自旋）：VmExitEpt.cpp 剩余 2 处 mark_pending_mtf_page() 失败分支（EPTO_HOOK_FUNCTION 执行违规 :99、普通 EXECUTE watch :123）由 goto handled_return 改为 goto unhandled_after_release，与 docs/21 §3.4 已修的 3 处收敛为同一处理。
+- 附带修复 2（读写判据不对称）：Hook/HookCallSet/Hooks/HookManager/HiddenInt3WriteRemoval.cpp 的 exactRestore 原判据写死 size == 1，而 x64dbg / TitanEngine 的 DeleteBPX 写回 BreakPointSize == UE_MAX_BREAKPOINT_SIZE == 2 字节，导致删除时的 2 字节写回永远被判成“非精确恢复”、HandleHiddenInt3Write 把写入透传给真实 WriteProcessMemory。现与读侧共用 Hook/HookCallSet/Hooks/HookInternal.h 新增的 kBreakpointVerifyIoSize == 2。
+- 验证：VT_Driver / Hook Release x64 全量重建 0 error / 0 warning；x64dbg 与 x32dbg 各下 10 个 INT3 断点 → 反复命中/继续 100 次 → 删除所有断点 → 目标应立即恢复执行；叠加执行型硬件断点（bph）后重跑同一步骤。
+- 备注：本机 MSBuild 无法从命令行调用，需在 IDE 内重建后上机验证。
+
 ## 待确认与已记录但未改动
 
 ### C01 NtRemoveProcessDebug 的访问模式差异（Win11 与 Win10 不一致）

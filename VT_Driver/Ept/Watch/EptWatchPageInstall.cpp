@@ -36,6 +36,15 @@ namespace ept
         hooked_page_info->entry_address->write = 1;
         hooked_page_info->entry_address->execute = 1;
 
+        // 重算权限的同时必须把 entry 的 PFN 归一到原页。
+        // 隐藏 INT3 用「原页 + 伪页」双映射实现：伪页（changed_entry）只在
+        // ept_handle_int3_execute 的命中窗口内被指向，其余时刻 entry 必须落在原页上。
+        // 原实现只改 read/write/execute 三个权限位、不写 page_frame_number，因此只要 entry
+        // 曾被切到伪页，本函数就会把权限重算作用在伪页上 —— entry 从此长期停在伪页，
+        // 伪页内容与原页分叉，删除断点后 guest 仍会在伪页上命中断点字节，
+        // 表现为「断点已删除、被调试进程仍然卡」。
+        hooked_page_info->entry_address->page_frame_number = hooked_page_info->pfn_of_hooked_page;
+
         const unsigned __int64 pfn = hooked_page_info->pfn_of_hooked_page;
         int ignored_group = -1;
         if (ignoredID >= 0 && ignoredID < EPTWATCHLISTSIZE &&

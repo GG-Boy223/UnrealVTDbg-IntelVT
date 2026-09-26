@@ -55,9 +55,13 @@ namespace ept
 		{
 			if (has == 0)
 			{
+				// 非 INT3 的 EPT watch 删除后同样必须把 entry 归一到原页。
+				// 原实现只把三个权限位置 1、不写 page_frame_number：若该页同时挂过 INT3 watch，
+				// entry 可能正指向伪页，删除后 guest 会继续在伪页上执行。
 				hooked_page_info->entry_address->read = 1;
 				hooked_page_info->entry_address->write = 1;
 				hooked_page_info->entry_address->execute = 1;
+				hooked_page_info->entry_address->page_frame_number = hooked_page_info->pfn_of_hooked_page;
 			}
 			else
 			{
