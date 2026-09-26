@@ -26,12 +26,8 @@ void vmexit_ept_violation_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 	ept_violation.all = vcpu->vmexit_info.qualification; // 原理:将 qualification 原值写入位域结构;作用:解析读/写/执行违规;结果:ept_violation 填充
 	unsigned __int64 guest_physical_adddress = hv::vmread(GUEST_PHYSICAL_ADDRESS); // 固定读取GPA
 
-	// 已摘链的页/函数记录在这里尝试回收。回收只处理引用计数已经归零的对象，
-	// 不等待其他 VCPU；仍有引用的对象留到后续安全点继续回收。
-	if (vcpu != nullptr && vcpu->ept_state != nullptr)
-	{
-		ept::reclaim_retired_resources(*vcpu->ept_state);
-	}
+	// 回收已摘链对象由卸载/停用清理路径负责；EPT violation 热路径不再扫描
+	// 全部活动页和退休链，避免每次访存监视命中都产生 O(n) 额外开销。
 
 	__ept_hooked_page_info* hooked_page_info = nullptr;
 	__ept_hooked_function_info* hooked_function_info = nullptr;
@@ -65,7 +61,15 @@ void vmexit_ept_violation_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 					if (!hv::mark_pending_mtf_page(vcpu, hooked_page_info))
 					{
 						hv::set_mtf(false);
-						goto handled_return;
+						// 页面已进入删除事务（removing != 0）。这里既不能切换表项也不能启用 MTF，
+						// 但也**绝不能**直接 handled_return：那样不改变任何状态、来宾会立刻重试同一条
+						// 指令并再次走到这里 —— 该逻辑处理器被永久困在 VMX root（IF=0）。
+						// 一旦有核卡在 root，删除断点走的 KeGenericCallDpc 全核屏障就永远等不到它，
+						// 表现为"删除所有断点后调试器与被调试进程一起卡死"。
+						// 改走 unhandled 路径：释放热引用、按页计数、本地 INVEPT 后让来宾重试；
+						// 删除事务完成后重试即成功（前向进展），条件持续不消失时也会在 64 次后
+						// 收敛为可诊断的 vmx_fatal_error，而不是无解释的自旋。
+						goto unhandled_after_release;
 					}
 					hooked_page_info->isInt3 = true;
 					hooked_page_info->original_entry.execute = 1;
@@ -80,7 +84,8 @@ void vmexit_ept_violation_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 					if (!hv::mark_pending_mtf_page(vcpu, hooked_page_info))
 					{
 						hv::set_mtf(false);
-						goto handled_return;
+						// 同 bpType==3：无进展的 handled_return 会造成 root 态永久自旋。
+						goto unhandled_after_release;
 					}
 					_mm_mfence();
 					invept_single_context_func(vcpu->ept_state->ept_pointer->all);

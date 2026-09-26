@@ -185,6 +185,12 @@ struct __vcpu // 每逻辑 CPU 的 VMM 状态
     unsigned __int64 breakpoint_detected; //记录触发的地址
     int breakpoint_debug_register; //记录触发的 DR0-DR3 槽位，-1 表示无效
 
+    // guest 可见的 DR7 影子（含 GD 与全部 guest 可写位）。
+    // 物理 DR7 / GUEST_DR7 都必须剔除 GD（否则 root 的 MOV DR 会触发 #DB → 三重故障），
+    // 但 guest 的 MOV DR7 读回必须看到自己写入的 GD，因此单独维护这份影子。
+    // 维护点：Vmcs/VmcsGuest.cpp（初始化）、VmExit/VmExitDebugRegisters.cpp（读写）。
+    unsigned __int64 guest_dr7_shadow;
+
     unsigned __int64 cr3_target_values[4];
     unsigned __int32 cr3_target_count;
     unsigned __int32 cr3_target_cursor;

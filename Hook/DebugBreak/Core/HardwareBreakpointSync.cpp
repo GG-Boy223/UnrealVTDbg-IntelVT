@@ -108,6 +108,9 @@ namespace DebugBreakInternal
             unsigned __int64 command = 0;
             if (!DecodeDebugRegisterCommand(rwCode, &command))
             {
+                // 执行型(00)/写(01)/读写(11) 均已桥接为 EPT 监视；这里只剩 RW=10
+                // （I/O 读写断点，仅 CR4.DE=1 的旧平台上有效，SDM Vol3B 17.2.4 已标记为
+                // 保留/废弃）。此类断点无法用 EPT 表达，明确记为不同步而不是静默忽略。
                 if (rwCode != WATCH_EXECUTION_ONLY)
                 {
                     logger.Log("不支持的硬件断点类型: dr%d rw=%d dr7=0x%llX", i, rwCode, dr7);

@@ -68,10 +68,17 @@ namespace ept
 
         if (!hv::mark_pending_mtf_page(vcpu, hooked_page_info))
         {
-            // removing 已由删除事务置位。删除事务会在本热引用释放后恢复
-            // EPT 权限并回收记录；本次不能再切换表项或启用 MTF。
+            // removing 已由删除事务置位：本次不能再切换表项或启用 MTF。
+            // 但这里必须返回 false（交由调用方走 unhandled 路径），不能返回 true：
+            // 返回 true 会让 VmExitEpt 直接 handled_return —— 表项仍是"不可执行"且没有任何
+            // 状态推进，来宾会立刻重试同一条指令并再次进入本函数，该逻辑处理器被永久困在
+            // VMX root（IF=0）。一旦有核卡在 root，删除断点走的 KeGenericCallDpc 全核屏障
+            // 就永远等不到它，表现为"删除所有断点后调试器与被调试进程一起卡死"。
+            // 返回 false 后由 VmExitEpt 的 unhandled 路径释放热引用、按页计数并本地 INVEPT
+            // 让来宾重试：删除事务完成后重试即成功，条件持续存在时也会在 64 次后收敛为
+            // 可诊断的 vmx_fatal_error。
             hv::set_mtf(false);
-            return true;
+            return false;
         }
 
         hooked_page_info->original_entry.execute = 1;

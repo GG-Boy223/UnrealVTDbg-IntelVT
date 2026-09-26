@@ -42,7 +42,19 @@ namespace DebugEventInternal
         vmcallinfo.command = VMCALL_GET_BREAKPOINT;
         vmcallinfo.Cid.UniqueThread = static_cast<ULONG64>(threadId);
 
-        if (!vmcall2(&vmcallinfo))
+        // 只向当前逻辑处理器发起 VMCALL，不做跨核广播。
+        // 依据：VMM 侧 hv::get_breakpoint_detected（Globals/GuestThreadState.cpp:284 ->
+        // query_breakpoint_detected）在实现里**遍历 g_vmm_context.vcpu[] 全数组**按
+        // Cid.UniqueThread 查找命中的 vCPU（同文件 :236-249），因此单核执行即可覆盖所有
+        // 逻辑处理器，广播是多余的。
+        // 为什么必须改：本函数在每次单步（EXCEPTION_SINGLE_STEP）与暂停取上下文时都会被调用
+        // （DebugEvent/Core/DebugEventHitRecords.cpp:CaptureSingleStepDebugState、
+        //  DebugBreak/Core/ThreadContextHooks.cpp 的探测路径）。原先走 vmcall2 会逐核切换
+        // 亲和性并在每个核上各跑一次 VMCALL，步过/运行到返回这类高频循环（x64dbg
+        // debugger.cpp:cbRtrStep 递归步过）会因此产生大量跨核切换；且 vmcall2 要求所有核
+        // 都执行成功才返回 true，任一核不可用就会让 DR6 合成失败。
+        // 与 VMCALL_PEEK_BREAKPOINT（DebugBreak/Core/DebugHitRecords.cpp:106）保持一致。
+        if (!current_vmcall(&vmcallinfo))
         {
             return false;
         }

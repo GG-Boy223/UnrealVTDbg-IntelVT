@@ -106,11 +106,19 @@ void set_primary_controls(__vmx_primary_processor_based_control& primary_control
     primary_controls.nmi_window_exiting = false; // 不启用 NMI 窗口退出
 
 // MOV DR 指令是否 VM-exit
-#ifdef _MINIMAL // 精简模式
-    primary_controls.mov_dr_exiting = false; // 不拦截 MOV DR
-#else // 非精简模式
-    primary_controls.mov_dr_exiting = true; // 拦截 MOV DR
-#endif // 条件编译结束
+    // 必须无条件拦截（不能随 _MINIMAL 关闭）。理由：
+    //   1) VM-exit 没有 host DR7 字段（Intel SDM Vol3C 27.5.1），root 运行期的物理 DR7
+    //      就是 guest 的 DR7；若 guest 通过原生 MOV DR7 置 GD=1，ASM/vm-exit.asm 序言
+    //      的 mov drN 会在 root 触发 #DB（SDM Vol3B 17.2.1），落到 root IDT 三重故障
+    //      路径 → 宿主蓝屏。且"在汇编里先清 GD"不可行：GD=1 时写 DR7 的 MOV DR 本身
+    //      就先触发 #DB，无法自救。
+    //   2) 拦截后物理 DR7 只由 VM-entry 从 GUEST_DR7 载入，而 VmExit/VmExitDebugRegisters.cpp
+    //      保证 GUEST_DR7 永不携带 GD（与 KVM handle_dr / kvm_set_dr 同构）。
+    //   3) 性能上不会引入退出风暴：Windows 仅在 KTHREAD.Header.ActiveDR7（DebugActive bit0，
+    //      DbgkSysWin11/ntos/inc/10.0.19041.4291/ntkrnlmp.h:3466）置位时才在线程切换
+    //      保存/恢复 DRx；而本项目的用户态桥（Hook/DebugBreak/Core/ThreadContextHooks.cpp）
+    //      已把调试器的 DRx 从硬件剥离，目标线程的 ActiveDR7 保持为 0。
+    primary_controls.mov_dr_exiting = true; // 拦截 MOV DR，由 handler 维护 DRx 影子
 
     // 无条件 I/O 退出（所有 IO 指令都 VM-exit）
     primary_controls.unconditional_io_exiting = false; // 不启用无条件 I/O 退出

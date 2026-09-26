@@ -1,4 +1,5 @@
 ﻿#include "VmcsInternal.h"
+#include "../drx.h"
 
 // 填充来宾状态字段（guest-state）
 void fill_vmcs_guest_fields(__vcpu* vcpu, void* guest_rsp) // 填充来宾字段
@@ -78,7 +79,11 @@ void fill_vmcs_guest_fields(__vcpu* vcpu, void* guest_rsp) // 填充来宾字段
     hv::vmwrite<unsigned __int64>(CR4_GUEST_HOST_MASK, cr4_vmxe_bit | cr4_la57_bit);
 
     // 写入来宾调试寄存器
-    hv::vmwrite<unsigned __int64>(GUEST_DR7, __readdr(7)); // DR7
+    // GUEST_DR7 必须剔除 GD 与保留位：VM-entry 会把它载入物理 DR7（load debug controls=1），
+    // 而 root 侧的 ASM/vm-exit.asm 会无条件执行 mov drN —— 物理 DR7 一旦带 GD 就会在 root
+    // 触发 #DB 并落到三重故障路径（Intel SDM Vol3B 17.2.1）。guest 可见的含 GD 值单独存影子。
+    vcpu->guest_dr7_shadow = normalize_guest_dr7_shadow(__readdr(7));
+    hv::vmwrite<unsigned __int64>(GUEST_DR7, sanitize_guest_dr7(vcpu->guest_dr7_shadow)); // DR7
     // 写入来宾 RFLAGS
     hv::vmwrite<unsigned __int64>(GUEST_RFLAGS, __readeflags()); // RFLAGS
     // 来宾 RSP/RIP 在 vmlaunch 前由汇编代码设置

@@ -47,6 +47,16 @@ vm_exit proc
   mov guest_context.$cr8[rsp], rax
 
   ; debug registers
+  ; 先把物理 DR7 收敛为 DR7_FIXED_1（仅保留 bit10），清除 guest 的 Ln/Gn 断点使能与 GD。
+  ; 目的：root 执行期间物理 DRx 仍保存 guest 的断点地址（收尾会写回），若 DR7 的使能位保持
+  ; guest 值，root 代码一旦命中 guest 的断点地址就会在 root 触发 #DB，落到 root IDT 三重故障
+  ; 路径。VM-entry 会用 GUEST_DR7 重新载入 guest 的 DR7，因此这里不需要保存/恢复。
+  ; 读 DR7 本身安全：GUEST_DR7 已在 Vmcs/VmcsGuest.cpp 与 VmExit/VmExitDebugRegisters.cpp
+  ; 中剔除 GD，物理 DR7 永不携带 general-detect。
+  mov rax, dr7
+  and eax, 400h
+  mov dr7, rax
+
   mov rax, dr0
   mov guest_context.$dr0[rsp], rax
   mov rax, dr1

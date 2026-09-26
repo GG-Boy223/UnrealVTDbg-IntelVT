@@ -77,8 +77,27 @@ namespace DebugBreakInternal
         switch (rwCode)
         {
         case WATCH_EXECUTION_ONLY:
-            // 原版没有接管执行型 DRx；x64dbg 会用它做内部步过，桥入 VT 容易误报未知断点。
-            return false;
+            // DR7.RWn = 00（执行型硬件断点）必须桥接为 EPT 执行监视，否则调试器设置的
+            // 执行型硬件断点会被静默丢弃，并连带清掉同槽位已有的断点记录。
+            //
+            // 依据（已核对 x64dbg / CE 真实实现）：
+            //   1) x64dbg 硬件断点默认类型就是执行型：src/dbg/commands/cmd-breakpoint-control.cpp
+            //      `TitanHardwareBreakpointType type = UE_HARDWARE_EXECUTE;`，只有显式传 'r'/'w'
+            //      才改为 UE_HARDWARE_READWRITE / UE_HARDWARE_WRITE；'x' 落到 default 分支。
+            //   2) CE 的 bptExecute 同样映射为 RW=00：Cheat Engine/debughelper.pas
+            //      `case bptWrite: Debugregistermask := $1; case bptAccess: Debugregistermask := $3;`
+            //      bptExecute 不加任何 RW 位，即 RW=00。
+            //   3) 单步/步过不使用执行型 DRx：TitanEngine.Debugger.Control.cpp 的 StepInto 用
+            //      `myDBGContext.EFlags |= UE_TRAP_FLAG`（TF），StepOver 对 CALL/REP/PUSHF 用
+            //      `SetBPX(..., UE_SINGLESHOOT)` 下临时 INT3，其余情况退化为 StepInto。
+            //      因此"x64dbg 用执行型 DRx 做内部步过"的说法与现行实现不符。
+            //   4) VMM 侧执行监视已完整接线：VmcallDispatch.cpp `case VMCALL_WATCH_EXECUTES:
+            //      return SetBreakpoint(..., EPTW_EXECUTE);`，EptWatchPageInstall.cpp
+            //      `set_ept_watch()` 对 EPTW_EXECUTE 清 EPT 条目的 execute 位。
+            // 注：执行监视要求 DR7.LENn = 00（SDM Vol3B 17.2.4），TitanEngine 与 CE 均已强制
+            // 长度为 1 字节，与本项目 DecodeDebugRegisterLength(BYTE_1) == 1 一致。
+            *command = VMCALL_WATCH_EXECUTES;
+            return true;
         case WATCH_WRITE:
             *command = VMCALL_WATCH_WRITES;
             // *command = VMCALL_WATCH_WRITES;

@@ -23,6 +23,21 @@ NewWaitForDebugEvent(
                 return bRet;
             }
 
+            // 单步/硬件断点命中状态捕获必须对「创建调试」与「附加调试」两条路径都执行。
+            // 依据：Hook/DebugBreak/Core/ThreadContextHooks.cpp 的 NewGetThreadContext 在合成
+            // 返回给调试器的 DR6 时，依赖这里写入的 DEBUG_HIT_RECORD 来区分三种情形 ——
+            //   条件 1 + 寄存器状态位 = 硬件断点命中（DR6.B0-B3）
+            //   条件 2                  = TF 单步完成（DR6.BS）
+            // 原实现只在附加路径（else 分支）调用，导致创建路径下纯单步拿不到 BS 位，
+            // 调试器读到的 DR6 在两条路径下不一致（x64dbg 的 File -> Open 走
+            // NewNtCreateUserProcess -> g_process_info.isCreate = TRUE，见 ProcessApiHooks.cpp:25）。
+            if (lpDebugEvent->dwDebugEventCode == EXCEPTION_DEBUG_EVENT &&
+                DebugEventInternal::IsSingleStepExceptionCode(
+                    lpDebugEvent->u.Exception.ExceptionRecord.ExceptionCode))
+            {
+                DebugEventInternal::CaptureSingleStepDebugState(lpDebugEvent->dwThreadId);
+            }
+
             //处理非附加调试的情况
             if (g_process_info.isCreate)
             {
@@ -103,19 +118,7 @@ NewWaitForDebugEvent(
                 }
                 }
             }
-            // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
-            else
-            {
-                //处理附加的情况
-                if (lpDebugEvent->dwDebugEventCode == EXCEPTION_DEBUG_EVENT)
-                {
-                    const DWORD exceptionCode = lpDebugEvent->u.Exception.ExceptionRecord.ExceptionCode;
-                    if (DebugEventInternal::IsSingleStepExceptionCode(exceptionCode))
-                    {
-                        DebugEventInternal::CaptureSingleStepDebugState(lpDebugEvent->dwThreadId);
-                    }
-                }
-            }
+            // 附加路径的调试事件已在上方统一处理单步状态捕获，这里不再重复。
         }
     }
     // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
