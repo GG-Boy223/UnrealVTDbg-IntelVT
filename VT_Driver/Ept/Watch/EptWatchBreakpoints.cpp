@@ -142,7 +142,9 @@ namespace ept
 
 		hooked_page_info->original_entry = *hooked_page_info->entry_address;
 		hooked_page_info->original_entry.read = 1;
-		hooked_page_info->original_entry.write = 1;
+		// 隐藏 INT3 页必须同时拦写：伪页只是安装时刻的快照，原页的写入必须被拦截，
+		// 才能在 MTF 收尾时整页重新同步伪页（见 docs/23 与 apply_active_watch_permissions_locked）。
+		hooked_page_info->original_entry.write = 0;
 		hooked_page_info->original_entry.execute = 0;
 		hooked_page_info->original_entry.page_frame_number = hooked_page_info->pfn_of_hooked_page;
 
@@ -351,7 +353,9 @@ namespace ept
 		hooked_page_info->owner_split = ept_get_split_from_pml1(target_page); // 获取运行期分割的 split
 		//将原页修改为不可执行
 		hooked_page_info->entry_address->read = 1;
-		hooked_page_info->entry_address->write = 1;
+		// 隐藏 INT3 页同时拦写（伪页是快照，写入必须被拦截才能在 MTF 收尾时整页重新同步，见 docs/23）；
+		// original_entry 紧随其后从 *target_page 复制，因此隐藏态的 write 也一并是 0。
+		hooked_page_info->entry_address->write = 0;
 		//先改原页为不可执行 回到guest后执行就触发vmexit
 		//进入vmm后交换伪造页
 		hooked_page_info->entry_address->execute = 0;

@@ -53,6 +53,13 @@ void vmexit_ept_violation_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 		if (hooked_page_info->Options == EPTO_VIRTUAL_BREAKPOINT)
 		{
 			//处理断点监视事件
+			// 伪页是快照：任何被拦截的写入都说明原页内容已变，必须在 MTF 收尾时整页重新同步，
+			// 否则下一次换入伪页执行的是过期指令流。这里按页判断而不依赖 ept_handleWatchEvent
+			// 的 INT3 分支，是为了覆盖「同页还有数据 watch」与「命中缓存 ID」等其它子路径。
+			if (ept_violation.write_access && hooked_page_info->changed_entry.page_frame_number != 0)
+			{
+				hooked_page_info->fake_page_needs_full_sync = true;
+			}
 			int bpType = 0;
 			if (ept::ept_handleWatchEvent(vcpu, ept_violation, hooked_page_info, guest_physical_adddress, bpType))
 			{
@@ -72,6 +79,10 @@ void vmexit_ept_violation_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 						goto unhandled_after_release;
 					}
 					hooked_page_info->isInt3 = true;
+					// 一次性放行窗口：重试的访问可能是读也可能是写（隐藏态已把 write 关掉），
+					// 所以这里给原页完整权限，MTF 收尾时再恢复隐藏态。
+					hooked_page_info->original_entry.read = 1;
+					hooked_page_info->original_entry.write = 1;
 					hooked_page_info->original_entry.execute = 1;
 					hv::set_mtf(true);
 					ept::swap_pml1_and_invalidate_tlb(*vcpu->ept_state,

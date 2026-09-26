@@ -17,6 +17,7 @@ namespace ept
         const unsigned __int64 pfn = GET_PFN(guest_physical_address);
         bool has_active_watch = false;
         int transitional_id = -1;
+        int sync_id = -1; // 需要整页重新同步伪页时用来取 cr3 / 虚拟地址的 active INT3 watch
 
         spinlock::lock(&eptWatchList_lock);
         for (int index = 0; index < EPTWATCHLISTSIZE; index++)
@@ -34,6 +35,10 @@ namespace ept
             {
                 hooked_page_info->fake_page_contents[offset] = 0xCC;
                 has_active_watch = true;
+                if (sync_id == -1)
+                {
+                    sync_id = index;
+                }
                 continue;
             }
 
@@ -46,7 +51,52 @@ namespace ept
 
         if (has_active_watch)
         {
+            // 伪页是快照：隐藏态被写过后必须先整页重新同步，否则这次换入的就是过期指令流，
+            // guest 会按旧代码执行（「单步几步后跳回断点」即由此而来，见 docs/23）。
+            const bool needs_full_sync =
+                !hooked_page_info->fake_page_synced ||
+                hooked_page_info->fake_page_needs_full_sync;
+            cr3 sync_cr3 = {};
+            unsigned __int64 sync_virtual_address = 0;
+            if (needs_full_sync)
+            {
+                sync_cr3.flags = eptWatchList[sync_id].cr3;
+                sync_virtual_address = eptWatchList[sync_id].VirtualAddress;
+            }
+
             spinlock::unlock(&eptWatchList_lock);
+
+            if (needs_full_sync)
+            {
+                if (PAGE_SIZE != hv::read_guest_virtual_memory(
+                        sync_cr3,
+                        PAGE_ALIGN(sync_virtual_address),
+                        &hooked_page_info->fake_page_contents,
+                        PAGE_SIZE))
+                {
+                    // 读不到就保留脏标记，本次仍按现有快照放行让 guest 前向推进，
+                    // 下一次命中继续尝试同步。
+                    hooked_page_info->fake_page_synced = false;
+                    hooked_page_info->fake_page_needs_full_sync = true;
+                }
+                else
+                {
+                    hooked_page_info->fake_page_synced = true;
+                    hooked_page_info->fake_page_needs_full_sync = false;
+
+                    // 整页同步会覆盖伪页里的 0xCC，必须把本页所有 active INT3 字节重新写回。
+                    spinlock::lock(&eptWatchList_lock);
+                    for (int index = 0; index < EPTWATCHLISTSIZE; index++)
+                    {
+                        if (ept_isWatchPage(pfn, index) && eptWatchList[index].bpType == 3)
+                        {
+                            hooked_page_info->fake_page_contents[eptWatchList[index].VirtualAddress & 0xFFF] = 0xCC;
+                        }
+                    }
+                    spinlock::unlock(&eptWatchList_lock);
+                }
+            }
+
             swap_pml1_and_invalidate_tlb(
                 *vcpu->ept_state,
                 hooked_page_info->entry_address,
@@ -81,6 +131,10 @@ namespace ept
             return false;
         }
 
+        // 一次性放行窗口：重试的访问可能是读也可能是写（隐藏态已把 write 关掉），
+        // 所以这里给原页完整权限，MTF 收尾时再恢复隐藏态。
+        hooked_page_info->original_entry.read = 1;
+        hooked_page_info->original_entry.write = 1;
         hooked_page_info->original_entry.execute = 1;
         hv::set_mtf(true);
         swap_pml1_and_invalidate_tlb(

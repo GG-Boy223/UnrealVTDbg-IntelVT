@@ -41,6 +41,11 @@ namespace ept
 
 			if (has == 0) //如果has为0则说明没有存在其他的监视断点，那么我们可以将页进行回收
 			{
+				// 该页再无其它 watch：原页要恢复成完全可访问。
+				// 隐藏 INT3 期间原页是 read=1 / write=0 / execute=0（见 apply_active_watch_permissions_locked），
+				// 只把 execute 置 1 会把 write=0 留在页上，删掉断点后 guest 对该页的写入会一直触发 EPT violation。
+				hooked_page_info->original_entry.read = 1;
+				hooked_page_info->original_entry.write = 1;
 				hooked_page_info->original_entry.execute = 1;
 				swap_pml1_and_invalidate_tlb(ept_state, hooked_page_info->entry_address, hooked_page_info->original_entry, invept_single_context);
 			}

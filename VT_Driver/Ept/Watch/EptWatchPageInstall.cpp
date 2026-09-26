@@ -46,6 +46,7 @@ namespace ept
         hooked_page_info->entry_address->page_frame_number = hooked_page_info->pfn_of_hooked_page;
 
         const unsigned __int64 pfn = hooked_page_info->pfn_of_hooked_page;
+        bool has_effective_int3 = false;
         int ignored_group = -1;
         if (ignoredID >= 0 && ignoredID < EPTWATCHLISTSIZE &&
             ept_watch_entry_is_reserved(eptWatchList[ignoredID]))
@@ -66,10 +67,33 @@ namespace ept
             if (eptWatchList[index].bpType == 3)
             {
                 hooked_page_info->entry_address->execute = 0;
+                has_effective_int3 = true;
                 continue;
             }
 
             set_ept_watch(hooked_page_info, eptWatchList[index].Type);
+        }
+
+        // 隐藏 INT3 页必须连写权限一起收紧。伪页只是安装时刻的一份快照，
+        // 而 entry 在隐藏态停在原页（read=1 / write=1 / execute=0），
+        // guest 对原页的写入会静默成功，VMM 无从得知伪页已经过期 ——
+        // 下一次执行该页时 ept_handle_int3_execute 换入的就是过期快照，
+        // guest 会按旧指令流执行（表现为单步几步后跳回断点、步进位置与源码不符）。
+        // 关掉 write 位后任何写入都会触发 EPT violation，由 ept_handleWatchEvent 置
+        // fake_page_needs_full_sync，MTF 收尾时整页重新同步伪页。
+        if (has_effective_int3)
+        {
+            hooked_page_info->entry_address->write = 0;
+        }
+
+        // changed_entry 同时是「本页存在 INT3 watch」的标记：vmexit_ept_violation_handler
+        // 用 changed_entry.page_frame_number != 0 决定走 INT3 分支还是普通 EXECUTE watch 分支。
+        // 页上最后一个 INT3 watch 消失后必须清掉，否则后续执行违规仍进 INT3 分支，
+        // 而该分支在页上没有 INT3 watch 时只能返回 false，调用方走 unhandled 路径后
+        // guest 会重试同一条指令并再次进入同一分支 —— 无进展自旋（0x101 / vmx_fatal_error）。
+        if (!has_effective_int3)
+        {
+            hooked_page_info->changed_entry.page_frame_number = 0;
         }
     }
 

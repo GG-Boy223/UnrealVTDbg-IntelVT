@@ -166,6 +166,18 @@
 - 验证：VT_Driver / Hook Release x64 全量重建 0 error / 0 warning；x64dbg 与 x32dbg 各下 10 个 INT3 断点 → 反复命中/继续 100 次 → 删除所有断点 → 目标应立即恢复执行；叠加执行型硬件断点（bph）后重跑同一步骤。
 - 备注：本机 MSBuild 无法从命令行调用，需在 IDE 内重建后上机验证。
 
+### B19 隐藏 INT3 伪页写一致性缺口 + changed_entry 陈旧（单步「走几步又回到断点」）
+
+- 现象（用户报告，分支 codex/vt-watch-lifecycle-adjustments-20260925）：下断点调试之后单步执行，走几步又回到断点，继续单步才会接着走；已排除「程序路径本身会绕回断点」。
+- 判据（调试器侧源码取证，F:/001/VT/中间目录/TitanEngine）：TitanEngine.Debugger.Control.cpp StepInto() 只置 EFlags.TF，不回写断点字节；TitanEngine.Debugger.DebugLoop.cpp:625-700 的 STATUS_BREAKPOINT 分支才是「写回原字节 + RIP 回退到 A + 自动 TF 单步 + ResetBPX 延迟重装」，重装在处理下一个异常事件时执行且当 ExceptionAddress 仍等于 A 时跳过。因此单步链路本身与本源兼容，问题只能出在 EPT 侧执行流与真实代码不一致。
+- 根因 1（D1，主因）：隐藏 INT3 的原页被建成 read=1 / write=1 / execute=0（EptWatchBreakpoints.cpp prepare_int3_fake_page_entries / hide_cc_breakpoint），而 apply_active_watch_permissions_locked() 从不收紧 write。表项停在原页时 guest 对代码页的写入不产生任何 VM-exit，VMM 无从得知伪页（快照）已过期；下一次执行该页换入过期快照，guest 按旧指令流执行，旧指令流里的相对跳转/循环会把执行流带回断点。另外 fake_page_needs_full_sync 原先只在 ept_handleWatchEvent 的 INT3 分支按 write_access 置位，覆盖不到「同页还有数据 watch」与「命中缓存 ID」两条子路径。
+- 根因 2（D2）：vmexit_ept_violation_handler 用 changed_entry.page_frame_number != 0 判断「本页是 INT3 页」，而该字段从不随 INT3 watch 的消失回写。同页最后一个 INT3 watch 被删除（has != 0，页对象因其它 watch 存活）后，执行该页仍走 ept_handle_int3_execute，页上已无 INT3 watch → transitional_id == -1 → return false → unhandled 路径 → 表项权限无变化 → guest 重试同一指令，构成无进展自旋，最终 vmx_fatal_error（0x101）。
+- 根因 3（D3，附带）：一次性放行窗口只放开 original_entry.execute，未放开 write；隐藏态收紧 write 后写访问会在窗口内反复违规。ept_watch_deactivate_internal 的 bpType==3 && has==0 分支只把 execute 置 1，会把 write=0 留在已删除断点的页上。
+- 修法（6 文件）：① EptWatchBreakpoints.cpp 的 prepare_int3_fake_page_entries 与 hide_cc_breakpoint 新页路径把隐藏态原页/新页的 write 置 0（这两条路不经过 apply_active_watch_permissions_locked）；② EptWatchPageInstall.cpp 的 apply_active_watch_permissions_locked 统计本页有效 INT3 watch：有则 entry_address->write = 0，没有则清 changed_entry.page_frame_number；② VmExitEpt.cpp 读写分支对任何被拦截的写入（changed_entry.page_frame_number != 0）置 fake_page_needs_full_sync；③ VmExitEpt.cpp 与 EptWatchInt3Execute.cpp 的一次性放行窗口给原页 read/write/execute 全权限；④ EptWatchInt3Execute.cpp 在换入伪页执行之前，若伪页被标记为脏（fake_page_needs_full_sync）先整页重新同步并重新写回本页所有 active INT3 字节，保证「脏快照永远不会被执行」；⑤ EptWatchDeactivate.cpp 的 bpType==3 && has==0 分支恢复原页全权限；⑥ VmExitException.cpp 的 MTF 收尾按「本页是否仍有有效 INT3 watch」决定恢复隐藏态（read=1/write=0/execute=0）还是按 live watch 重算并归一原页。
+- 设计依据：影子页（伪页）必须同时影子化写——被监视页的写变成 fault 后在收尾统一重建，而不是周期性重读 4KB。与 KVM 影子页路径取向一致。代码页写入本身极少，代价可接受。
+- 验证：VT_Driver Release x64 全量重建 0 error / 0 warning；x64dbg 与 CE 各下 1 个 INT3 断点，命中后连续 F7 ≥ 200 次，步进位置须与反汇编逐条一致；在断点所在页上手工改字节后继续单步，guest 必须按修改后的指令流执行（原实现会跑旧快照）；同页 bp + bph 删除 INT3 后不得卡死；docs/21 §5/§6.5 的删除路径清单回归。
+- 备注：本机 MSBuild 无法从命令行调用，需在 IDE 内重建后上机验证。
+
 ## 待确认与已记录但未改动
 
 ### C01 NtRemoveProcessDebug 的访问模式差异（Win11 与 Win10 不一致）

@@ -197,22 +197,55 @@ void vmexit_monitor_trap_flag_handler(__vcpu* vcpu) // MTF 单步窗口结束后
 				return;
 			}
 
+			bool has_effective_int3 = false; // 本页是否仍有 INT3 watch：决定原页要不要继续拦写。
+			const unsigned __int64 watch_pfn = GET_PFN(eptWatchList[ID].PhysicalAddress);
 			for (int i = 0; i < EPTWATCHLISTSIZE; i++)
 			{
-				if (ept::ept_isWatchPage(GET_PFN(eptWatchList[ID].PhysicalAddress), i) && eptWatchList[i].bpType == 3)
+				if (GET_PFN(eptWatchList[i].PhysicalAddress) != watch_pfn || eptWatchList[i].bpType != 3)
+				{
+					continue;
+				}
+
+				if (ept::ept_isWatchPage(watch_pfn, i))
 				{
 					int offset = eptWatchList[i].VirtualAddress & 0xFFF; // 同页多个 INT3 watch 需要按页内偏移写入断点字节。
 					hooked_page_info->fake_page_contents[offset] = 0xCC; // 在 fake page 上放置 INT3，不修改 guest 原始物理页。
 				}
+
+				if (ept_watch_entry_is_effective(eptWatchList[i]))
+				{
+					has_effective_int3 = true;
+				}
 			}
 
-			hooked_page_info->original_entry.execute = 0; // 恢复原页不可执行，让下一次执行再次进入 EPT watch 逻辑。
-			spinlock::unlock(&eptWatchList_lock);
+			if (has_effective_int3)
+			{
+				// 恢复隐藏态：原页不可执行，且只要本页还有 INT3 watch 就必须继续拦写
+				// （伪页是快照，写入必须被拦截才能触发整页重新同步，见 apply_active_watch_permissions_locked）。
+				hooked_page_info->original_entry.read = 1;
+				hooked_page_info->original_entry.write = 0;
+				hooked_page_info->original_entry.execute = 0; // 恢复原页不可执行，让下一次执行再次进入 EPT watch 逻辑。
+				spinlock::unlock(&eptWatchList_lock);
 
-			ept::swap_pml1_and_invalidate_tlb(*vcpu->ept_state,
-				hooked_page_info->entry_address,
-				hooked_page_info->original_entry,
-				invept_type::invept_single_context); // 刷新 EPT TLB，确保 fake/original 页权限即时生效。
+				ept::swap_pml1_and_invalidate_tlb(*vcpu->ept_state,
+					hooked_page_info->entry_address,
+					hooked_page_info->original_entry,
+					invept_type::invept_single_context); // 刷新 EPT TLB，确保 fake/original 页权限即时生效。
+			}
+			else
+			{
+				// 窗口期间该页的 INT3 watch 已经消失（删除事务 / 安装回滚）：本页不再是隐藏 INT3 页，
+				// 必须按剩余 watch 重算权限并把 entry 归一到原页，不能把 x=0 / w=0 留在页上，
+				// 否则 guest 会在这张已经没有 INT3 的页上反复触发执行/写入违规（0x101）。
+				ept::apply_active_watch_permissions_locked(hooked_page_info, -1);
+				spinlock::unlock(&eptWatchList_lock);
+
+				_mm_mfence();
+				if (vcpu->ept_state->ept_pointer != nullptr)
+				{
+					invept_single_context_func(vcpu->ept_state->ept_pointer->all);
+				}
+			}
 		}
 		else
 		{
