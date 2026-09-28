@@ -21,6 +21,19 @@ NTSTATUS BBResolveSxS(
 {
     NTSTATUS status = STATUS_NOT_FOUND;
     UNICODE_STRING ustrNtdll = { 0 };
+    if (pContext == nullptr ||
+        pContext->pProcess == nullptr ||
+        pContext->userMem == nullptr ||
+        pContext->userMem->buffer == nullptr ||
+        name == nullptr ||
+        name->Buffer == nullptr ||
+        name->Length == 0 ||
+        (name->Length % sizeof(WCHAR)) != 0 ||
+        resolved == nullptr)
+    {
+        return STATUS_INVALID_PARAMETER;
+    }
+
     BOOLEAN wow64 = PsGetProcessWow64Process(pContext->pProcess) != NULL;
 
     typedef struct _STRIBG_BUF
@@ -69,8 +82,14 @@ NTSTATUS BBResolveSxS(
     RtlZeroMemory(pStringBuf->origBuf, sizeof(pStringBuf->origBuf));
     RtlZeroMemory(pStringBuf->staticBuf, sizeof(pStringBuf->staticBuf));
 
+    if (name->Length >= sizeof(pStringBuf->origBuf))
+    {
+        return STATUS_INVALID_PARAMETER;
+    }
+
     // Fill params
     memcpy(pStringBuf->origBuf, name->Buffer, name->Length);
+    pStringBuf->origBuf[name->Length / sizeof(WCHAR)] = L'\0';
     if (wow64)
     {
         pStringBuf->origName32.Buffer = (ULONG)(ULONG_PTR)pStringBuf->origBuf;

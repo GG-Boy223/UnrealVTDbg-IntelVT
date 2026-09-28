@@ -213,7 +213,7 @@ namespace ept
 		//将伪造页换上去
 		hooked_page_info->changed_entry.page_frame_number = hooked_page_info->pfn_of_fake_page_contents;
 
-		RtlCopyMemory(&hooked_page_info->fake_page_contents, PAGE_ALIGN(target_function), PAGE_SIZE);
+		ept::initialize_fake_page_from_target(hooked_page_info, target_function);
 
 		initialize_hooked_function_runtime_fields(hooked_function_info);
 		hooked_function_info->virtual_address = target_function;

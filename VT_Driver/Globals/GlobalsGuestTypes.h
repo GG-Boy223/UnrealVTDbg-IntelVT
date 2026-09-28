@@ -155,6 +155,10 @@ struct alignas(16) guest_context // 来宾上下文结构（VM-Exit 时保存）
 };
 
 // remember to update this value in vm-exit.asm
+static_assert(FIELD_OFFSET(guest_context, cr2) == 0x80, "guest_context.cr2 ABI offset must match vm-exit-context.inc");
+static_assert(FIELD_OFFSET(guest_context, dr6) == 0xB0, "guest_context.dr6 ABI offset must match vm-exit-context.inc");
+static_assert(FIELD_OFFSET(guest_context, xmm0) == 0xC0, "guest_context.xmm0 ABI offset must match vm-exit-context.inc");
+static_assert(FIELD_OFFSET(guest_context, xmm15) == 0x1B0, "guest_context.xmm15 ABI offset must match vm-exit-context.inc");
 static_assert(sizeof(guest_context) == 0x1C0); // 保证结构大小与汇编保存/恢复一致
 //size: 512
 typedef struct _FXSAVE64 // FXSAVE64 布局（512 字节），保存 FPU/SSE 状态

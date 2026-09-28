@@ -120,7 +120,7 @@ SkipSxS:
     }
 
     fullResolved.Length = 0;
-    RtlZeroMemory(fullResolved.Buffer, 0x400);
+    RtlZeroMemory(fullResolved.Buffer, fullResolved.MaximumLength);
 
     //
     // System directory

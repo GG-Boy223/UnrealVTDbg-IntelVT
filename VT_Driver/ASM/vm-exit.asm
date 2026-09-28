@@ -20,6 +20,10 @@ VMX_FATAL_MISSING_VCPU       equ 6
 
 ; execution starts here after a vm-exit
 vm_exit proc
+  ; guest_context.xmmN 由 C++ 布局对齐到 16 字节；先对齐根态临时栈，
+  ; 否则 movaps [rsp + 0xC0 + offset] 在部分栈对齐状态下会触发 #GP。
+  and rsp, 0FFFFFFFFFFFFFFF0h
+
   ; allocate space on the stack to store the guest context
   sub rsp, 1C0h
 

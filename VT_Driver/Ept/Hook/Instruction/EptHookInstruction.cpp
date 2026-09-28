@@ -12,8 +12,11 @@ namespace ept
 {
 	namespace
 	{
+		constexpr size_t kMaxInstructionLength = 15;
+
 		// 计算从 target_function 起、至少覆盖 min_bytes 字节所需覆盖的完整指令长度。
-		// 返回 false 的两种情况：LDE 解码失败（返回 0）、覆盖范围跨出 4KB 页。
+		// 返回 false 的三种情况：LDE 解码失败（返回 0）、单条指令超过 x64 上限 15 字节、
+		// 覆盖指令加回跳超过跳板容量或跨出 4KB 页。
 		// 这里运行在 VM-exit 上下文：无界解码会让整个物理 CPU 回不到宿主，因此取值必须先校验再使用。
 		bool decode_hooked_instructions_size(
 			const void* target_function,
@@ -30,12 +33,19 @@ namespace ept
 					64);
 
 				// LDE 解码失败返回 0：按 0 递增会让本循环永不退出，物理 CPU 会卡在 VMX root 态。
-				if (instruction_length == 0)
+				if (instruction_length == 0 ||
+					instruction_length > kMaxInstructionLength)
 				{
 					return false;
 				}
 
 				hooked_instructions_size += instruction_length;
+			}
+
+			// 跳板后面还要写一个 kAbsoluteJumpSize 的绝对跳转，必须在固定池缓冲区内完成。
+			if (hooked_instructions_size > kTrampolineBufferSize - kAbsoluteJumpSize)
+			{
+				return false;
 			}
 
 			// 覆盖范围必须完整落在同一个 4KB 页内：伪造页写入与卸载时的恢复都按页内偏移进行。
@@ -46,6 +56,19 @@ namespace ept
 
 			return true;
 		}
+	}
+
+	bool initialize_fake_page_from_target(__ept_hooked_page_info* hooked_page_info, const void* target_function)
+	{
+		const unsigned __int64 target_address =
+			reinterpret_cast<unsigned __int64>(target_function);
+		const unsigned __int64 target_page_base =
+			page_align_down(target_address);
+		RtlCopyMemory(
+			hooked_page_info->fake_page_contents,
+			reinterpret_cast<const void*>(target_page_base),
+			kEptPageSize);
+		return true;
 	}
 
 	/// <summary>

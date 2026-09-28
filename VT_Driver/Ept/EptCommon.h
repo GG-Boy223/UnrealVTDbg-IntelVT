@@ -9,6 +9,13 @@ namespace ept
 	constexpr unsigned __int64 kEptPageSize = 0x1000;
 	constexpr unsigned __int64 kMaxWatchBytes = static_cast<unsigned __int64>(EPTWATCHLISTSIZE) * kEptPageSize;
 
+	// 伪页整页复制和整页同步必须使用同一个页首定义，不能在调用点混用
+	// target_function、PAGE_ALIGN 或页内偏移。
+	constexpr unsigned __int64 page_align_down(unsigned __int64 address)
+	{
+		return address & ~(kEptPageSize - 1);
+	}
+
 	// 辅助函数：验证和检查
 	unsigned int normalize_vcpu_count(int requested_count);
 	bool is_valid_watch_range(unsigned __int64 virtual_address, unsigned __int64 size);

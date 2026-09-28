@@ -172,7 +172,11 @@ void vmexit_monitor_trap_flag_handler(__vcpu* vcpu) // MTF 单步窗口结束后
 		{
 			if (!hooked_page_info->fake_page_synced || hooked_page_info->fake_page_needs_full_sync)
 			{
-				if (PAGE_SIZE != hv::read_guest_virtual_memory(guest_cr3, PAGE_ALIGN(watch_virtual_address), &hooked_page_info->fake_page_contents, PAGE_SIZE))
+				if (PAGE_SIZE != hv::read_guest_virtual_memory(
+					guest_cr3,
+					reinterpret_cast<void*>(ept::page_align_down(watch_virtual_address)),
+					&hooked_page_info->fake_page_contents,
+					PAGE_SIZE))
 				{
 					hooked_page_info->fake_page_synced = false; // 读取失败时标记 fake page 不可信。
 					hooked_page_info->fake_page_needs_full_sync = true; // 下次命中必须重新整页同步。

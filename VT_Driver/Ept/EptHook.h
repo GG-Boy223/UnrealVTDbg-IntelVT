@@ -14,6 +14,10 @@ namespace ept
 	// 写回原函数的绝对跳转长度：push imm32; mov dword ptr [rsp+4], imm32; ret。
 	constexpr unsigned __int64 kAbsoluteJumpSize = 14;
 
+	// 用目标函数所在的完整 4KB 原页初始化伪页。复制源必须是页首，不能再从
+	// target_function 的页内偏移开始复制，否则伪页会整体错位。
+	bool initialize_fake_page_from_target(__ept_hooked_page_info* hooked_page_info, const void* target_function);
+
 	/// <summary>
 	/// Write an absolute jump, We aren't touching any register except stack so it's the most safest trampoline
 	/// Size: 14 bytes

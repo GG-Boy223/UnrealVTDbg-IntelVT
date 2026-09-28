@@ -5,6 +5,34 @@
 #include "ModuleResolver.h"
 #include "UtilityFunctions.h"
 
+namespace
+{
+    bool copy_api_set_string(
+        OUT PWCHAR destination,
+        SIZE_T destination_bytes,
+        IN const void* api_set_map,
+        IN ULONG offset,
+        IN ULONG length)
+    {
+        constexpr SIZE_T wchar_size = sizeof(WCHAR);
+
+        if (destination == nullptr ||
+            api_set_map == nullptr ||
+            length == 0 ||
+            (length % wchar_size) != 0 ||
+            length >= destination_bytes)
+        {
+            return false;
+        }
+
+        const unsigned __int8* source =
+            reinterpret_cast<const unsigned __int8*>(api_set_map) + offset;
+        RtlCopyMemory(destination, source, length);
+        destination[length / wchar_size] = L'\0';
+        return true;
+    }
+}
+
 /// <param name="name">Name to resolve</param>
 /// <param name="baseImage">Parent image name</param>
 /// <param name="resolved">Resolved name if any</param>
@@ -22,6 +50,11 @@ NTSTATUS BBResolveApiSet(
 )
 {
     NTSTATUS status = STATUS_NOT_FOUND;
+    if (pProcess == nullptr || name == nullptr || resolved == nullptr)
+    {
+        return STATUS_INVALID_PARAMETER;
+    }
+
     PPEB pPeb = PsGetProcessPeb(pProcess);
     if (pPeb == NULL)
     {
@@ -33,6 +66,11 @@ NTSTATUS BBResolveApiSet(
     if (name == NULL || name->Length < 4 * sizeof(WCHAR) || name->Buffer == NULL ||
         (memcmp(name->Buffer, L"api-", 4) != 0 && memcmp(name->Buffer, L"ext-", 4) != 0))
         return STATUS_NOT_FOUND;
+
+    if (pApiSetMap == nullptr)
+    {
+        return STATUS_NOT_FOUND;
+    }
 
     // Iterate api set map
     for (ULONG i = 0; i < pApiSetMap->Count; i++)
@@ -46,10 +84,26 @@ NTSTATUS BBResolveApiSet(
         pDescriptor = (PAPISET_NAMESPACE_ENTRY)((PUCHAR)pApiSetMap + pApiSetMap->End + i * sizeof(API_SET_NAMESPACE_ENTRY_10));
         pHostArray = (PAPISET_VALUE_ARRAY)((PUCHAR)pApiSetMap + pApiSetMap->Start + sizeof(API_SET_VALUE_ARRAY_10) * pDescriptor->Size);
 
-        memcpy(apiNameBuf, (PUCHAR)pApiSetMap + pHostArray->NameOffset, pHostArray->NameLength);
+        if (!copy_api_set_string(
+                apiNameBuf,
+                sizeof(apiNameBuf),
+                pApiSetMap,
+                pHostArray->NameOffset,
+                pHostArray->NameLength))
+        {
+            return STATUS_INVALID_PARAMETER;
+        }
 #else
         pDescriptor = pApiSetMap->Array + i;
-        memcpy(apiNameBuf, (PUCHAR)pApiSetMap + pDescriptor->NameOffset, pDescriptor->NameLength);
+        if (!copy_api_set_string(
+                apiNameBuf,
+                sizeof(apiNameBuf),
+                pApiSetMap,
+                pDescriptor->NameOffset,
+                pDescriptor->NameLength))
+        {
+            return STATUS_INVALID_PARAMETER;
+        }
 #endif
         RtlUnicodeStringInit(&apiName, apiNameBuf);
 
@@ -70,11 +124,19 @@ NTSTATUS BBResolveApiSet(
             if (pHostArray->Count < 1)
                 return STATUS_NOT_FOUND;
 
-            memcpy(apiHostNameBuf, (PUCHAR)pApiSetMap + pHost->ValueOffset, pHost->ValueLength);
+            if (!copy_api_set_string(
+                    apiHostNameBuf,
+                    sizeof(apiHostNameBuf),
+                    pApiSetMap,
+                    pHost->ValueOffset,
+                    pHost->ValueLength))
+            {
+                return STATUS_INVALID_PARAMETER;
+            }
             RtlUnicodeStringInit(&apiHostName, apiHostNameBuf);
 
             // No base name redirection
-            if (pHostArray->Count == 1 || baseImage == NULL || baseImage->Buffer[0] == 0)
+            if (pHostArray->Count == 1 || baseImage == NULL || baseImage->Buffer == NULL || baseImage->Buffer[0] == 0)
             {
                 BBSafeInitString(resolved, &apiHostName);
                 return STATUS_SUCCESS;
@@ -88,7 +150,15 @@ NTSTATUS BBResolveApiSet(
                 if (RtlCompareUnicodeString(&apiHostName, &baseImageName, TRUE) == 0)
                 {
                     memset(apiHostNameBuf, 0, sizeof(apiHostNameBuf));
-                    memcpy(apiHostNameBuf, (PUCHAR)pApiSetMap + pHost[1].ValueOffset, pHost[1].ValueLength);
+                    if (!copy_api_set_string(
+                        apiHostNameBuf,
+                        sizeof(apiHostNameBuf),
+                        pApiSetMap,
+                        pHost[1].ValueOffset,
+                        pHost[1].ValueLength))
+                    {
+                        return STATUS_INVALID_PARAMETER;
+                    }
                     RtlCreateUnicodeString(resolved, apiHostNameBuf);
                     return STATUS_SUCCESS;
                 }

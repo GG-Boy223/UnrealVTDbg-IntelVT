@@ -162,7 +162,11 @@ namespace ept
 			return false;
 		}
 
-		if (PAGE_SIZE != hv::read_guest_virtual_memory(guest_cr3, PAGE_ALIGN(virtual_address), &hooked_page_info->fake_page_contents, PAGE_SIZE))
+		if (PAGE_SIZE != hv::read_guest_virtual_memory(
+			guest_cr3,
+			reinterpret_cast<void*>(ept::page_align_down(virtual_address)),
+			&hooked_page_info->fake_page_contents,
+			PAGE_SIZE))
 		{
 			hooked_page_info->fake_page_synced = false;
 			hooked_page_info->fake_page_needs_full_sync = true;

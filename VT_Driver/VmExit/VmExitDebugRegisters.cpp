@@ -30,15 +30,37 @@ void vmexit_mov_dr_handler(__vcpu* vcpu)
 	unsigned const generalRegister = (unsigned)qualification.gp_register;
 	guest_context* const guest = vcpu->vmexit_info.guest_registers;
 
-	// DR4 / DR5 在 CR4.DE = 0 时不存在，按 SDM 注入 #UD（Windows 不启用已废弃的 CR4.DE）。
-	if (debugRegister == 4 || debugRegister == 5)
+	// Intel SDM Vol. 3B 20.2: MOV DR requires CPL 0; CPL > 0 raises #GP(0).
+	// MOV_DR_EXITING moves the instruction to VMX root, but the VMM must preserve
+	// the guest privilege-level semantics.
+	if (hv::get_guest_cpl() != 0)
 	{
 		hv::inject_interruption(
-			EXCEPTION_VECTOR_UNDEFINED_OPCODE,
+			EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT,
 			INTERRUPT_TYPE_HARDWARE_EXCEPTION,
 			0,
-			false);
+			true);
 		return;
+	}
+
+	// Intel SDM Vol. 3B 20.2.2: CR4.DE=1 makes DR4/DR5 reserved and raises #UD;
+	// CR4.DE=0 aliases DR4/DR5 to DR6/DR7. MOV_DR_EXITING occurs before guest
+	// execution, so the VMM must preserve this architectural distinction.
+	unsigned normalizedDebugRegister = debugRegister;
+	if (debugRegister == 4 || debugRegister == 5)
+	{
+		constexpr unsigned __int64 cr4_debugging_extensions_bit = 1ull << 3;
+		if ((hv::vmread(GUEST_CR4) & cr4_debugging_extensions_bit) != 0)
+		{
+			hv::inject_interruption(
+				EXCEPTION_VECTOR_UNDEFINED_OPCODE,
+				INTERRUPT_TYPE_HARDWARE_EXCEPTION,
+				0,
+				false);
+			return;
+		}
+
+		normalizedDebugRegister = debugRegister == 4 ? 6 : 7;
 	}
 
 	// general-detect：guest 曾用 GD=1 写过 DR7。
@@ -64,7 +86,7 @@ void vmexit_mov_dr_handler(__vcpu* vcpu)
 	if (qualification.access_direction == 0) // 写 DR
 	{
 		const unsigned __int64 value = hv::read_guest_gpr(guest, generalRegister);
-		switch (debugRegister)
+		switch (normalizedDebugRegister)
 		{
 		case 0:
 			guest->dr0 = value;
@@ -109,7 +131,7 @@ void vmexit_mov_dr_handler(__vcpu* vcpu)
 	else // 读 DR
 	{
 		unsigned __int64 value = 0;
-		switch (debugRegister)
+		switch (normalizedDebugRegister)
 		{
 		case 0:
 			value = guest->dr0;

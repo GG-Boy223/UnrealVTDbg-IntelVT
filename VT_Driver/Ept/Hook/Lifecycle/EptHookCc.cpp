@@ -30,7 +30,10 @@ namespace ept
 		//
 		// 已挂钩页面通过热引用固定记录，池分配和指令写入不再依赖页面链锁。
 		__ept_hooked_page_info* existing_hooked_page_info =
-			ept::acquire_any_page_hot_reference(ept_state, GET_PFN(physical_address));
+			ept::acquire_any_page_hot_reference(
+				ept_state,
+				GET_PFN(physical_address),
+				EPTO_HOOK_FUNCTION);
 		if (existing_hooked_page_info != nullptr)
 		{
 			__ept_hooked_function_info* hooked_function_info = pool_manager::request_pool<__ept_hooked_function_info*>(pool_manager::INTENTION_TRACK_HOOKED_FUNCTIONS, TRUE, sizeof(__ept_hooked_function_info));
@@ -202,7 +205,7 @@ namespace ept
 		//将伪造页换上去
 		hooked_page_info->changed_entry.page_frame_number = hooked_page_info->pfn_of_fake_page_contents;
 
-		RtlCopyMemory(&hooked_page_info->fake_page_contents, PAGE_ALIGN(target_function), PAGE_SIZE);
+		ept::initialize_fake_page_from_target(hooked_page_info, target_function);
 
 		initialize_hooked_function_runtime_fields(hooked_function_info);
 		hooked_function_info->virtual_address = target_function;

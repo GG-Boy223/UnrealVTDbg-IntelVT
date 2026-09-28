@@ -70,7 +70,7 @@ namespace ept
             {
                 if (PAGE_SIZE != hv::read_guest_virtual_memory(
                         sync_cr3,
-                        PAGE_ALIGN(sync_virtual_address),
+                        reinterpret_cast<void*>(ept::page_align_down(sync_virtual_address)),
                         &hooked_page_info->fake_page_contents,
                         PAGE_SIZE))
                 {

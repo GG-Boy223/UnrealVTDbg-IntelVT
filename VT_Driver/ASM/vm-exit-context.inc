@@ -28,6 +28,7 @@ guest_context struct
   $dr2 qword ?
   $dr3 qword ?
   $dr6 qword ?
+  $alignment qword ? ; M128A 需要 16 字节对齐，补齐 C++ 的 0xC0 偏移
 
   ; SSE registers
   $xmm0 oword ?

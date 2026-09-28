@@ -4,6 +4,7 @@
 #include "../Globals.h"
 #include "../mtrr.h"
 #include "../EPT.h"
+#include "../Ept/EptCommon.h"
 #include "../vmexit_handler.h"
 #include "../hypervisor_routines.h"
 #include "../Vmcs/VmcsApi.h"

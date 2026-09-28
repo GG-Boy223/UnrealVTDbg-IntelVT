@@ -59,10 +59,16 @@ generic_interrupt_handler proc
   ; first argument is the trap frame
   mov rcx, rsp
 
+  ; x64 ABI requires RSP to be 16-byte aligned before a CALL.  The host
+  ; exception can arrive with either stack alignment, so keep the frame
+  ; pointer in a nonvolatile register while aligning the call site.
+  mov rbx, rsp
+  and rsp, 0FFFFFFFFFFFFFFF0h
+
   ; call handle_host_interrupt
   sub rsp, 20h
   call handle_host_interrupt
-  add rsp, 20h
+  mov rsp, rbx
 
   ; general-purpose registers
   mov rax, trap_frame.$rax[rsp]

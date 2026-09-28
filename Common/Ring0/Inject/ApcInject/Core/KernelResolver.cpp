@@ -74,6 +74,11 @@ PVOID GetKernelBase(OUT PULONG pSize)
     }
 
     pMods = (PRTL_PROCESS_MODULES)ExAllocatePoolWithTag(NonPagedPool, bytes, BB_POOL_TAG);
+    if (pMods == NULL)
+    {
+        outLog("查询系统模块信息缓冲区分配失败");
+        return NULL;
+    }
     RtlZeroMemory(pMods, bytes);
 
     status = ZwQuerySystemInformation(SystemModuleInformation, pMods, bytes, &bytes);

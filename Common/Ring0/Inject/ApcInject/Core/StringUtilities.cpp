@@ -13,7 +13,7 @@
 NTSTATUS BBStripPath(IN PUNICODE_STRING path, OUT PUNICODE_STRING name)
 {
     ASSERT(path != NULL && name);
-    if (path == NULL || name == NULL)
+    if (path == NULL || name == NULL || path->Buffer == NULL || (path->Length % sizeof(WCHAR)) != 0)
         return STATUS_INVALID_PARAMETER; // 参数不合法时直接拒绝。
 
     // Empty string
@@ -83,22 +83,34 @@ LONG BBSafeSearchString(IN PUNICODE_STRING source, IN PUNICODE_STRING target, IN
 NTSTATUS BBSafeInitString(OUT PUNICODE_STRING result, IN PUNICODE_STRING source)
 {
     ASSERT(result != NULL && source != NULL);
-    if (result == NULL || source == NULL || source->Buffer == NULL)
+    if (result == NULL || source == NULL || source->Buffer == NULL ||
+        source->Length > source->MaximumLength ||
+        (source->Length % sizeof(WCHAR)) != 0)
         return STATUS_INVALID_PARAMETER; // 参数不合法时直接拒绝。
+
+    result->Length = 0;
+    result->MaximumLength = 0;
+    result->Buffer = NULL;
 
     // No data to copy
     if (source->Length == 0)
     {
-        result->Length = result->MaximumLength = 0;
-        result->Buffer = NULL;
         return STATUS_SUCCESS;
     }
 
-    result->Buffer = (PWCH)ExAllocatePoolWithTag(PagedPool, source->MaximumLength, BB_POOL_TAG);
+    const SIZE_T allocation_size = static_cast<SIZE_T>(source->Length) + sizeof(WCHAR);
+    if (allocation_size > MAXUSHORT)
+        return STATUS_INVALID_PARAMETER;
+
+    result->Buffer = (PWCH)ExAllocatePoolWithTag(PagedPool, allocation_size, BB_POOL_TAG);
+    if (result->Buffer == NULL)
+        return STATUS_NO_MEMORY;
+
     result->Length = source->Length;
-    result->MaximumLength = source->MaximumLength;
+    result->MaximumLength = static_cast<USHORT>(allocation_size);
 
     memcpy(result->Buffer, source->Buffer, source->Length);
+    result->Buffer[source->Length / sizeof(WCHAR)] = L'\0';
 
     return STATUS_SUCCESS;
 }
@@ -112,8 +124,12 @@ NTSTATUS BBSafeInitString(OUT PUNICODE_STRING result, IN PUNICODE_STRING source)
 NTSTATUS BBSafeAllocateString(OUT PUNICODE_STRING result, IN USHORT size)
 {
     ASSERT(result != NULL);
-    if (result == NULL || size == 0)
+    if (result == NULL || size < sizeof(WCHAR) || (size % sizeof(WCHAR)) != 0)
         return STATUS_INVALID_PARAMETER; // 参数不合法时直接拒绝。
+
+    result->Length = 0;
+    result->MaximumLength = 0;
+    result->Buffer = NULL;
 
     result->Buffer = (PWCH)ExAllocatePoolWithTag(PagedPool, size, BB_POOL_TAG);
     result->Length = 0;
@@ -136,7 +152,7 @@ NTSTATUS BBSafeAllocateString(OUT PUNICODE_STRING result, IN USHORT size)
 NTSTATUS BBStripFilename(IN PUNICODE_STRING path, OUT PUNICODE_STRING dir)
 {
     ASSERT(path != NULL && dir);
-    if (path == NULL || dir == NULL)
+    if (path == NULL || dir == NULL || path->Buffer == NULL || (path->Length % sizeof(WCHAR)) != 0)
         return STATUS_INVALID_PARAMETER; // 参数不合法时直接拒绝。
 
     // Empty string
