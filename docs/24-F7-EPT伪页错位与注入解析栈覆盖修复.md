@@ -1,7 +1,8 @@
-# 24 F7：EPT 伪页错位与注入解析栈覆盖修复
+# 24 F7 / 0x1E：EPT 伪页错位与注入解析栈覆盖修复
 
-> 转储：`F:\MiniDmp\092826-6125-01.dmp`、`F:\MiniDmp\MEMORY.DMP`
-> 目标：把 F7 从“nt 的 GS cookie 报错”还原到项目驱动的真实生命周期问题，避免把症状当成根因。
+> 转储：`F:\MiniDmp\092826-6125-01.dmp`、`F:\MiniDmp\MEMORY.DMP`、
+> `F:\MiniDmp\092826-5750-01.dmp`、`F:\MiniDmp\092826-6015-01.dmp`
+> 目标：把 F7 和 0x1E 从“nt 的异常/Cookie 报错”还原到项目驱动的真实生命周期问题，避免把症状当成根因。
 
 ## 1 F7 现场是结果，不是根因
 
@@ -41,6 +42,47 @@ ss  = 0x18
 5. 伪页内没有作为 Hook 入口写入的 `OF 01 C1` VMCALL，也没有该入口对应的隐藏 INT3 字节。
 
 这说明当时 EPT 指向的执行页是“目标地址未页对齐后复制的 nt 代码副本”。执行流从错位的代码中间进入，寄存器状态被前一串错误指令改变，最终在 `mov cr4, rax` 触发 #GP；F7 只是 #GP 进入 nt 异常处理后，在 GS 栈 cookie 检查处爆出的二级症状。
+
+## 2.1 `0x1E KMODE_EXCEPTION_NOT_HANDLED` 是同一根因的另一表现
+
+重新读取另外两份转储：
+
+```text
+F:\MiniDmp\092826-5750-01.dmp
+Arg1 = 0xFFFFFFFFC0000096  STATUS_ILLEGAL_INSTRUCTION
+Arg2 = 0xFFFFC2818AA86014
+
+F:\MiniDmp\092826-6015-01.dmp
+Arg1 = 0xFFFFFFFFC0000096  STATUS_ILLEGAL_INSTRUCTION
+Arg2 = 0xFFFFCD0C893183A3
+```
+
+这里的 `Arg2` 不是 ExceptionRecord 地址，而是异常发生地址。两份转储从
+`Arg2` 导出的 512 字节具有同一前缀：
+
+```text
+0F 22 C0 41 8B 81 A0 0A 00 00 4D 8D B1 A8 0A 00 00 ...
+```
+
+与 `ntoskrnl` 内存镜像逐字节比对，二者都精确命中 RVA：
+
+```text
+ntoskrnl RVA 0xA0B910
+```
+
+而 F7 伪页的复制源是 RVA `0xA0B7DF`，故障 `rip` 位于伪页 `+0x131`：
+
+```text
+0xA0B7DF + 0x131 = 0xA0B910
+```
+
+因此三个蓝屏不是三个独立问题：
+
+- `0xF7`：在错位伪页上执行 nt 代码，异常处理期间触发 GS cookie 检查失败。
+- `0x1E`：在错位伪页上的同一 `mov cr4, rax` 地址发生非法指令/异常，最终升级为
+  `KMODE_EXCEPTION_NOT_HANDLED`。
+
+共同根因都是伪页整页复制源保留了 `0x7DF` 页内偏移，必须从目标页页首复制。
 
 ## 3 源码修复
 
