@@ -50,6 +50,7 @@ void SetHardwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
 
     PBREAKPOINT_RECORD output = (PBREAKPOINT_RECORD)pIrp->AssociatedIrp.SystemBuffer; //内核的缓冲区，输入输出都用的这个
     RtlZeroMemory(output, sizeof(BREAKPOINT_RECORD));
+    output->watchid = -1; //即使没有可处理记录，也必须向用户态表达“未安装成功”
 
     size_t numElements = 0;
     UCHAR* aucPlainText = AllocateAndDecryptUserRecords(
@@ -69,6 +70,11 @@ void SetHardwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
         if (AddHardwareBreakpoint(pInfo))
         {
             *output = *pInfo; //成功
+        }
+        else
+        {
+            *output = *pInfo; //保留驱动填写的失败记录
+            output->watchid = -1;
         }
         break;
     }

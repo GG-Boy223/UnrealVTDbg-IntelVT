@@ -16,6 +16,10 @@
 
 namespace ept
 {
+	bool ept_watch_entries_share_kind(
+		EPTWatchEntry const& left,
+		EPTWatchEntry const& right);
+
 	void prepare_int3_fake_page_entries(__ept_hooked_page_info* hooked_page_info);
 	bool sync_int3_fake_page_from_guest(__ept_hooked_page_info* hooked_page_info, cr3 guest_cr3, unsigned __int64 virtual_address);
 }

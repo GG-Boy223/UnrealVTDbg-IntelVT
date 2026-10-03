@@ -342,10 +342,11 @@ namespace ept
 			unsigned __int8* const first_trampoline_address =
 				victim->first_trampoline_address;
 			pool_manager::release_pool(victim);
-			if (first_trampoline_address != nullptr)
-			{
-				pool_manager::release_pool(first_trampoline_address);
-			}
+			// trampoline 可能在另一个 vCPU 的 guest 上下文中正在执行。
+			// pool_manager::release_pool() 会 RtlSecureZeroMemory() 整块缓冲区，
+			// 运行时回收会把正在执行的指令清零，导致 guest 从全零代码执行并破坏内核池。
+			// 因此 trampoline 只在驱动卸载时由 pool_manager::uninitialize() 统一释放。
+			UNREFERENCED_PARAMETER(first_trampoline_address);
 		}
 	}
 

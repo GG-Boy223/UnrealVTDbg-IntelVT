@@ -15,7 +15,6 @@ namespace DebugBreakInternal
             &bytesReturned))
         {
             logger.Log("IOCTL失败!");
-            clear_vt_breakpoint_state(0, breakpoint.Address, breakpoint.cr3, breakpoint.watchid);
             return false;
         }
 
@@ -23,7 +22,6 @@ namespace DebugBreakInternal
         {
             //logger.Log("移除硬件断点失败: dr%d watchid=%d", breakpoint.debugRegister, breakpoint.watchid);
             logger.Log("移除硬件断点失败");
-            clear_vt_breakpoint_state(0, breakpoint.Address, breakpoint.cr3, breakpoint.watchid);
             return false;
         }
 
@@ -78,7 +76,9 @@ bool SetBreakpoint(PVOID lpBaseAddress, unsigned __int64 command, int length, in
     {
         // 旧日志包含 watchid，避免在日志文件暴露内部断点编号。
         // logger.Log("返回的监视id: %d", output.watchid);
-        if (output.watchid != -1)
+        if (output.watchid >= 0 &&
+            output.Address == Breakpoint.Address &&
+            output.cr3 == Breakpoint.cr3)
         {
             boSuccess = true;
 

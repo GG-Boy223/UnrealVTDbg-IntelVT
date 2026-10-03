@@ -149,7 +149,7 @@ namespace ept
 					ept_watch_entry_is_effective(eptWatchList[other]) &&
 					GET_PFN(eptWatchList[other].PhysicalAddress) == GET_PFN(entry.PhysicalAddress))
 				{
-					has = eptWatchList[other].Type == entry.Type ? 2 : 1;
+					has = ept_watch_entries_share_kind(eptWatchList[other], entry) ? 2 : 1;
 					if (has == 2)
 					{
 						break;

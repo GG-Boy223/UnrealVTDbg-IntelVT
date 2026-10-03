@@ -72,6 +72,28 @@ namespace ept
 		return -1; // 没有空闲项
 	}
 
+	static bool is_exact_int3_watch_address_locked(unsigned __int64 guest_physical_address)
+	{
+		const unsigned __int64 pfn = GET_PFN(guest_physical_address);
+
+		for (int i = 0; i < EPTWATCHLISTSIZE; i++)
+		{
+			if (!ept_watch_entry_is_active(eptWatchList[i]) ||
+				eptWatchList[i].bpType != 3 ||
+				GET_PFN(eptWatchList[i].PhysicalAddress) != pfn)
+			{
+				continue;
+			}
+
+			if (is_watch_entry_exact_physical_match_locked(eptWatchList[i], guest_physical_address))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	static bool is_cached_watch_id_valid_locked(int ID, unsigned __int64 guest_physical_address, __ept_violation ept_violation)
 	{
 		if (!is_watch_id_valid(ID) ||
@@ -95,6 +117,14 @@ namespace ept
 		if (is_watch_entry_exact_physical_match_locked(eptWatchList[ID], guest_physical_address))
 		{
 			return true;
+		}
+
+		// 只有当前执行地址精确命中 INT3 时才让扫描重新判定。不能因为同页
+		// 任意位置存在 INT3，就把所有非精确 EXECUTE watch 命中也推到伪页路径。
+		if (ept_violation.execute_access &&
+			is_exact_int3_watch_address_locked(guest_physical_address))
+		{
+			return false;
 		}
 
 		if ((ept_violation.read_access || ept_violation.write_access) &&
@@ -149,6 +179,14 @@ namespace ept
 		if (int3PageWatchId != -1 && (ept_violation.read_access || ept_violation.write_access))
 		{
 			return int3PageWatchId;
+		}
+
+		// 精确命中 INT3 的执行地址必须交给 INT3 伪页路径；其它执行地址仍按
+		// 页级 EXECUTE watch 放行，避免把整页指令流长期切到伪页快照。
+		if (ept_violation.execute_access &&
+			is_exact_int3_watch_address_locked(guest_physical_address))
+		{
+			return -1;
 		}
 
 		// 普通 EPT watch 会关闭整页权限；同页非目标地址也必须放行一条指令，避免反复 VM-exit 卡死。

@@ -2,6 +2,111 @@
 
 namespace DebugBreakInternal
 {
+    namespace
+    {
+        bool SameBreakpointIdentity(
+            const BREAKPOINT_RECORD& left,
+            const BREAKPOINT_RECORD& right)
+        {
+            if (left.watchid >= 0 && right.watchid >= 0)
+            {
+                return left.watchid == right.watchid;
+            }
+
+            return left.Address == right.Address &&
+                left.command == right.command &&
+                left.length == right.length &&
+                left.debugRegister == right.debugRegister &&
+                left.debugRw == right.debugRw &&
+                left.debugLen == right.debugLen;
+        }
+
+        bool EraseLocalBreakpoint(const BREAKPOINT_RECORD& record)
+        {
+            bool erased = false;
+
+            BreakpointList.Lock();
+            for (auto it = BreakpointList.begin(); it != BreakpointList.end(); ++it)
+            {
+                if (!SameBreakpointIdentity(*it, record))
+                {
+                    continue;
+                }
+
+                BreakpointList.erase(it);
+                erased = true;
+                break;
+            }
+            UpdateActiveHardwareBreakpointCountLocked();
+            BreakpointList.UnLock();
+
+            return erased;
+        }
+
+        bool FindLocalBreakpoint(
+            ULONG64 address,
+            int debugRegister,
+            unsigned __int64 command,
+            int length,
+            int debugRw,
+            int debugLen,
+            BREAKPOINT_RECORD* record)
+        {
+            if (record == nullptr)
+            {
+                return false;
+            }
+
+            bool found = false;
+            BreakpointList.Lock();
+            for (const auto& breakpoint : BreakpointList)
+            {
+                if (SameBreakpointRequest(
+                    breakpoint,
+                    address,
+                    command,
+                    length,
+                    debugRegister,
+                    debugRw,
+                    debugLen))
+                {
+                    *record = breakpoint;
+                    found = true;
+                    break;
+                }
+            }
+            BreakpointList.UnLock();
+            return found;
+        }
+
+        void RollbackRemovedBreakpoints(
+            const BREAKPOINT_RECORD* removed,
+            int removedCount)
+        {
+            if (removed == nullptr)
+            {
+                return;
+            }
+
+            for (int i = removedCount - 1; i >= 0; --i)
+            {
+                const BREAKPOINT_RECORD& oldBreakpoint = removed[i];
+                if (!SetBreakpoint(
+                    reinterpret_cast<PVOID>(oldBreakpoint.Address),
+                    oldBreakpoint.command,
+                    oldBreakpoint.length,
+                    oldBreakpoint.debugRegister,
+                    oldBreakpoint.debugRw,
+                    oldBreakpoint.debugLen))
+                {
+                    logger.Log("硬件断点事务回滚失败: dr%d addr=0x%llX",
+                        oldBreakpoint.debugRegister,
+                        oldBreakpoint.Address);
+                }
+            }
+        }
+    }
+
     bool IsCurrentHardwareBreakpointState(const CONTEXT* context)
     {
         if (context == nullptr)
@@ -87,13 +192,17 @@ namespace DebugBreakInternal
 
     bool SyncHardwareBreakpointsFromContext(const CONTEXT* context)
     {
+        if (context == nullptr)
+        {
+            return false;
+        }
+
         bool desired[kDebugRegisterCount] = {};
         ULONG64 addresses[kDebugRegisterCount] = {};
         unsigned __int64 commands[kDebugRegisterCount] = {};
         int lengths[kDebugRegisterCount] = {};
         int rwCodes[kDebugRegisterCount] = {};
         int lenCodes[kDebugRegisterCount] = {};
-        bool allSynced = true;
 
         const ULONG64 dr7 = context->Dr7;
         for (int i = 0; i < kDebugRegisterCount; ++i)
@@ -114,7 +223,7 @@ namespace DebugBreakInternal
                 if (rwCode != WATCH_EXECUTION_ONLY)
                 {
                     logger.Log("不支持的硬件断点类型: dr%d rw=%d dr7=0x%llX", i, rwCode, dr7);
-                    allSynced = false;
+                    return false;
                 }
                 continue;
             }
@@ -128,65 +237,132 @@ namespace DebugBreakInternal
             lenCodes[i] = lenCode;
         }
 
+        BREAKPOINT_RECORD original[kDebugRegisterCount] = {};
+        int originalCount = 0;
         BreakpointList.Lock();
-        for (auto it = BreakpointList.begin(); it != BreakpointList.end();)
+        for (const auto& breakpoint : BreakpointList)
         {
-            const int debugRegister = it->debugRegister;
-            const bool invalidRegister = debugRegister < 0 || debugRegister >= kDebugRegisterCount;
-            const bool stale = invalidRegister ||
-                !desired[debugRegister] ||
-                !SameBreakpointRequest(*it,
+            if (originalCount >= kDebugRegisterCount)
+            {
+                BreakpointList.UnLock();
+                logger.Log("硬件断点本地记录超过 DR0-DR3 容量，拒绝执行非事务同步");
+                return false;
+            }
+
+            original[originalCount++] = breakpoint;
+        }
+        BreakpointList.UnLock();
+
+        BREAKPOINT_RECORD stale[kDebugRegisterCount] = {};
+        int staleCount = 0;
+        bool desiredPresent[kDebugRegisterCount] = {};
+
+        for (int index = 0; index < originalCount; ++index)
+        {
+            const BREAKPOINT_RECORD& breakpoint = original[index];
+            const int debugRegister = breakpoint.debugRegister;
+            const bool invalidRegister =
+                debugRegister < 0 || debugRegister >= kDebugRegisterCount;
+
+            if (!invalidRegister &&
+                desired[debugRegister] &&
+                SameBreakpointRequest(
+                    breakpoint,
                     addresses[debugRegister],
                     commands[debugRegister],
                     lengths[debugRegister],
                     debugRegister,
                     rwCodes[debugRegister],
-                    lenCodes[debugRegister]);
-
-            if (!stale)
+                    lenCodes[debugRegister]))
             {
-                ++it;
+                desiredPresent[debugRegister] = true;
                 continue;
             }
 
-            const BREAKPOINT_RECORD oldBreakpoint = *it;
+            stale[staleCount++] = breakpoint;
+        }
+
+        BREAKPOINT_RECORD removed[kDebugRegisterCount] = {};
+        int removedCount = 0;
+        for (int index = 0; index < staleCount; ++index)
+        {
+            const BREAKPOINT_RECORD& oldBreakpoint = stale[index];
             if (!DeleteBreakpointFromDriver(oldBreakpoint))
             {
-                logger.Log("移除硬件断点驱动返回失败，已丢弃本地记录");
+                logger.Log("移除硬件断点驱动返回失败，事务中止并恢复已有变更");
+                RollbackRemovedBreakpoints(removed, removedCount);
+                return false;
             }
-            it = BreakpointList.erase(it);
-        }
-        UpdateActiveHardwareBreakpointCountLocked();
-        BreakpointList.UnLock();
 
+            if (!EraseLocalBreakpoint(oldBreakpoint))
+            {
+                logger.Log("硬件断点驱动已删除但本地记录未找到: dr%d", oldBreakpoint.debugRegister);
+            }
+            removed[removedCount++] = oldBreakpoint;
+        }
+
+        BREAKPOINT_RECORD added[kDebugRegisterCount] = {};
+        int addedCount = 0;
         for (int i = 0; i < kDebugRegisterCount; ++i)
         {
-            if (!desired[i])
+            if (!desired[i] || desiredPresent[i])
             {
                 continue;
             }
 
-            bool exists = false;
-            BreakpointList.Lock();
-            for (const auto& breakpoint : BreakpointList)
+            if (!SetBreakpoint(
+                reinterpret_cast<PVOID>(addresses[i]),
+                commands[i],
+                lengths[i],
+                i,
+                rwCodes[i],
+                lenCodes[i]))
             {
-                if (SameBreakpointRequest(breakpoint, addresses[i], commands[i], lengths[i], i, rwCodes[i], lenCodes[i]))
-                {
-                    exists = true;
-                    break;
-                }
-            }
-            BreakpointList.UnLock();
+                logger.Log("添加硬件断点失败，事务回滚: dr%d addr=0x%llX", i, addresses[i]);
 
-            if (!exists)
-            {
-                if (!AddBreakpoint(reinterpret_cast<PVOID>(addresses[i]), commands[i], lengths[i], i, rwCodes[i], lenCodes[i]))
+                for (int rollback = addedCount - 1; rollback >= 0; --rollback)
                 {
-                    allSynced = false;
+                    if (DeleteBreakpointFromDriver(added[rollback]))
+                    {
+                        EraseLocalBreakpoint(added[rollback]);
+                    }
+                    else
+                    {
+                        logger.Log("回滚新硬件断点失败: dr%d", added[rollback].debugRegister);
+                    }
                 }
+
+                RollbackRemovedBreakpoints(removed, removedCount);
+                return false;
             }
+
+            BREAKPOINT_RECORD installed = {};
+            if (!FindLocalBreakpoint(
+                addresses[i],
+                i,
+                commands[i],
+                lengths[i],
+                rwCodes[i],
+                lenCodes[i],
+                &installed))
+            {
+                logger.Log("硬件断点安装成功但本地记录未找到: dr%d", i);
+
+                for (int rollback = addedCount - 1; rollback >= 0; --rollback)
+                {
+                    if (DeleteBreakpointFromDriver(added[rollback]))
+                    {
+                        EraseLocalBreakpoint(added[rollback]);
+                    }
+                }
+
+                RollbackRemovedBreakpoints(removed, removedCount);
+                return false;
+            }
+
+            added[addedCount++] = installed;
         }
 
-        return allSynced;
+        return true;
     }
 }

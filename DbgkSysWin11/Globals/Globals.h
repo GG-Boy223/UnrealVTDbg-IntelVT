@@ -330,7 +330,7 @@ typedef struct _MDL_MAP
     PVOID VirtualAddress;
 }MDL_MAP, * PMDL_MAP;
 
-//虚拟句柄表
+
 //虚拟句柄表
 typedef struct _VIRTUAL_HANDLE_TABLE_ENTRY
 {
@@ -338,7 +338,8 @@ typedef struct _VIRTUAL_HANDLE_TABLE_ENTRY
     HANDLE handle;
     PVOID Object;
     HANDLE UniqueProcessId;
-    LIST_ENTRY list_entry;
+    LIST_ENTRY list_entry;  //ReleaseListEntries 按节点地址释放对象----
+
 }VIRTUAL_HANDLE_TABLE_ENTRY, * PVIRTUAL_HANDLE_TABLE_ENTRY;
 
 typedef struct _VIRTUAL_HANDLE_TABLE

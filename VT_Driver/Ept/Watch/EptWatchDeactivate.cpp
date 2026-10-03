@@ -223,7 +223,7 @@ namespace ept
 					GET_PFN(eptWatchList[other].PhysicalAddress) == GET_PFN(entry.PhysicalAddress))
 				{
 					has = 1;
-					if (eptWatchList[other].Type == entry.Type)
+					if (ept_watch_entries_share_kind(eptWatchList[other], entry))
 					{
 						has = 2;
 						break;

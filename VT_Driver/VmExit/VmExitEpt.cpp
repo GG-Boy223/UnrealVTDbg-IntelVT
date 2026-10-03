@@ -26,8 +26,8 @@ void vmexit_ept_violation_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 	ept_violation.all = vcpu->vmexit_info.qualification; // 原理:将 qualification 原值写入位域结构;作用:解析读/写/执行违规;结果:ept_violation 填充
 	unsigned __int64 guest_physical_adddress = hv::vmread(GUEST_PHYSICAL_ADDRESS); // 固定读取GPA
 
-	// 回收已摘链对象由卸载/停用清理路径负责；EPT violation 热路径不再扫描
-	// 全部活动页和退休链，避免每次访存监视命中都产生 O(n) 额外开销。
+	// 常规命中不扫描退休链；只有本次释放的确是被删除事务摘链的页/函数时，
+	// 才在引用归零后进入回收安全点，避免每次访存监视命中都产生 O(n) 开销。
 
 	__ept_hooked_page_info* hooked_page_info = nullptr;
 	__ept_hooked_function_info* hooked_function_info = nullptr;
@@ -124,33 +124,37 @@ void vmexit_ept_violation_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 			goto handled_return;
 		}
 	}
-	else if (ept_violation.execute_access &&
-		(ept_violation.ept_readable || ept_violation.ept_writeable))
+	else if (ept_violation.execute_access)
 	{
 		if (hooked_page_info->Options == EPTO_VIRTUAL_BREAKPOINT)
 		{
-			// 普通 EXECUTE watch 没有 fake page;放行当前指令并用 MTF 恢复组合权限。
-			if (hooked_page_info->changed_entry.page_frame_number == 0)
+			int bpType = 0;
+			const bool exactWatchHandled =
+				ept::ept_handleWatchEvent(vcpu, ept_violation, hooked_page_info, guest_physical_adddress, bpType);
+			if (exactWatchHandled && bpType != 3)
 			{
-				int bpType = 0;
-				if (ept::ept_handleWatchEvent(vcpu, ept_violation, hooked_page_info, guest_physical_adddress, bpType))
+				// 普通 EXECUTE watch 没有 fake page;放行当前指令并用 MTF 恢复组合权限。
+				if (!hv::mark_pending_mtf_page(vcpu, hooked_page_info))
 				{
-					if (!hv::mark_pending_mtf_page(vcpu, hooked_page_info))
-					{
-						// 同 EPTO_HOOK_FUNCTION 分支：无进展的 handled_return 会造成 root 态永久自旋。
-						goto unhandled_after_release;
-					}
-					_mm_mfence();
-					invept_single_context_func(vcpu->ept_state->ept_pointer->all);
-					goto handled_return;
+					// 同 EPTO_HOOK_FUNCTION 分支：无进展的 handled_return 会造成 root 态永久自旋。
+					goto unhandled_after_release;
 				}
-				goto unhandled_after_release;
+				_mm_mfence();
+				invept_single_context_func(vcpu->ept_state->ept_pointer->all);
+				goto handled_return;
 			}
 
-			Cr3TrackerObserve(hv::vmread(GUEST_CR3));
-			if (ept::ept_handle_int3_execute(vcpu, hooked_page_info, guest_physical_adddress))
+			// ept_handleWatchEvent 返回 bpType==3 时说明缓存/分组扫描选中了 INT3；
+			// 未命中普通精确 watch 且本页有伪页时也必须进入 INT3 执行路由。
+			// 二者都统一调用 int3 处理，避免同一页上的执行型 bph 被静默吞掉。
+			if ((exactWatchHandled && bpType == 3) ||
+				hooked_page_info->changed_entry.page_frame_number != 0)
 			{
-				goto handled_return;
+				Cr3TrackerObserve(hv::vmread(GUEST_CR3));
+				if (ept::ept_handle_int3_execute(vcpu, hooked_page_info, guest_physical_adddress))
+				{
+					goto handled_return;
+				}
 			}
 			goto unhandled_after_release;
 		}

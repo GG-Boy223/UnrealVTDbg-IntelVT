@@ -40,17 +40,20 @@ bool mov_to_cr3_handler(__vcpu* vcpu, unsigned __int64 guest_cr3) // vcpu=当前
 	return true; // 原理：走到此处表示写入成功；作用：通知上层继续执行；结果：返回成功
 }
 
-//处理 LMSW 指令：仅更新 CR0 的低 4 位（PE/MP/EM/TS），其余位保持不变
+//处理 LMSW 指令：更新 CR0 的 MP/EM/TS，并按架构语义保留已置位的 CR0.PE
 void emulate_lmsw(__vcpu* vcpu, uint16_t const value) // vcpu=当前虚拟CPU状态；value=LMSW 指令提供的 16 位源操作数
 {
 	sLog("\n"); // 原理：记录日志用于调试；作用：保持现有日志风格；结果：不改变来宾状态
+	UNREFERENCED_PARAMETER(vcpu); // LMSW 只依赖当前 CR0/VMCS 状态，vcpu 保留用于统一处理函数签名
 
 	cr0 new_cr0; // 原理：用 CR0 结构解析低位；作用：准备从 value 提取 PE/MP/EM/TS；结果：new_cr0 仅低位有效
 	new_cr0.flags = value; // 原理：LMSW 只提供 16 位；作用：把低位装入结构体；结果：高位自动为 0
 
 	cr0 shadow_cr0; // 原理：CR0 读影子用于虚拟化下的 CR0 读取；作用：准备更新影子低位；结果：影子值可被修改
 	shadow_cr0.flags = hv::vmread(CR0_READ_SHADOW); // 原理：从 VMCS 读取当前 CR0 影子；作用：获取现有影子位；结果：shadow_cr0 已初始化
-	shadow_cr0.protection_enable = new_cr0.protection_enable; // 原理：LMSW 允许修改 PE；作用：同步 PE 位到影子；结果：影子 PE 更新
+	// Intel SDM Vol3C 28.1.3：LMSW 永远不会清除 CR0.PE。源操作数 bit0 为 1 时可进入保护模式，
+	// 但已在保护模式时源操作数 bit0=0 必须视为“清除尝试”并忽略。
+	shadow_cr0.protection_enable = shadow_cr0.protection_enable || new_cr0.protection_enable;
 	shadow_cr0.monitor_coprocessor = new_cr0.monitor_coprocessor; // 原理：LMSW 允许修改 MP；作用：同步 MP 位到影子；结果：影子 MP 更新
 	shadow_cr0.emulate_fpu = new_cr0.emulate_fpu; // 原理：LMSW 允许修改 EM；作用：同步 EM 位到影子；结果：影子 EM 更新
 	shadow_cr0.task_switched = new_cr0.task_switched; // 原理：LMSW 允许修改 TS；作用：同步 TS 位到影子；结果：影子 TS 更新
@@ -58,7 +61,7 @@ void emulate_lmsw(__vcpu* vcpu, uint16_t const value) // vcpu=当前虚拟CPU状
 
 	cr0 real_cr0; // 原理：真实 CR0 决定硬件行为；作用：准备更新真实 CR0 的低 4 位；结果：real_cr0 可被修改
 	real_cr0.flags = hv::vmread(GUEST_CR0); // 原理：读取 VMCS 中的来宾 CR0；作用：获取当前真实 CR0；结果：real_cr0 初始化
-	real_cr0.protection_enable = new_cr0.protection_enable; // 原理：PE 控制保护模式；作用：同步 PE 位到真实 CR0；结果：保护模式位一致
+	real_cr0.protection_enable = real_cr0.protection_enable || new_cr0.protection_enable; // 与读影子保持同一 PE 保留规则
 	real_cr0.monitor_coprocessor = new_cr0.monitor_coprocessor; // 原理：MP 控制协处理器监视；作用：同步 MP 位到真实 CR0；结果：MP 位一致
 	real_cr0.emulate_fpu = new_cr0.emulate_fpu; // 原理：EM 控制 FPU 模拟；作用：同步 EM 位到真实 CR0；结果：EM 位一致
 	real_cr0.task_switched = new_cr0.task_switched; // 原理：TS 表示任务切换；作用：同步 TS 位到真实 CR0；结果：TS 位一致

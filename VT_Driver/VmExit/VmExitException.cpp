@@ -222,33 +222,17 @@ void vmexit_monitor_trap_flag_handler(__vcpu* vcpu) // MTF 单步窗口结束后
 				}
 			}
 
-			if (has_effective_int3)
-			{
-				// 恢复隐藏态：原页不可执行，且只要本页还有 INT3 watch 就必须继续拦写
-				// （伪页是快照，写入必须被拦截才能触发整页重新同步，见 apply_active_watch_permissions_locked）。
-				hooked_page_info->original_entry.read = 1;
-				hooked_page_info->original_entry.write = 0;
-				hooked_page_info->original_entry.execute = 0; // 恢复原页不可执行，让下一次执行再次进入 EPT watch 逻辑。
-				spinlock::unlock(&eptWatchList_lock);
+			UNREFERENCED_PARAMETER(has_effective_int3);
+			// 无论窗口期间 INT3 是否仍然存在，都必须按当前有效 watch 组合重算权限。
+			// 旧路径在 has_effective_int3 时硬编码 read=1/write=0/execute=0，会覆盖同页
+			// READWRITE watch 所需的 read=0，导致精确读监视在 INT3 MTF 收尾后被吞掉。
+			ept::apply_active_watch_permissions_locked(hooked_page_info, -1);
+			spinlock::unlock(&eptWatchList_lock);
 
-				ept::swap_pml1_and_invalidate_tlb(*vcpu->ept_state,
-					hooked_page_info->entry_address,
-					hooked_page_info->original_entry,
-					invept_type::invept_single_context); // 刷新 EPT TLB，确保 fake/original 页权限即时生效。
-			}
-			else
+			_mm_mfence();
+			if (vcpu->ept_state->ept_pointer != nullptr)
 			{
-				// 窗口期间该页的 INT3 watch 已经消失（删除事务 / 安装回滚）：本页不再是隐藏 INT3 页，
-				// 必须按剩余 watch 重算权限并把 entry 归一到原页，不能把 x=0 / w=0 留在页上，
-				// 否则 guest 会在这张已经没有 INT3 的页上反复触发执行/写入违规（0x101）。
-				ept::apply_active_watch_permissions_locked(hooked_page_info, -1);
-				spinlock::unlock(&eptWatchList_lock);
-
-				_mm_mfence();
-				if (vcpu->ept_state->ept_pointer != nullptr)
-				{
-					invept_single_context_func(vcpu->ept_state->ept_pointer->all);
-				}
+				invept_single_context_func(vcpu->ept_state->ept_pointer->all);
 			}
 		}
 		else

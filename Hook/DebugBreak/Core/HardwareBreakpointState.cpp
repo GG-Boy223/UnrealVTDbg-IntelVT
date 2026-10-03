@@ -78,7 +78,9 @@ bool RemoveBreakpoint()
             if (!DebugBreakInternal::DeleteBreakpointFromDriver(*it))
             {
                 allDriverDeletesSucceeded = false;
-                logger.Log("移除硬件断点驱动返回失败，已丢弃本地记录");
+                logger.Log("移除硬件断点驱动返回失败，保留本地记录以便重试");
+                ++it;
+                continue;
             }
         }
         it = BreakpointList.erase(it);

@@ -216,7 +216,7 @@ ULONG GenCall64V(IN PUCHAR pBuf, IN PVOID pFn, IN INT argc, IN va_list vl)
     {
         PVOID arg = va_arg(vl, PVOID);
 
-        *(PUSHORT)(pBuf + ofst) = 0xB848;           // mov rcx, arg
+        *(PUSHORT)(pBuf + ofst) = 0xB848;           // mov rax, arg
         *(PVOID*)(pBuf + ofst + 2) = arg;           //
         // *(PUSHORT)(pBuf + ofst) = 0xB848;           // mov rcx, arg
         // *(PVOID*)(pBuf + ofst + 2) = arg;           //

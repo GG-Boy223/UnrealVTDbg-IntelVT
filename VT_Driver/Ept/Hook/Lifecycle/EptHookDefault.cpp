@@ -221,6 +221,13 @@ namespace ept
 
 		if (hook_instruction_memory(ept_state, hooked_function_info, target_function, proxy_function, origin_function) == false)
 		{
+			// 安装事务失败时必须恢复目标页权限。旧路径只释放池对象，
+			// 页表仍保留 execute=0 且没有活动 hook 记录，guest 会在同一页反复触发
+			// 无法分派的 EPT violation。
+			target_page->read = 1;
+			target_page->write = 1;
+			target_page->execute = 1;
+
 			if (hooked_function_info->first_trampoline_address != nullptr)
 				pool_manager::release_pool(hooked_function_info->first_trampoline_address);
 			pool_manager::release_pool(hooked_function_info);
@@ -231,6 +238,8 @@ namespace ept
 			if (runtime_split != nullptr)
 				ept_split_try_merge_and_release(ept_state, runtime_split);
 
+			_mm_mfence();
+			invept_single_context_func(ept_state.ept_pointer->all);
 			LogError("Hook failed");
 			return false;
 		}

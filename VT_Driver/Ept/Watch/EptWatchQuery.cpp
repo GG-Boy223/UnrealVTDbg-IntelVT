@@ -2,6 +2,17 @@
 
 namespace ept
 {
+	bool ept_watch_entries_share_kind(
+		EPTWatchEntry const& left,
+		EPTWatchEntry const& right)
+	{
+		// INT3 历史协议把 Type 复用为 EPTW_READWRITE，但 bpType==3 与普通
+		// 硬件 watch（bpType==1）的权限来源和删除语义完全不同。判断“同类”
+		// 必须同时比较两个维度，否则普通 READWRITE 删除会误把存活 INT3 当成
+		// 同类型，跳过页权限重算。
+		return left.Type == right.Type && left.bpType == right.bpType;
+	}
+
 	//填充页事件所需信息
 	void fillPageEventBasic(PageEventBasic* peb, guest_context* guest_registers)
 	{
