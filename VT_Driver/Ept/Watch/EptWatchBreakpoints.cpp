@@ -243,14 +243,23 @@ namespace ept
 		return true;
 	}
 
-	bool hide_cc_breakpoint(__ept_state& ept_state, VT_BREAK_POINT vmcallinfo, unsigned __int64 physical_address, unsigned __int64 Type)
+	bool hide_cc_breakpoint(__ept_state& ept_state, VT_BREAK_POINT vmcallinfo, unsigned __int64 physical_address, unsigned __int64 Type, int* failure_detail)
 	{
+		if (failure_detail != nullptr)
+		{
+			*failure_detail = EPT_WATCH_DETAIL_NONE;
+		}
+
 		// 检测该函数是否存在于物理内存中
 		// 如果该函数的物理地址为空
 		// 说明该函数不存在于物理内存中
 		//
 		if (physical_address == NULL)
 		{
+			if (failure_detail != nullptr)
+			{
+				*failure_detail = EPT_WATCH_DETAIL_PHYSICAL_ADDRESS;
+			}
 			LogError("请求的虚拟内存在物理内存中不存在");
 			return false;
 		}
@@ -276,6 +285,10 @@ namespace ept
 					vmcallinfo.VirtualAddress))
 				{
 					ept::release_page_hot_reference(ept_state, existing_hooked_page_info);
+					if (failure_detail != nullptr)
+					{
+						*failure_detail = EPT_WATCH_DETAIL_FAKE_PAGE_SYNC;
+					}
 					return false;
 				}
 			}
@@ -294,6 +307,10 @@ namespace ept
 		__ept_dynamic_split* runtime_split = nullptr;
 		if (!prepare_pml2_for_address(ept_state, physical_address))
 		{
+			if (failure_detail != nullptr)
+			{
+				*failure_detail = EPT_WATCH_DETAIL_PREPARE_PML2;
+			}
 			LogError("Failed to prepare PML2 for breakpoint");
 			return false;
 		}
@@ -304,6 +321,10 @@ namespace ept
 			void* split_buffer = pool_manager::request_pool<void*>(pool_manager::INTENTION_SPLIT_PML2, true, sizeof(__ept_dynamic_split));
 			if (split_buffer == nullptr)
 			{
+				if (failure_detail != nullptr)
+				{
+					*failure_detail = EPT_WATCH_DETAIL_SPLIT_POOL_EMPTY;
+				}
 				LogError("There is no preallocated pool for split");
 				return false;
 			}
@@ -313,6 +334,10 @@ namespace ept
 			if (split_pml2(mtrrs, ept_state, split_buffer, physical_address) == false)
 			{
 				pool_manager::release_pool(split_buffer);
+				if (failure_detail != nullptr)
+				{
+					*failure_detail = EPT_WATCH_DETAIL_SPLIT_FAILED;
+				}
 				LogError("Split failed");
 				return false;
 			}
@@ -331,6 +356,10 @@ namespace ept
 				ept_split_try_merge_and_release(ept_state, runtime_split);
 			}
 
+			if (failure_detail != nullptr)
+			{
+				*failure_detail = EPT_WATCH_DETAIL_PML1_MISSING;
+			}
 			LogError("Failed to get PML1 entry of the target address");
 			return false;
 		}
@@ -344,6 +373,10 @@ namespace ept
 				ept_split_try_merge_and_release(ept_state, runtime_split);
 			}
 
+			if (failure_detail != nullptr)
+			{
+				*failure_detail = EPT_WATCH_DETAIL_PAGE_POOL_EMPTY;
+			}
 			LogError("There is no preallocated pool for hooked page info");
 			return false;
 		}
@@ -388,6 +421,10 @@ namespace ept
 			}
 			_mm_mfence();
 			invept_single_context_func(ept_state.ept_pointer->all);
+			if (failure_detail != nullptr)
+			{
+				*failure_detail = EPT_WATCH_DETAIL_FAKE_PAGE_SYNC;
+			}
 			return false;
 		}
 

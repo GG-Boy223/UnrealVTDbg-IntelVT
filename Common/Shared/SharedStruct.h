@@ -109,6 +109,7 @@ typedef struct _BREAKPOINT_RECORD {
     int debugRegister; //来源 DR0-DR3 槽位，供 ring3 回填调试上下文
     int debugRw; //DR7 RWn 编码
     int debugLen; //DR7 LENn 编码
+    int errorCode; //驱动失败原因；0 表示成功
 }BREAKPOINT_RECORD, * PBREAKPOINT_RECORD;
 
 typedef struct _VMCALLINFO {

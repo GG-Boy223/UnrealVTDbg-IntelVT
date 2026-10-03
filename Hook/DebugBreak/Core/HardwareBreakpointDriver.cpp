@@ -91,7 +91,12 @@ bool SetBreakpoint(PVOID lpBaseAddress, unsigned __int64 command, int length, in
         // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);
         else
         {
-            logger.Log("设置断点 失败!");
+            logger.Log("设置断点 失败! errorCode=%d watchid=%d addr=0x%llX cr3=0x%llX pid=%u",
+                output.errorCode,
+                output.watchid,
+                Breakpoint.Address,
+                Breakpoint.cr3,
+                Breakpoint.pid);
         }
     }
     // *rch = (*rch << 4) + (*(szHex + i) - 'A' + 10);

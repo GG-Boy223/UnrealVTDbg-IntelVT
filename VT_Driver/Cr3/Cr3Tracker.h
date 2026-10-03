@@ -6,6 +6,13 @@ struct __vcpu;
 
 constexpr int kInvalidCr3TrackerId = -1;
 
+// Detailed Cr3TrackerAcquire failure reasons; reported as 140 + detail.
+constexpr int kCr3TrackerFailureNone = 0;
+constexpr int kCr3TrackerFailureInvalidRoot = 1;
+constexpr int kCr3TrackerFailureInvalidPfn = 2;
+constexpr int kCr3TrackerFailureFingerprint = 3;
+constexpr int kCr3TrackerFailurePoolFull = 4;
+
 struct CR3_TRACKER_TELEMETRY
 {
     unsigned __int64 acquireCount;
@@ -23,7 +30,8 @@ struct CR3_TRACKER_TELEMETRY
 int Cr3TrackerAcquire(
     unsigned __int64 initialCr3,
     unsigned __int64 probeVirtualAddress,
-    unsigned __int64 probePhysicalAddress);
+    unsigned __int64 probePhysicalAddress,
+    int* failureDetail = nullptr);
 
 void Cr3TrackerRelease(int trackerId);
 void Cr3TrackerObserve(unsigned __int64 candidateCr3);

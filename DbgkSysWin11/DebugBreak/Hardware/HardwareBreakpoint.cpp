@@ -7,6 +7,10 @@ bool AddHardwareBreakpoint(PBREAKPOINT_RECORD Breakpoint)
     if (Breakpoint == NULL || Breakpoint->Address == 0)
     {
         //outLog("DispatchOffsetToHost key mismatch: 0x%llX\n", verifyKey);
+        if (Breakpoint != NULL)
+        {
+            Breakpoint->errorCode = 99;
+        }
         return false;
     }
 
@@ -25,20 +29,16 @@ bool AddHardwareBreakpoint(PBREAKPOINT_RECORD Breakpoint)
     if (!NT_SUCCESS(status) || vmcallinfo.cr3 == 0)
     {
         Breakpoint->watchid = -1;
-        outLog("\xBB\xF1\xC8\xA1\xC4\xBF\xB1\xEA" "CR3\xCA\xA7\xB0\xDC\xA3\xAC\xD3\xB2\xBC\xFE\xB6\xCF\xB5\xE3\xCE\xB4\xC9\xE8\xD6\xC3 status:0x%X", status);
+        Breakpoint->errorCode = 90;
         return false;
     }
 
     const bool boSuccess = current_vmcall(&vmcallinfo);
     Breakpoint->watchid = boSuccess ? vmcallinfo.watchid : -1;
-
-    if (!boSuccess)
+    Breakpoint->errorCode = boSuccess ? 0 : vmcallinfo.errorCode;
+    if (!boSuccess && Breakpoint->errorCode == 0)
     {
-        outLog("current_vmcall \xCA\xA7\xB0\xDC!  errorCode:%d", vmcallinfo.errorCode);
-    }
-    else
-    {
-        outLog("current_vmcall \xB3\xC9\xB9\xA6!  errorCode:%d", vmcallinfo.errorCode);
+        Breakpoint->errorCode = 91;
     }
 
     return boSuccess;

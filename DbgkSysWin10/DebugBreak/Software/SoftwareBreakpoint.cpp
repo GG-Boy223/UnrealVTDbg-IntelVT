@@ -7,17 +7,26 @@ bool AddSoftwareBreakpoint(PVT_BREAK_POINT vmcallinfo)
     if (vmcallinfo == NULL || vmcallinfo->VirtualAddress == 0)
     {
         //outLog("DispatchOffsetToHost 密钥错误 : 0x%llX\n", verifyKey);
+        if (vmcallinfo != NULL)
+        {
+            vmcallinfo->errorCode = 99;
+        }
         return false;
     }
 
     NTSTATUS status = CaptureProcessCr3(vmcallinfo->pid, vmcallinfo->cr3, &vmcallinfo->cr3);
     if (!NT_SUCCESS(status) || vmcallinfo->cr3 == 0)
     {
-        outLog("\xBB\xF1\xC8\xA1\xC4\xBF\xB1\xEA" "CR3\xCA\xA7\xB0\xDC\xA3\xAC\xC8\xED\xBC\xFE\xB6\xCF\xB5\xE3\xCE\xB4\xC9\xE8\xD6\xC3 status:0x%X", status);
+        vmcallinfo->errorCode = 90;
         return false;
     }
 
-    return current_vmcall(vmcallinfo);
+    const bool boSuccess = current_vmcall(vmcallinfo);
+    if (!boSuccess && vmcallinfo->errorCode == 0)
+    {
+        vmcallinfo->errorCode = 91;
+    }
+    return boSuccess;
 }
 
 void SetSoftwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
@@ -26,6 +35,7 @@ void SetSoftwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
 
     PVT_BREAK_POINT output = (PVT_BREAK_POINT)pIrp->AssociatedIrp.SystemBuffer; //内核的缓冲区，输入输出都用的这个
     RtlZeroMemory(output, sizeof(VT_BREAK_POINT));
+    output->watchid = -1;
 
     size_t numElements = 0;
     UCHAR* aucPlainText = AllocateAndDecryptUserRecords(
@@ -49,7 +59,12 @@ void SetSoftwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
         }
         else
         {
-            output->errorCode = 520; //设置失败
+            *output = *pInfo; //保留驱动填写的失败原因
+            output->watchid = -1;
+            if (output->errorCode == 0)
+            {
+                output->errorCode = 520; //设置失败
+            }
         }
         break;
     }

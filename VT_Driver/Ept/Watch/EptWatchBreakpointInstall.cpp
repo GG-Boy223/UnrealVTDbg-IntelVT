@@ -32,6 +32,13 @@ namespace ept
 		if (cpu_count == 0 || tmp_vmcallinfo.Size != 1 ||
 			!is_valid_watch_range(tmp_vmcallinfo.VirtualAddress, tmp_vmcallinfo.Size))
 		{
+			tmp_vmcallinfo.watchid = -1;
+			tmp_vmcallinfo.PhysicalAddress = 0;
+			tmp_vmcallinfo.errorCode = 99;
+			hv::write_guest_virtual_memory(
+				vmcallinfo,
+				&tmp_vmcallinfo,
+				sizeof(VT_BREAK_POINT));
 			return false;
 		}
 
@@ -42,7 +49,7 @@ namespace ept
 		int id_count = 0;
 		int firstID = -1;
 		unsigned __int64 first_phys = 0;
-		bool guest_id_written = false;
+		int failureCode = 520;
 
 		while (left > 0)
 		{
@@ -60,6 +67,7 @@ namespace ept
 			//
 			if (physical_address == NULL)
 			{
+				failureCode = 100;
 				goto rollback;
 			}
 
@@ -80,12 +88,17 @@ namespace ept
 			}
 			spinlock::unlock(&eptWatchList_lock);
 
+			int tracker_detail = kCr3TrackerFailureNone;
 			const int tracker_id = Cr3TrackerAcquire(
 				tmp_vmcallinfo.cr3,
 				va,
-				physical_address);
+				physical_address,
+				&tracker_detail);
 			if (tracker_id == kInvalidCr3TrackerId)
 			{
+				failureCode = tracker_detail != kCr3TrackerFailureNone
+					? 140 + tracker_detail
+					: 104;
 				goto rollback;
 			}
 
@@ -93,6 +106,7 @@ namespace ept
 			int ID = hv::getIdleWatchID();
 			if (ID == -1)
 			{
+				failureCode = 101;
 				spinlock::unlock(&eptWatchList_lock);
 				Cr3TrackerRelease(tracker_id);
 				goto rollback;
@@ -106,6 +120,7 @@ namespace ept
 
 			if (id_count >= EPTWATCHLISTSIZE)
 			{
+				failureCode = 103;
 				spinlock::unlock(&eptWatchList_lock);
 				Cr3TrackerRelease(tracker_id);
 				goto rollback;
@@ -132,15 +147,21 @@ namespace ept
 			page_info.PhysicalAddress = physical_address;
 
 			// Guest 整页读取、split、pool 和跨 VCPU commit 均在表锁外执行。
+			int hide_detail = EPT_WATCH_DETAIL_NONE;
 			for (unsigned int i = 0; i < cpu_count; i++)
 			{
 				__vcpu* vcpu = &g_vmm_context.vcpu[i];
-				if (hide_cc_breakpoint(*vcpu->ept_state, page_info, physical_address, EPTW_READWRITE))
+				if (hide_cc_breakpoint(*vcpu->ept_state, page_info, physical_address, EPTW_READWRITE, &hide_detail))
 				{
 					committed_cpu_masks[id_count - 1] |= 1ull << i;
 					continue;
 				}
 
+				failureCode = ept_watch_detail_error(hide_detail);
+				if (failureCode == 0)
+				{
+					failureCode = 102;
+				}
 				goto rollback;
 			}
 
@@ -153,9 +174,9 @@ namespace ept
 
 		if (sizeof(VT_BREAK_POINT) != hv::write_guest_virtual_memory(vmcallinfo, &tmp_vmcallinfo, sizeof(VT_BREAK_POINT)))
 		{
+			failureCode = 105;
 			goto rollback;
 		}
-		guest_id_written = true;
 
 		for (int index = 0; index < id_count; index++)
 		{
@@ -178,6 +199,7 @@ namespace ept
 					entry.VirtualAddress,
 					entry.PhysicalAddress))
 				{
+					failureCode = ept_watch_detail_error(EPT_WATCH_DETAIL_COMMIT);
 					goto rollback;
 				}
 			}
@@ -249,16 +271,13 @@ namespace ept
 
 		_mm_mfence();
 		invept_all_contexts_func();
-		if (guest_id_written)
-		{
-			tmp_vmcallinfo.watchid = -1;
-			tmp_vmcallinfo.PhysicalAddress = 0;
-			tmp_vmcallinfo.errorCode = 102;
-			hv::write_guest_virtual_memory(
-				vmcallinfo,
-				&tmp_vmcallinfo,
-					sizeof(VT_BREAK_POINT));
-		}
+		tmp_vmcallinfo.watchid = -1;
+		tmp_vmcallinfo.PhysicalAddress = 0;
+		tmp_vmcallinfo.errorCode = failureCode;
+		hv::write_guest_virtual_memory(
+			vmcallinfo,
+			&tmp_vmcallinfo,
+			sizeof(VT_BREAK_POINT));
 		return false;
 	}
 }

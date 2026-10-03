@@ -45,13 +45,17 @@ namespace ept
 				goto rollback;
 			}
 
+			int tracker_detail = kCr3TrackerFailureNone;
 			const int tracker_id = Cr3TrackerAcquire(
 				vmcallinfo.cr3,
 				va,
-				physical_address);
+				physical_address,
+				&tracker_detail);
 			if (tracker_id == kInvalidCr3TrackerId)
 			{
-				errorCode = 104;
+				errorCode = tracker_detail != kCr3TrackerFailureNone
+					? 140 + tracker_detail
+					: 104;
 				goto rollback;
 			}
 
@@ -96,16 +100,21 @@ namespace ept
 			spinlock::unlock(&eptWatchList_lock);
 
 			// EPT split、池操作和跨 VCPU commit 均在表锁外执行，VM-exit 热路径不会长时间自旋。
+			int activate_detail = EPT_WATCH_DETAIL_NONE;
 			for (unsigned int i = 0; i < cpu_count; i++)
 			{
 				__vcpu* vcpu = &g_vmm_context.vcpu[i];
-				if (ept::ept_watch_activate_internal(*vcpu->ept_state, physical_address, Type))
+				if (ept::ept_watch_activate_internal(*vcpu->ept_state, physical_address, Type, &activate_detail))
 				{
 					committed_cpu_masks[id_count - 1] |= 1ull << i;
 					continue;
 				}
 
-				errorCode = 102;
+				errorCode = ept_watch_detail_error(activate_detail);
+				if (errorCode == 0)
+				{
+					errorCode = 102;
+				}
 				goto rollback;
 			}
 

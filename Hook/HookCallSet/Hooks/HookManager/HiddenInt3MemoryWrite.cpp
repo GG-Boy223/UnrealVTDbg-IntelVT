@@ -205,6 +205,12 @@ namespace HookInternal
 
         if (!output.PhysicalAddress)
         {
+            logger.Log("设置int3断点 失败! errorCode=%d watchid=%d addr=0x%llX cr3=0x%llX pid=%u",
+                output.errorCode,
+                output.watchid,
+                vmcallinfo.VirtualAddress,
+                vmcallinfo.cr3,
+                vmcallinfo.pid);
             ReportSeriousError("设置int3断点失败");
             result.handled = true;
             result.success = false;

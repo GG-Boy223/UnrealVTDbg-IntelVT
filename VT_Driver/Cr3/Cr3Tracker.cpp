@@ -88,17 +88,45 @@ namespace
 int Cr3TrackerAcquire(
     unsigned __int64 initialCr3,
     unsigned __int64 probeVirtualAddress,
-    unsigned __int64 probePhysicalAddress)
+    unsigned __int64 probePhysicalAddress,
+    int* failureDetail)
 {
     using namespace cr3_tracker_internal;
+
+    if (failureDetail != nullptr)
+    {
+        *failureDetail = kCr3TrackerFailureNone;
+    }
 
     InterlockedIncrement64(&g_AcquireCount);
     const unsigned __int64 root = NormalizeCr3(initialCr3);
     const unsigned __int64 probePfn = probePhysicalAddress >> PAGE_SHIFT;
     const unsigned __int64 fingerprint =
         ReadPml4Fingerprint(root, probeVirtualAddress);
-    if (root == 0 || probePfn == 0 || fingerprint == 0)
+    if (root == 0)
     {
+        if (failureDetail != nullptr)
+        {
+            *failureDetail = kCr3TrackerFailureInvalidRoot;
+        }
+        InterlockedIncrement64(&g_AcquireFailureCount);
+        return kInvalidCr3TrackerId;
+    }
+    if (probePfn == 0)
+    {
+        if (failureDetail != nullptr)
+        {
+            *failureDetail = kCr3TrackerFailureInvalidPfn;
+        }
+        InterlockedIncrement64(&g_AcquireFailureCount);
+        return kInvalidCr3TrackerId;
+    }
+    if (fingerprint == 0)
+    {
+        if (failureDetail != nullptr)
+        {
+            *failureDetail = kCr3TrackerFailureFingerprint;
+        }
         InterlockedIncrement64(&g_AcquireFailureCount);
         return kInvalidCr3TrackerId;
     }
@@ -140,6 +168,10 @@ int Cr3TrackerAcquire(
 
     if (freeIndex == kInvalidCr3TrackerId)
     {
+        if (failureDetail != nullptr)
+        {
+            *failureDetail = kCr3TrackerFailurePoolFull;
+        }
         InterlockedIncrement64(&g_AcquireFailureCount);
     }
     return freeIndex;

@@ -31,6 +31,31 @@ namespace hv
             return false;
         }
 
+        // VMX root 使用独立的 Host PML4，只保证复制了内核半区和大页映射，
+        // 不保证 Windows MmGetVirtualForPhysical 返回的具体内核 VA 一定被克隆。
+        // RAM 地址优先走本项目自己构建、VMX root 必然可见的物理直映窗口；
+        // 超出该窗口的高地址 RAM 再退回 Windows 映射。
+        __vcpu* const current_vcpu = current_vcpu_from_fs_if_valid();
+        if (current_vcpu != nullptr &&
+            current_vcpu->ept_state != nullptr &&
+            current_vcpu->ept_state->physical_memory_ranges != nullptr &&
+            current_vcpu->ept_state->physical_memory_range_count != 0)
+        {
+            if (!ept::is_physical_range_ram(*current_vcpu->ept_state, physical_address, 1))
+            {
+                *virtual_address = nullptr;
+                return false;
+            }
+
+            constexpr unsigned __int64 host_direct_map_limit =
+                static_cast<unsigned __int64>(HOST_PHYSICAL_MEMORY_PD_COUNT) << 30;
+            if (physical_address < host_direct_map_limit)
+            {
+                *virtual_address = host_physical_memory_base + physical_address;
+                return true;
+            }
+        }
+
         PHYSICAL_ADDRESS address;
         address.QuadPart = physical_address & ~0xfffull;
         uint8_t* mapped = static_cast<uint8_t*>(MmGetVirtualForPhysical(address));
@@ -45,7 +70,6 @@ namespace hv
         // VM-exit 路径可能高于 DISPATCH_LEVEL，不能调用 MmIsAddressValid。
         // 来宾页表页必须来自缓存的 RAM 范围；先用该范围拒绝空洞 PFN，
         // 再返回宿主物理映射，避免对非分页区空洞解引用触发 0x50。
-        __vcpu* const current_vcpu = current_vcpu_from_fs_if_valid();
         if (current_vcpu != nullptr &&
             current_vcpu->ept_state != nullptr &&
             current_vcpu->ept_state->physical_memory_ranges != nullptr &&
