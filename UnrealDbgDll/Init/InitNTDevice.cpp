@@ -18,6 +18,43 @@ HMODULE g_aiHelperModule;
 HANDLE g_hGeneralDriverDevice = INVALID_HANDLE_VALUE;
 
 
+//检测驱动服务是否已经存在
+bool IsDriverServicePresent(const std::wstring& ServiceName)
+{
+    if (ServiceName.empty())
+    {
+        SetLastError(ERROR_INVALID_PARAMETER);
+        return false;
+    }
+
+    SC_HANDLE hServiceManager = OpenSCManagerW(nullptr, nullptr, SC_MANAGER_CONNECT);
+    if (hServiceManager == nullptr)
+    {
+        logger.outDebug(_xor_(L"打开服务控制管理器失败！(error:%lu)"), GetLastError());
+        return false;
+    }
+
+    SC_HANDLE hService = OpenServiceW(hServiceManager, ServiceName.c_str(), SERVICE_QUERY_STATUS);
+    DWORD openError = GetLastError();
+    if (hService != nullptr)
+    {
+        CloseServiceHandle(hService);
+    }
+    CloseServiceHandle(hServiceManager);
+
+    if (hService != nullptr)
+    {
+        return true;
+    }
+
+    if (openError != ERROR_SERVICE_DOES_NOT_EXIST)
+    {
+        logger.outDebug(_xor_(L"查询驱动服务失败！(service:%s error:%lu)"), ServiceName.c_str(), openError);
+    }
+    SetLastError(openError);
+    return false;
+}
+
 //连接驱动
 HANDLE CreateDeviceHandle(const std::wstring DriveImagePath, const std::wstring ServiceName)
 {
@@ -30,6 +67,22 @@ HANDLE CreateDeviceHandle(const std::wstring DriveImagePath, const std::wstring 
     }
     else
     {
+        //驱动服务已存在时判定驱动已经加载，避免重复创建或启动服务
+        if (IsDriverServicePresent(ServiceName))
+        {
+            logger.outDebug(_xor_(L"驱动服务已存在，判定驱动已加载，跳过重复加载。"));
+            hDevice = CreateFile(SYMBOLICLINK, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+            if (hDevice != INVALID_HANDLE_VALUE)
+            {
+                logger.outDebug(_xor_(L"连接驱动成功！"));
+                return hDevice;
+            }
+
+            error = GetLastError();
+            logger.outDebug(_xor_(L"驱动服务已存在，但设备连接失败！(error:%d)"), error);
+            return INVALID_HANDLE_VALUE;
+        }
+
         pfnLoadNT(DriveImagePath, ServiceName);
 
         logger.outDebug(_xor_(L"正在连接符号..."));
@@ -52,6 +105,13 @@ HANDLE CreateDeviceHandle(const std::wstring DriveImagePath, const std::wstring 
 //加载VT驱动
 BOOL LoadVT(const std::wstring DriveImagePath, const std::wstring ServiceName)
 {
+    //VT 驱动服务已存在时判定驱动已经加载，避免重复加载失败
+    if (IsDriverServicePresent(ServiceName))
+    {
+        logger.outDebug(_xor_(L"VT 驱动服务已存在，判定驱动已加载，跳过重复加载。"));
+        return TRUE;
+    }
+
     if (!pfnLoadNT(DriveImagePath, ServiceName))
     {
         return FALSE;
