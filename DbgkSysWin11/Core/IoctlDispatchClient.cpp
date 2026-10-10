@@ -59,18 +59,14 @@ NTSTATUS DispatchClientIoctl(ULONG Code, PIOCTL_DISPATCH_CONTEXT Context, BOOLEA
             return STATUS_BUFFER_TOO_SMALL;
         }
 
-        // 旧项目保留代码：保护对象列表原本在此分支调用 InitProtectList(ResolvedUserData(Context), Context->Irp)。
-        // 注释原因：旧版本此分支后来被改成只返回成功，当前重构保持该行为；直接放开需要先 ResolveInputUserData 并确认输出缓冲大小。
-        // 放开好处：ring3 下发的文件/窗口保护名单会进入 g_ProtectFileObjList/g_ProtectWndObjList。
-        // 放开坏处：当前保护回调未启用，单独装载名单收益有限；若输入校验不完整，会带来内核解析越界风险。
-        // 项目影响：继续注释时 IOCTL 只是兼容占位；放开会恢复保护名单状态变更。
-        // 当前建议：继续注释，待 InitProtect/SetProcessCallbacks 一起恢复。
-        //NTSTATUS status = ResolveInputUserData(Context);
-        //if (!NT_SUCCESS(status))
-        //{
-        //    return status;
-        //}
-        //InitProtectList(ResolvedUserData(Context), Context->Irp);
+        //（与 InitProtect/SetProcessCallbacks 同步启用）。
+        NTSTATUS status = ResolveInputUserData(Context);
+        if (!NT_SUCCESS(status))
+        {
+            return status;
+        }
+
+        InitProtectList(ResolvedUserData(Context), Context->Irp);
         Context->Information = 0;
         return STATUS_SUCCESS;
     }

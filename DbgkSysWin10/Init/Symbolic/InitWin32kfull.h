@@ -13,6 +13,19 @@ HWND NewNtUserFindWindowEx(IN HWND hwndParent,
 
 //API WindowFromPoint
 HWND NewNtUserWindowFromPoint(POINT Point);
+//API EnumWindows/EnumChildWindows/EnumThreadWindows
+NTSTATUS NewNtUserBuildHwndList(
+    IN HANDLE hDesk,
+    IN HWND hwndParent,
+    IN ULONG ulFlags,
+    IN ULONG fChildren,
+    IN ULONG fFirst,
+    IN ULONG ulCount,
+    IN HWND* phwnd,
+    IN PULONG pcHwndNeeded);
+
+//API GetClassName
+ULONG NewNtUserGetClassName(IN HWND hwnd, IN ULONG bReal, IN PUNICODE_STRING pstrClassName);
 
 //API SetWindowsHookEx
 PVOID NewNtUserSetWindowsHookEx(

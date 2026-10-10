@@ -253,8 +253,10 @@ VOID InitSymbolsTable(IN PUSER_DATA userData, IN PIRP pIrp)
         return;
     }
 
-#ifdef DEBUG
+    // 符号诊断必须覆盖 Release：缺失符号若静默通过，会到调用点才以 NULL 调用崩溃。
+    // 这里只输出缺失项，不改变初始化判定（不新增进入门槛）。
     CheckFunctionPointers();
+#ifdef DEBUG
     DumpOffsetAndFuncPtr();
 #endif
 
@@ -547,4 +549,5 @@ void CheckFunctionPointers()
     //win32kfull
     CHECK_FUNC_PTR(Sys_NtUserFindWindowEx);
     CHECK_FUNC_PTR(Sys_NtUserWindowFromPoint);
+    CHECK_FUNC_PTR(Sys_NtUserGetClassName);
 }

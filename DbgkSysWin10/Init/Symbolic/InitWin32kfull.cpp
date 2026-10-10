@@ -35,6 +35,8 @@ BOOLEAN InitWin32kfullSymbolsTable()
     }
 
     Sys_NtUserFindWindowEx = (PFN_NTUSERFINDWINDOWEX)moduleExtender->GetPointer<PFN_NTUSERFINDWINDOWEX>("NtUserFindWindowEx");
+    Sys_NtUserBuildHwndList = (PFN_NTUSERBUILDHWNDLIST)moduleExtender->GetPointer<PFN_NTUSERBUILDHWNDLIST>("NtUserBuildHwndList");
+    Sys_NtUserGetClassName = (PFN_NTUSERGETCLASSNAME)moduleExtender->GetPointer<PFN_NTUSERGETCLASSNAME>("NtUserGetClassName");
     Sys_NtUserWindowFromPoint = (PFN_NTUSERWINDOWFROMPOINT)moduleExtender->GetPointer<PFN_NTUSERWINDOWFROMPOINT>("NtUserWindowFromPoint");
     Sys_NtUserSetWindowsHookEx = (PFN_NTUSERSETWINDOWSHOOKEX)moduleExtender->GetPointer<PFN_NTUSERSETWINDOWSHOOKEX>("NtUserSetWindowsHookEx");
 
@@ -51,6 +53,15 @@ bool ShouldAllowAccess(HWND hwnd)
 
     if (hwnd)
     {
+        // Original_ValidateHwnd 来自另一个模块(win32kbase)的符号解析：
+        // InitWin32kbaseSymbolsTable 在符号缺失时只记录不失败(Release 无 DEBUG 校验)，
+        // 而 win32kfull 的 NtUserFindWindowEx/NtUserWindowFromPoint 钩子可能独立安装成功。
+        // 无法判定窗口归属时必须保持原放行语义，禁止通过空函数指针调用导致 BSOD。
+        if (Original_ValidateHwnd == NULL)
+        {
+            return true;
+        }
+
         // 根据窗口句柄获得窗口对象
         PWND pwnd = Original_ValidateHwnd(hwnd);
         if (pwnd)
@@ -59,10 +70,27 @@ bool ShouldAllowAccess(HWND hwnd)
             if (!IsDebugger(PsGetCurrentProcess()))
             {
                 // 根据线程对象获得进程对象
-                PEPROCESS Process = PsGetThreadProcess((PETHREAD)pwnd->head.pti->pEThread);
+                // 注意：GetClassName 等路径可能命中正在销毁/未关联线程的窗口，
+                // head.pti 可能为空或已失效；直接解引用会 0x3B(c0000005) 蓝屏。
+                BOOLEAN targetIsDebugger = FALSE;
+                __try
+                {
+                    if (pwnd->head.pti != NULL)
+                    {
+                        PEPROCESS Process = PsGetThreadProcess((PETHREAD)pwnd->head.pti->pEThread);
+                        if (Process != NULL)
+                        {
+                            targetIsDebugger = IsDebugger(Process);
+                        }
+                    }
+                }
+                __except (EXCEPTION_EXECUTE_HANDLER)
+                {
+                    targetIsDebugger = FALSE;
+                }
 
                 // 判断要访问的目标窗口是否是我们调试器的窗口
-                if (IsDebugger(Process))
+                if (targetIsDebugger)
                 {
                     //获取当前调用进程
                     WCHAR SubStr[256] = { 0 };
@@ -81,7 +109,7 @@ bool ShouldAllowAccess(HWND hwnd)
                             }
                         }
                         // 如果访问的是我们调试器的窗口，则拒绝访问。
-                        //PrintProcessName((_EPROCESS*)PsGetCurrentProcess());
+                        //outFile("窗口保护: callerPid=%u 访问调试器进程(pid=%u) 的窗口 hwnd=%p, 已拒绝",(ULONG)(ULONG_PTR)PsGetCurrentProcessId(),(ULONG)(ULONG_PTR)PsGetProcessId(Process),hwnd);
                         return false;
                     }
                 }
@@ -89,6 +117,75 @@ bool ShouldAllowAccess(HWND hwnd)
         }
     }
     return true; // 默认放行
+}
+
+namespace
+{
+    // 这两个 helper 不能与 DbgkRuntimeCallGuard 放在同一函数：MSVC C2712 禁止在
+    // 需要 C++ 对象展开的函数里使用 __try/__except。helper 内部只用 POD。
+    BOOLEAN TryFilterDebuggerWindows(HWND* phwnd, ULONG ulCount, PULONG pcHwndNeeded)
+    {
+        __try
+        {
+            ULONG count = 0;
+            ULONG kept = 0;
+
+            ProbeForRead(pcHwndNeeded, sizeof(ULONG), sizeof(ULONG));
+            count = *pcHwndNeeded;
+            if (count == 0 || count > ulCount)
+            {
+                return FALSE;
+            }
+
+            ProbeForWrite(phwnd, count * sizeof(HWND), sizeof(HWND));
+
+            for (ULONG index = 0; index < count; ++index)
+            {
+                HWND hwnd = phwnd[index];
+                if (ShouldAllowAccess(hwnd))
+                {
+                    phwnd[kept++] = hwnd;
+                }
+            }
+
+            if (kept == count)
+            {
+                return FALSE;
+            }
+
+            ProbeForWrite(pcHwndNeeded, sizeof(ULONG), sizeof(ULONG));
+            *pcHwndNeeded = kept;
+            return TRUE;
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER)
+        {
+            return FALSE;
+        }
+    }
+
+    VOID TrySpoofDebuggerClassName(PUNICODE_STRING pstrClassName)
+    {
+        static const WCHAR fakeClassName[] = L"Static";
+        const ULONG fakeBytes = (ULONG)(sizeof(fakeClassName) - sizeof(WCHAR));
+
+        __try
+        {
+            ProbeForRead(pstrClassName, sizeof(UNICODE_STRING), sizeof(USHORT));
+            UNICODE_STRING local = *pstrClassName;
+
+            if (local.Buffer == NULL || local.MaximumLength < fakeBytes)
+            {
+                return;
+            }
+
+            ProbeForWrite(local.Buffer, local.MaximumLength, sizeof(WCHAR));
+            RtlCopyMemory(local.Buffer, fakeClassName, fakeBytes);
+            pstrClassName->Length = (USHORT)fakeBytes;
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER)
+        {
+        }
+    }
 }
 
 //API FindWindowA/W, FindWindowExA/W
@@ -120,6 +217,46 @@ HWND NewNtUserWindowFromPoint(POINT Point)
     }
 
     return hwnd;
+}
+
+// 隐藏调试器窗口：EnumWindows/EnumChildWindows 的内核实现（Win10 语义：
+// ulCount 与返回值都是 HWND 元素个数，已在本机 win32kfull.sys 反汇编确认）。
+NTSTATUS NewNtUserBuildHwndList(
+    IN HANDLE hDesk,
+    IN HWND hwndParent,
+    IN ULONG ulFlags,
+    IN ULONG fChildren,
+    IN ULONG fFirst,
+    IN ULONG ulCount,
+    IN HWND* phwnd,
+    IN PULONG pcHwndNeeded)
+{
+    DbgkRuntimeCallGuard runtimeGuard;
+    NTSTATUS status = Original_NtUserBuildHwndList(
+        hDesk, hwndParent, ulFlags, fChildren, fFirst, ulCount, phwnd, pcHwndNeeded);
+
+    // 只处理“窗口列表已经写入调用方缓冲”的成功调用；查询调用保持原行为。
+    if (!NT_SUCCESS(status) || phwnd == NULL || pcHwndNeeded == NULL || ulCount == 0)
+    {
+        return status;
+    }
+
+    TryFilterDebuggerWindows(phwnd, ulCount, pcHwndNeeded);
+    return status;
+}
+
+// 隐藏调试器窗口的类名：给按窗口类名扫描调试器的检测做兜底。
+ULONG NewNtUserGetClassName(IN HWND hwnd, IN ULONG bReal, IN PUNICODE_STRING pstrClassName)
+{
+    DbgkRuntimeCallGuard runtimeGuard;
+    ULONG result = Original_NtUserGetClassName(hwnd, bReal, pstrClassName);
+
+    if (pstrClassName != NULL && !ShouldAllowAccess(hwnd))
+    {
+        TrySpoofDebuggerClassName(pstrClassName);
+    }
+
+    return result;
 }
 
 // SetWindowsHookExW/W -> NtUserSetWindowsHookEx

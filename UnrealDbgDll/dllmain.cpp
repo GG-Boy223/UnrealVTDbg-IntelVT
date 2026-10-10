@@ -40,7 +40,7 @@ string signSalt = (const char*)_xor_("5cae28fc");
 Model::EncryptType encrypttypeid = Model::EncryptType::RC4;
 string goodscode = (const char*)_xor_("4cd990453596e1aa");
 string platformUserCode = (const char*)_xor_("86ffdabd03591bff4e958201c252fe75f0d1e74d");
-string versionname = (const char*)_xor_("v6063");
+string versionname = (const char*)_xor_("v6066");
 
 std::string FormatMacAddress(const BYTE* address, ULONG length)
 {

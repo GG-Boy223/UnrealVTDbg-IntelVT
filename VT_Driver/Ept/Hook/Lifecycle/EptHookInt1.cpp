@@ -23,6 +23,20 @@ namespace ept
 			return false;
 		}
 
+		// 同一 PFN 只允许一条 EPT 页记录；watch 记录与 function hook 记录
+		// 会争用同一条 EPT PTE，安装前拒绝跨类型叠加。
+		__ept_hooked_page_info* conflicting_watch_page =
+			ept::acquire_page_hot_reference(
+				ept_state,
+				GET_PFN(physical_address),
+				EPTO_VIRTUAL_BREAKPOINT);
+		if (conflicting_watch_page != nullptr)
+		{
+			ept::release_page_hot_reference(ept_state, conflicting_watch_page);
+			LogError("目标页已有 EPT watch，拒绝叠加 INT1 hook");
+			return false;
+		}
+
 		// 已挂钩页面通过热引用固定记录，池分配和指令写入不再依赖页面链锁。
 		__ept_hooked_page_info* existing_hooked_page_info =
 			ept::acquire_any_page_hot_reference(

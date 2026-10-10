@@ -4,6 +4,7 @@
 #include "../Globals.h"
 #include "../DbgkApi/DbgkApi.h"
 #include "../Cr3/Cr3Resolver.h"
+#include "../Protect/Callbacks.h"
 #include <wdmsec.h>
 
 PWCHAR PassProcessList[12] = {
@@ -60,12 +61,8 @@ VOID Unload(PDRIVER_OBJECT DriverObject)
     WaitForDbgkIoctlDrain();
 
     // 旧项目保留代码：卸载保护模块，内部原设计对应 UnCallbacks/进程保护回调清理。
-    // 注释原因：当前 DriverEntry 没有放开 InitProtect/SetProcessCallbacks，卸载时调用会面对未注册句柄或重复清理风险。
-    // 放开好处：若恢复 ObRegisterCallbacks 保护链路，可对称释放回调，避免驱动卸载残留。
-    // 放开坏处：在初始化未接通时放开会增加卸载断言和无效句柄路径。
-    // 项目影响：继续注释表示当前进程保护回调未启用；放开必须与 InitProtect/SetProcessCallbacks 同步。
-    // 当前建议：继续注释。
-    //UnloadProtect();
+    //放开必须与 InitProtect/SetProcessCallbacks 同步。
+    UnloadProtect();
     RemoveHooks();
     const NTSTATUS dbgkStatus = DbgkUnInitialize();
     if (!NT_SUCCESS(dbgkStatus))
@@ -86,29 +83,22 @@ NTSTATUS DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING Registry
 {
     UNREFERENCED_PARAMETER(DriverObject);
     UNREFERENCED_PARAMETER(RegistryPath);
-    LogFile::InitDriverLog();
+    //LogFile::InitDriverLog();  // 改用驱动自有日志 C:\DbgkSys10.log
 
     //ApcCreateRemoteThread((HANDLE)7572, NULL);
-    DbgPrint("\xD1\xAA\xD0\xC8\xB3\xC7\xB1\xA4\xC7\xFD\xB6\xAF\xBC\xD3\xD4\xD8\xB3\xC9\xB9\xA6\x21\x21\x21\x0A");
+    //DbgPrint("血腥城堡驱动加载成功!!!\n");
 
     InitGlobalVariable(DriverObject);
-    // 旧项目保留代码：初始化保护模块，原意是注册进程/线程/对象保护回调。
-    // 注释原因：当前重构版本只初始化保护列表数据结构，没有完整接回 RegisterCallbacks/UnloadProtect 生命周期。
-    // 放开好处：可以恢复句柄访问削权、反读写等保护能力。
-    // 放开坏处：ObCallback altitude、签名绕过标志和卸载对称性都要重新验证，否则可能导致加载失败或卸载蓝屏。
-    // 项目影响：继续注释时“保护进程函数”不真正生效；放开会改变全局进程句柄访问行为。
-    // 当前建议：继续注释，等保护链路和回归测试补齐后再放开。
-    //InitProtect(DriverObject);
-    //InitProtect(DriverObject);  //初始化保护？
+    InitProtect(DriverObject);
     NTSTATUS ntStatus = CreateDevice(DriverObject);
     if (!NT_SUCCESS(ntStatus))
     {
-        outLog("\x57\x69\x6E\x31\x30\xB4\xB4\xBD\xA8\xC9\xE8\xB1\xB8\xB6\xD4\xCF\xF3\xCA\xA7\xB0\xDC\x2E");
+        outLog("Win10创建设备对象失败.");
         return ntStatus;
     }
     else
     {
-        outLog("\x57\x69\x6E\x31\x30\xB4\xB4\xBD\xA8\xC9\xE8\xB1\xB8\xB6\xD4\xCF\xF3\xB3\xC9\xB9\xA6\x2E");
+        outLog("Win10创建设备对象成功.");
     }
     DriverObject->MajorFunction[IRP_MJ_CREATE] = InitDispatchRoutin;
     DriverObject->MajorFunction[IRP_MJ_CLOSE] = InitDispatchRoutin;
@@ -202,15 +192,241 @@ NTSTATUS InitDispatchRoutin(IN PDEVICE_OBJECT pDevObj, IN PIRP pIrp)
     return status;
 }
 
-////初始化保护
-//VOID InitProtect(IN PDRIVER_OBJECT DriverObject)
-//{
-//    RegisterCallbacks(DriverObject);
-//}
-//
-////卸载保护
-//VOID UnloadProtect()
-//    UnCallbacks();
+namespace
+{
+    VOID ProtectLogAppendText(char* buffer, size_t capacity, size_t& used, const char* text)
+    {
+        if (text == nullptr)
+        {
+            text = "(null)";
+        }
+
+        while (*text != '\0' && used + 1 < capacity)
+        {
+            buffer[used++] = *text++;
+        }
+    }
+
+    VOID ProtectLogAppendNumber(char* buffer, size_t capacity, size_t& used, unsigned __int64 value, ULONG base, BOOLEAN upperCase)
+    {
+        const char* digits = upperCase ? "0123456789ABCDEF" : "0123456789abcdef";
+        char temp[32];
+        ULONG count = 0;
+
+        if (value == 0)
+        {
+            temp[count++] = '0';
+        }
+        else
+        {
+            while (value != 0 && count < sizeof(temp))
+            {
+                temp[count++] = digits[value % base];
+                value /= base;
+            }
+        }
+
+        while (count != 0 && used + 1 < capacity)
+        {
+            buffer[used++] = temp[--count];
+        }
+    }
+
+    VOID ProtectLogAppendPaddedNumber(char* buffer, size_t capacity, size_t& used, ULONG value, ULONG width)
+    {
+        char temp[16];
+        ULONG count = 0;
+
+        do
+        {
+            temp[count++] = (char)('0' + (value % 10));
+            value /= 10;
+        } while (value != 0 && count < sizeof(temp));
+
+        while (count < width && used + 1 < capacity)
+        {
+            buffer[used++] = '0';
+            --width;
+        }
+
+        while (count != 0 && used + 1 < capacity)
+        {
+            buffer[used++] = temp[--count];
+        }
+    }
+
+    // 把一行日志追加到驱动自有日志文件（PASSIVE_LEVEL 调用；每次独立句柄，无需锁）。
+    VOID ProtectLogWriteToFile(const char* message)
+    {
+        UNICODE_STRING filePath;
+        OBJECT_ATTRIBUTES objectAttributes;
+        IO_STATUS_BLOCK ioStatus;
+        HANDLE fileHandle = NULL;
+        char line[768] = { 0 };
+        size_t used = 0;
+        LARGE_INTEGER systemTime;
+        TIME_FIELDS timeFields;
+
+        KeQuerySystemTime(&systemTime);
+        ExSystemTimeToLocalTime(&systemTime, &systemTime);
+        RtlTimeToTimeFields(&systemTime, &timeFields);
+
+        ProtectLogAppendText(line, sizeof(line), used, "[");
+        ProtectLogAppendPaddedNumber(line, sizeof(line), used, timeFields.Year, 4);
+        ProtectLogAppendText(line, sizeof(line), used, "-");
+        ProtectLogAppendPaddedNumber(line, sizeof(line), used, timeFields.Month, 2);
+        ProtectLogAppendText(line, sizeof(line), used, "-");
+        ProtectLogAppendPaddedNumber(line, sizeof(line), used, timeFields.Day, 2);
+        ProtectLogAppendText(line, sizeof(line), used, " ");
+        ProtectLogAppendPaddedNumber(line, sizeof(line), used, timeFields.Hour, 2);
+        ProtectLogAppendText(line, sizeof(line), used, ":");
+        ProtectLogAppendPaddedNumber(line, sizeof(line), used, timeFields.Minute, 2);
+        ProtectLogAppendText(line, sizeof(line), used, ":");
+        ProtectLogAppendPaddedNumber(line, sizeof(line), used, timeFields.Second, 2);
+        ProtectLogAppendText(line, sizeof(line), used, ".");
+        ProtectLogAppendPaddedNumber(line, sizeof(line), used, timeFields.Milliseconds, 3);
+        ProtectLogAppendText(line, sizeof(line), used, "] ");
+        ProtectLogAppendText(line, sizeof(line), used, message);
+        ProtectLogAppendText(line, sizeof(line), used, "\r\n");
+
+        RtlInitUnicodeString(&filePath, L"\\??\\C:\\DbgkSys10.log");
+        InitializeObjectAttributes(&objectAttributes, &filePath, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE, NULL, NULL);
+
+        NTSTATUS status = ZwCreateFile(&fileHandle,
+            FILE_APPEND_DATA | SYNCHRONIZE,
+            &objectAttributes,
+            &ioStatus,
+            NULL,
+            FILE_ATTRIBUTE_NORMAL,
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            FILE_OPEN_IF,
+            FILE_SYNCHRONOUS_IO_NONALERT,
+            NULL,
+            0);
+        if (!NT_SUCCESS(status))
+        {
+            DbgPrint("[DbgkProtect] open log failed 0x%X: %s\n", status, message);
+            return;
+        }
+
+        ZwWriteFile(fileHandle, NULL, NULL, NULL, &ioStatus, line, (ULONG)used, NULL, NULL);
+        ZwClose(fileHandle);
+    }
+}
+
+// 保护路径专用日志：写入 C:\Logs\driver.xml（非 PASSIVE_LEVEL 或写入失败时退回 DbgPrint）。
+// 驱动工程里的 <ntstrsafe.h> 会解析到 SDK 用户态实现（__stdio_common_vsprintf 无法链接），
+// 因此这里自带最小格式化（支持本文件用到的 %s/%u/%d/%x/%X/%p），不依赖 CRT/ntstrsafe。
+VOID ProtectLog(IN const char* format, ...)
+{
+    char buffer[512] = { 0 };
+    size_t used = 0;
+    va_list args;
+
+    va_start(args, format);
+
+    for (const char* p = format; p != nullptr && *p != '\0' && used + 1 < sizeof(buffer); ++p)
+    {
+        if (*p != '%')
+        {
+            buffer[used++] = *p;
+            continue;
+        }
+
+        ++p;
+        if (*p == '\0')
+        {
+            break;
+        }
+
+        BOOLEAN is64 = FALSE;
+        if (*p == 'l' && *(p + 1) == 'l')
+        {
+            is64 = TRUE;
+            p += 2;
+        }
+        else if (*p == 'l')
+        {
+            ++p;
+        }
+
+        switch (*p)
+        {
+        case 's':
+            ProtectLogAppendText(buffer, sizeof(buffer), used, va_arg(args, const char*));
+            break;
+        case 'u':
+            ProtectLogAppendNumber(buffer, sizeof(buffer), used, is64 ? va_arg(args, unsigned __int64) : (unsigned __int64)va_arg(args, unsigned int), 10, FALSE);
+            break;
+        case 'd':
+        {
+            int value = va_arg(args, int);
+            if (value < 0)
+            {
+                if (used + 1 < sizeof(buffer))
+                {
+                    buffer[used++] = '-';
+                }
+                ProtectLogAppendNumber(buffer, sizeof(buffer), used, (unsigned __int64)(-(__int64)value), 10, FALSE);
+            }
+            else
+            {
+                ProtectLogAppendNumber(buffer, sizeof(buffer), used, (unsigned __int64)value, 10, FALSE);
+            }
+            break;
+        }
+        case 'x':
+            ProtectLogAppendNumber(buffer, sizeof(buffer), used, is64 ? va_arg(args, unsigned __int64) : (unsigned __int64)va_arg(args, unsigned int), 16, FALSE);
+            break;
+        case 'X':
+            ProtectLogAppendNumber(buffer, sizeof(buffer), used, is64 ? va_arg(args, unsigned __int64) : (unsigned __int64)va_arg(args, unsigned int), 16, TRUE);
+            break;
+        case 'p':
+            ProtectLogAppendText(buffer, sizeof(buffer), used, "0x");
+            ProtectLogAppendNumber(buffer, sizeof(buffer), used, (unsigned __int64)(ULONG_PTR)va_arg(args, void*), 16, TRUE);
+            break;
+        case '%':
+            if (used + 1 < sizeof(buffer))
+            {
+                buffer[used++] = '%';
+            }
+            break;
+        default:
+            if (used + 2 < sizeof(buffer))
+            {
+                buffer[used++] = '%';
+                buffer[used++] = *p;
+            }
+            break;
+        }
+    }
+
+    va_end(args);
+    buffer[used] = '\0';
+
+    if (KeGetCurrentIrql() != PASSIVE_LEVEL)
+    {
+        DbgPrint("[DbgkProtect] %s\n", buffer);
+        return;
+    }
+
+    ProtectLogWriteToFile(buffer);
+}
+
+//初始化保护：注册调试器进程句柄保护回调（削掉外部对调试器的 PROCESS_VM_READ/WRITE）
+VOID InitProtect(IN PDRIVER_OBJECT DriverObject)
+{
+    SetProcessCallbacks(DriverObject);
+    //削掉外部对调试器进程的 PROCESS_VM_READ/WRITE
+    outFile("进程保护已启用");
+
+}
+
+//卸载保护
+VOID UnloadProtect()
+{
+    UnProcessCallbacks();
+}
 EXTERN_C
 VOID RemoveHooks()
 {
@@ -248,5 +464,5 @@ VOID PrintProcessName(_EPROCESS* Process)
 {
     size_t ptr_ImageFileName = (size_t)Process + eprocess_offset::ImageFileName;
     //outLog("打印进程名: %s", ptr_ImageFileName);
-    DbgPrint("\xB4\xF2\xD3\xA1\xBD\xF8\xB3\xCC\xC3\xFB\x3A\x20\x25\x73\x20\x20\x70\x69\x64\x3A\x20\x25\x64\x0A", ptr_ImageFileName, PsGetProcessId((PEPROCESS)Process));
+    DbgPrint("打印进程名: %s  pid: %d\n", ptr_ImageFileName, PsGetProcessId((PEPROCESS)Process));
 }

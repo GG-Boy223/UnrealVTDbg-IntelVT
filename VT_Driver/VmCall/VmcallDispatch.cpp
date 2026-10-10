@@ -175,46 +175,31 @@ namespace
 		}
 
 		unsigned char local_buffer[ept::kEptPageSize];
-		bool found = false;
 
 		cr3 guest_cr3;
 		guest_cr3.flags = request.parameter4;
 
-		if (g_vmm_context.vcpu != nullptr && g_vmm_context.processor_count > 0)
+		// HvVmxCore 式：只读当前核自己的 EPT 状态，靠 guest 侧逐核广播覆盖所有核。
+		__ept_hooked_page_info* hooked_page_info =
+			ept::acquire_any_page_hot_reference(
+				*vcpu->ept_state,
+				GET_PFN(physical_address));
+		if (hooked_page_info == nullptr)
 		{
-			for (unsigned __int32 i = 0; i < g_vmm_context.processor_count; ++i)
-			{
-				__ept_state* const ept_state = g_vmm_context.vcpu[i].ept_state;
-				if (ept_state == nullptr)
-				{
-					continue;
-				}
-
-				__ept_hooked_page_info* hooked_page_info =
-					ept::acquire_any_page_hot_reference(
-						*ept_state,
-						GET_PFN(physical_address));
-				if (hooked_page_info == nullptr)
-				{
-					continue;
-				}
-
-				RtlCopyMemory(
-					local_buffer,
-					&hooked_page_info->fake_page_contents[page_offset],
-					static_cast<SIZE_T>(request.parameter3));
-				ept::release_page_hot_reference(*ept_state, hooked_page_info);
-				found = true;
-				break;
-			}
+			return false;
 		}
 
-		return found &&
-			request.parameter3 == hv::write_guest_virtual_memory(
-				guest_cr3,
-				(PVOID)request.parameter2,
-				local_buffer,
-				static_cast<SIZE_T>(request.parameter3));
+		RtlCopyMemory(
+			local_buffer,
+			&hooked_page_info->fake_page_contents[page_offset],
+			static_cast<SIZE_T>(request.parameter3));
+		ept::release_page_hot_reference(*vcpu->ept_state, hooked_page_info);
+
+		return request.parameter3 == hv::write_guest_virtual_memory(
+			guest_cr3,
+			(PVOID)request.parameter2,
+			local_buffer,
+			static_cast<SIZE_T>(request.parameter3));
 	}
 
 	bool ExecuteSoftwareBreakpointBuffer(__vcpu* vcpu, VmcallDispatch::Request const& request)
@@ -230,64 +215,26 @@ namespace
 			return false;
 		}
 
-		bool status = false;
+		// HvVmxCore 式：只改当前核自己的 fake page 内容，靠 guest 侧逐核广播覆盖所有核。
 		if (request.reason == VMCALL_SET_SOFTWARE_BREAKPOINT_BUFFER)
 		{
-			bool updated = false;
-			if (g_vmm_context.vcpu != nullptr && g_vmm_context.processor_count > 0)
-			{
-				for (unsigned __int32 i = 0; i < g_vmm_context.processor_count; ++i)
-				{
-					__ept_state* const ept_state = g_vmm_context.vcpu[i].ept_state;
-					if (ept_state == nullptr)
-					{
-						continue;
-					}
-
-					if (ept::set_software_breakpoint_buffer(
-							*ept_state,
-							request.parameter1,
-							(PVOID)request.parameter2,
-							request.parameter3,
-							request.parameter4))
-					{
-						updated = true;
-					}
-				}
-			}
-
-			// 只有至少一个 EPT 状态对应 fake page 更新成功才算成功。
-			status = updated;
+			return ept::set_software_breakpoint_buffer(
+				*vcpu->ept_state,
+				request.parameter1,
+				(PVOID)request.parameter2,
+				request.parameter3,
+				request.parameter4);
 		}
 		else if (request.reason == VMCALL_GET_SOFTWARE_BREAKPOINT_BUFFER)
 		{
-			bool found = false;
-			if (g_vmm_context.vcpu != nullptr && g_vmm_context.processor_count > 0)
-			{
-				for (unsigned __int32 i = 0; i < g_vmm_context.processor_count; ++i)
-				{
-					__ept_state* const ept_state = g_vmm_context.vcpu[i].ept_state;
-					if (ept_state == nullptr)
-					{
-						continue;
-					}
-
-					if (ept::get_software_breakpoint_buffer(
-							*ept_state,
-							request.parameter1,
-							(PVOID)request.parameter2,
-							request.parameter3,
-							request.parameter4))
-					{
-						found = true;
-						break;
-					}
-				}
-			}
-
-			status = found;
+			return ept::get_software_breakpoint_buffer(
+				*vcpu->ept_state,
+				request.parameter1,
+				(PVOID)request.parameter2,
+				request.parameter3,
+				request.parameter4);
 		}
-		return status;
+		return false;
 	}
 
 	// 读取隐形软件断点：get_hide_software_breakpoint 通过页面热引用固定记录生命周期。
@@ -373,22 +320,22 @@ namespace VmcallDispatch
 			return true;
 
 		case VMCALL_HIDE_SOFTWARE_BREAKPOINT:
-			return ept::set_hide_software_breakpoint((PVT_BREAK_POINT)request.parameter1);
+			return ept::set_hide_software_breakpoint(vcpu, (PVT_BREAK_POINT)request.parameter1);
 
 		case VMCALL_READ_SOFTWARE_BREAKPOINT:
 			return ExecuteReadSoftwareBreakpoint(vcpu, request);
 
 		case VMCALL_WATCH_WRITES:
-			return SetBreakpoint((PVT_BREAK_POINT)request.parameter1, EPTW_WRITE);
+			return SetBreakpoint(vcpu, (PVT_BREAK_POINT)request.parameter1, EPTW_WRITE);
 
 		case VMCALL_WATCH_READS:
-			return SetBreakpoint((PVT_BREAK_POINT)request.parameter1, EPTW_READWRITE);
+			return SetBreakpoint(vcpu, (PVT_BREAK_POINT)request.parameter1, EPTW_READWRITE);
 
 		case VMCALL_WATCH_EXECUTES:
-			return SetBreakpoint((PVT_BREAK_POINT)request.parameter1, EPTW_EXECUTE);
+			return SetBreakpoint(vcpu, (PVT_BREAK_POINT)request.parameter1, EPTW_EXECUTE);
 
 		case VMCALL_WATCH_DELETE:
-			return RemoveBreakpoint((PVT_BREAK_POINT)request.parameter1);
+			return RemoveBreakpoint(vcpu, (PVT_BREAK_POINT)request.parameter1);
 
 		case VMCALL_GET_BREAKPOINT:
 			return hv::get_breakpoint_detected(

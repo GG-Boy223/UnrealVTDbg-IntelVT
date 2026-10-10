@@ -15,6 +15,8 @@ namespace ept
         }
 
         const unsigned __int64 pfn = GET_PFN(guest_physical_address);
+        const unsigned __int64 guest_cr3 = hv::vmread(GUEST_CR3);
+        const unsigned __int64 current_pid = current_guest_process_id();
         bool has_active_watch = false;
         int transitional_id = -1;
         int sync_id = -1; // 需要整页重新同步伪页时用来取 cr3 / 虚拟地址的 active INT3 watch
@@ -25,6 +27,7 @@ namespace ept
             EPTWatchEntry const& entry = eptWatchList[index];
             if (entry.bpType != 3 ||
                 !ept_watch_entry_owns_hardware(entry) ||
+                !watch_process_matches(entry, current_pid, guest_cr3) ||
                 GET_PFN(entry.PhysicalAddress) != pfn)
             {
                 continue;

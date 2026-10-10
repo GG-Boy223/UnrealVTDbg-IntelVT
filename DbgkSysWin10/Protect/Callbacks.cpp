@@ -135,6 +135,23 @@ OB_PREOP_CALLBACK_STATUS preProcessCallback(PVOID RegistrationContext, POB_PRE_O
 				pOperationInformation->Parameters->DuplicateHandleInformation.DesiredAccess &= ~PROCESS_VM_WRITE;
 			}
 		}
+
+		if (pOperationInformation->Operation == OB_OPERATION_HANDLE_CREATE)
+		{
+			ULONG originalAccess = (ULONG)pOperationInformation->Parameters->CreateHandleInformation.OriginalDesiredAccess;
+			if ((originalAccess & (PROCESS_VM_READ | PROCESS_VM_WRITE)) != 0)
+			{
+				//outFile("句柄保护(创建): callerPid=%u 调试器pid=%u access 0x%X -> 0x%X",(ULONG)(ULONG_PTR)PsGetCurrentProcessId(),(ULONG)(ULONG_PTR)PsGetProcessId((PEPROCESS)pOperationInformation->Object),originalAccess,(ULONG)pOperationInformation->Parameters->CreateHandleInformation.DesiredAccess);
+			}
+		}
+		else if (pOperationInformation->Operation == OB_OPERATION_HANDLE_DUPLICATE)
+		{
+			ULONG originalAccess = (ULONG)pOperationInformation->Parameters->DuplicateHandleInformation.OriginalDesiredAccess;
+			if ((originalAccess & (PROCESS_VM_READ | PROCESS_VM_WRITE)) != 0)
+			{
+				//outFile("句柄保护(复制): callerPid=%u 调试器pid=%u access 0x%X -> 0x%X",(ULONG)(ULONG_PTR)PsGetCurrentProcessId(),(ULONG)(ULONG_PTR)PsGetProcessId((PEPROCESS)pOperationInformation->Object),originalAccess,(ULONG)pOperationInformation->Parameters->DuplicateHandleInformation.DesiredAccess);
+			}
+		}
 	}
 	return OB_PREOP_SUCCESS;
 }

@@ -572,6 +572,12 @@ void CreateRemoteThread(IN PUSER_DATA userData);
 //初始化保护
 VOID InitProtect(IN PDRIVER_OBJECT DriverObject);
 
+// 保护路径专用日志：写入 C:\Logs\driver.xml（非 PASSIVE_LEVEL 时退回 DbgPrint）
+VOID ProtectLog(IN const char* format, ...);
+
+// 驱动自有日志宏：写 C:\DbgkSys10.log（Win11 为 C:\DbgkSys11.log）
+#define outFile(...)  ProtectLog(__VA_ARGS__)
+
 //卸载保护
 VOID UnloadProtect();
 

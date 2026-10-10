@@ -82,14 +82,30 @@ bool DeleteSoftwareBreakpoint(PVT_BREAK_POINT vmcallinfo)
         return false;
     }
 
-    NTSTATUS status = CaptureProcessCr3(vmcallinfo->pid, vmcallinfo->cr3, &vmcallinfo->cr3);
+    // 删除只按 watchid + VT 侧 watch 表执行（ept_watch_deactivate 不消费 cr3）。
+    // 目标进程闪退/退出后 CaptureProcessCr3 必然失败，不能因此阻止删除，
+    // 否则隐藏 INT3 的 EPT watch 会残留在物理页上。
+    const unsigned __int64 recordedCr3 = vmcallinfo->cr3;
+    NTSTATUS status = CaptureProcessCr3(vmcallinfo->pid, recordedCr3, &vmcallinfo->cr3);
     if (!NT_SUCCESS(status) || vmcallinfo->cr3 == 0)
     {
-        outLog("\xBB\xF1\xC8\xA1\xC4\xBF\xB1\xEA" "CR3\xCA\xA7\xB0\xDC\xA3\xAC\xC8\xED\xBC\xFE\xB6\xCF\xB5\xE3\xCE\xB4\xC9\xBE\xB3\xFD status:0x%X", status);
-        return false;
+        if (recordedCr3 == 0)
+        {
+            vmcallinfo->errorCode = 90;
+            outLog("获取目标" "CR3失败，软件断点未删除 status:0x%X", status);
+            return false;
+        }
+
+        vmcallinfo->cr3 = recordedCr3;
     }
 
-    return current_vmcall(vmcallinfo);
+    const bool success = current_vmcall(vmcallinfo);
+    vmcallinfo->errorCode = success ? 0 : vmcallinfo->errorCode;
+    if (!success && vmcallinfo->errorCode == 0)
+    {
+        vmcallinfo->errorCode = 91;
+    }
+    return success;
 }
 
 //移除软件断点
@@ -97,8 +113,8 @@ void RemoveSoftwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
 {
     USER_DATA user = GetUserData(userData);
 
-    DWORD* output = (DWORD*)pIrp->AssociatedIrp.SystemBuffer; //内核的缓冲区，输入输出都用的这个
-    RtlZeroMemory(output, sizeof(DWORD));
+    PHOOK_DEBUG_RESULT output = (PHOOK_DEBUG_RESULT)pIrp->AssociatedIrp.SystemBuffer; //内核的缓冲区，输入输出都用的这个
+    RtlZeroMemory(output, sizeof(HOOK_DEBUG_RESULT));
 
     size_t numElements = 0;
     UCHAR* aucPlainText = AllocateAndDecryptUserRecords(
@@ -107,7 +123,8 @@ void RemoveSoftwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
         &numElements);
     if (aucPlainText == nullptr)
     {
-        *output = 520; // 解密失败,明确回写错误码。
+        output->status = 520; // 解密失败,明确回写错误码。
+        output->errorCode = 520;
         return;
     }
 
@@ -118,11 +135,13 @@ void RemoveSoftwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
 
         if (DeleteSoftwareBreakpoint(pInfo))
         {
-            *output = 1998; //成功
+            output->status = 1998; //成功
+            output->errorCode = pInfo->errorCode;
         }
         else
         {
-            *output = 520; //失败
+            output->status = 520; //失败
+            output->errorCode = pInfo->errorCode;
         }
         break;
     }
@@ -143,7 +162,7 @@ bool GetSoftwareBreakpoint(PVT_BREAK_POINT vmcallinfo)
     NTSTATUS status = CaptureProcessCr3(vmcallinfo->pid, vmcallinfo->cr3, &vmcallinfo->cr3);
     if (!NT_SUCCESS(status) || vmcallinfo->cr3 == 0)
     {
-        outLog("\xBB\xF1\xC8\xA1\xC4\xBF\xB1\xEA" "CR3\xCA\xA7\xB0\xDC\xA3\xAC\xC8\xED\xBC\xFE\xB6\xCF\xB5\xE3\xCE\xB4\xB6\xC1\xC8\xA1 status:0x%X", status);
+        outLog("获取目标" "CR3失败，软件断点未读取 status:0x%X", status);
         return false;
     }
 

@@ -22,6 +22,47 @@ namespace ept
 		return false;
 	}
 
+	// EPT 权限是 GPA 级的：同页 watch 属于其它 CR3 时，本次访问不能被当成
+	// 目标进程断点，但也不能让 guest 在受限权限上无限重试。调用方需要据此走
+	// 一次 MTF pass-through，让本次访问执行完后恢复 watch 权限。
+	static int find_foreign_watch_on_pfn_locked(
+		unsigned __int64 pfn,
+		unsigned __int64 current_pid,
+		unsigned __int64 guest_cr3)
+	{
+		for (int i = 0; i < EPTWATCHLISTSIZE; ++i)
+		{
+			if (!ept_watch_entry_owns_hardware(eptWatchList[i]) ||
+				GET_PFN(eptWatchList[i].PhysicalAddress) != pfn ||
+				watch_process_matches(eptWatchList[i], current_pid, guest_cr3))
+			{
+				continue;
+			}
+
+			return i;
+		}
+
+		return -1;
+	}
+
+	static bool has_matching_watch_on_pfn_locked(
+		unsigned __int64 pfn,
+		unsigned __int64 current_pid,
+		unsigned __int64 guest_cr3)
+	{
+		for (int i = 0; i < EPTWATCHLISTSIZE; ++i)
+		{
+			if (ept_watch_entry_owns_hardware(eptWatchList[i]) &&
+				GET_PFN(eptWatchList[i].PhysicalAddress) == pfn &&
+				watch_process_matches(eptWatchList[i], current_pid, guest_cr3))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	static bool is_watch_entry_exact_physical_match_locked(const EPTWatchEntry& entry, unsigned __int64 guest_physical_address)
 	{
 		if (entry.Size <= 0 || guest_physical_address < entry.PhysicalAddress)
@@ -32,7 +73,11 @@ namespace ept
 		return guest_physical_address - entry.PhysicalAddress < static_cast<unsigned __int64>(entry.Size);
 	}
 
-	static int find_exact_non_int3_watch_id_for_ept_event_locked(unsigned __int64 guest_physical_address, __ept_violation ept_violation)
+	static int find_exact_non_int3_watch_id_for_ept_event_locked(
+		unsigned __int64 guest_physical_address,
+		__ept_violation ept_violation,
+		unsigned __int64 current_pid,
+		unsigned __int64 guest_cr3)
 	{
 		const unsigned __int64 pfn = GET_PFN(guest_physical_address);
 
@@ -41,6 +86,7 @@ namespace ept
 			if (!ept_watch_entry_is_active(eptWatchList[i]) ||
 				eptWatchList[i].bpType == 3 ||
 				GET_PFN(eptWatchList[i].PhysicalAddress) != pfn ||
+				!watch_process_matches(eptWatchList[i], current_pid, guest_cr3) ||
 				!is_watch_access_match(eptWatchList[i], ept_violation))
 			{
 				continue;
@@ -55,7 +101,10 @@ namespace ept
 		return -1; // 没有空闲项
 	}
 
-	static int find_int3_page_watch_id_locked(unsigned __int64 guest_physical_address)
+	static int find_int3_page_watch_id_locked(
+		unsigned __int64 guest_physical_address,
+		unsigned __int64 current_pid,
+		unsigned __int64 guest_cr3)
 	{
 		const unsigned __int64 pfn = GET_PFN(guest_physical_address);
 
@@ -63,6 +112,7 @@ namespace ept
 		{
 			if (ept_watch_entry_is_active(eptWatchList[i]) &&
 				eptWatchList[i].bpType == 3 &&
+				watch_process_matches(eptWatchList[i], current_pid, guest_cr3) &&
 				GET_PFN(eptWatchList[i].PhysicalAddress) == pfn)
 			{
 				return i; //返回空闲 ID
@@ -72,7 +122,10 @@ namespace ept
 		return -1; // 没有空闲项
 	}
 
-	static bool is_exact_int3_watch_address_locked(unsigned __int64 guest_physical_address)
+	static bool is_exact_int3_watch_address_locked(
+		unsigned __int64 guest_physical_address,
+		unsigned __int64 current_pid,
+		unsigned __int64 guest_cr3)
 	{
 		const unsigned __int64 pfn = GET_PFN(guest_physical_address);
 
@@ -80,6 +133,7 @@ namespace ept
 		{
 			if (!ept_watch_entry_is_active(eptWatchList[i]) ||
 				eptWatchList[i].bpType != 3 ||
+				!watch_process_matches(eptWatchList[i], current_pid, guest_cr3) ||
 				GET_PFN(eptWatchList[i].PhysicalAddress) != pfn)
 			{
 				continue;
@@ -94,10 +148,16 @@ namespace ept
 		return false;
 	}
 
-	static bool is_cached_watch_id_valid_locked(int ID, unsigned __int64 guest_physical_address, __ept_violation ept_violation)
+	static bool is_cached_watch_id_valid_locked(
+		int ID,
+		unsigned __int64 guest_physical_address,
+		__ept_violation ept_violation,
+		unsigned __int64 current_pid,
+		unsigned __int64 guest_cr3)
 	{
 		if (!is_watch_id_valid(ID) ||
 			!ept_watch_entry_is_active(eptWatchList[ID]) ||
+			!watch_process_matches(eptWatchList[ID], current_pid, guest_cr3) ||
 			GET_PFN(eptWatchList[ID].PhysicalAddress) != GET_PFN(guest_physical_address))
 		{
 			return false;
@@ -105,7 +165,11 @@ namespace ept
 
 		if (eptWatchList[ID].bpType == 3) //int3
 		{
-			const int exactWatchID = find_exact_non_int3_watch_id_for_ept_event_locked(guest_physical_address, ept_violation);
+			const int exactWatchID = find_exact_non_int3_watch_id_for_ept_event_locked(
+				guest_physical_address,
+				ept_violation,
+				current_pid,
+				guest_cr3);
 			return exactWatchID == -1 && (ept_violation.read_access || ept_violation.write_access);
 		}
 
@@ -122,22 +186,30 @@ namespace ept
 		// 只有当前执行地址精确命中 INT3 时才让扫描重新判定。不能因为同页
 		// 任意位置存在 INT3，就把所有非精确 EXECUTE watch 命中也推到伪页路径。
 		if (ept_violation.execute_access &&
-			is_exact_int3_watch_address_locked(guest_physical_address))
+			is_exact_int3_watch_address_locked(guest_physical_address, current_pid, guest_cr3))
 		{
 			return false;
 		}
 
 		if ((ept_violation.read_access || ept_violation.write_access) &&
-			find_int3_page_watch_id_locked(guest_physical_address) != -1)
+			find_int3_page_watch_id_locked(guest_physical_address, current_pid, guest_cr3) != -1)
 		{
 			return false;
 		}
 
-		const int exactWatchID = find_exact_non_int3_watch_id_for_ept_event_locked(guest_physical_address, ept_violation);
+		const int exactWatchID = find_exact_non_int3_watch_id_for_ept_event_locked(
+			guest_physical_address,
+			ept_violation,
+			current_pid,
+			guest_cr3);
 		return exactWatchID == -1;
 	}
 
-	static int find_watch_id_for_ept_event_locked(unsigned __int64 guest_physical_address, __ept_violation ept_violation)
+	static int find_watch_id_for_ept_event_locked(
+		unsigned __int64 guest_physical_address,
+		__ept_violation ept_violation,
+		unsigned __int64 current_pid,
+		unsigned __int64 guest_cr3)
 	{
 		const unsigned __int64 pfn = GET_PFN(guest_physical_address);
 		int int3PageWatchId = -1;
@@ -145,7 +217,9 @@ namespace ept
 
 		for (int i = 0; i < EPTWATCHLISTSIZE; i++)
 		{
-			if (!ept_watch_entry_is_active(eptWatchList[i]) || GET_PFN(eptWatchList[i].PhysicalAddress) != pfn)
+			if (!ept_watch_entry_is_active(eptWatchList[i]) ||
+				!watch_process_matches(eptWatchList[i], current_pid, guest_cr3) ||
+				GET_PFN(eptWatchList[i].PhysicalAddress) != pfn)
 			{
 				continue;
 			}
@@ -184,7 +258,7 @@ namespace ept
 		// 精确命中 INT3 的执行地址必须交给 INT3 伪页路径；其它执行地址仍按
 		// 页级 EXECUTE watch 放行，避免把整页指令流长期切到伪页快照。
 		if (ept_violation.execute_access &&
-			is_exact_int3_watch_address_locked(guest_physical_address))
+			is_exact_int3_watch_address_locked(guest_physical_address, current_pid, guest_cr3))
 		{
 			return -1;
 		}
@@ -199,6 +273,7 @@ namespace ept
 		{
 			if (ept_watch_entry_is_active(eptWatchList[i]) ||
 				!ept_watch_entry_owns_hardware(eptWatchList[i]) ||
+				!watch_process_matches(eptWatchList[i], current_pid, guest_cr3) ||
 				GET_PFN(eptWatchList[i].PhysicalAddress) != pfn)
 			{
 				continue;
@@ -225,6 +300,13 @@ namespace ept
 	bool ept_handleWatchEvent(__vcpu* vcpu, __ept_violation ept_violation, __ept_hooked_page_info* hooked_page_info,
 		unsigned __int64 guest_physical_adddress, int& bpType)
 	{
+		const unsigned __int64 guest_cr3 = hv::vmread(GUEST_CR3);
+		const unsigned __int64 current_pid = current_guest_process_id();
+		// watch 记录按目标进程 CR3 建立；进程切换后同一 VA 可能对应新的 CR3 root
+		// （Windows PCID/KVA shadow）。先让 tracker 用 probe VA/PFN 指纹更新记录，
+		// 再用当前 CR3 过滤，避免其它地址空间命中同一 GPA 时误报。
+		Cr3TrackerObserve(guest_cr3, current_pid);
+
 		//判断是否是被监视的页面
 		if (hooked_page_info->pfn_of_hooked_page == GET_PFN(guest_physical_adddress))
 		{
@@ -234,18 +316,50 @@ namespace ept
 
 			spinlock::lock(&eptWatchList_lock);
 			int ID = -1;
-			if (is_cached_watch_id_valid_locked(hooked_page_info->last_watch_id, guest_physical_adddress, ept_violation))
+			if (is_cached_watch_id_valid_locked(
+				hooked_page_info->last_watch_id,
+				guest_physical_adddress,
+				ept_violation,
+				current_pid,
+				guest_cr3))
 			{
 				ID = hooked_page_info->last_watch_id;
 			}
 			else
 			{
-				ID = find_watch_id_for_ept_event_locked(guest_physical_adddress, ept_violation);
+				ID = find_watch_id_for_ept_event_locked(
+					guest_physical_adddress,
+					ept_violation,
+					current_pid,
+					guest_cr3);
 			}
 
 			if (ID == -1)
 			{
 				hooked_page_info->last_watch_id = -1;
+				const int foreign_watch_id = find_foreign_watch_on_pfn_locked(
+					GET_PFN(guest_physical_adddress),
+					current_pid,
+					guest_cr3);
+				if (foreign_watch_id >= 0 &&
+					!has_matching_watch_on_pfn_locked(
+						GET_PFN(guest_physical_adddress),
+						current_pid,
+						guest_cr3))
+				{
+					// 当前访问来自其它 CR3：不给调试器报事件，但必须给本次
+					// 访问一个一次性完整权限窗口，MTF 收尾时再恢复 watch 权限。
+					hooked_page_info->ID = -1;
+					hooked_page_info->isBp = false;
+					hooked_page_info->isInt3 = false;
+					bpType = 0;
+					// 传入同页仍在维护该 EPT 权限的 foreign watch ID，
+					// 让 MTF 收尾走 apply_active_watch_permissions_locked；
+					// 若该 watch 在 MTF 窗口内被删除，删除事务自身会恢复权限。
+					RestoreEptPageProperties(hooked_page_info, foreign_watch_id);
+					spinlock::unlock(&eptWatchList_lock);
+					return true;
+				}
 				spinlock::unlock(&eptWatchList_lock);
 				return false;
 			}

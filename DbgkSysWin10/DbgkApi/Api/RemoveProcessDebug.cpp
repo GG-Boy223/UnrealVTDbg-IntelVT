@@ -71,7 +71,7 @@ NtRemoveProcessDebug(
     if (NT_SUCCESS(Status))
     {
         Status = DbgkClearProcessDebugObject(Process, DebugObject);
-        DeleteDebugProcess(DebugObject);
+        DeleteDebugProcess(Process, DebugObject);
         DbgPrint("DbgkClearProcessDebugObject Status: %x", Status);
         ObDereferenceObject(DebugObject);
     }

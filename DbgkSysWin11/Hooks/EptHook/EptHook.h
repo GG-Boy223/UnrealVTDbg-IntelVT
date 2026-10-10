@@ -161,4 +161,7 @@ VOID Hook_NtUserWindowFromPoint();
 EXTERN_C
 VOID Hook_NtUserSetWindowsHookEx();
 
+EXTERN_C
+VOID Hook_NtUserGetClassName();
+
 #endif // !_EPT_HOOK_H

@@ -64,6 +64,10 @@ void fill_vmcs(__vcpu* vcpu, void* guest_rsp) // 填充 VMCS
     hv::set_msr_bitmap(vcpu->msr_bitmap, IA32_FEATURE_CONTROL, true);
     hv::set_msr_bitmap(vcpu->msr_bitmap, IA32_PAT, true);
     hv::set_msr_bitmap(vcpu->msr_bitmap, IA32_EFER, true);
+    // VM-entry 会用 GUEST_PERF_GLOBAL_CONTROL 覆盖物理 MSR，VM-exit 又换成
+    // HOST_PERF_GLOBAL_CTRL；guest 的写入必须拦截并写入 VMCS 影子，否则会被
+    // 下一次 VM-entry 用旧值覆盖（guest 读回也必须是该影子值）。
+    hv::set_msr_bitmap(vcpu->msr_bitmap, IA32_PERF_GLOBAL_CTRL, true);
     hv::set_msr_bitmap(vcpu->msr_bitmap, IA32_MTRRCAP, true);
     hv::set_msr_bitmap(vcpu->msr_bitmap, IA32_MTRR_DEF_TYPE, true);
     hv::set_msr_bitmap(vcpu->msr_bitmap, IA32_MTRR_FIX64K_00000, true);

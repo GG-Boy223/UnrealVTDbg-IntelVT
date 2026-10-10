@@ -159,7 +159,7 @@ NTSTATUS DbgkInitialize()
 
     if (ObCreateObjectType == NULL)
     {
-        outLog("\x44\x62\x67\x6B\x49\x6E\x69\x74\x69\x61\x6C\x69\x7A\x65\x20\xCA\xA7\xB0\xDC\xA3\xBA\x4F\x62\x43\x72\x65\x61\x74\x65\x4F\x62\x6A\x65\x63\x74\x54\x79\x70\x65\x20\xCE\xB4\xBD\xE2\xCE\xF6\x2E");
+        outLog("DbgkInitialize 失败：ObCreateObjectType 未解析.");
         return STATUS_UNSUCCESSFUL;
     }
 
@@ -189,7 +189,7 @@ NTSTATUS DbgkInitialize()
 
     if (Status != STATUS_OBJECT_NAME_COLLISION)
     {
-        outLog("\x44\x62\x67\x6B\x49\x6E\x69\x74\x69\x61\x6C\x69\x7A\x65\x20\xCA\xA7\xB0\xDC\xA3\xBA\x4F\x62\x43\x72\x65\x61\x74\x65\x4F\x62\x6A\x65\x63\x74\x54\x79\x70\x65\x20\xB7\xB5\xBB\xD8\x20\x30\x78\x25\x58\x2E", Status);
+        outLog("DbgkInitialize 失败：ObCreateObjectType 返回 0x%X.", Status);
         Hvm_DbgkDebugObjectType = NULL;
         // /* Return status */
         return Status;
@@ -198,7 +198,7 @@ NTSTATUS DbgkInitialize()
     Hvm_DbgkDebugObjectType = GetDebugObjectType(Name);
     if (Hvm_DbgkDebugObjectType == NULL)
     {
-        outLog("\x44\x62\x67\x6B\x49\x6E\x69\x74\x69\x61\x6C\x69\x7A\x65\x20\xCA\xA7\xB0\xDC\xA3\xBA\x48\x76\x6D\x5F\x44\x65\x62\x75\x67\x4F\x62\x6A\x65\x63\x74\x20\xD2\xD1\xB4\xE6\xD4\xDA\xB5\xAB\xCE\xDE\xB7\xA8\xB0\xB2\xC8\xAB\xB8\xB4\xD3\xC3\x2E");
+        outLog("DbgkInitialize 失败：Hvm_DebugObject 已存在但无法安全复用.");
         return STATUS_OBJECT_NAME_COLLISION;
     }
 
@@ -210,7 +210,7 @@ NTSTATUS DbgkInitialize()
         return Status;
     }
 
-    outLog("\x44\x62\x67\x6B\x49\x6E\x69\x74\x69\x61\x6C\x69\x7A\x65\xA3\xBA\xB8\xB4\xD3\xC3\xD2\xD1\xB4\xE6\xD4\xDA\xB5\xC4\x20\x48\x76\x6D\x5F\x44\x65\x62\x75\x67\x4F\x62\x6A\x65\x63\x74\x2E");
+    outLog("DbgkInitialize：复用已存在的 Hvm_DebugObject.");
     return STATUS_SUCCESS;
 }
 
@@ -241,7 +241,7 @@ VOID DbgkUnInitialize()
 
     ReleaseDebugProcessList();
     ReleaseListEntries(&g_DebuggerList.list_entry, &g_DebuggerList.Mutex);
-    ReleaseListEntries(&g_BreakpointList.list_entry, &g_BreakpointList.Mutex);
+    ReleaseBreakpointList();
     ReleaseListEntries(&g_VirtualHandleList.list_entry, &g_VirtualHandleList.Mutex);
     g_IsInitGlobalVariable = FALSE;
 }

@@ -238,7 +238,7 @@ NTSTATUS DbgkUnInitialize()
 
     ReleaseDebugProcessList();
     ReleaseListEntries(&g_DebuggerList.list_entry, &g_DebuggerList.Mutex);
-    ReleaseListEntries(&g_BreakpointList.list_entry, &g_BreakpointList.Mutex);
+    ReleaseBreakpointList();
     ReleaseListEntries(&g_VirtualHandleList.list_entry, &g_VirtualHandleList.Mutex);
     g_IsInitGlobalVariable = FALSE;
     return STATUS_SUCCESS;

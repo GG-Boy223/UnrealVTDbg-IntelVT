@@ -14,4 +14,4 @@ BOOLEAN IsDebugTargetProcess(
 
 BOOLEAN InsertDebuggerList(PDEBUGGER_TABLE_ENTRY Debugger);
 
-VOID DeleteDebugProcess(PDEBUG_OBJECT DebugObject);
+VOID DeleteDebugProcess(_EPROCESS* Process, PDEBUG_OBJECT DebugObject);

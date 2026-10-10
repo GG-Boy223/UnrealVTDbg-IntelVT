@@ -62,7 +62,7 @@ VOID InitFileList(PRING3_PROTECT_OBJECT pProtectObj)
                 {
                     FreeMemAllocate(fileData, TAG_PRO);
                 }
-                outLog("\xB3\xF5\xCA\xBC\xBB\xAF\xCE\xC4\xBC\xFE\xC1\xD0\xB1\xED\xCA\xA7\xB0\xDC\xA3\xBA\xC4\xDA\xB4\xE6\xB2\xBB\xD7\xE3\x2E");
+                outFile("初始化文件列表失败：内存不足.");
                 break;
             }
 
@@ -103,7 +103,7 @@ VOID InitFileList(PRING3_PROTECT_OBJECT pProtectObj)
     }
     __except (EXCEPTION_EXECUTE_HANDLER)
     {
-        outLog("\xB3\xF5\xCA\xBC\xBB\xAF\xCE\xC4\xBC\xFE\xC1\xD0\xB1\xED\xD2\xEC\xB3\xA3\x2E");
+        outFile("初始化文件列表异常.");
     }
 }
 
@@ -140,7 +140,7 @@ VOID InitWindowList(PRING3_PROTECT_OBJECT pProtectObj)
                 {
                     FreeMemAllocate(fileData, TAG_PRO);
                 }
-                outLog("\xB3\xF5\xCA\xBC\xBB\xAF\xB4\xB0\xBF\xDA\xC1\xD0\xB1\xED\xCA\xA7\xB0\xDC\xA3\xBA\xC4\xDA\xB4\xE6\xB2\xBB\xD7\xE3\x2E");
+                outFile("初始化窗口列表失败：内存不足.");
                 break;
             }
 
@@ -165,7 +165,7 @@ VOID InitWindowList(PRING3_PROTECT_OBJECT pProtectObj)
     }
     __except (EXCEPTION_EXECUTE_HANDLER)
     {
-        outLog("\xB3\xF5\xCA\xBC\xBB\xAF\xB4\xB0\xBF\xDA\xC1\xD0\xB1\xED\xD2\xEC\xB3\xA3\x2E");
+        outFile("初始化窗口列表异常.");
     }
 }
 
@@ -190,6 +190,9 @@ VOID InitProtectList(IN PUSER_DATA userData, IN PIRP pIrp)
         return;
     }
 
+    ULONG fileCount = 0;
+    ULONG windowCount = 0;
+
     // 遍历明文缓冲区中的结构体
     for (size_t i = 0; i < numElements; i++)
     {
@@ -197,13 +200,16 @@ VOID InitProtectList(IN PUSER_DATA userData, IN PIRP pIrp)
         ULONG dataType = pInfo->dataType;
         if (dataType == PROTECT_FILE)
         {
+            ++fileCount;
             InitFileList(pInfo);
         }
         else if (dataType == PROTECT_WINDOW)
         {
+            ++windowCount;
             InitWindowList(pInfo);
         }
     }
 
+    outFile("保护名单已装载: file=%u window=%u", fileCount, windowCount);
     free_pool(aucPlainText);
 }

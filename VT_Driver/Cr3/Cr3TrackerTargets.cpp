@@ -93,10 +93,23 @@ void Cr3TrackerRememberTarget(__vcpu* vcpu, unsigned __int64 candidateCr3)
         return;
     }
 
+    // Intel SDM Vol3C 27.6.7：CR3-target 的硬件比较对象是 MOV to CR3 源操作数的
+    // 完整 64 位值（含 PCID 与 bit63 no-flush），"There are no limitations on the values
+    // that can be written for the CR3-target values"。因此写入 VMCS 的必须是来访最近
+    // 一次实际使用的完整 CR3 值；只能把 NormalizeCr3 的结果用于页表遍历与地址空间去重。
+    // 旧逻辑把去掉低 12 位的 root 写入 CR3_TARGET_VALUE：
+    //   - guest CR4.PCIDE=1 时 CR3 低 12 位是 PCID，完整值与 root 永不相等，
+    //     于是每次 MOV to CR3（Windows 每次进程切换）都强制 VM-exit，
+    //     CR3-target 优化完全失效，并在热路径反复做 PML4 指纹物理读。
     for (unsigned __int32 index = 0; index < vcpu->cr3_target_count; ++index)
     {
-        if (vcpu->cr3_target_values[index] == root)
+        if (NormalizeCr3(vcpu->cr3_target_values[index]) == root)
         {
+            if (vcpu->cr3_target_values[index] != candidateCr3)
+            {
+                vcpu->cr3_target_values[index] = candidateCr3;
+                WriteCr3Target(index, candidateCr3);
+            }
             return;
         }
     }
@@ -104,8 +117,8 @@ void Cr3TrackerRememberTarget(__vcpu* vcpu, unsigned __int64 candidateCr3)
     const unsigned __int32 slot = hv::cr3_exit_policy::SelectTargetSlot(
         vcpu->cr3_target_count,
         vcpu->cr3_target_cursor);
-    vcpu->cr3_target_values[slot] = root;
-    WriteCr3Target(slot, root);
+    vcpu->cr3_target_values[slot] = candidateCr3;
+    WriteCr3Target(slot, candidateCr3);
     vcpu->cr3_target_cursor = hv::cr3_exit_policy::AdvanceTargetCursor(
         vcpu->cr3_target_count,
         slot);

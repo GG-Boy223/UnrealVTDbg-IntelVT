@@ -14,7 +14,7 @@ PCLIENT_ID GuestCurrentThreadCid() // 计算来宾当前线程的CLIENT_ID地址
     return (PCLIENT_ID)ptr_Cid; // 返回Cid指针供上层使用
 }
 
-bool SetBreakpoint(PVT_BREAK_POINT vmcallinfo, unsigned __int64 Type) // 在来宾地址上设置EPT监视断点（不修改来宾代码）
+bool SetBreakpoint(__vcpu* vcpu, PVT_BREAK_POINT vmcallinfo, unsigned __int64 Type) // 在来宾地址上设置EPT监视断点（不修改来宾代码）
 {
     int errorCode = 0; // 记录失败原因的错误码
     VT_BREAK_POINT tmp_vmcallinfo = { 0 }; // 本地缓冲保存断点请求
@@ -24,7 +24,7 @@ bool SetBreakpoint(PVT_BREAK_POINT vmcallinfo, unsigned __int64 Type) // 在来�
         return false;
     }
 
-	if (ept::ept_watch_activate(tmp_vmcallinfo, Type, vmcallinfo, errorCode)) // 通过EPT拦截实现断点，避免软件断点被检测
+	if (ept::ept_watch_activate(vcpu, tmp_vmcallinfo, Type, vmcallinfo, errorCode)) // 通过EPT拦截实现断点，避免软件断点被检测
 	{
 		return true;
 	}
@@ -63,7 +63,7 @@ bool SetBreakpoint(PVT_BREAK_POINT vmcallinfo, unsigned __int64 Type) // 在来�
 //    return false;
 //}
 
-bool RemoveBreakpoint(PVT_BREAK_POINT vmcallinfo)
+bool RemoveBreakpoint(__vcpu* vcpu, PVT_BREAK_POINT vmcallinfo)
 {
     VT_BREAK_POINT tmp_vmcallinfo = { 0 }; // 本地缓冲保存断点请求
 
@@ -72,13 +72,26 @@ bool RemoveBreakpoint(PVT_BREAK_POINT vmcallinfo)
         return false;
     }
 
-    const int deactivate_status = ept::ept_watch_deactivate(tmp_vmcallinfo, tmp_vmcallinfo.watchid);
+    const int deactivate_status = ept::ept_watch_deactivate(vcpu, tmp_vmcallinfo, tmp_vmcallinfo.watchid);
     // 删除断点要保持幂等：CE 步过/删除可能重复下发同一个 watchid，
     // watchid 已经空闲时也视为完成，避免用户态保留过期断点导致目标线程继续卡住。
     if (deactivate_status == 0 || deactivate_status == 2)
     {
+        tmp_vmcallinfo.errorCode = 0;
+        hv::write_guest_virtual_memory(
+            vmcallinfo,
+            &tmp_vmcallinfo,
+            sizeof(VT_BREAK_POINT));
         return true;
     }
+
+    // 把 ept_watch_deactivate 的细分状态回传给 guest：
+    // 600=ID 非法，602=vCPU/EPT/页记录缺失，603=CPUCount 非法，604=watch 组状态异常。
+    tmp_vmcallinfo.errorCode = 600 + deactivate_status;
+    hv::write_guest_virtual_memory(
+        vmcallinfo,
+        &tmp_vmcallinfo,
+        sizeof(VT_BREAK_POINT));
 
     return false;
 }

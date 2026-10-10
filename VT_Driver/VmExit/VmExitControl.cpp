@@ -36,7 +36,10 @@ bool mov_to_cr3_handler(__vcpu* vcpu, unsigned __int64 guest_cr3) // vcpu=当前
 
 	hv::vmwrite(GUEST_CR3, new_cr3.flags);
 	Cr3TrackerPublishCandidate(vcpu, new_cr3.flags);
-	Cr3TrackerRememberTarget(vcpu, new_cr3.flags);
+	// CR3-target 的硬件比较对象是 MOV to CR3 的源操作数原值（SDM Vol3C 27.6.7），
+	// 包括 PCIDE=1 时 bit63 的 no-flush 语义。GUEST_CR3 已按架构语义清掉 bit63，
+	// 但目标值必须保存原始源操作数，否则每次 no-flush 切换都会多一次 VM-exit。
+	Cr3TrackerRememberTarget(vcpu, guest_cr3);
 	return true; // 原理：走到此处表示写入成功；作用：通知上层继续执行；结果：返回成功
 }
 
@@ -149,6 +152,7 @@ bool mov_to_cr4_handler(unsigned __int64 guest_cr4) // guest_cr4=来宾请求写
 	// 原理：下列位组合非法或此实现不支持；作用：提前拦截；结果：非法则注入 #GP
 	if ((new_cr4.reserved1 != 0) || // 原理：保留位必须为 0；作用：检测保留位；结果：非法则 #GP
 		(new_cr4.reserved2 != 0) || // 原理：保留位必须为 0；作用：检测保留位；结果：非法则 #GP
+		(!g_vmm_context.hv_presence && new_cr4.vmx_enable != 0) || // 隐藏模式下 CPUID.01H:ECX.VMX=0，设置 VMXE 必须按硬件语义 #GP
 		(new_cr4.physical_address_extension == 0) || // 原理：长模式下必须启用 PAE；作用：阻止关闭 PAE；结果：非法则 #GP
 		(new_cr4.linear_addresses_57_bit) || // 原理：LA57（5 级页表）此实现不支持；作用：阻止开启；结果：非法则 #GP
 		(new_cr4.control_flow_enforcement_enable && !curr_cr0.write_protect) || // 原理：CET 需要 CR0.WP=1；作用：检测依赖；结果：违规则 #GP
@@ -167,7 +171,10 @@ bool mov_to_cr4_handler(unsigned __int64 guest_cr4) // guest_cr4=来宾请求写
 		invvpid_single_context_func(guest_vpid); // 参数：guest_vpid=当前来宾 VPID；结果：刷新该 vCPU 的 TLB
 	}
 
-	hv::vmwrite<unsigned __int64>(CR4_READ_SHADOW, new_cr4.flags); // 原理：更新 CR4 读影子；作用：保证来宾读取一致；结果：影子生效
+	// VMXE 是 hypervisor 自己的 VMX 使能位，始终对 guest 显示 0；初始化时
+	// CR4_READ_SHADOW 已清除 bit13，写入路径必须保持同一不变量，不能把来宾
+	// 写入的 VMXE 原样回读，否则 CPUID/CR4/MSR 的隐藏语义互相矛盾。
+	hv::vmwrite<unsigned __int64>(CR4_READ_SHADOW, new_cr4.flags & ~(1ull << 13));
 
 	__cr4 cr4; // 原理：准备写回真实 CR4；作用：建立可修改副本；结果：cr4 可调整
 	__cr_fixed cr_fixed; // 原理：CR4 固定位掩码结构；作用：应用 VMX 固定约束；结果：准备强制置/清位

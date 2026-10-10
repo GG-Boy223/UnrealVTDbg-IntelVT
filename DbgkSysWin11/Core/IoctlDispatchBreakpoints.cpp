@@ -27,7 +27,7 @@ NTSTATUS DispatchBreakpointIoctl(ULONG Code, PIOCTL_DISPATCH_CONTEXT Context, BO
     }
     case IOCTL_DEL_HARDWARE_BREAKPOINT:
     {
-        if (!HasInputUserData(*Context) || !HasOutput(*Context, sizeof(ULONG)))
+        if (!HasInputUserData(*Context) || !HasOutput(*Context, sizeof(HOOK_DEBUG_RESULT)))
         {
             return STATUS_BUFFER_TOO_SMALL;
         }
@@ -39,7 +39,7 @@ NTSTATUS DispatchBreakpointIoctl(ULONG Code, PIOCTL_DISPATCH_CONTEXT Context, BO
         }
 
         RemoveHardwareBreakpoint(ResolvedUserData(Context), Context->Irp);
-        Context->Information = sizeof(ULONG);
+        Context->Information = sizeof(HOOK_DEBUG_RESULT);
         return STATUS_SUCCESS;
     }
     case IOCTL_SET_SOFTWARE_BREAKPOINT:
@@ -61,7 +61,7 @@ NTSTATUS DispatchBreakpointIoctl(ULONG Code, PIOCTL_DISPATCH_CONTEXT Context, BO
     }
     case IOCTL_DEL_SOFTWARE_BREAKPOINT:
     {
-        if (!HasInputUserData(*Context) || !HasOutput(*Context, sizeof(ULONG)))
+        if (!HasInputUserData(*Context) || !HasOutput(*Context, sizeof(HOOK_DEBUG_RESULT)))
         {
             return STATUS_BUFFER_TOO_SMALL;
         }
@@ -73,7 +73,7 @@ NTSTATUS DispatchBreakpointIoctl(ULONG Code, PIOCTL_DISPATCH_CONTEXT Context, BO
         }
 
         RemoveSoftwareBreakpoint(ResolvedUserData(Context), Context->Irp);
-        Context->Information = sizeof(ULONG);
+        Context->Information = sizeof(HOOK_DEBUG_RESULT);
         return STATUS_SUCCESS;
     }
     case IOCTL_READ_SOFTWARE_BREAKPOINT:

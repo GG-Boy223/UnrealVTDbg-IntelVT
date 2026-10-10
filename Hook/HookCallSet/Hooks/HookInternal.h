@@ -57,8 +57,19 @@ namespace HookInternal
     void RemoveInt3BreakpointMetaLocked(const VT_BREAK_POINT& breakpoint);
     ULONGLONG GetInt3BreakpointAgeMsLocked(const VT_BREAK_POINT& breakpoint);
     bool RemoveInt3BreakpointRecord(const VT_BREAK_POINT& breakpoint);
-    bool ReadTargetMemoryByte(HANDLE process, PVOID address, BYTE* value);
-    bool WriteTargetMemoryByte(HANDLE process, PVOID address, BYTE value);
+    bool ReadTargetMemoryByte(
+        HANDLE process,
+        PVOID address,
+        BYTE* value,
+        NTSTATUS* ntStatus = nullptr,
+        DWORD* win32Error = nullptr);
+    bool WriteTargetMemoryByte(
+        HANDLE process,
+        PVOID address,
+        BYTE value,
+        NTSTATUS* ntStatus = nullptr,
+        DWORD* win32Error = nullptr,
+        DWORD* protectWin32Error = nullptr);
     DWORD GetProcessIdNoThrow(HANDLE process);
     bool IsTrackedDebugTargetProcessId(DWORD processId);
     bool IsTrackedDebugTargetProcessHandle(HANDLE process);

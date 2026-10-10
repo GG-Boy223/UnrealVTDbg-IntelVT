@@ -295,6 +295,7 @@ typedef struct _DEBUG_PROCESS
     _EPROCESS* Process;  //进程对象
     PDEBUG_OBJECT DebugObject;  //调试对象
     BOOLEAN DebugObjectReferenced;
+    BOOLEAN Retired;         //已退役：不再由活动表管理，等卸载 drain 后统一释放（见 RetireDebugProcessEntry）
     MINI_CONTEXT Context;
     MINI_CONTEXT_WOW64 wow64Context;
 }DEBUG_PROCESS, * PDEBUG_PROCESS;
@@ -712,6 +713,9 @@ typedef HWND(__fastcall* PFN_NTUSERFINDWINDOWEX)(IN HWND hwndParent,
     IN HWND hwndChild,
     IN PUNICODE_STRING pstrClassName,
     IN PUNICODE_STRING pstrWindowName);
+
+typedef NTSTATUS(__fastcall* PFN_NTUSERBUILDHWNDLIST)(IN HANDLE hDesk, IN HWND hwndParent, IN ULONG ulFlags, IN ULONG fChildren, IN ULONG fFirst, IN ULONG ulCount, IN HWND* phwnd, IN PULONG pcHwndNeeded);
+typedef ULONG(__fastcall* PFN_NTUSERGETCLASSNAME)(IN HWND hwnd, IN ULONG bReal, IN PUNICODE_STRING pstrClassName);
 
 typedef PVOID(__fastcall* PFN_NTUSERSETWINDOWSHOOKEX)(
     IN PVOID Mod,
@@ -1194,6 +1198,10 @@ extern PFN_DBGKEXITTHREAD Sys_DbgkExitThread;
 extern PFN_DBGKEXITPROCESS Sys_DbgkExitProcess;
 extern PFN_NTUSERFINDWINDOWEX Original_NtUserFindWindowEx;
 extern PFN_NTUSERFINDWINDOWEX Sys_NtUserFindWindowEx;
+extern PFN_NTUSERBUILDHWNDLIST Original_NtUserBuildHwndList;
+extern PFN_NTUSERBUILDHWNDLIST Sys_NtUserBuildHwndList;
+extern PFN_NTUSERGETCLASSNAME Original_NtUserGetClassName;
+extern PFN_NTUSERGETCLASSNAME Sys_NtUserGetClassName;
 extern PFN_NTUSERSETWINDOWSHOOKEX Original_NtUserSetWindowsHookEx;
 extern PFN_NTUSERSETWINDOWSHOOKEX Sys_NtUserSetWindowsHookEx;
 extern PFN_DBGKFORWARDEXCEPTION Sys_DbgkForwardException;

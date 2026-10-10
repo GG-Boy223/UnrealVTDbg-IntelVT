@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "../../../Driver.h"
 #include "../../../ntos/inc/extypes.h"
@@ -41,15 +41,15 @@ inline VOID HookEptRoutine(TSystemRoutine SystemRoutine,
     {
         if (hvgt::hook_function(SystemRoutine, HookRoutine, OriginalRoutine))
         {
-            outLog("hook %s\xB3\xC9\xB9\xA6\x2E", HookName);
+            outLog("hook %s成功.", HookName);
         }
         else
         {
-            outLog("hook %s\xCA\xA7\xB0\xDC\x2E", HookName);
+            outLog("hook %s失败.", HookName);
         }
     }
     else
     {
-        outLog("Sys_%s\xCE\xAA\xBF\xD5\xD6\xB8\xD5\xEB\x2E", SymbolName);
+        outLog("Sys_%s为空指针.", SymbolName);
     }
 }

@@ -25,6 +25,7 @@
 #include "../ReadWrite.h"
 
 VOID InsertBreakpointList(PBREAKPOINT_TABLE_ENTRY entry);
+VOID ReleaseBreakpointList();
 VOID TraceBreakpoint(_EPROCESS* Process, PVOID BaseAddress, PVOID Buffer);
 PVOID MDLMapVirtualAddress(IN PVOID VirtualAddress, IN SIZE_T BufferSize, OUT MDL_MAP& map_table);
 VOID UnMDLMapVirtualAddress(MDL_MAP map_table);

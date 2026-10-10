@@ -34,9 +34,10 @@ struct __vcpu // 每逻辑 CPU 的 VMM 状态
 
     alignas(0x1000) vmx_msr_bitmap msr_bitmap; // MSR 位图
 
-    // the number of NMIs that need to be delivered
-    // 需要交付的 NMI 数量
-    volatile LONG queued_nmis; // 待注入 NMI 数量；host NMI 可异步打断 VM-exit 路径，必须原子更新
+    // Whether an NMI is pending delivery. NMI is edge-triggered and the CPU
+    // latches only a single pending NMI, so a boolean matches the hardware.
+    // 是否有一个待投递的 NMI；NMI 边沿触发，硬件只有单个 pending 锁存，布尔与硬件一致。
+    volatile bool queued_nmi; // host NMI 可异步打断 VM-exit 路径，volatile 保证跨上下文可见
 
     struct __vm_entry_event_queue
     {

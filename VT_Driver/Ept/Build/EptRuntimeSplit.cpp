@@ -96,6 +96,7 @@ namespace ept
 		__ept_pde* pde = split->entry;
 		if (pde == nullptr)
 		{
+			RemoveEntryList(&split->dynamic_split_list);
 			pool_manager::release_pool(split);
 			return true;
 		}
@@ -126,6 +127,7 @@ namespace ept
 		_mm_mfence();
 		invept_single_context_func(ept_state.ept_pointer->all);
 
+		RemoveEntryList(&split->dynamic_split_list);
 		pool_manager::release_pool(split);
 		return true;
 	}

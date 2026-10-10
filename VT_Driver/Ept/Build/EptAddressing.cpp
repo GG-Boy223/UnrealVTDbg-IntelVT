@@ -39,6 +39,32 @@ namespace ept
 	/// </summary>
 	/// <param name="physical_address"></param>
 	/// <returns></returns>
+	// 按 PDE 指针在拆分链表中定位对应的 PML1 表 VA。
+	// 替代 MmGetVirtualForPhysical 物理->虚拟反查：高位物理内存上反查可能返回 NULL，
+	// 导致 get_pml1_entry 失败 -> EPT violation 反复重试死循环。
+	__ept_pte* get_split_pml1_by_pde(__ept_state& ept_state, __ept_pde* pde)
+	{
+		if (pde == nullptr)
+		{
+			return nullptr; // 失败返回空指针
+		}
+
+		for (PLIST_ENTRY current = ept_state.split_list.Flink;
+			current != &ept_state.split_list;
+			current = current->Flink)
+		{
+			__ept_dynamic_split* split =
+				CONTAINING_RECORD(current, __ept_dynamic_split, dynamic_split_list);
+
+			if (split->entry == pde)
+			{
+				return &split->pml1[0];
+			}
+		}
+
+		return nullptr; // 失败返回空指针
+	}
+
 	__ept_pte* get_pml1_entry(__ept_state& ept_state, unsigned __int64 physical_address)
 	{
 		__ept_pde* pml2 = get_pml2_entry(ept_state, physical_address);
@@ -52,9 +78,7 @@ namespace ept
 			return nullptr; // 失败返回空指针
 		}
 
-		PHYSICAL_ADDRESS pfn;
-		pfn.QuadPart = pml2->large_page.page_frame_number << PAGE_SHIFT;
-		__ept_pte* pml1 = (__ept_pte*)MmGetVirtualForPhysical(pfn);
+		__ept_pte* pml1 = get_split_pml1_by_pde(ept_state, pml2);
 
 		if (pml1 == nullptr)
 		{
@@ -123,8 +147,11 @@ namespace ept
 
 		new_entry.large_page.page_frame_number = MmGetPhysicalAddress(&new_split->pml1[0]).QuadPart >> PAGE_SHIFT;
 
-		// 用"指向 4KB PML1 表"的新条目覆盖原 2MB PDE。
-		// 用“指向 4KB PML1 表”的新条目覆盖原 2MB PDE。
+		// 先发布到拆分链表，再改写 PDE：读取方看到 large_page==0 时，
+		// split 一定已经在链表里，能被 get_split_pml1_by_pde 命中。
+		InsertHeadList(&ept_state.split_list, &new_split->dynamic_split_list);
+
+		// 用指向 4KB PML1 表的新条目覆盖原 2MB PDE。
 		RtlCopyMemory(pde, &new_entry, sizeof(new_entry));
 
 		return true;

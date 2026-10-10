@@ -209,7 +209,14 @@ NTSTATUS DbgkpSetProcessDebugObject(
                 ObReferenceObject(DebugObject);
                 if (IsDebugTargetProcess(Process, &DebugProcess))
                 {
-                    DebugProcess->DebugObjectReferenced = TRUE;
+                    // 表项所有权登记必须与卸载摘链互斥：登记失败说明表项已被
+                    // 卸载事务摘除/释放，立即返还本次引用并按调试会话不可用处理，
+                    // 避免把标志写进已释放的池块或泄漏 DEBUG_OBJECT 引用。
+                    if (!MarkDebugProcessDebugObjectReferenced(Process, DebugObject))
+                    {
+                        ObDereferenceObject(DebugObject);
+                        Status = STATUS_DEBUGGER_INACTIVE;
+                    }
                 }
             }
         }

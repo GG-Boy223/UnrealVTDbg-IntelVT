@@ -21,9 +21,45 @@ NewNtCreateUserProcess(
     if (NT_SUCCESS(Status))
     {
         //DoDebuggerBreak(ProcessHandle);
+
+        // 与附加路径（NewNtDebugActiveProcess）保持同一目标状态不变量：
+        // 硬件断点 DRx→VT watch 与隐藏 INT3 都依赖 g_target_pid / g_target_cr3。
+        // 创建路径此前只设置 g_process_info，从不解析这两个全局量，导致
+        // x64dbg File->Open / CE 创建调试的目标上：
+        //   1) HardwareBreakpointDriver::SetBreakpoint 以“cr3 或 pid为空”直接失败；
+        //   2) IsHiddenInt3MemoryIoTarget 恒 false，0xCC 退化为真实写入（断点可见）。
+        const DWORD newTargetPid = GetProcessId(*ProcessHandle);
+        RING3_PROCESS_INFO proc_info = { 0 };
+        RING3_PROCESS_INFO output = { 0 };
+        proc_info.ProcessHandle = (ULONG64)(*ProcessHandle);
+        DWORD BytesReturned = 0;
+        const bool targetResolved =
+            newTargetPid != 0 &&
+            SendUserDataToDriver(IOCTL_GET_PROCESS_INFO,
+                &proc_info,
+                sizeof(RING3_PROCESS_INFO),
+                &output,
+                sizeof(RING3_PROCESS_INFO),
+                &BytesReturned) &&
+            output.cr3 != 0;
+
+        if (targetResolved && g_target_pid != 0 && g_target_pid != newTargetPid)
+        {
+            CleanupDebugSessionState("NtCreateUserProcess切换目标");
+        }
+
         g_process_info.ProcessHandle = *ProcessHandle;
         g_process_info.isCreate = TRUE;
-        logger.Log("创建调试进程");
+        if (targetResolved)
+        {
+            g_target_pid = newTargetPid;
+            g_target_cr3 = output.cr3;
+            logger.Log("创建调试进程: pid=%u cr3=0x%llX", g_target_pid, g_target_cr3);
+        }
+        else
+        {
+            logger.Log("创建调试进程后无法解析目标CR3，硬件断点/隐藏INT3在本次会话不可用");
+        }
     }
     //if (NT_SUCCESS(Status))
     //{

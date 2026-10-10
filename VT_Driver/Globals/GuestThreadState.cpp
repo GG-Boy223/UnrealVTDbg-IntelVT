@@ -102,6 +102,24 @@ namespace hv
         return target_pfn;
     }
 
+    // 按 watchid 解析该监视点记录中的虚拟地址；条目已释放时返回 0（视为无此过滤维度）。
+    unsigned __int64 resolve_clear_state_watch_virtual_address(BREAKPOINT_CLEAR_STATE const& request)
+    {
+        unsigned __int64 watch_virtual_address = 0;
+
+        if (request.WatchId >= 0 && request.WatchId < EPTWATCHLISTSIZE)
+        {
+            spinlock::lock(&eptWatchList_lock);
+            if (ept_watch_entry_is_reserved(eptWatchList[request.WatchId]))
+            {
+                watch_virtual_address = eptWatchList[request.WatchId].VirtualAddress;
+            }
+            spinlock::unlock(&eptWatchList_lock);
+        }
+
+        return watch_virtual_address;
+    }
+
     bool vcpu_thread_matches(__vcpu const* vcpu, unsigned __int64 thread_id)
     {
         if (thread_id == 0)
@@ -113,7 +131,10 @@ namespace hv
             reinterpret_cast<unsigned __int64>(vcpu->Cid.UniqueThread) == thread_id;
     }
 
-    bool vcpu_breakpoint_matches(__vcpu const* vcpu, BREAKPOINT_CLEAR_STATE const& request)
+    bool vcpu_breakpoint_matches(
+        __vcpu const* vcpu,
+        BREAKPOINT_CLEAR_STATE const& request,
+        unsigned __int64 watch_virtual_address)
     {
         if (vcpu == nullptr)
         {
@@ -138,7 +159,18 @@ namespace hv
             return false;
         }
 
-        return has_thread || has_address;
+        // watchid 也是过滤维度：旧逻辑在判断“有没有过滤维度”时使用了 has_watch，
+        // 结算时却只承认 thread/address，导致仅带 watchid 的清理请求永远返回 false，
+        // 一次性命中状态（breakpoint_detected / debugRegister / Cid）残留在 VCPU 上，
+        // 后续 GET_BREAKPOINT 可能重复上报或 Step 状态卡死。
+        if (has_watch &&
+            watch_virtual_address != 0 &&
+            vcpu->breakpoint_detected != watch_virtual_address)
+        {
+            return false;
+        }
+
+        return true;
     }
 
     bool page_to_change_matches(__vcpu const* vcpu,
@@ -179,6 +211,8 @@ namespace hv
         }
 
         const unsigned __int64 target_pfn = resolve_clear_state_pfn(request);
+        const unsigned __int64 watch_virtual_address =
+            resolve_clear_state_watch_virtual_address(request);
 
         auto clear_one_vcpu = [&](__vcpu* target_vcpu)
         {
@@ -187,7 +221,7 @@ namespace hv
                 return;
             }
 
-            if (vcpu_breakpoint_matches(target_vcpu, request))
+            if (vcpu_breakpoint_matches(target_vcpu, request, watch_virtual_address))
             {
                 target_vcpu->breakpoint_detected = NULL;
                 target_vcpu->breakpoint_debug_register = -1;
@@ -200,17 +234,18 @@ namespace hv
             }
         };
 
-        if (g_vmm_context.vcpu != nullptr && g_vmm_context.processor_count != 0)
-        {
-            for (unsigned int i = 0; i < g_vmm_context.processor_count; i++)
-            {
-                clear_one_vcpu(&g_vmm_context.vcpu[i]);
-            }
-        }
-        else
-        {
-            clear_one_vcpu(vcpu);
-        }
+        // 只清理当前 CPU 所属的 vCPU，不跨核改写其它 vCPU 的状态。
+        //
+        // 该 VMCALL 的发送方是用户态 Hook：Hook/vmx/VmxBroadcast.cpp:vmcall() 通过逐 CPU
+        // 亲和性切换，在每个逻辑处理器上各执行一次 VMCALL；因此“清理本核”即等价于
+        // “清理全部 CPU”，且天然互斥于本核的 MTF/EPT violation 处理器。
+        //
+        // 旧实现由第一个到达的 CPU 一次性遍历 g_vmm_context.vcpu[] 改写所有 vCPU：
+        // 其它核此刻可能正在自己的 MTF/EPT violation 处理器里操作同一份
+        // page_to_change / mtf_pending / mtf_reference_count，会造成引用计数下溢
+        // （延迟回收永久失效）或丢失正在建立的 MTF 窗口。按 per-CPU 所有权收敛后，
+        // 每个 vCPU 的状态只由它自己的处理器线程序列化修改。
+        clear_one_vcpu(vcpu);
 
         return true;
     }

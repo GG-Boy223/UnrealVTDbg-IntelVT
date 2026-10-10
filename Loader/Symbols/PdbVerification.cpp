@@ -183,8 +183,9 @@ bool VerifyExistingPdb2(const GUID& guid, DWORD age)
         pageTableIndex += pageCount;
     }
 
-    if (numStreams < 2 || streamSizes[1] == 0xFFFFFFFF)
+    if (numStreams < 4 || streamSizes[1] == 0xFFFFFFFF)
     {
+        // 需要 stream 0/2/3 的 page count 才能定位 GUID 流(stream 1)与 DBI 流(stream 3)。
         return false;
     }
 
@@ -195,7 +196,24 @@ bool VerifyExistingPdb2(const GUID& guid, DWORD age)
         return false;
     }
 
-    const int guidPage = pRoot->stream_sizes[numStreams + 0];
+    const auto stream_page_count = [pageSize](int streamSize) -> size_t
+    {
+        if (streamSize <= 0) // 0 与 0xFFFFFFFF 都表示空流
+        {
+            return 0;
+        }
+        return (static_cast<size_t>(streamSize) + pageSize - 1) / pageSize;
+    };
+
+    // MSF 7.00 根流布局：num_streams → 各流 size → 按流顺序拼接的各流 page list，
+    // 因此 stream N 的首个 page 位于条目索引 numStreams + Σ(pageCount[0..N-1])。
+    //
+    // 实测（本机 C:\Symbols\ntkrnlmp.pdb\10EFC2288044B448D2954F042A3396E01）：
+    // numStreams=1098、stream0.size=37592(37 页)、stream1.size=93(1 页)；
+    // 旧写法固定读 stream_sizes[numStreams + 0]（= stream 0 的首个数据页 4），
+    // 而 GUID/info 流(stream 1)的数据页是 8323 —— 合法 PDB 因此永远验证失败。
+    const size_t guidPageTableIndex = static_cast<size_t>(numStreams) + stream_page_count(streamSizes[0]);
+    const int guidPage = pRoot->stream_sizes[guidPageTableIndex];
     const char* guidStreamData = PdbPage(pdbRaw.get(), sizeOnDisk, pageSize, guidPage);
     if (!guidStreamData ||
         static_cast<size_t>(guidStreamSize) > sizeOnDisk - (guidStreamData - pdbRaw.get()))
@@ -204,13 +222,32 @@ bool VerifyExistingPdb2(const GUID& guid, DWORD age)
     }
 
     const auto* streamData = reinterpret_cast<const GUID_StreamData*>(guidStreamData);
+    if (memcmp(&streamData->guid, &guid, sizeof(GUID)) != 0)
+    {
+        return false;
+    }
 
     // 未启用 age 校验时(历史调用 VerifyExistingPdb),仅比较 GUID。
     if (age == 0)
     {
-        return memcmp(&streamData->guid, &guid, sizeof(GUID)) == 0;
+        return true;
     }
 
-    return memcmp(&streamData->guid, &guid, sizeof(GUID)) == 0 &&
-        streamData->age == age;
+    // age 必须取自 DBI 流(stream 3)的 Age 字段：PE 的 RSDS.Age 等于 DBI.Age，
+    // 而 GUID 流(stream 1)的第三个字段并不等于 RSDS age
+    // （同机实测：info=5、DBI=1、RSDS=1）。旧逻辑用 info 流字段比较 age，必然失败。
+    const size_t dbiPageTableIndex = static_cast<size_t>(numStreams) +
+        stream_page_count(streamSizes[0]) +
+        stream_page_count(streamSizes[1]) +
+        stream_page_count(streamSizes[2]);
+    const int dbiPage = pRoot->stream_sizes[dbiPageTableIndex];
+    const char* dbiStreamData = PdbPage(pdbRaw.get(), sizeOnDisk, pageSize, dbiPage);
+    constexpr size_t kDbiAgeOffset = sizeof(int) * 2; // Signature / Version / Age
+    if (!dbiStreamData || streamSizes[3] < static_cast<int>(kDbiAgeOffset + sizeof(int)))
+    {
+        return false;
+    }
+
+    const int dbiAge = *reinterpret_cast<const int*>(dbiStreamData + kDbiAgeOffset);
+    return dbiAge >= 0 && static_cast<DWORD>(dbiAge) == age;
 }

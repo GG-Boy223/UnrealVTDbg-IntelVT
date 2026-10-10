@@ -127,22 +127,62 @@ namespace HookInternal
         vmcallinfo.pid = g_target_pid;
 
         DWORD bytesReturned = 0;
-        DWORD output = 520;
+        HOOK_DEBUG_RESULT output = { 520, 0 };
         if (!SendUserDataToDriver(IOCTL_DEL_SOFTWARE_BREAKPOINT,
             &vmcallinfo,
             sizeof(VT_BREAK_POINT),
             &output,
-            sizeof(DWORD),
+            sizeof(HOOK_DEBUG_RESULT),
             &bytesReturned))
         {
+            logger.Log("删除隐藏 INT3 断点失败: ioctl=0x%08lX, win32Error=%lu, watchid=%d, addr=0x%llX, cr3=0x%llX, pid=%u",
+                IOCTL_DEL_SOFTWARE_BREAKPOINT,
+                GetLastError(),
+                breakpoint.watchid,
+                breakpoint.VirtualAddress,
+                breakpoint.cr3,
+                breakpoint.pid);
             ReportSeriousError("IOCTL_DEL_SOFTWARE_BREAKPOINT 请求失败!");
             return false;
         }
 
-        const bool success = output == 1998;
+        const bool success = output.status == 1998;
         if (success)
         {
+            logger.Log("删除隐藏 INT3 断点成功: status=%lu, errorCode=%lu, watchid=%d, addr=0x%llX, cr3=0x%llX, pid=%u",
+                output.status,
+                output.errorCode,
+                breakpoint.watchid,
+                breakpoint.VirtualAddress,
+                breakpoint.cr3,
+                breakpoint.pid);
             clear_vt_breakpoint_state(0, breakpoint.VirtualAddress, breakpoint.cr3, breakpoint.watchid);
+        }
+        else
+        {
+            const char* errorText = "未知错误";
+            switch (output.errorCode)
+            {
+            case 90: errorText = "CR3 解析/捕获失败"; break;
+            case 91: errorText = "VMCALL 失败且无具体码"; break;
+            case 99: errorText = "删除请求参数非法/watchid 无效"; break;
+            case 520: errorText = "IOCTL/解密失败"; break;
+            case 600: errorText = "watch ID 非法"; break;
+            case 602: errorText = "vCPU/EPT/页记录缺失"; break;
+            case 603: errorText = "CPUCount 非法"; break;
+            case 604: errorText = "watch group 状态异常"; break;
+            default: break;
+            }
+
+            logger.Log("删除隐藏 INT3 断点失败: status=%lu, errorCode=%lu(%s), watchid=%d, addr=0x%llX, cr3=0x%llX, pid=%u, bytes=%lu",
+                output.status,
+                output.errorCode,
+                errorText,
+                breakpoint.watchid,
+                breakpoint.VirtualAddress,
+                breakpoint.cr3,
+                breakpoint.pid,
+                bytesReturned);
         }
         return success;
     }

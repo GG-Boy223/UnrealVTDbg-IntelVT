@@ -33,8 +33,7 @@
 
 void VtLoadWriteLog(_In_z_ _Printf_format_string_ const char* format, ...);
 
-#define outFile(...) \
-	VtLoadWriteLog(__VA_ARGS__)
+#define outFile(...) VtLoadWriteLog(__VA_ARGS__)
 
 
 NTSTATUS Dispatcher_Create_Close(_In_ PDEVICE_OBJECT device_object, _In_ PIRP irp);
@@ -48,8 +47,10 @@ bool InitOffset(PWINDOWS_STRUCT vmcallinfo, unsigned __int64 verifyKey);
 
 PCLIENT_ID GuestCurrentThreadCid();
 
-bool SetBreakpoint(PVT_BREAK_POINT vmcallinfo, unsigned __int64 Type);
-bool RemoveBreakpoint(PVT_BREAK_POINT vmcallinfo);
+struct __vcpu;
+
+bool SetBreakpoint(__vcpu* vcpu, PVT_BREAK_POINT vmcallinfo, unsigned __int64 Type);
+bool RemoveBreakpoint(__vcpu* vcpu, PVT_BREAK_POINT vmcallinfo);
 
 void MyKeBugCheck(
     _In_ ULONG BugCheckCode, // 蓝屏主错误码
@@ -60,37 +61,6 @@ void MyKeBugCheck(
 );
 
 //--------------------------------------------------
-
-#ifdef _DEBUG_Key_Log
-// ================================
-// InitOffset 延后打印所需的全局状态
-// ================================
-
-// 1 表示有一条待打印的 InitOffset 结果；
-// 0 表示当前没有待打印日志。
-extern volatile LONG g_InitOffsetLogPending;
-
-// 最近一次成功设置的 Cid 值。
-extern size_t g_InitOffsetLastCid;
-
-// 最近一次收到的 DirectoryTableBase 偏移。
-extern size_t g_InitOffsetLastDirectoryTableBase;
-
-// 日志线程句柄，用于驱动卸载时关闭句柄。
-extern HANDLE g_InitOffsetLogThreadHandle;
-
-// 线程退出标志：
-// 0 = 继续运行
-// 1 = 请求退出
-extern volatile LONG g_StopInitOffsetLogThread;
-
-// InitOffset 延后打印线程。
-VOID InitOffsetLogThread(_In_ PVOID StartContext);
-
-#endif
-
-
-
 
 inline void DebugPrintf_3(const char* text, ...)
 {

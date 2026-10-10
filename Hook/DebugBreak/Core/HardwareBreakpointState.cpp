@@ -9,6 +9,8 @@ namespace DebugBreakInternal
 
     void ClearLocalHardwareBreakpointRecords(bool clearHitRecords, const char* reason)
     {
+        HardwareBreakpointTransactionGuard transactionGuard;
+
         bool hadRecords = false;
 
         BreakpointList.Lock();
@@ -65,6 +67,8 @@ namespace DebugBreakInternal
 
 bool RemoveBreakpoint()
 {
+    DebugBreakInternal::HardwareBreakpointTransactionGuard transactionGuard;
+
     bool hadRecords = false;
     bool allDriverDeletesSucceeded = true;
     bool shouldClearAllVtState = false;
@@ -78,7 +82,12 @@ bool RemoveBreakpoint()
             if (!DebugBreakInternal::DeleteBreakpointFromDriver(*it))
             {
                 allDriverDeletesSucceeded = false;
-                logger.Log("移除硬件断点驱动返回失败，保留本地记录以便重试");
+                logger.Log("移除硬件断点驱动返回失败，保留本地记录以便重试: errorCode=1004, dr=%d, addr=0x%llX, cr3=0x%llX, pid=%u, watchid=%d",
+                    it->debugRegister,
+                    it->Address,
+                    it->cr3,
+                    it->pid,
+                    it->watchid);
                 ++it;
                 continue;
             }

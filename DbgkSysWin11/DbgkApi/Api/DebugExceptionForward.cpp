@@ -21,7 +21,7 @@ namespace
         }
     }
 
-    BOOLEAN IsInt2dInstructionAt(ULONG_PTR Address)
+    BOOLEAN IsInstructionBytesAt(ULONG_PTR Address, UCHAR FirstByte, UCHAR SecondByte)
     {
         UCHAR bytes[2] = { 0 };
 
@@ -35,7 +35,30 @@ namespace
             return FALSE;
         }
 
-        return bytes[0] == 0xCD && bytes[1] == 0x2D;
+        return bytes[0] == FirstByte && bytes[1] == SecondByte;
+    }
+
+    BOOLEAN IsByteAt(ULONG_PTR Address, UCHAR Value)
+    {
+        UCHAR byte = 0;
+
+        if (Address == 0 || Address >= (ULONG_PTR)MM_USER_PROBE_ADDRESS)
+        {
+            return FALSE;
+        }
+
+        return SafeReadUserBytes((PVOID)Address, &byte, sizeof(byte)) && byte == Value;
+    }
+
+    // INT 2C (CD 2C)：异常地址指向 CD 字节本身
+    BOOLEAN IsInt2cInstructionAt(ULONG_PTR Address)
+    {
+        return IsInstructionBytesAt(Address, 0xCD, 0x2C);
+    }
+
+    BOOLEAN IsInt2dInstructionAt(ULONG_PTR Address)
+    {
+        return IsInstructionBytesAt(Address, 0xCD, 0x2D);
     }
 
     BOOLEAN IsInt2dBreakpointException(PEXCEPTION_RECORD ExceptionRecord)
@@ -54,6 +77,13 @@ namespace
 
         exceptionAddress = (ULONG_PTR)ExceptionRecord->ExceptionAddress;
 
+        // 真实 INT3 断点的异常地址就是 0xCC 字节本身（本机实测）。
+        // 若异常地址处是 0xCC，说明命中的是真实断点：-2/-3 规则不能把它当成 INT 2D 吞掉。
+        if (IsByteAt(exceptionAddress, 0xCC))
+        {
+            return FALSE;
+        }
+
         if (exceptionAddress >= 2 && IsInt2dInstructionAt(exceptionAddress - 2))
         {
             return TRUE;
@@ -66,6 +96,24 @@ namespace
 
         // /* Fail */
         return FALSE;
+    }
+
+    // INT 2C 触发的断言异常：异常码 STATUS_ASSERTION_FAILURE，异常地址指向 CD 字节
+    // （本机 Win10 22H2 x64 实测：CD 2C 会产生 0xC0000420，而非 STATUS_BREAKPOINT）
+    BOOLEAN IsInt2cAssertionException(PEXCEPTION_RECORD ExceptionRecord)
+    {
+        if (ExceptionRecord == NULL || ExceptionRecord->ExceptionCode != STATUS_ASSERTION_FAILURE)
+        {
+            return FALSE;
+        }
+
+        return IsInt2cInstructionAt((ULONG_PTR)ExceptionRecord->ExceptionAddress);
+    }
+
+    // INT 2C/INT 2D 是目标进程自身触发的断言/反调试流程，不能转发给调试器
+    BOOLEAN IsInt2cOrInt2dException(PEXCEPTION_RECORD ExceptionRecord)
+    {
+        return IsInt2cAssertionException(ExceptionRecord) || IsInt2dBreakpointException(ExceptionRecord);
     }
 }
 
@@ -138,9 +186,20 @@ DbgkForwardException(
     //DbgBreakPoint();
     if (IsDebugTargetProcess(Process, &DebugProcess))
     {
+        // INT 2C/INT 2D 属于目标进程自身的断言/反调试流程，首轮异常就地丢弃，
+        // 交给目标进程自己的 VEH/SEH 处理，避免调试器被同一异常反复打断。
+        // 只过滤首轮异常：二次机会异常仍转发，避免掩盖真实未处理崩溃。
         if ((ExceptionRecord->ExceptionCode == STATUS_ILLEGAL_INSTRUCTION) ||
-            (ExceptionRecord->ExceptionCode == STATUS_ACCESS_VIOLATION))
+            (ExceptionRecord->ExceptionCode == STATUS_ACCESS_VIOLATION) ||
+            (!SecondChance && IsInt2cOrInt2dException(ExceptionRecord)))
         {
+            // 该提前返回可能发生在 LPC 分支之后：PsCaptureExceptionPort 返回的是
+            // 已引用对象，正常路径在 DbgkpSendApiMessageLpc 之后 ObDereferenceObject。
+            // 若在此直接返回，异常端口对象引用会永久泄漏（每次异常泄漏一次）。
+            if (UseLpc && Port != NULL)
+            {
+                ObDereferenceObject(Port);
+            }
             return FALSE;
         }
 

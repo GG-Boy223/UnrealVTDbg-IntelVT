@@ -112,6 +112,13 @@ typedef struct _BREAKPOINT_RECORD {
     int errorCode; //驱动失败原因；0 表示成功
 }BREAKPOINT_RECORD, * PBREAKPOINT_RECORD;
 
+// 删除类 IOCTL 的输出：status 保持 1998/520 旧协议，errorCode 携带底层
+// VT_Driver/DbgkSys 的具体失败码，便于 Hook 直接写入 Hook64.log/Hook.log。
+typedef struct _HOOK_DEBUG_RESULT {
+    unsigned long status;
+    unsigned long errorCode;
+}HOOK_DEBUG_RESULT, * PHOOK_DEBUG_RESULT;
+
 typedef struct _VMCALLINFO {
     unsigned __int64 command; //此成员必须放在结构体的第一位
 }VMCALLINFO,*PVMCALLINFO;

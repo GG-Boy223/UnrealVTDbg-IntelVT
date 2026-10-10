@@ -37,6 +37,7 @@ enum EPT_WATCH_ENTRY_STATE : int
 typedef struct // EPT 监视断点条目（描述一个监视点）
 {
     unsigned __int64 cr3; // 目标进程的 cr3
+    unsigned __int64 pid; // 目标进程 ID；可用时优先于 CR3 做进程身份判断
     unsigned __int64 VirtualAddress; // 监视的虚拟地址
     unsigned __int64 PhysicalAddress;    // 虚拟地址对应的物理地址
     unsigned __int64 Type; // 读、写、执行

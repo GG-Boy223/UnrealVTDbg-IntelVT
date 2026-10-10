@@ -14,7 +14,7 @@ bool vmcall_internal(PVOID vmcallinfo)
     }
     __except (ecode = GetExceptionCode(), 1)
     {
-        outToFile("\xD6\xB4\xD0\xD0vmcall\xCA\xB1\xB7\xA2\xC9\xFA\xC1\xCB\xB4\xED\xCE\xF3 (error: 0x%X)", ecode);
+        outToFile("执行vmcall时发生了错误 (error: 0x%X)", ecode);
     }
 
     return boSuccess;

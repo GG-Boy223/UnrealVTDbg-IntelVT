@@ -83,7 +83,7 @@ namespace HookInternal
                 result.failed = true;
                 // 旧日志包含 watchid，避免在日志文件暴露内部断点编号。
                 // logger.Log("删除cc断点失败 地址:%p watchid:%d 写入:%02X 原字节:%02X", ...);
-                logger.Log("删除cc断点失败 地址:%p 写入:%02X 原字节:%02X",
+                logger.Log("删除cc断点失败: errorCode=1010, addr=0x%llX, write=0x%02X, original=0x%02X",
                     reinterpret_cast<PVOID>(candidate.breakpoint.VirtualAddress),
                     static_cast<unsigned int>(candidate.writeByte),
                     static_cast<unsigned int>(candidate.breakpoint.OriginalBytes));

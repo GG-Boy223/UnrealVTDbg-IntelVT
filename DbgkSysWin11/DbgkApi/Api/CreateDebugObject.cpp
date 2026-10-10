@@ -33,7 +33,7 @@ POBJECT_TYPE GetDebugObjectType(UNICODE_STRING Name)
 {
     if (ObTypeIndexTable == NULL)
     {
-        outLog("\x47\x65\x74\x44\x65\x62\x75\x67\x4F\x62\x6A\x65\x63\x74\x54\x79\x70\x65\x20\xCA\xA7\xB0\xDC\xA3\xBA\x4F\x62\x54\x79\x70\x65\x49\x6E\x64\x65\x78\x54\x61\x62\x6C\x65\x20\xCE\xB4\xBD\xE2\xCE\xF6\x2E");
+        outLog("GetDebugObjectType 失败：ObTypeIndexTable 未解析.");
         ////判断当前调用者是否是调试器进程
         //if (!IsDebugger(PsGetCurrentProcess()))
         //{
@@ -345,7 +345,7 @@ DbgkpCloseObject(
                 //
                 if (DebugObject->Flags & DEBUG_OBJECT_KILL_ON_CLOSE)
                 {
-                    DbgPrint("\xBD\xE1\xCA\xF8\xBD\xF8\xB3\xCC");
+                    DbgPrint("结束进程");
                     PsTerminateProcess(Process, STATUS_DEBUGGER_INACTIVE);
                 }
                 ObDereferenceObject(DebugObject);
@@ -362,6 +362,6 @@ DbgkpCloseObject(
         DbgkpWakeTarget(DebugEvent);
     }
 
-    DbgPrint("\xD2\xC6\xB3\xFD\xB5\xF7\xCA\xD4\xB6\xD4\xCF\xF3");
+    DbgPrint("移除调试对象");
     // 自定义调试目标已在遍历中按 Process+DebugObject 原子摘除，不再只删除第一条记录。
 }

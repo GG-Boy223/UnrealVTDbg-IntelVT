@@ -139,13 +139,12 @@ namespace hv
                 }
                 else
                 {
-                    // PDE 指向一个 PT
-                    void* pt_va = nullptr;
-                    if (!get_physical_mapping_va(static_cast<uint64_t>(pde.large_page.page_frame_number) << 12, &pt_va))
+                    // PDE 指向一个 PT：用拆分链表按 PDE 指针定位 PML1，避免物理->虚拟反查
+                    auto const pt = reinterpret_cast<ept_pte*>(ept::get_split_pml1_by_pde(ept_state, &pde));
+                    if (pt == nullptr)
                     {
                         return;
                     }
-                    auto const pt = reinterpret_cast<ept_pte*>(pt_va); // 定位 PTE 表
 
                     // update the memory type for every PTE
                     // 更新每个 PTE 的内存类型
@@ -195,13 +194,12 @@ namespace hv
                 }
                 else
                 {
-                    // PDE 指向一个 PT
-                    void* pt_va = nullptr;
-                    if (!get_physical_mapping_va(static_cast<uint64_t>(pde.large_page.page_frame_number) << 12, &pt_va))
+                    // PDE 指向一个 PT：用拆分链表按 PDE 指针定位 PML1，避免物理->虚拟反查
+                    auto const pt = reinterpret_cast<ept_pte*>(ept::get_split_pml1_by_pde(ept_state, &pde));
+                    if (pt == nullptr)
                     {
                         return;
                     }
-                    auto const pt = reinterpret_cast<ept_pte*>(pt_va); // 定位 PTE 表
 
                     // update the memory type for every PTE
                     // 更新每个 PTE 的内存类型

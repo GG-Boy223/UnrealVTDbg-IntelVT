@@ -130,7 +130,9 @@ namespace DebugEventInternal
             StoreDebugHitRecord(threadId, 2, 0);
             if (!boSuccess)
             {
-                logger.Log("获取调试寄存器Context失败! (error: %d)", GetLastError());
+                logger.Log("获取调试寄存器 Context 失败: tid=%lu, win32Error=%lu",
+                    threadId,
+                    GetLastError());
             }
         }
         CloseHandle(hThread);

@@ -1,5 +1,7 @@
 ﻿#include "VmExitException.h"
 
+#include "../Ept/EptWatch.h"
+
 namespace
 {
 	void update_nmi_window_from_queue(__vcpu* vcpu)
@@ -8,7 +10,7 @@ namespace
 		ctrl.nmi_window_exiting = 0;
 		hv::write_ctrl_proc_based(ctrl);
 
-		if (InterlockedCompareExchange(&vcpu->queued_nmis, 0, 0) > 0)
+		if (vcpu->queued_nmi)
 		{
 			ctrl.nmi_window_exiting = 1;
 			hv::write_ctrl_proc_based(ctrl);
@@ -22,12 +24,12 @@ void vmexit_unimplemented(__vcpu* vcpu) // 未实现 VM-exit 的兜底处理，�
 	hv::inject_interruption(EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT, INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, true); // 注入 #GP(0) 给来宾：按硬件规则告知"非法/不支持的操作"，防止继续执行
 }
 
-void vmexit_nmi_window_handler(__vcpu* vcpu) // 在 guest 解除 NMI blocking 后投递 queued_nmis。
+void vmexit_nmi_window_handler(__vcpu* vcpu) // 在 guest 解除 NMI blocking 后投递 queued_nmi。
 {
 	sLog("\n"); // NMI-window 是敏感路径，保留最小日志占位。
-	if (InterlockedCompareExchange(&vcpu->queued_nmis, 0, 0) == 0)
+	if (!vcpu->queued_nmi)
 	{
-		update_nmi_window_from_queue(vcpu); // NMI 可异步入队，先清窗口再按原子计数决定是否重开。
+		update_nmi_window_from_queue(vcpu); // NMI 可异步入队，先清窗口再按布尔标志决定是否重开。
 		return; // 队列为空，无需注入事件。
 	}
 
@@ -39,7 +41,7 @@ void vmexit_nmi_window_handler(__vcpu* vcpu) // 在 guest 解除 NMI blocking �
 		return; // 本轮不投递 NMI，避免丢失已有事件。
 	}
 
-	InterlockedDecrement(&vcpu->queued_nmis); // 消耗一个排队 NMI，后续通过 VM-entry 投递给 guest。
+	vcpu->queued_nmi = false; // 消费待投递的 NMI，后续通过 VM-entry 投递给 guest。
 
 	hv::inject_nmi(); // 安排 VM-entry 注入 NMI。
 
@@ -203,6 +205,8 @@ void vmexit_monitor_trap_flag_handler(__vcpu* vcpu) // MTF 单步窗口结束后
 
 			bool has_effective_int3 = false; // 本页是否仍有 INT3 watch：决定原页要不要继续拦写。
 			const unsigned __int64 watch_pfn = GET_PFN(eptWatchList[ID].PhysicalAddress);
+			const unsigned __int64 guest_cr3 = hv::vmread(GUEST_CR3);
+			const unsigned __int64 current_pid = ept::current_guest_process_id();
 			for (int i = 0; i < EPTWATCHLISTSIZE; i++)
 			{
 				if (GET_PFN(eptWatchList[i].PhysicalAddress) != watch_pfn || eptWatchList[i].bpType != 3)
@@ -210,7 +214,8 @@ void vmexit_monitor_trap_flag_handler(__vcpu* vcpu) // MTF 单步窗口结束后
 					continue;
 				}
 
-				if (ept::ept_isWatchPage(watch_pfn, i))
+				if (ept::ept_isWatchPage(watch_pfn, i) &&
+					ept::watch_process_matches(eptWatchList[i], current_pid, guest_cr3))
 				{
 					int offset = eptWatchList[i].VirtualAddress & 0xFFF; // 同页多个 INT3 watch 需要按页内偏移写入断点字节。
 					hooked_page_info->fake_page_contents[offset] = 0xCC; // 在 fake page 上放置 INT3，不修改 guest 原始物理页。

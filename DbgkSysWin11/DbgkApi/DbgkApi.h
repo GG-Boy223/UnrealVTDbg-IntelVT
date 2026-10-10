@@ -362,7 +362,7 @@ DbgkpCloseObject(
 // __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
-VOID DeleteDebugProcess(PDEBUG_OBJECT DebugObject);
+VOID DeleteDebugProcess(_EPROCESS* Process, PDEBUG_OBJECT DebugObject);
 
 POBJECT_TYPE GetDebugObjectType(UNICODE_STRING Name);
 

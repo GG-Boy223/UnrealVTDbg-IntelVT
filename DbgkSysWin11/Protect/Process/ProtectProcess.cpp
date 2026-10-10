@@ -108,7 +108,7 @@ NTSTATUS IsWhiteListProcess(_In_ HANDLE ProcessHandle,  //要读取的目标进�
                     }
                     if (IsProtectFile(&fileName) && (!bIsPassProc))
                     {
-                        outLog("当前进程: %s   >>>>>>>>>   目标进程: %s      BaseAddress: %p   Size: %d", ((_EPROCESS*)PsGetCurrentProcess())->ImageFileName, Process->ImageFileName, BaseAddress, BufferSize);
+                        outFile("文件保护: 当前进程: %s >>>>>>>>> 目标进程: %s BaseAddress: %p Size: %d", ((_EPROCESS*)PsGetCurrentProcess())->ImageFileName, Process->ImageFileName, BaseAddress, BufferSize);
                         //RtlZeroMemory(Buffer, BufferSize);
                         Status = STATUS_ACCESS_DENIED;
                     }

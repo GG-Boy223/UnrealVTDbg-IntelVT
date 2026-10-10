@@ -397,13 +397,19 @@ bool DownloadSymbol_internal(const std::wstring& szModulePath, const std::wstrin
         }
         g_szPdbPath += pdbFileNameW;
 
-        const HRESULT hr = URLDownloadToFileW(nullptr, url.c_str(),
-            g_szPdbPath.c_str(), NULL, &callback);
-        if (FAILED(hr))
+        // 本地已有同一 PDB（GUID+age 均匹配）时直接复用，不再联网下载：
+        // DownloadSymbol() 每次启动都会对 3 个系统模块调用本函数，旧逻辑无条件重下
+        // （约 15MB；符号服务器不可达时还会弹“下载符号表失败”提示框）。
+        if (!FileExists(g_szPdbPath) || !VerifyExistingPdb2(guid, age))
         {
-            Common::ReportSeriousError("下载符号表失败,系统无法找到指定的资源! "
-                "请按照说明书操作使用第三方工具进行下载。(error: 0x%08X)", static_cast<unsigned>(hr));
-            return false;
+            const HRESULT hr = URLDownloadToFileW(nullptr, url.c_str(),
+                g_szPdbPath.c_str(), NULL, &callback);
+            if (FAILED(hr))
+            {
+                Common::ReportSeriousError("下载符号表失败,系统无法找到指定的资源! "
+                    "请按照说明书操作使用第三方工具进行下载。(error: 0x%08X)", static_cast<unsigned>(hr));
+                return false;
+            }
         }
     }
 

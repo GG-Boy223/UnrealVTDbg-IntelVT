@@ -175,7 +175,12 @@ std::string EncryptData(const char* pAddr, SIZE_T size, const char* key)
     aucCipherText = new BYTE[aucCipherTextLen];
     memset(aucCipherText, 0, aucCipherTextLen); //初始化密文缓冲区
     BlowFishInit(&oBlowFish, aucKey, 16);
-    Encrypt(&oBlowFish, aucPlainText, nLen, aucCipherText, aucCipherTextLen, ECB);
+    // 这里必须传调用方的真实明文长度 size：Encrypt() 内部会自行按 8 字节块对齐
+    // （byte_in 先整体清零，再 memcpy siz_i 字节），对齐后的尾部会被填 0。
+    // 旧逻辑传的是已经对齐过的 nLen，于是 Encrypt() 会从调用方缓冲区之外多读
+    // (nLen - size) 字节未初始化内存并参与加密；Hook/UnrealDbgDll 的
+    // RING3_TL_GAME_TABLE_ENTRY（4 字节）就是这条越界读的真实可达路径。
+    Encrypt(&oBlowFish, aucPlainText, size, aucCipherText, aucCipherTextLen, ECB);
 
     std::string strCipher((char*)aucCipherText);
 
@@ -207,6 +212,6 @@ std::string DecryptData(const char* pInAddr, const char* key)
     std::string strPlain((char*)aucPlainText);
 
     delete[] aucPlainText;
-    return strPlain;
     VMProtectEnd();
+    return strPlain;
 }

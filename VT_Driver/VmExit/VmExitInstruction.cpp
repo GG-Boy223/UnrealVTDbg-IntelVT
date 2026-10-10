@@ -159,12 +159,24 @@ void vmexit_rdtsc_handler(__vcpu* vcpu) // 模拟 RDTSC，返回 host TSC 拆分
 void vmexit_cpuid_handler(__vcpu* vcpu) // 模拟 CPUID，按 guest 输入 leaf/subleaf 返回寄存器结果。
 {
 	int regs[4]; // 保存 EAX/EBX/ECX/EDX 返回值。
-	__cpuidex(regs, vcpu->vmexit_info.guest_registers->eax, vcpu->vmexit_info.guest_registers->ecx); // 使用 guest EAX/ECX 作为 leaf/subleaf。
+	const unsigned __int32 cpuid_leaf =
+		static_cast<unsigned __int32>(vcpu->vmexit_info.guest_registers->eax);
+	__cpuidex(regs, cpuid_leaf, vcpu->vmexit_info.guest_registers->ecx); // 使用 guest EAX/ECX 作为 leaf/subleaf。
 
-	vcpu->vmexit_info.guest_registers->rax = regs[0]; // 写回 CPUID.EAX。
-	vcpu->vmexit_info.guest_registers->rbx = regs[1]; // 写回 CPUID.EBX。
-	vcpu->vmexit_info.guest_registers->rcx = regs[2]; // 写回 CPUID.ECX。
-	vcpu->vmexit_info.guest_registers->rdx = regs[3]; // 写回 CPUID.EDX。
+	// hv_presence=false 时隐藏 VMX 能力位；否则 CPUID 会直接暴露本 VMM 的 VMX
+	// 能力，与 IA32_FEATURE_CONTROL / CR4.VMXE 的隐藏语义不一致。
+	if (!g_vmm_context.hv_presence && cpuid_leaf == 0x1)
+	{
+		regs[2] &= ~(1 << 5); // CPUID.01H:ECX.VMX
+	}
+
+	// CPUID 只写 32 位寄存器，64 位模式下高 32 位按架构清零。
+	// 直接赋值 int 会在 bit31=1 时把结果符号扩展成 0xFFFFFFFF'xxxxxxxx，
+	// 使 guest 读到与真实 CPUID 不一致的 64 位值（Intel SDM Vol2 CPUID 语义）。
+	vcpu->vmexit_info.guest_registers->rax = static_cast<unsigned __int32>(regs[0]); // 写回 CPUID.EAX，零扩展。
+	vcpu->vmexit_info.guest_registers->rbx = static_cast<unsigned __int32>(regs[1]); // 写回 CPUID.EBX，零扩展。
+	vcpu->vmexit_info.guest_registers->rcx = static_cast<unsigned __int32>(regs[2]); // 写回 CPUID.ECX，零扩展。
+	vcpu->vmexit_info.guest_registers->rdx = static_cast<unsigned __int32>(regs[3]); // 写回 CPUID.EDX，零扩展。
 
 	set_hide_vm_exit_overhead(vcpu, true); // CPUID 常被用于虚拟化开销检测，标记需要时间补偿。
 	adjust_rip(vcpu); // CPUID 已模拟完成，推进 RIP。

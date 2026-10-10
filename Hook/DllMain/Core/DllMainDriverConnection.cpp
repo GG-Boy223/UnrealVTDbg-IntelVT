@@ -17,7 +17,9 @@ namespace HookDllMainInternal
             &bytesReturned))
         {
             //logger.Log("驱动握手失败，DeviceIoControl error:%d", GetLastError());
-            logger.Log("链接严重错误", GetLastError());
+            logger.Log("驱动握手失败: ioctl=0x%08lX, win32Error=%lu",
+                IOCTL_VERIFY_HOOK_CLIENT,
+                GetLastError());
 
             return false;
         }
@@ -25,7 +27,11 @@ namespace HookDllMainInternal
         if (bytesReturned < sizeof(reply))
         {
             //logger.Log("驱动握手失败，返回长度不足:%lu/%zu", bytesReturned, sizeof(reply));
-            logger.Log("链接错误", GetLastError());
+            logger.Log("驱动握手返回长度不足: ioctl=0x%08lX, win32Error=%lu, bytes=%lu/%zu",
+                IOCTL_VERIFY_HOOK_CLIENT,
+                GetLastError(),
+                bytesReturned,
+                sizeof(reply));
             return false;
         }
 
@@ -40,7 +46,11 @@ namespace HookDllMainInternal
             //  reply.size,
             //  reply.status);
 
-            logger.Log("链接失败");
+            logger.Log("驱动握手失败: errorCode=1009, magic=0x%llX, version=%lu, size=%lu, status=%lu",
+                reply.magic,
+                reply.version,
+                reply.size,
+                reply.status);
             return false;
         }
 
@@ -58,7 +68,7 @@ BOOL InitializeDevice()
     g_hGeneralDriverDevice = CreateDeviceHandle();
     if (g_hGeneralDriverDevice == INVALID_HANDLE_VALUE)
     {
-        logger.Log("连接驱动失败 error: %d", GetLastError());
+        logger.Log("CreateFile 连接驱动失败: device=UnrealDbg, win32Error=%lu", GetLastError());
         return FALSE;
     }
 

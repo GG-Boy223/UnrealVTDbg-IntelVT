@@ -242,6 +242,15 @@ void vmexit_msr_read_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 		msr.all = feature_msr.all; // 原理：将伪造后的值作为返回；作用：提供给来宾；结果：msr 含目标返回值
 		break; // 原理：该 MSR 已处理完成；作用：跳出 switch；结果：进入返回路径
 	}
+	case IA32_PERF_GLOBAL_CTRL:
+	{
+		// VM-entry 的 load IA32_PERF_GLOBAL_CTRL（entry control bit 13）会从
+		// GUEST_PERF_GLOBAL_CONTROL 装载物理 MSR；VM-exit 又用 HOST_PERF_GLOBAL_CTRL
+		// 覆盖它，因此 root 里的物理 MSR 永远不是 guest 值。
+		// guest 的 RDMSR 只能返回 VMCS 影子值（见同文件 WRMSR 分支）。
+		msr.all = hv::vmread(GUEST_PERF_GLOBAL_CONTROL);
+		break;
+	}
 	default:
 	{
 		unsigned __int64 guest_mtrr_value = 0;
@@ -339,6 +348,29 @@ void vmexit_msr_write_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 			invvpid_single_context_func(guest_vpid);
 		}
 
+		set_hide_vm_exit_overhead(vcpu, true);
+		adjust_rip(vcpu);
+		return;
+	}
+	if (msr_index == IA32_PERF_GLOBAL_CTRL)
+	{
+		// 该 MSR 的 guest 影子存放在 VMCS（entry control bit 13 会装载它）。
+		// 先在 root 执行一次 WRMSR 让硬件校验取值：计数器数量以外的保留位
+		// 会触发 #GP，必须按架构语义注入给 guest，而不是写进 VMCS 后
+		// 在 VM-entry 才以 invalid-guest-state 方式失败（那会变成宿主 BugCheck）。
+		hv::host_exception_info e = { 0 };
+		hv::wrmsr_safe(e, msr_index, msr.all);
+		if (e.exception_occurred)
+		{
+			hv::inject_interruption(EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT,
+				INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, true);
+			return;
+		}
+
+		// VM-exit 时物理 MSR 已被 HOST_PERF_GLOBAL_CTRL 覆盖，guest 写入值
+		// 必须落在 VMCS 来宾字段；同时设置 exit control 的 save 位
+		//（见 Vmcs/VmcsControls.cpp），两条路径共同保证跨 VM-exit 一致。
+		hv::vmwrite<unsigned __int64>(GUEST_PERF_GLOBAL_CONTROL, msr.all);
 		set_hide_vm_exit_overhead(vcpu, true);
 		adjust_rip(vcpu);
 		return;

@@ -83,15 +83,10 @@ BOOL InjectCode(HANDLE hProcess)
 			return FALSE;
 		}
 
-		// 旧项目保留代码：DbgUserBreakPoint + 0x10 跳到函数中间。
-		// 注释原因：函数内部偏移不是稳定 ABI，在启用 CFG/fail-fast 的目标中可能触发 0xC0000409。
-		// 放开好处：如果旧系统上 +0x10 恰好避开前置逻辑，可能更接近历史行为。
-		// 放开坏处：系统版本、补丁和位数变化都会改变函数布局，跨版本回归风险高。
-		// 项目影响：继续注释使用合法导出入口；放开会把远程线程入口绑定到不稳定机器码偏移。
-		// 当前建议：继续注释。
-		 //remoteThread = CreateRemoteThread(hProcess, NULL, 0, (LPTHREAD_START_ROUTINE)((BYTE*)dbgUserBreakPoint + 0x10), NULL, 0, NULL);
-		// 旧写法使用 DbgUserBreakPoint + 0x10 跳到函数中间，入口不受系统导出边界保证；
-		// 在启用 CFG/fail-fast 的目标中可能触发 0xC0000409。这里改为合法导出入口。
+		//在启用 CFG/fail-fast 的目标中可能触发 0xC0000409。这里改为合法导出入口。
+		//函数内部偏移不是稳定 ABI，在启用 CFG/fail-fast 的目标中可能触发 0xC0000409。 系统上 +0x10 恰好避开前置逻辑，可能更接近历史行为。
+		//remoteThread = CreateRemoteThread(hProcess, NULL, 0, (LPTHREAD_START_ROUTINE)((BYTE*)dbgUserBreakPoint + 0x10), NULL, 0, NULL);
+		
 		remoteThread = CreateRemoteThread(hProcess, NULL, 0, (LPTHREAD_START_ROUTINE)dbgUserBreakPoint, NULL, 0, NULL);
 		if (remoteThread)
 		{

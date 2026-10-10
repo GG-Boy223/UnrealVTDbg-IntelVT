@@ -3,7 +3,6 @@
 #include "../Globals.h"
 #include "DispatchData.h"
 
-
 //派遣数据到驱动
 BOOL DispatchDataToDriver(DWORD dwIoControlCode,
     PVOID inputBuffer,
@@ -15,7 +14,9 @@ BOOL DispatchDataToDriver(DWORD dwIoControlCode,
     BOOL bRet = FALSE;
     if (g_hGeneralDriverDevice == INVALID_HANDLE_VALUE)
     {
-        logger.Log("DeviceIoControl skipped: driver handle invalid, ioctl=0x%08lX", dwIoControlCode);
+        logger.Log("DeviceIoControl 跳过: 驱动句柄无效, ioctl=0x%08lX, win32Error=%lu",
+            dwIoControlCode,
+            ERROR_INVALID_HANDLE);
         SetLastError(ERROR_INVALID_HANDLE);
         return FALSE;
     }
@@ -35,7 +36,7 @@ BOOL DispatchDataToDriver(DWORD dwIoControlCode,
     {
         DWORD error = GetLastError();
         logger.Log(
-            "DeviceIoControl failed: ioctl=0x%08lX, input=%lu, output=%lu, bytes=%lu, error=%lu",
+            "DeviceIoControl 失败: ioctl=0x%08lX, input=%lu, output=%lu, bytes=%lu, win32Error=%lu",
             dwIoControlCode,
             inputBufferSize,
             nOutBufferSize,
@@ -58,6 +59,10 @@ BOOL SendUserDataToDriver(DWORD dwIoControlCode,
     USER_DATA userData = { 0 };
     if ((source == nullptr && size != 0) || size > USER_DATA_MAX_PLAINTEXT_SIZE)
     {
+        logger.Log("SendUserDataToDriver 参数非法: ioctl=0x%08lX, size=%zu, max=%llu",
+            dwIoControlCode,
+            size,
+            static_cast<unsigned long long>(USER_DATA_MAX_PLAINTEXT_SIZE));
         return FALSE;
     }
 
@@ -69,6 +74,10 @@ BOOL SendUserDataToDriver(DWORD dwIoControlCode,
         if (encodeData.empty() ||
             encodeData.size() + 1 > (static_cast<SIZE_T>(MAXDWORD) - sizeof(USER_DATA)))
         {
+            logger.Log("SendUserDataToDriver 加密失败或长度溢出: ioctl=0x%08lX, size=%zu, encoded=%zu",
+                dwIoControlCode,
+                size,
+                encodeData.size());
             return FALSE;
         }
 

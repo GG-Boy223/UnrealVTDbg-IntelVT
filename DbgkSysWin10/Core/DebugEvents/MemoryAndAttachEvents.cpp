@@ -10,7 +10,20 @@ NTSTATUS NtProtectVirtualMemory(HANDLE ProcessHandle, PVOID* BaseAddress, PSIZE_
     return status;
 }
 
-size_t g_ptrLongFlags = NULL;
+namespace
+{
+    // MiObtainReferencedVadEx 与 MmProtectVirtualMemory 属于同一次 NtProtectVirtualMemory 调用链，
+    // 但两者之间隔着原函数的返回，不能依赖栈上传参。旧的全局 size_t 会让并发调试线程互相覆盖：
+    // A 线程记录的 VAD 指针可能被 B 线程消费，且该 VAD 可能已被释放（池内存破坏）。
+    // 按线程 ID 隔离槽位，只允许记录者本人消费；错过匹配的线程退回原有失败语义。
+    struct LONG_FLAGS_SLOT
+    {
+        unsigned long long thread_id;
+        size_t pointer;
+    };
+
+    LONG_FLAGS_SLOT g_longFlagsSlot = {};
+}
 
 PMMVAD MiObtainReferencedVadEx(PVOID StartingAddress, char a2, PNTSTATUS status)
 {
@@ -34,7 +47,9 @@ PMMVAD MiObtainReferencedVadEx(PVOID StartingAddress, char a2, PNTSTATUS status)
             if (LongFlags == 0x188)
             {
                 //*(unsigned long*)ptr_LongFlags = 0x3A0;
-                g_ptrLongFlags = ptr_LongFlags;
+                g_longFlagsSlot.thread_id =
+                    static_cast<unsigned long long>(reinterpret_cast<ULONG_PTR>(PsGetCurrentThreadId()));
+                g_longFlagsSlot.pointer = ptr_LongFlags;
             }
         }
     }
@@ -61,17 +76,23 @@ NTSTATUS MmProtectVirtualMemory(_EPROCESS* sourceProcess,
     {
         if (IsDebugger((PEPROCESS)sourceProcess))
         {
-            if (g_ptrLongFlags)
+            const unsigned long long currentThreadId =
+                static_cast<unsigned long long>(reinterpret_cast<ULONG_PTR>(PsGetCurrentThreadId()));
+            if (g_longFlagsSlot.pointer != 0 &&
+                g_longFlagsSlot.thread_id == currentThreadId)
             {
-                if (*(unsigned long*)g_ptrLongFlags == 0x188)
+                size_t const ptrLongFlags = g_longFlagsSlot.pointer;
+                g_longFlagsSlot.pointer = 0;
+                g_longFlagsSlot.thread_id = 0;
+
+                if (*(unsigned long*)ptrLongFlags == 0x188)
                 {
-                    *(unsigned long*)g_ptrLongFlags = 0x3A0;
+                    *(unsigned long*)ptrLongFlags = 0x3A0;
 
                     status = Original_MmProtectVirtualMemory(sourceProcess, TargetProcess, BaseAddress, RegionSize, NewProtectWin32, LastProtect);
-                    *(unsigned long*)g_ptrLongFlags = 0x188;
+                    *(unsigned long*)ptrLongFlags = 0x188;
                     //还原
                     // *(unsigned long*)g_ptrLongFlags = 0x188;
-                    g_ptrLongFlags = NULL;
                 }
             }
         }
@@ -241,7 +262,7 @@ NTSTATUS NewNtResumeThread(__in HANDLE ThreadHandle, __out_opt PULONG PreviousSu
 
     if (PsGetCurrentProcessId() == (HANDLE)g_TL_Game_pid)
     {
-        DbgPrint("\xB5\xB1\xC7\xB0\xB5\xF7\xD3\xC3\xBD\xF8\xB3\xCC\xCA\xC7\x54\x4C\x20\x20\xB5\xB1\xC7\xB0\xB5\xF7\xD3\xC3\xCF\xDF\xB3\xCC\x3A\x20\x25\x64", PsGetCurrentThreadId());
+        DbgPrint("当前调用进程是TL  当前调用线程: %d", PsGetCurrentThreadId());
         return STATUS_SUCCESS;
     }
 

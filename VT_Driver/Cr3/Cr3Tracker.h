@@ -31,10 +31,11 @@ int Cr3TrackerAcquire(
     unsigned __int64 initialCr3,
     unsigned __int64 probeVirtualAddress,
     unsigned __int64 probePhysicalAddress,
+    unsigned __int64 pid,
     int* failureDetail = nullptr);
 
 void Cr3TrackerRelease(int trackerId);
-void Cr3TrackerObserve(unsigned __int64 candidateCr3);
+void Cr3TrackerObserve(unsigned __int64 candidateCr3, unsigned __int64 current_pid);
 void Cr3TrackerPublishCandidate(__vcpu* vcpu, unsigned __int64 candidateCr3);
 bool Cr3TrackerStartWorker();
 void Cr3TrackerStopWorker();

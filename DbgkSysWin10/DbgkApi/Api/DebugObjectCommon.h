@@ -8,7 +8,7 @@ NTSTATUS DbgkUnInitialize();
 
 // 调试进程列表管理
 BOOLEAN InsertDebuggerList(PDEBUGGER_TABLE_ENTRY Debugger);
-VOID DeleteDebugProcess(PDEBUG_OBJECT DebugObject);
+VOID DeleteDebugProcess(_EPROCESS* Process, PDEBUG_OBJECT DebugObject);
 
 // 调试目标进程操作
 BOOLEAN IsDebugTargetProcess(IN _EPROCESS* Process, OUT PDEBUG_PROCESS* DebugProcess);

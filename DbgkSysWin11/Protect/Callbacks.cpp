@@ -53,54 +53,6 @@
 //}
 
 
-//线程回调
-//OB_PREOP_CALLBACK_STATUS preThreadCallback(PVOID RegistrationContext, POB_PRE_OPERATION_INFORMATION pOperationInformation)
-//{
-//	UNREFERENCED_PARAMETER(RegistrationContext);
-//	if (IsDebugger(PsGetThreadProcess((PETHREAD)pOperationInformation->Object)))
-//	{
-//		//PrintProcessName(PsGetCurrentProcess());
-//
-//		//获取当前调用进程
-//		UNICODE_STRING ImageFileName, PassImage;
-//		NTSTATUS Status = GetProcessName(PsGetCurrentProcess(), &ImageFileName);
-//		if (NT_SUCCESS(Status))
-//		{
-//			for (ULONG i = 0; i < sizeof(PassProcessList) / sizeof(PassProcessList[0]); i++)
-//			{
-//				RtlInitUnicodeString(&PassImage, PassProcessList[i]);
-//				if (RtlEqualUnicodeString(&ImageFileName, &PassImage, TRUE))
-//				{
-//					//发现是白名单进程就退出
-//					return OB_PREOP_SUCCESS;
-//				}
-//			}
-//		}
-//
-//		if (pOperationInformation->Operation == OB_OPERATION_HANDLE_CREATE)  //打开句柄
-//		{
-//			if ((pOperationInformation->Parameters->CreateHandleInformation.OriginalDesiredAccess & THREAD_SUSPEND_RESUME) == THREAD_SUSPEND_RESUME)
-//			{
-//				pOperationInformation->Parameters->CreateHandleInformation.DesiredAccess &= ~THREAD_SUSPEND_RESUME;
-//			}
-//
-//			//if ((pOperationInformation->Parameters->CreateHandleInformation.OriginalDesiredAccess & THREAD_GET_CONTEXT) == THREAD_GET_CONTEXT)
-//			//{
-//			//	pOperationInformation->Parameters->CreateHandleInformation.DesiredAccess &= ~THREAD_GET_CONTEXT;
-//			//}
-//		}
-//		else if (pOperationInformation->Operation == OB_OPERATION_HANDLE_DUPLICATE)  //复制句柄
-//		{
-//			if ((pOperationInformation->Parameters->DuplicateHandleInformation.OriginalDesiredAccess & THREAD_SUSPEND_RESUME) == THREAD_SUSPEND_RESUME)
-//			{
-//				pOperationInformation->Parameters->DuplicateHandleInformation.DesiredAccess &= ~THREAD_SUSPEND_RESUME;
-//			}
-//		}
-//	}
-//	return OB_PREOP_SUCCESS;
-//}
-
-
 //注意此保护方案无法拦截FindWindow
 OB_PREOP_CALLBACK_STATUS preProcessCallback(PVOID RegistrationContext, POB_PRE_OPERATION_INFORMATION pOperationInformation)
 {
@@ -133,6 +85,23 @@ OB_PREOP_CALLBACK_STATUS preProcessCallback(PVOID RegistrationContext, POB_PRE_O
 			if ((pOperationInformation->Parameters->DuplicateHandleInformation.OriginalDesiredAccess & PROCESS_VM_WRITE) == PROCESS_VM_WRITE)
 			{
 				pOperationInformation->Parameters->DuplicateHandleInformation.DesiredAccess &= ~PROCESS_VM_WRITE;
+			}
+		}
+
+		if (pOperationInformation->Operation == OB_OPERATION_HANDLE_CREATE)
+		{
+			ULONG originalAccess = (ULONG)pOperationInformation->Parameters->CreateHandleInformation.OriginalDesiredAccess;
+			if ((originalAccess & (PROCESS_VM_READ | PROCESS_VM_WRITE)) != 0)
+			{
+				//outFile("句柄保护(创建): callerPid=%u 调试器pid=%u access 0x%X -> 0x%X",(ULONG)(ULONG_PTR)PsGetCurrentProcessId(),(ULONG)(ULONG_PTR)PsGetProcessId((PEPROCESS)pOperationInformation->Object),originalAccess,(ULONG)pOperationInformation->Parameters->CreateHandleInformation.DesiredAccess);
+			}
+		}
+		else if (pOperationInformation->Operation == OB_OPERATION_HANDLE_DUPLICATE)
+		{
+			ULONG originalAccess = (ULONG)pOperationInformation->Parameters->DuplicateHandleInformation.OriginalDesiredAccess;
+			if ((originalAccess & (PROCESS_VM_READ | PROCESS_VM_WRITE)) != 0)
+			{
+				//outFile("句柄保护(复制): callerPid=%u 调试器pid=%u access 0x%X -> 0x%X",(ULONG)(ULONG_PTR)PsGetCurrentProcessId(),(ULONG)(ULONG_PTR)PsGetProcessId((PEPROCESS)pOperationInformation->Object),originalAccess,(ULONG)pOperationInformation->Parameters->DuplicateHandleInformation.DesiredAccess);
 			}
 		}
 	}

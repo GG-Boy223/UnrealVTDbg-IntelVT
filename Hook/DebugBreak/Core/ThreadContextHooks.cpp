@@ -25,7 +25,7 @@ NewSetThreadContext(
             if (DebugBreakInternal::HasEnabledDebugRegister(lpContext))
             {
                 DebugBreakInternal::ClearLocalHardwareBreakpointRecords(true, "硬件断点请求被拒绝");
-                logger.Log("已拒绝硬件断点请求: tid=%u dr7=0x%llX，请使用软件INT3断点",
+                logger.Log("已拒绝硬件断点请求: errorCode=1005, tid=%u, dr7=0x%llX, 请使用软件INT3断点",
                     GetThreadId(hThread),
                     lpContext->Dr7);
                 SetLastError(ERROR_NOT_SUPPORTED);

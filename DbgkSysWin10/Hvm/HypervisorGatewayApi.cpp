@@ -92,7 +92,17 @@ namespace hvgt
 	//读ept伪页内存
 	bool read_ept_fake_page_memory(void* target_address, void* buffer, unsigned __int64 buffer_size)
 	{
-		HookFunctionArgs args{ target_address, buffer, (void**)buffer_size, __readcr3(), 0 };
+		// 缓冲区协议必须使用 SoftwareBreakpointBufferArgs（target/buffer/size/cr3 独立字段）。
+		// 旧实现复用 HookFunctionArgs 的 proxy_function/origin_function，
+		// 把 size 强转成 (void**)、再在 DPC 里转回 unsigned __int64 —— 正是
+		// HypervisorGatewayInternal.h 中明确要求“缓冲区协议必须避免”的字段复用/整数指针双关。
+		SoftwareBreakpointBufferArgs args{
+			target_address,
+			buffer,
+			buffer_size,
+			__readcr3(),
+			0
+		};
 		KeGenericCallDpc(broadcast_read_ept_fake_page_memory, &args);
 
 		return static_cast<ULONG>(args.statuses) == KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS);
@@ -106,7 +116,6 @@ namespace hvgt
 			buffer,
 			buffer_size,
 			__readcr3(),
-			0,
 			0
 		};
 		KeGenericCallDpc(broadcast_get_software_breakpoint_buffer, &args);
@@ -122,7 +131,6 @@ namespace hvgt
 			buffer,
 			buffer_size,
 			current_cr3,
-			0,
 			0
 		};
 		KeGenericCallDpc(broadcast_set_software_breakpoint_buffer, &args);
@@ -138,7 +146,6 @@ namespace hvgt
 			buffer,
 			buffer_size,
 			current_cr3,
-			0,
 			0
 		};
 		KeGenericCallDpc(broadcast_get_software_breakpoint_buffer, &args);
@@ -170,60 +177,10 @@ namespace hvgt
 	/// </summary>
 	bool hook_function(void* target_address, void* proxy_function, void** origin_function)
 	{
-		const ULONG processor_count = KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS);
-		if (processor_count == 0)
-		{
-			return false;
-		}
-
-		const SIZE_T committed_bytes =
-			static_cast<SIZE_T>(processor_count) * sizeof(LONG);
-		auto committed_processors = static_cast<volatile LONG*>(ExAllocatePool2(
-			POOL_FLAG_NON_PAGED,
-			committed_bytes,
-			'EHpU'));
-		if (committed_processors == nullptr)
-		{
-			return false;
-		}
-		RtlZeroMemory(const_cast<LONG*>(committed_processors), committed_bytes);
-
-		HookFunctionArgs args{
-			target_address,
-			proxy_function,
-			origin_function,
-			__readcr3(),
-			0,
-			0,
-			committed_processors,
-			processor_count,
-			0
-		};
+		HookFunctionArgs args{ target_address, proxy_function, origin_function, __readcr3(), 0 };
 		KeGenericCallDpc(broadcast_hook_function, &args);
 
-		const ULONG successful_hooks = static_cast<ULONG>(args.statuses);
-		if (successful_hooks == processor_count)
-		{
-			ExFreePoolWithTag(const_cast<LONG*>(committed_processors), 'EHpU');
-			return true;
-		}
-
-		if (successful_hooks != 0)
-		{
-			for (int attempt = 0;
-				attempt < 3 && static_cast<ULONG>(args.rollback_statuses) != successful_hooks;
-				++attempt)
-			{
-				KeGenericCallDpc(broadcast_rollback_hook_function, &args);
-			}
-		}
-		if (origin_function != nullptr)
-		{
-			*origin_function = nullptr;
-		}
-
-		ExFreePoolWithTag(const_cast<LONG*>(committed_processors), 'EHpU');
-		return false;
+		return static_cast<ULONG>(args.statuses) == KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS);
 	}
 
 	// 默认参数保持兼容，这样旧调用点不需要改。

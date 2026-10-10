@@ -150,7 +150,6 @@ void vmexit_ept_violation_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 			if ((exactWatchHandled && bpType == 3) ||
 				hooked_page_info->changed_entry.page_frame_number != 0)
 			{
-				Cr3TrackerObserve(hv::vmread(GUEST_CR3));
 				if (ept::ept_handle_int3_execute(vcpu, hooked_page_info, guest_physical_adddress))
 				{
 					goto handled_return;

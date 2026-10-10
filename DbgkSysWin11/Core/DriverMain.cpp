@@ -89,7 +89,7 @@ VOID Unload(PDRIVER_OBJECT DriverObject)
     // 放开坏处：在初始化未接通时放开会增加卸载断言和无效句柄路径。
     // 项目影响：继续注释表示当前进程保护回调未启用；放开必须与 InitProtect/SetProcessCallbacks 同步。
     // 当前建议：继续注释。
-    //UnloadProtect();
+    UnloadProtect();
     RemoveHooks();
     DbgkUnInitialize();
     Cr3ResolverReset();
@@ -101,7 +101,7 @@ NTSTATUS DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING Registry
 {
     UNREFERENCED_PARAMETER(DriverObject);
     UNREFERENCED_PARAMETER(RegistryPath);
-    LogFile::InitDriverLog();
+    //LogFile::InitDriverLog();  // 改用驱动自有日志 C:\DbgkSys11.log
 
     //ApcCreateRemoteThread((HANDLE)7572, NULL);
     DbgPrint("血腥城堡驱动加载成功!!!\n");
@@ -112,8 +112,7 @@ NTSTATUS DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING Registry
     // 放开好处：可以恢复句柄访问削权、反读写等保护能力。
     // 放开坏处：ObCallback altitude、签名绕过标志和卸载对称性都要重新验证，否则可能导致加载失败或卸载蓝屏。
     // 项目影响：继续注释时“保护进程函数”不真正生效；放开会改变全局进程句柄访问行为。
-    // 当前建议：继续注释，等保护链路和回归测试补齐后再放开。
-    //InitProtect(DriverObject);
+    InitProtect(DriverObject);
     NTSTATUS ntStatus = CreateDevice(DriverObject);
     if (!NT_SUCCESS(ntStatus))
     {
@@ -232,15 +231,239 @@ NTSTATUS InitDispatchRoutin(IN PDEVICE_OBJECT pDevObj, IN PIRP pIrp)
     return status;
 }
 
-////初始化保护
-//VOID InitProtect(IN PDRIVER_OBJECT DriverObject)
-//{
-//    RegisterCallbacks(DriverObject);
-//}
-//
-////卸载保护
-//VOID UnloadProtect()
-//    UnCallbacks();
+namespace
+{
+    VOID ProtectLogAppendText(char* buffer, size_t capacity, size_t& used, const char* text)
+    {
+        if (text == nullptr)
+        {
+            text = "(null)";
+        }
+
+        while (*text != '\0' && used + 1 < capacity)
+        {
+            buffer[used++] = *text++;
+        }
+    }
+
+    VOID ProtectLogAppendNumber(char* buffer, size_t capacity, size_t& used, unsigned __int64 value, ULONG base, BOOLEAN upperCase)
+    {
+        const char* digits = upperCase ? "0123456789ABCDEF" : "0123456789abcdef";
+        char temp[32];
+        ULONG count = 0;
+
+        if (value == 0)
+        {
+            temp[count++] = '0';
+        }
+        else
+        {
+            while (value != 0 && count < sizeof(temp))
+            {
+                temp[count++] = digits[value % base];
+                value /= base;
+            }
+        }
+
+        while (count != 0 && used + 1 < capacity)
+        {
+            buffer[used++] = temp[--count];
+        }
+    }
+
+    VOID ProtectLogAppendPaddedNumber(char* buffer, size_t capacity, size_t& used, ULONG value, ULONG width)
+    {
+        char temp[16];
+        ULONG count = 0;
+
+        do
+        {
+            temp[count++] = (char)('0' + (value % 10));
+            value /= 10;
+        } while (value != 0 && count < sizeof(temp));
+
+        while (count < width && used + 1 < capacity)
+        {
+            buffer[used++] = '0';
+            --width;
+        }
+
+        while (count != 0 && used + 1 < capacity)
+        {
+            buffer[used++] = temp[--count];
+        }
+    }
+
+    // 把一行日志追加到驱动自有日志文件（PASSIVE_LEVEL 调用；每次独立句柄，无需锁）。
+    VOID ProtectLogWriteToFile(const char* message)
+    {
+        UNICODE_STRING filePath;
+        OBJECT_ATTRIBUTES objectAttributes;
+        IO_STATUS_BLOCK ioStatus;
+        HANDLE fileHandle = NULL;
+        char line[768] = { 0 };
+        size_t used = 0;
+        LARGE_INTEGER systemTime;
+        TIME_FIELDS timeFields;
+
+        KeQuerySystemTime(&systemTime);
+        ExSystemTimeToLocalTime(&systemTime, &systemTime);
+        RtlTimeToTimeFields(&systemTime, &timeFields);
+
+        ProtectLogAppendText(line, sizeof(line), used, "[");
+        ProtectLogAppendPaddedNumber(line, sizeof(line), used, timeFields.Year, 4);
+        ProtectLogAppendText(line, sizeof(line), used, "-");
+        ProtectLogAppendPaddedNumber(line, sizeof(line), used, timeFields.Month, 2);
+        ProtectLogAppendText(line, sizeof(line), used, "-");
+        ProtectLogAppendPaddedNumber(line, sizeof(line), used, timeFields.Day, 2);
+        ProtectLogAppendText(line, sizeof(line), used, " ");
+        ProtectLogAppendPaddedNumber(line, sizeof(line), used, timeFields.Hour, 2);
+        ProtectLogAppendText(line, sizeof(line), used, ":");
+        ProtectLogAppendPaddedNumber(line, sizeof(line), used, timeFields.Minute, 2);
+        ProtectLogAppendText(line, sizeof(line), used, ":");
+        ProtectLogAppendPaddedNumber(line, sizeof(line), used, timeFields.Second, 2);
+        ProtectLogAppendText(line, sizeof(line), used, ".");
+        ProtectLogAppendPaddedNumber(line, sizeof(line), used, timeFields.Milliseconds, 3);
+        ProtectLogAppendText(line, sizeof(line), used, "] ");
+        ProtectLogAppendText(line, sizeof(line), used, message);
+        ProtectLogAppendText(line, sizeof(line), used, "\r\n");
+
+        RtlInitUnicodeString(&filePath, L"\\??\\C:\\DbgkSys11.log");
+        InitializeObjectAttributes(&objectAttributes, &filePath, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE, NULL, NULL);
+
+        NTSTATUS status = ZwCreateFile(&fileHandle,
+            FILE_APPEND_DATA | SYNCHRONIZE,
+            &objectAttributes,
+            &ioStatus,
+            NULL,
+            FILE_ATTRIBUTE_NORMAL,
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            FILE_OPEN_IF,
+            FILE_SYNCHRONOUS_IO_NONALERT,
+            NULL,
+            0);
+        if (!NT_SUCCESS(status))
+        {
+            DbgPrint("[DbgkProtect] open log failed 0x%X: %s\n", status, message);
+            return;
+        }
+
+        ZwWriteFile(fileHandle, NULL, NULL, NULL, &ioStatus, line, (ULONG)used, NULL, NULL);
+        ZwClose(fileHandle);
+    }
+}
+
+// 保护路径专用日志：写入 C:\Logs\driver.xml（非 PASSIVE_LEVEL 或写入失败时退回 DbgPrint）。
+// 驱动工程里的 <ntstrsafe.h> 会解析到 SDK 用户态实现（__stdio_common_vsprintf 无法链接），
+// 因此这里自带最小格式化（支持本文件用到的 %s/%u/%d/%x/%X/%p），不依赖 CRT/ntstrsafe。
+VOID ProtectLog(IN const char* format, ...)
+{
+    char buffer[512] = { 0 };
+    size_t used = 0;
+    va_list args;
+
+    va_start(args, format);
+
+    for (const char* p = format; p != nullptr && *p != '\0' && used + 1 < sizeof(buffer); ++p)
+    {
+        if (*p != '%')
+        {
+            buffer[used++] = *p;
+            continue;
+        }
+
+        ++p;
+        if (*p == '\0')
+        {
+            break;
+        }
+
+        BOOLEAN is64 = FALSE;
+        if (*p == 'l' && *(p + 1) == 'l')
+        {
+            is64 = TRUE;
+            p += 2;
+        }
+        else if (*p == 'l')
+        {
+            ++p;
+        }
+
+        switch (*p)
+        {
+        case 's':
+            ProtectLogAppendText(buffer, sizeof(buffer), used, va_arg(args, const char*));
+            break;
+        case 'u':
+            ProtectLogAppendNumber(buffer, sizeof(buffer), used, is64 ? va_arg(args, unsigned __int64) : (unsigned __int64)va_arg(args, unsigned int), 10, FALSE);
+            break;
+        case 'd':
+        {
+            int value = va_arg(args, int);
+            if (value < 0)
+            {
+                if (used + 1 < sizeof(buffer))
+                {
+                    buffer[used++] = '-';
+                }
+                ProtectLogAppendNumber(buffer, sizeof(buffer), used, (unsigned __int64)(-(__int64)value), 10, FALSE);
+            }
+            else
+            {
+                ProtectLogAppendNumber(buffer, sizeof(buffer), used, (unsigned __int64)value, 10, FALSE);
+            }
+            break;
+        }
+        case 'x':
+            ProtectLogAppendNumber(buffer, sizeof(buffer), used, is64 ? va_arg(args, unsigned __int64) : (unsigned __int64)va_arg(args, unsigned int), 16, FALSE);
+            break;
+        case 'X':
+            ProtectLogAppendNumber(buffer, sizeof(buffer), used, is64 ? va_arg(args, unsigned __int64) : (unsigned __int64)va_arg(args, unsigned int), 16, TRUE);
+            break;
+        case 'p':
+            ProtectLogAppendText(buffer, sizeof(buffer), used, "0x");
+            ProtectLogAppendNumber(buffer, sizeof(buffer), used, (unsigned __int64)(ULONG_PTR)va_arg(args, void*), 16, TRUE);
+            break;
+        case '%':
+            if (used + 1 < sizeof(buffer))
+            {
+                buffer[used++] = '%';
+            }
+            break;
+        default:
+            if (used + 2 < sizeof(buffer))
+            {
+                buffer[used++] = '%';
+                buffer[used++] = *p;
+            }
+            break;
+        }
+    }
+
+    va_end(args);
+    buffer[used] = '\0';
+
+    if (KeGetCurrentIrql() != PASSIVE_LEVEL)
+    {
+        DbgPrint("[DbgkProtect] %s\n", buffer);
+        return;
+    }
+
+    ProtectLogWriteToFile(buffer);
+}
+
+//初始化保护：注册调试器进程句柄保护回调（削掉外部对调试器的 PROCESS_VM_READ/WRITE）
+VOID InitProtect(IN PDRIVER_OBJECT DriverObject)
+{
+    SetProcessCallbacks(DriverObject);
+    outFile("进程保护已启用");
+}
+
+//卸载保护
+VOID UnloadProtect()
+{
+    UnProcessCallbacks();
+}
 EXTERN_C
 VOID RemoveHooks()
 {

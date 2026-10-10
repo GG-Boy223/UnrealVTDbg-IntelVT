@@ -1,7 +1,22 @@
 ﻿#include "DebugBreakInternal.h"
 
+namespace
+{
+    SRWLOCK g_hardware_breakpoint_transaction_lock = SRWLOCK_INIT;
+}
+
 namespace DebugBreakInternal
 {
+    HardwareBreakpointTransactionGuard::HardwareBreakpointTransactionGuard() noexcept
+    {
+        AcquireSRWLockExclusive(&g_hardware_breakpoint_transaction_lock);
+    }
+
+    HardwareBreakpointTransactionGuard::~HardwareBreakpointTransactionGuard()
+    {
+        ReleaseSRWLockExclusive(&g_hardware_breakpoint_transaction_lock);
+    }
+
     namespace
     {
         bool SameBreakpointIdentity(
@@ -99,9 +114,14 @@ namespace DebugBreakInternal
                     oldBreakpoint.debugRw,
                     oldBreakpoint.debugLen))
                 {
-                    logger.Log("硬件断点事务回滚失败: dr%d addr=0x%llX",
+                    logger.Log("硬件断点事务回滚失败: errorCode=1004, dr=%d, addr=0x%llX, cr3=0x%llX, pid=%u, watchid=%d, rw=%d, len=%d",
                         oldBreakpoint.debugRegister,
-                        oldBreakpoint.Address);
+                        oldBreakpoint.Address,
+                        oldBreakpoint.cr3,
+                        oldBreakpoint.pid,
+                        oldBreakpoint.watchid,
+                        oldBreakpoint.debugRw,
+                        oldBreakpoint.debugLen);
                 }
             }
         }
@@ -114,6 +134,8 @@ namespace DebugBreakInternal
             // 处理打开进程失败的情况
             return false;
         }
+
+        HardwareBreakpointTransactionGuard transactionGuard;
 
         bool desired[kDebugRegisterCount] = {};
         ULONG64 addresses[kDebugRegisterCount] = {};
@@ -197,6 +219,8 @@ namespace DebugBreakInternal
             return false;
         }
 
+        HardwareBreakpointTransactionGuard transactionGuard;
+
         bool desired[kDebugRegisterCount] = {};
         ULONG64 addresses[kDebugRegisterCount] = {};
         unsigned __int64 commands[kDebugRegisterCount] = {};
@@ -222,7 +246,10 @@ namespace DebugBreakInternal
                 // 保留/废弃）。此类断点无法用 EPT 表达，明确记为不同步而不是静默忽略。
                 if (rwCode != WATCH_EXECUTION_ONLY)
                 {
-                    logger.Log("不支持的硬件断点类型: dr%d rw=%d dr7=0x%llX", i, rwCode, dr7);
+                    logger.Log("不支持的硬件断点类型: errorCode=1002, dr=%d, rw=%d, dr7=0x%llX",
+                        i,
+                        rwCode,
+                        dr7);
                     return false;
                 }
                 continue;
@@ -245,7 +272,7 @@ namespace DebugBreakInternal
             if (originalCount >= kDebugRegisterCount)
             {
                 BreakpointList.UnLock();
-                logger.Log("硬件断点本地记录超过 DR0-DR3 容量，拒绝执行非事务同步");
+                logger.Log("硬件断点本地记录超过 DR0-DR3 容量，拒绝执行非事务同步: errorCode=1003");
                 return false;
             }
 
@@ -289,14 +316,24 @@ namespace DebugBreakInternal
             const BREAKPOINT_RECORD& oldBreakpoint = stale[index];
             if (!DeleteBreakpointFromDriver(oldBreakpoint))
             {
-                logger.Log("移除硬件断点驱动返回失败，事务中止并恢复已有变更");
+                logger.Log("移除硬件断点驱动返回失败，事务中止并恢复已有变更: errorCode=1004, dr=%d, addr=0x%llX, cr3=0x%llX, pid=%u, watchid=%d",
+                    oldBreakpoint.debugRegister,
+                    oldBreakpoint.Address,
+                    oldBreakpoint.cr3,
+                    oldBreakpoint.pid,
+                    oldBreakpoint.watchid);
                 RollbackRemovedBreakpoints(removed, removedCount);
                 return false;
             }
 
             if (!EraseLocalBreakpoint(oldBreakpoint))
             {
-                logger.Log("硬件断点驱动已删除但本地记录未找到: dr%d", oldBreakpoint.debugRegister);
+                logger.Log("硬件断点驱动已删除但本地记录未找到: errorCode=1001, dr=%d, addr=0x%llX, cr3=0x%llX, pid=%u, watchid=%d",
+                    oldBreakpoint.debugRegister,
+                    oldBreakpoint.Address,
+                    oldBreakpoint.cr3,
+                    oldBreakpoint.pid,
+                    oldBreakpoint.watchid);
             }
             removed[removedCount++] = oldBreakpoint;
         }
@@ -318,7 +355,11 @@ namespace DebugBreakInternal
                 rwCodes[i],
                 lenCodes[i]))
             {
-                logger.Log("添加硬件断点失败，事务回滚: dr%d addr=0x%llX", i, addresses[i]);
+                logger.Log("添加硬件断点失败，事务回滚: errorCode=1004, dr=%d, addr=0x%llX, command=0x%llX, len=%d",
+                    i,
+                    addresses[i],
+                    commands[i],
+                    lengths[i]);
 
                 for (int rollback = addedCount - 1; rollback >= 0; --rollback)
                 {
@@ -328,7 +369,12 @@ namespace DebugBreakInternal
                     }
                     else
                     {
-                        logger.Log("回滚新硬件断点失败: dr%d", added[rollback].debugRegister);
+                        logger.Log("回滚新硬件断点失败: errorCode=1004, dr=%d, addr=0x%llX, cr3=0x%llX, pid=%u, watchid=%d",
+                            added[rollback].debugRegister,
+                            added[rollback].Address,
+                            added[rollback].cr3,
+                            added[rollback].pid,
+                            added[rollback].watchid);
                     }
                 }
 
@@ -346,7 +392,11 @@ namespace DebugBreakInternal
                 lenCodes[i],
                 &installed))
             {
-                logger.Log("硬件断点安装成功但本地记录未找到: dr%d", i);
+                logger.Log("硬件断点安装成功但本地记录未找到: errorCode=1001, dr=%d, addr=0x%llX, command=0x%llX, len=%d",
+                    i,
+                    addresses[i],
+                    commands[i],
+                    lengths[i]);
 
                 for (int rollback = addedCount - 1; rollback >= 0; --rollback)
                 {

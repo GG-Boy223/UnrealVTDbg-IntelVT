@@ -264,6 +264,24 @@ namespace ept
 			return false;
 		}
 
+		// 与 ept_watch_activate_internal 同一不变量：函数 hook 页与 watch 页
+		// 不能共存于同一 PFN，否则两条记录会争用同一 EPT PTE 并互相遮蔽。
+		__ept_hooked_page_info* conflicting_hook_page =
+			ept::acquire_page_hot_reference(
+				ept_state,
+				GET_PFN(physical_address),
+				EPTO_HOOK_FUNCTION);
+		if (conflicting_hook_page != nullptr)
+		{
+			ept::release_page_hot_reference(ept_state, conflicting_hook_page);
+			if (failure_detail != nullptr)
+			{
+				*failure_detail = EPT_WATCH_DETAIL_OPTION_CONFLICT;
+			}
+			LogError("目标页已有函数 EPT hook，拒绝叠加 INT3 watch");
+			return false;
+		}
+
 		__ept_hooked_page_info* existing_hooked_page_info =
 			ept::acquire_page_hot_reference(
 				ept_state,

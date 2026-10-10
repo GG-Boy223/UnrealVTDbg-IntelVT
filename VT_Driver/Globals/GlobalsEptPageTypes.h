@@ -149,7 +149,7 @@ struct __ept_dynamic_split // 将 2MB PDE 拆分为 512 个 PTE
 
     __ept_pde* entry; // 指向被拆分的原 PDE 条目，后续合并回 2MB 页时要写回这里
 
-    LIST_ENTRY dynamic_split_list; // 预留链表节点（当前方案不依赖此链表）
+    LIST_ENTRY dynamic_split_list; // 拆分链表节点：挂在 __ept_state.split_list 上，get_pml1_entry 按 entry==PDE 定位 PML1
 
     volatile long ref_count; // 运行期引用计数：有多少"hook/watch 页面记录"正在使用这个 split
 

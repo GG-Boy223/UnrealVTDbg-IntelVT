@@ -38,6 +38,11 @@ void set_exit_control(__vmx_exit_control& exit_control) // 设置 VM-exit 控制
     exit_control.host_address_space_size = true; // 宿主为 64 位模式
     // VM-exit 时是否加载 IA32_PERF_GLOBAL_CTRL
     exit_control.load_ia32_perf_global_control = true; // 确保宿主性能计数控制正确恢复
+    // VM-entry 的 load IA32_PERF_GLOBAL_CTRL（entry control bit 13）会装载
+    // guest 影子，这里必须配对启用 save（exit control bit 30）：支持的 CPU 上
+    // 由硬件把 guest 值写回 GUEST_PERF_GLOBAL_CONTROL。不支持的 CPU 由
+    // ajdust_controls 清除该位，改由 MSR 位图 + VmExitMsr 影子路径维护。
+    exit_control.save_ia32_perf_global_ctl = true; // 保存 guest 性能计数控制
     // VM-exit 时是否确认外部中断
     exit_control.acknowledge_interrupt_on_exit = true; // 允许宿主接收外部中断
     // VM-exit 时是否保存 IA32_PAT

@@ -318,6 +318,7 @@ struct __ept_state // EPT 状态（每 VCPU 一份）
 {
     LIST_ENTRY hooked_page_list;  //hook页列表   被hook的页面会被加入到该列表
     LIST_ENTRY retired_page_list; // 待回收页记录列表
+    LIST_ENTRY split_list;        // 2MB->4KB 拆分记录链表：key 为 split->entry(PDE指针)，用于定位 PML1 VA，避免 MmGetVirtualForPhysical 反查
     __eptp* ept_pointer; // EPTP 指针
     __vmm_ept_page_table* ept_page_table;  //ept页表
     __ept_pde** pml2_pages; // flat PDPT 索引到 PD 页的映射，支持超过 512GB 的 GPA

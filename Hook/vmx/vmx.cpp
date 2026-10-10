@@ -31,7 +31,7 @@ bool vmcall_internal(PVOID vmcallinfo) // 执行用户态到 VMM 的 VMCALL，�
     }
     __except (ecode = GetExceptionCode(), 1)
     {
-        logger.Log("执行vmcall时遇到了错误 (error: 0x%x)", ecode); // 未进入 VT 或 VMM 未接管时记录异常，不让 Hook DLL 崩溃宿主进程。
+        logger.Log("执行 VMCALL 失败: sehCode=0x%08lX", static_cast<unsigned long>(ecode)); // 未进入 VT 或 VMM 未接管时记录异常，不让 Hook DLL 崩溃宿主进程。
     }
     //SYSTEM_INFO SysInfo = { 0 };
     //GetSystemInfo(&SysInfo);

@@ -39,6 +39,34 @@ BOOLEAN InitWin32kbaseSymbolsTable()
 }
 
 
+namespace
+{
+    // 不能把 __try 放进 NewValidateHwnd：该函数含 DbgkRuntimeCallGuard（有析构函数），
+    // MSVC 会报 C2712。helper 内部只用 POD。
+    BOOLEAN TryIsDebuggerWindow(PWND pwnd)
+    {
+        BOOLEAN isDebuggerWindow = FALSE;
+
+        __try
+        {
+            if (pwnd != NULL && pwnd->head.pti != NULL)
+            {
+                PEPROCESS Process = PsGetThreadProcess((PETHREAD)pwnd->head.pti->pEThread);
+                if (Process != NULL)
+                {
+                    isDebuggerWindow = IsDebugger(Process);
+                }
+            }
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER)
+        {
+            isDebuggerWindow = FALSE;
+        }
+
+        return isDebuggerWindow;
+    }
+}
+
 PWND NewValidateHwnd(_In_ HWND hwnd)
 {
     DbgkRuntimeCallGuard runtimeGuard;
@@ -54,11 +82,9 @@ PWND NewValidateHwnd(_In_ HWND hwnd)
         //判断当前调用者是否是调试器进程
         if (!IsDebugger(PsGetCurrentProcess()))
         {
-            //根据线程对象获得进程对象
-            PEPROCESS Process = PsGetThreadProcess((PETHREAD)pwnd->head.pti->pEThread);
-
             //判断要访问的目标窗口是否是我们调试器的窗口
-            if (IsDebugger(Process))
+            //（head.pti 可能为空/失效，helper 内已做空判 + SEH 保护）
+            if (TryIsDebuggerWindow(pwnd))
             {
                 //获取当前调用进程
                 WCHAR SubStr[256] = { 0 };

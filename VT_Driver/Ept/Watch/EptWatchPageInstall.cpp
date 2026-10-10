@@ -94,6 +94,11 @@ namespace ept
         if (!has_effective_int3)
         {
             hooked_page_info->changed_entry.page_frame_number = 0;
+            // 最后一个 INT3 消失后页面仍可能保留其它 watch；此时原页不再拦写，
+            // 伪页快照会随 guest 写入而过期。必须在无有效 INT3 的收敛点显式失效，
+            // 下一次挂 INT3 时才会整页重新同步。
+            hooked_page_info->fake_page_synced = false;
+            hooked_page_info->fake_page_needs_full_sync = true;
         }
     }
 
@@ -115,6 +120,25 @@ namespace ept
                 *failure_detail = EPT_WATCH_DETAIL_PHYSICAL_ADDRESS;
             }
             LogError("请求的虚拟内存在物理内存中不存在");
+            return false;
+        }
+
+        // 同一 PFN 只允许一条 EPT 页记录。函数 hook 与 watch 各自维护
+        // changed_entry/original_entry 与伪页内容，两条记录会相互遮蔽并竞争同一条
+        // EPT PTE，导致另一类事件无法分派。这里在安装入口拒绝跨类型叠加。
+        __ept_hooked_page_info* conflicting_hook_page =
+            ept::acquire_page_hot_reference(
+                ept_state,
+                GET_PFN(physical_address),
+                EPTO_HOOK_FUNCTION);
+        if (conflicting_hook_page != nullptr)
+        {
+            ept::release_page_hot_reference(ept_state, conflicting_hook_page);
+            if (failure_detail != nullptr)
+            {
+                *failure_detail = EPT_WATCH_DETAIL_OPTION_CONFLICT;
+            }
+            LogError("目标页已有函数 EPT hook，拒绝叠加 watch");
             return false;
         }
 

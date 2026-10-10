@@ -59,6 +59,7 @@ void SetHardwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
         &numElements);
     if (aucPlainText == nullptr)
     {
+        output->errorCode = 520;
         return;
     }
 
@@ -87,6 +88,10 @@ bool DeleteHardwareBreakpoint(PBREAKPOINT_RECORD Breakpoint)
     if (Breakpoint == NULL || Breakpoint->watchid < 0)
     {
         //outLog("DispatchOffsetToHost 密钥错误 : 0x%llX\n", verifyKey);
+        if (Breakpoint != NULL)
+        {
+            Breakpoint->errorCode = 99;
+        }
         return false;
     }
 
@@ -99,7 +104,13 @@ bool DeleteHardwareBreakpoint(PBREAKPOINT_RECORD Breakpoint)
     vmcallinfo.watchid = Breakpoint->watchid;
     vmcallinfo.CPUCount = Breakpoint->CPUCount;
 
-    return current_vmcall(&vmcallinfo);
+    const bool success = current_vmcall(&vmcallinfo);
+    Breakpoint->errorCode = success ? 0 : vmcallinfo.errorCode;
+    if (!success && Breakpoint->errorCode == 0)
+    {
+        Breakpoint->errorCode = 91;
+    }
+    return success;
 }
 
 //移除硬件断点
@@ -107,8 +118,8 @@ void RemoveHardwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
 {
     USER_DATA user = GetUserData(userData);
 
-    DWORD* output = (DWORD*)pIrp->AssociatedIrp.SystemBuffer; //内核的缓冲区，输入输出都用的这个
-    RtlZeroMemory(output, sizeof(DWORD));
+    PHOOK_DEBUG_RESULT output = (PHOOK_DEBUG_RESULT)pIrp->AssociatedIrp.SystemBuffer; //内核的缓冲区，输入输出都用的这个
+    RtlZeroMemory(output, sizeof(HOOK_DEBUG_RESULT));
 
     size_t numElements = 0;
     UCHAR* aucPlainText = AllocateAndDecryptUserRecords(
@@ -117,6 +128,8 @@ void RemoveHardwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
         &numElements);
     if (aucPlainText == nullptr)
     {
+        output->status = 520;
+        output->errorCode = 520;
         return;
     }
 
@@ -127,11 +140,13 @@ void RemoveHardwareBreakpoint(IN PUSER_DATA userData, IN PIRP pIrp)
 
         if (DeleteHardwareBreakpoint(pInfo))
         {
-            *output = 1998; //成功
+            output->status = 1998; //成功
+            output->errorCode = pInfo->errorCode;
         }
         else
         {
-            *output = 520; //失败
+            output->status = 520; //失败
+            output->errorCode = pInfo->errorCode;
         }
         break;
     }

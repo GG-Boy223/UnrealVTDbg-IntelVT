@@ -35,3 +35,12 @@ VOID Hook_NtUserSetWindowsHookEx()
         HookEptRoutine(Sys_NtUserSetWindowsHookEx, NewNtUserSetWindowsHookEx, (PVOID*)&Original_NtUserSetWindowsHookEx, "NtUserSetWindowsHookEx", "NtUserSetWindowsHookEx");
     }
 }
+
+EXTERN_C
+VOID Hook_NtUserGetClassName()
+{
+    if (g_IsInitGlobalVariable)
+    {
+        HookEptRoutine(Sys_NtUserGetClassName, NewNtUserGetClassName, (PVOID*)&Original_NtUserGetClassName, "NtUserGetClassName", "NtUserGetClassName");
+    }
+}

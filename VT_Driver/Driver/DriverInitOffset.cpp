@@ -53,7 +53,22 @@ bool InitOffset(PWINDOWS_STRUCT vmcallinfo, unsigned __int64 verifyKey) // 从�
         return false;
     }
 
-    if (tmp_vmcallinfo.ethread_offset_Cid == 0)
+    if (tmp_vmcallinfo.magic != WINDOWS_OFFSET_MAGIC ||
+        tmp_vmcallinfo.version != WINDOWS_OFFSET_VERSION ||
+        tmp_vmcallinfo.size != sizeof(WINDOWS_STRUCT) ||
+        (tmp_vmcallinfo.source != WINDOWS_OFFSET_SOURCE_WIN10 &&
+            tmp_vmcallinfo.source != WINDOWS_OFFSET_SOURCE_WIN11))
+    {
+        g_InitOffsetLastCid = 0;
+        g_InitOffsetLastDirectoryTableBase = 0;
+        g_InitOffsetLastMessage = "InitOffset 失败：WINDOWS_STRUCT 协议版本不匹配";
+        InterlockedExchange(&g_InitOffsetLogPending, 1);
+        return false;
+    }
+
+    if (tmp_vmcallinfo.ethread_offset_Cid == 0 ||
+        tmp_vmcallinfo.ethread_offset_Cid == WINDOWS_OFFSET_INVALID ||
+        tmp_vmcallinfo.ethread_offset_Cid > WINDOWS_OFFSET_REASONABLE_MAX)
     {
         g_InitOffsetLastCid = 0;
         g_InitOffsetLastDirectoryTableBase = 0;
@@ -157,7 +172,29 @@ bool InitOffset(PWINDOWS_STRUCT vmcallinfo, unsigned __int64 verifyKey) // 从�
         return false;
     }
 
-    if (tmp_vmcallinfo.command != VMCALL_INIT_OFFSET || tmp_vmcallinfo.ethread_offset_Cid == 0)
+    if (tmp_vmcallinfo.command != VMCALL_INIT_OFFSET)
+    {
+        return false;
+    }
+
+    // 协议版本闸门：Win10/Win11 的 DbgkSys 都会填充 WINDOWS_STRUCT 的
+    // magic/version/size/source。版本不匹配时字段布局/语义可能不同，
+    // 必须拒绝握手，禁止把错误偏移静默装进 VMM（旧逻辑只校验 verifyKey/command）。
+    if (tmp_vmcallinfo.magic != WINDOWS_OFFSET_MAGIC ||
+        tmp_vmcallinfo.version != WINDOWS_OFFSET_VERSION ||
+        tmp_vmcallinfo.size != sizeof(WINDOWS_STRUCT) ||
+        (tmp_vmcallinfo.source != WINDOWS_OFFSET_SOURCE_WIN10 &&
+            tmp_vmcallinfo.source != WINDOWS_OFFSET_SOURCE_WIN11))
+    {
+        outFile("InitOffset 失败：WINDOWS_STRUCT 协议版本不匹配。\n");
+        return false;
+    }
+
+    // Cid 是本握手中唯一必需的偏移：必须落在协议允许范围内，
+    // 避免 GuestCurrentThreadCid() 用损坏偏移解引用 ETHREAD。
+    if (tmp_vmcallinfo.ethread_offset_Cid == 0 ||
+        tmp_vmcallinfo.ethread_offset_Cid == WINDOWS_OFFSET_INVALID ||
+        tmp_vmcallinfo.ethread_offset_Cid > WINDOWS_OFFSET_REASONABLE_MAX)
     {
         return false;
     }

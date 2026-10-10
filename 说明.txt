@@ -1,14 +1,14 @@
 项目说明
-自建 Intel VT 调试器，可通过 CE、x64dbg、x32dbg 等工具调试，支持 EPT、INT3 软件断点、查找地址访问及各类调试功能，请逐行扫描全部代码，梳理完整逻辑，逐个修复 Bug 并提升稳定性，可使用浏览器等一切工具辅助。
+自建 Intel VT 调试器，可通过 CE、x64dbg、x32dbg 等工具调试，支持 EPT、INT3 软件断点、硬件断点，查找地址访问及各类调试功能
 
 目标平台范围
 CPU
 Intel 酷睿 i3-i9：第 8 代至第 14 代
 Intel 酷睿 X 系列：全系
-Intel 酷睿 Ultra 系列：全系（含 1 代 Meteor Lake、2 代 Arrow Lake、3 代 Panther Lake）
-Intel Xeon E 系列：支持 VT-x 与 EPT，底层与酷睿一致，但个人用户占比极低，不纳入主力覆盖，仅按标准 VT-x 路径处理，不承诺兼容性
+Intel 酷睿 Ultra 系列：全系
+Intel Xeon E 系列
 排除：Atom E 系列
-第 7 代及更早：仅作“尽力兼容”
+
 
 系统版本：
 Win10 22H2

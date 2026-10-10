@@ -19,9 +19,14 @@ namespace ept
 	}
 
 	//设置隐形软件断点-多页监控
-	bool set_hide_software_breakpoint(PVT_BREAK_POINT vmcallinfo)
+	bool set_hide_software_breakpoint(__vcpu* vcpu, PVT_BREAK_POINT vmcallinfo)
 	{
 		VT_BREAK_POINT tmp_vmcallinfo = { 0 }; // 本地缓冲保存断点请求
+
+		if (vcpu == nullptr || vcpu->ept_state == nullptr)
+		{
+			return false;
+		}
 
 		if (sizeof(VT_BREAK_POINT) != hv::read_guest_virtual_memory(vmcallinfo, &tmp_vmcallinfo, sizeof(VT_BREAK_POINT))) // 读取来宾断点参数
 		{
@@ -45,8 +50,8 @@ namespace ept
 		unsigned __int64 va = tmp_vmcallinfo.VirtualAddress;
 		unsigned __int64 left = tmp_vmcallinfo.Size;
 		int ids[EPTWATCHLISTSIZE] = { 0 };
-		unsigned __int64 committed_cpu_masks[EPTWATCHLISTSIZE] = { 0 };
 		int id_count = 0;
+		int committed_count = 0;
 		int firstID = -1;
 		unsigned __int64 first_phys = 0;
 		int failureCode = 520;
@@ -71,6 +76,11 @@ namespace ept
 				goto rollback;
 			}
 
+			VT_BREAK_POINT page_info = tmp_vmcallinfo;
+			page_info.VirtualAddress = va;
+			page_info.Size = static_cast<int>(chunk);
+			page_info.PhysicalAddress = physical_address;
+
 			spinlock::lock(&eptWatchList_lock);
 			int existingID = find_existing_int3_watch_id_locked(va, physical_address);
 			if (existingID != -1)
@@ -80,10 +90,22 @@ namespace ept
 					firstID = existingID;
 					first_phys = eptWatchList[existingID].PhysicalAddress;
 				}
+				spinlock::unlock(&eptWatchList_lock);
+
+				// HvVmxCore 式：已有 watch（其它核先建），只为当前核应用 hide。
+				int hide_detail = EPT_WATCH_DETAIL_NONE;
+				if (!hide_cc_breakpoint(*vcpu->ept_state, page_info, physical_address, EPTW_READWRITE, &hide_detail))
+				{
+					failureCode = ept_watch_detail_error(hide_detail);
+					if (failureCode == 0)
+					{
+						failureCode = 102;
+					}
+					goto rollback;
+				}
 
 				va += chunk;
 				left -= chunk;
-				spinlock::unlock(&eptWatchList_lock);
 				continue;
 			}
 			spinlock::unlock(&eptWatchList_lock);
@@ -93,6 +115,7 @@ namespace ept
 				tmp_vmcallinfo.cr3,
 				va,
 				physical_address,
+				tmp_vmcallinfo.pid,
 				&tracker_detail);
 			if (tracker_id == kInvalidCr3TrackerId)
 			{
@@ -129,6 +152,7 @@ namespace ept
 
 			eptWatchList[ID].Size = static_cast<int>(chunk);
 			eptWatchList[ID].cr3 = tmp_vmcallinfo.cr3;
+			eptWatchList[ID].pid = tmp_vmcallinfo.pid;
 			eptWatchList[ID].VirtualAddress = va;
 			eptWatchList[ID].PhysicalAddress = physical_address;
 			eptWatchList[ID].LoopUserMode = tmp_vmcallinfo.LoopUserMode;
@@ -141,22 +165,10 @@ namespace ept
 			eptWatchList[ID].inuse = EPT_WATCH_INSTALLING;
 			spinlock::unlock(&eptWatchList_lock);
 
-			VT_BREAK_POINT page_info = tmp_vmcallinfo;
-			page_info.VirtualAddress = va;
-			page_info.Size = static_cast<int>(chunk);
-			page_info.PhysicalAddress = physical_address;
-
-			// Guest 整页读取、split、pool 和跨 VCPU commit 均在表锁外执行。
+			// HvVmxCore 式：只改当前核自己的 EPT。
 			int hide_detail = EPT_WATCH_DETAIL_NONE;
-			for (unsigned int i = 0; i < cpu_count; i++)
+			if (!hide_cc_breakpoint(*vcpu->ept_state, page_info, physical_address, EPTW_READWRITE, &hide_detail))
 			{
-				__vcpu* vcpu = &g_vmm_context.vcpu[i];
-				if (hide_cc_breakpoint(*vcpu->ept_state, page_info, physical_address, EPTW_READWRITE, &hide_detail))
-				{
-					committed_cpu_masks[id_count - 1] |= 1ull << i;
-					continue;
-				}
-
 				failureCode = ept_watch_detail_error(hide_detail);
 				if (failureCode == 0)
 				{
@@ -164,6 +176,7 @@ namespace ept
 				}
 				goto rollback;
 			}
+			committed_count++;
 
 			va += chunk;
 			left -= chunk;
@@ -186,22 +199,13 @@ namespace ept
 			entry = eptWatchList[ID];
 			spinlock::unlock(&eptWatchList_lock);
 
-			for (unsigned int cpu = 0; cpu < cpu_count; cpu++)
+			if (!commit_hide_cc_breakpoint(
+				*vcpu->ept_state,
+				entry.VirtualAddress,
+				entry.PhysicalAddress))
 			{
-				if ((committed_cpu_masks[index] & (1ull << cpu)) == 0)
-				{
-					continue;
-				}
-
-				__vcpu* vcpu = &g_vmm_context.vcpu[cpu];
-				if (!commit_hide_cc_breakpoint(
-					*vcpu->ept_state,
-					entry.VirtualAddress,
-					entry.PhysicalAddress))
-				{
-					failureCode = ept_watch_detail_error(EPT_WATCH_DETAIL_COMMIT);
-					goto rollback;
-				}
+				failureCode = ept_watch_detail_error(EPT_WATCH_DETAIL_COMMIT);
+				goto rollback;
 			}
 		}
 
@@ -234,15 +238,9 @@ namespace ept
 			}
 			spinlock::unlock(&eptWatchList_lock);
 
-			for (unsigned int cpu = cpu_count; cpu > 0; cpu--)
+			// HvVmxCore 式：只回滚当前核；未 commit 的最后一个条目只清记录，不回滚 EPT。
+			if (index < committed_count)
 			{
-				const unsigned int cpu_index = cpu - 1;
-				if ((committed_cpu_masks[index] & (1ull << cpu_index)) == 0)
-				{
-					continue;
-				}
-
-				__vcpu* vcpu = &g_vmm_context.vcpu[cpu_index];
 				if (!ept_watch_deactivate_internal(vcpu,
 					*vcpu->ept_state,
 					entry.VirtualAddress,
@@ -253,12 +251,7 @@ namespace ept
 					has,
 					ID))
 				{
-					KeBugCheckEx(
-						0x00020001,
-						0x45505457,
-						4,
-						ID,
-						cpu_index);
+					KeBugCheckEx(0x00020001, 0x45505457, 4, ID, 0);
 				}
 			}
 

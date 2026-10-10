@@ -195,8 +195,11 @@ NTSTATUS NewObpReferenceObjectByHandleWithTag(HANDLE Handle,
                         }
                     }
 
+                    // 拒绝调用方前必须先归还 Original_ObpReferenceObjectByHandleWithTag
+                    // 刚刚取得的对象引用：只清空输出会让进程对象 PointerCount 永久 +1，
+                    // 每个被拒绝的打开请求都会泄漏一次引用，目标进程对象到驱动卸载前无法释放。
+                    ObDereferenceObject(*(PEPROCESS*)Object);
                     *(PEPROCESS*)Object = NULL;
-                    // *(PEPROCESS*)Object = NULL;
                     ntStatus = STATUS_UNSUCCESSFUL;
                 }
             }

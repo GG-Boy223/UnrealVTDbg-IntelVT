@@ -1,4 +1,4 @@
-#include "Cr3Internal.h"
+﻿#include "Cr3Internal.h"
 
 namespace
 {
@@ -204,9 +204,7 @@ NTSTATUS Cr3ResolveProcess(
     CR3_PROCESS_PROBE probe = { 0 };
     if (!Cr3BuildProcessProbe(process, &probe))
     {
-        DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL,
-            "[UnrealDbg][CR3] target probe capture failed pid=%p\n",
-            PsGetProcessId(process));
+        //DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL,"[UnrealDbg][CR3] target probe capture failed pid=%p\n",PsGetProcessId(process));
         return STATUS_NOT_FOUND;
     }
 
@@ -256,21 +254,13 @@ NTSTATUS Cr3ResolveProcess(
     }
     if (candidate == 0)
     {
-        DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL,
-            "[UnrealDbg][CR3] resolve failed pid=%p scanned=%llu\n",
-            probe.processId,
-            scannedPages);
+        //DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "[UnrealDbg][CR3] resolve failed pid=%p scanned=%llu\n",probe.processId,scannedPages);
         return STATUS_NOT_FOUND;
     }
 
     CacheUpdate(&probe, candidate);
     *resolvedCr3 = candidate;
-    DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL,
-        "[UnrealDbg][CR3] resolved pid=%p cr3=%llx source=%s scanned=%llu\n",
-        probe.processId,
-        candidate,
-        SourceName(source),
-        scannedPages);
+    //DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL,"[UnrealDbg][CR3] resolved pid=%p cr3=%llx source=%s scanned=%llu\n", probe.processId, candidate, SourceName(source),scannedPages);
     return STATUS_SUCCESS;
 }
 

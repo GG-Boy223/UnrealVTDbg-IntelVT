@@ -1,4 +1,4 @@
-#include "OpenProcessDebugPort.h"
+﻿#include "OpenProcessDebugPort.h"
 #include "DebugObjectCommonInternal.h"
 
 EXTERN_C
@@ -13,7 +13,7 @@ NTSTATUS DbgkOpenProcessDebugPort(
     UNREFERENCED_PARAMETER(PreviousMode);
     UNREFERENCED_PARAMETER(DebugHandle);
 
-    DbgPrint("\xB5\xF7\xD3\xC3\xC1\xCB\xD5\xE2\xB8\xF6\xBA\xAF\xCA\xFD");
+    DbgPrint("调用了这个函数");
 
     return STATUS_PORT_NOT_SET;
 }

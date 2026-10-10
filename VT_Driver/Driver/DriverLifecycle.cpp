@@ -106,7 +106,6 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
     UNREFERENCED_PARAMETER(RegistryPath); // 标记未直接使用的参数，避免编译告警
 
     //InitializeSerialPort();
-    sLog("[VT] start \n"); // 输出一条空行日志，用于分隔启动日志
     outFile("========== VT加载开始：DriverEntry ==========");
 
     g_vt_driver_image_base = DriverObject->DriverStart; // 记录驱动镜像范围，后续补映射Host关键代码页，不作为VT进入条件。
@@ -118,7 +117,6 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
 
     DriverObject->DriverUnload = Unload; // 注册卸载回调，驱动卸载时执行清理
     //KdPrint(("DriverEntry!!!\n"));
-    //KdPrint(("DriverEntry!!!\n")); // 内核调试输出，提示入口被调用
     outDebug(("进入 DriverEntry!!!\n")); // 内核调试输出，提示入口被调用
 
 #ifdef _DEBUG_Key_Log
@@ -156,7 +154,6 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
         if (!hv::virtualization_support())
         {
             outFile("[失败] 当前处理器不支持或未开启VMX虚拟化");
-            outDebug("VMX operation is not supported on this processor.\n");
             return DriverEntryFailure(STATUS_UNSUCCESSFUL); // 返回失败状态
         }
         outFile("[成功] VMX虚拟化支持检查通过");
@@ -164,7 +161,6 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
         if (!hv::required_vmx_capabilities_supported())
         {
             outFile("[失败] 当前处理器缺少本实现所需的EPT/VPID能力");
-            outDebug("Required EPT/VPID capabilities are not supported.\n");
             return DriverEntryFailure(STATUS_NOT_SUPPORTED);
         }
 
@@ -177,18 +173,15 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
             outFile("[失败] VMM初始化失败，开始清理VT上下文");
             hv::disable_vmx_operation();
             free_vmm_context(); // 释放VMM上下文和已分配资源
-            outDebug("VMM 初始化失败"); // 输出初始化失败提示
             outFile("========== VT加载失败：VMM初始化失败 ==========");
             return DriverEntryFailure(STATUS_UNSUCCESSFUL); // 返回失败状态
         }
         outFile("[成功] VMM初始化完成，所有目标CPU已进入VT链路");
-        outDebug("驱动加载成功!!!\n"); // 输出驱动加载成功提示
         outFile("========== VT加载成功：DriverEntry完成 ==========");
     }
     else
     {
         nStatus = STATUS_UNSUCCESSFUL; // 记录失败状态码
-        outDebug("驱动加载失败!!!\n"); // 输出驱动加载失败提示
         outFile("========== VT加载失败：内核符号初始化失败 ==========");
     }
     return NT_SUCCESS(nStatus) ? nStatus : DriverEntryFailure(nStatus); // 返回最终状态给系统

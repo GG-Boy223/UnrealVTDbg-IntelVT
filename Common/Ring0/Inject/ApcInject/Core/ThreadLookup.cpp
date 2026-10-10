@@ -158,6 +158,11 @@ NTSTATUS BBLookupProcessThread(IN PEPROCESS pProcess, OUT PETHREAD* ppThread)
     if (ppThread == NULL)
         return STATUS_INVALID_PARAMETER; // 参数不合法时直接拒绝。
 
+    // OUT 参数必须在入口初始化：下面的循环用 *ppThread 判断当前候选是否已成功引用，
+    // 旧实现依赖调用者预先置 NULL；一旦调用者传入未初始化变量，栈垃圾会被当作线程对象
+    // 参与 BBSkipThread/后续 ObDereferenceObject，属于确定的接口契约缺陷。
+    *ppThread = NULL;
+
     HANDLE pid = PsGetProcessId(pProcess);
     PVOID pBuf = ExAllocatePoolWithTag(NonPagedPool, 1024 * 1024, BB_POOL_TAG);
     PSYSTEM_PROCESS_INFO pInfo = (PSYSTEM_PROCESS_INFO)pBuf;

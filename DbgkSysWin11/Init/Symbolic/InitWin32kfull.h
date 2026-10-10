@@ -14,6 +14,9 @@ HWND NewNtUserFindWindowEx(IN HWND hwndParent,
 //API WindowFromPoint
 HWND NewNtUserWindowFromPoint(POINT Point);
 
+//API GetClassName
+ULONG NewNtUserGetClassName(IN HWND hwnd, IN ULONG bReal, IN PUNICODE_STRING pstrClassName);
+
 //API SetWindowsHookEx
 PVOID NewNtUserSetWindowsHookEx(
     IN PVOID Mod,
