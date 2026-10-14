@@ -64,9 +64,8 @@ namespace hv // Hypervisor 命名空间
 
     void prepare_external_structures(__vcpu* const vcpu); // 初始化宿主外部结构（GDT/IDT/TSS）
     bool prepare_host_page_tables(); // 初始化宿主页表
-    bool ensure_host_page_tables_for_vcpu(__vcpu const* vcpu); // 扩大Host页表覆盖，确保VM-exit关键代码/数据页可翻译
     bool validate_host_page_tables_for_vcpu(__vcpu const* vcpu); // 验证VM-exit宿主路径必需地址在HOST_CR3下可翻译
-    void cleanup_host_page_tables(); // 释放Host页表动态补映射页
+    void cleanup_host_page_tables(); // 清零Host页表状态
     bool get_physical_mapping_va(uint64_t physical_address, void** virtual_address); // 将任意宿主物理地址映射为可访问的内核虚拟地址
 
     void inject_nmi(); // 注入 NMI 到 guest
@@ -90,6 +89,14 @@ namespace hv // Hypervisor 命名空间
 
     // calculate the MTRR memory type for the given physical memory range
     uint8_t calc_mtrr_mem_type(mtrr_data const& mtrrs, uint64_t address, uint64_t size); // 计算范围内内存类型
+
+    // 对齐 HyperDbg EptGetMemoryType：基于 build_mtrr_map 得到的完整 MTRR 范围
+    // （含 fixed/SMRR/variable）做单物理地址点查询，优先级：fixed 优先、UC 优先、WT/WB 重叠取 WT、无覆盖取默认类型。
+    uint8_t calc_mtrr_mem_type_for_address(uint64_t address); // 单物理地址的 MTRR 内存类型
+
+    // 对齐 HyperDbg EptIsValidForLargePage：判断 2MB 大页是否跨 MTRR 范围边界。
+    // 跨边界则无法用单一内存类型描述整个 2MB 页，必须拆成 4KB 逐页设置。
+    bool is_valid_for_large_page(uint64_t address); // 是否可用 2MB 大页
 
     // set the memory type in every EPT paging structure to the specified value
     // 将每个 EPT 分页结构中的内存类型设置为指定值将每个 EPT 分页结构中的内存类型设置为指定值

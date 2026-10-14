@@ -110,6 +110,77 @@ namespace hv
         return curr_mem_type;
     }
 
+    // 对齐 HyperDbg EptGetMemoryType：基于 build_mtrr_map 得到的完整 MTRR 范围
+    // （含 fixed/SMRR/variable）做单物理地址点查询。
+    // 优先级（Intel SDM 12.11.4.1 MTRR Precedences）：
+    //   - fixed-range 命中直接采用（优先于 variable-range）；
+    //   - UC 一旦出现即最终 UC（最高优先级）；
+    //   - WT 与 WB 重叠取 WT，但继续查找是否还有 UC 覆盖；
+    //   - 无覆盖取 default_memory_type。
+    uint8_t calc_mtrr_mem_type_for_address(uint64_t address)
+    {
+        auto const& info = g_vmm_context.mtrr_info;
+        uint8_t target = MEMORY_TYPE_INVALID;
+
+        for (unsigned int i = 0; i < info.enabled_memory_ranges; ++i)
+        {
+            auto const& range = info.memory_range[i];
+            if (address < range.physcial_base_address || address >= range.physcial_end_address)
+            {
+                continue;
+            }
+
+            if (range.fixed_range)
+            {
+                target = range.memory_type;
+                break;
+            }
+
+            if (target == MEMORY_TYPE_UNCACHEABLE)
+            {
+                target = range.memory_type;
+                break;
+            }
+
+            if (target == MEMORY_TYPE_WRITE_THROUGH || range.memory_type == MEMORY_TYPE_WRITE_THROUGH)
+            {
+                if (target == MEMORY_TYPE_WRITE_BACK)
+                {
+                    target = MEMORY_TYPE_WRITE_THROUGH;
+                    continue;
+                }
+            }
+
+            target = range.memory_type;
+        }
+
+        if (target == MEMORY_TYPE_INVALID)
+        {
+            target = info.default_memory_type;
+        }
+        return target;
+    }
+
+    // 对齐 HyperDbg EptIsValidForLargePage：判断 2MB 大页是否跨 MTRR 范围边界。
+    // 跨边界则该 2MB 页内存在多种内存类型，不能用单一类型描述，必须拆 4KB。
+    bool is_valid_for_large_page(uint64_t address)
+    {
+        uint64_t const start = address;
+        uint64_t const end = address + (LARGE_PAGE_SIZE - 1);
+        auto const& info = g_vmm_context.mtrr_info;
+
+        for (unsigned int i = 0; i < info.enabled_memory_ranges; ++i)
+        {
+            auto const& range = info.memory_range[i];
+            if ((start <= range.physcial_end_address && end > range.physcial_end_address) ||
+                (start < range.physcial_base_address && end >= range.physcial_base_address))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
     // set the memory type in every EPT paging structure to the specified value
     // 将每个 EPT 分页结构中的内存类型设置为指定值将每个 EPT 分页结构中的内存类型设置为指定值
     void set_ept_memory_type(__ept_state& ept_state, uint8_t const memory_type)
@@ -120,11 +191,11 @@ namespace hv
             return;
         }
 
-        for (size_t i = 0; i < ept_state.mapped_pdpte_count; ++i)
+        for (size_t i = 0; i < ept_state.pml2_pages_count; ++i)
         {
             if (ept_state.pml2_pages[i] == nullptr)
             {
-                continue; // 该 1GB 区域由 PDPTE 大页直接映射（或按需映射待补），没有 PD 可遍历
+                continue; // 该 1GB 区域由 1GB EPT 大页条目直接映射，没有 PD 可遍历
             }
 
             for (size_t j = 0; j < 512; ++j)
@@ -169,11 +240,11 @@ namespace hv
             return;
         }
 
-        for (size_t i = 0; i < ept_state.mapped_pdpte_count; ++i)
+        for (size_t i = 0; i < ept_state.pml2_pages_count; ++i)
         {
             if (ept_state.pml2_pages[i] == nullptr)
             {
-                continue; // 该 1GB 区域由 PDPTE 大页直接映射，没有 PD 可遍历
+                continue; // 该 1GB 区域由 1GB EPT 大页条目直接映射，没有 PD 可遍历
             }
 
             for (size_t j = 0; j < 512; ++j)
@@ -186,11 +257,7 @@ namespace hv
                 {
                     uint64_t const pde_physical_address =
                         static_cast<uint64_t>(pde.page_directory_entry.page_frame_number) << 21; // 位域先转成64位，避免MSVC在多行实参里解析异常。
-                    pde.page_directory_entry.memory_type = ept::is_physical_range_ram(ept_state,
-                        pde_physical_address,
-                        0x1000ull << 9)
-                        ? MEMORY_TYPE_WRITE_BACK
-                        : MEMORY_TYPE_UNCACHEABLE;
+                    pde.page_directory_entry.memory_type = calc_mtrr_mem_type_for_address(pde_physical_address);
                 }
                 else
                 {
@@ -207,9 +274,7 @@ namespace hv
                     {
                         uint64_t const pte_physical_address =
                             static_cast<uint64_t>(pt[k].page_frame_number) << 12; // 4KB页同样按64位物理地址计算，避免高物理地址截断。
-                        pt[k].memory_type = ept::is_physical_range_ram(ept_state, pte_physical_address, 0x1000)
-                            ? MEMORY_TYPE_WRITE_BACK
-                            : MEMORY_TYPE_UNCACHEABLE;
+                        pt[k].memory_type = calc_mtrr_mem_type_for_address(pte_physical_address);
                     }
                 }
             }

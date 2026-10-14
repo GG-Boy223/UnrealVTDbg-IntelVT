@@ -238,6 +238,7 @@
     <ClCompile Include="Invalidation\invalid_ept.cpp" />
     <ClCompile Include="Invalidation\invalid_pcid.cpp" />
     <ClCompile Include="Invalidation\invalid_vpid.cpp" />
+    <ClCompile Include="Interrupts\NmiBroadcast.cpp" />
     <ClCompile Include="PoolManager\PoolAllocation.cpp" />
     <ClCompile Include="PoolManager\PoolDump.cpp" />
     <ClCompile Include="PoolManager\PoolLifecycle.cpp" />
@@ -303,6 +304,7 @@
     <ClInclude Include="HypervisorGateway\hypervisor_gateway.h" />
     <ClInclude Include="Interrupts\exception.h" />
     <ClInclude Include="Interrupts\interrupt.h" />
+    <ClInclude Include="Interrupts\NmiBroadcast.h" />
     <ClInclude Include="Invalidation\invalid_ept.h" />
     <ClInclude Include="Invalidation\invalid_pcid.h" />
     <ClInclude Include="Invalidation\invalid_vpid.h" />

@@ -5,6 +5,7 @@
 #include "EPT.h" // 包含 EPT 相关结构与函数
 #include "vmexit_handler.h"
 #include "idt.h"
+#include "Interrupts/NmiBroadcast.h"
 
 namespace hv
 {
@@ -67,13 +68,19 @@ namespace hv
 		{			
 		case nmi:  // host NMIs
 		{
+			auto const cpu = reinterpret_cast<__vcpu*>(_readfsbase_u64());
+			// 先处理跨核 NMI 广播（INVEPT）：命中即执行并返回，不再当作 guest NMI 转发。
+			if (hv::handle_nmi_broadcast_action(cpu))
+			{
+				break;
+			}
+
 			//只有在“NMI exiting”以及“virtual-NMIs”都为 1 时，“NMI-window exiting”才能被置位。
 			auto ctrl = read_ctrl_proc_based();
 			ctrl.nmi_window_exiting = 1;
 			write_ctrl_proc_based(ctrl);
 
-			auto const cpu = reinterpret_cast<__vcpu*>(_readfsbase_u64());
-			cpu->queued_nmi = true; // NMI 边沿触发，置位即可，无需计数
+			InterlockedIncrement(&cpu->queued_nmis);
 			sLog("\n");
 			break;
 		}				

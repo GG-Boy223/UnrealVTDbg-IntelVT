@@ -130,11 +130,11 @@ namespace pool_manager
 		if (new_pool == true &&
 			address == nullptr)
 		{
-			// ExAllocatePoolWithTag/MmAllocateContiguousMemory 只能在不高于
-			// DISPATCH_LEVEL 的上下文调用。运行时 EPT 事务通常由 KeGenericCallDpc
-			// 在 IPI_LEVEL 执行；此时禁止在根态同步补充池，直接让调用方看到
-			// 资源耗尽并失败，避免非法 IRQL 分配或长时间阻塞。
-			if (KeGetCurrentIrql() <= DISPATCH_LEVEL)
+			// 只在 PASSIVE_LEVEL（初始化/IOCTL 等非 VM-exit 上下文）同步补充池。
+			// VM-exit/VMCALL 热路径处于 vmx-root 且 IF=0，DISPATCH_LEVEL 下同步执行
+			// ExAllocatePoolWithTag/MmAllocateContiguousMemory 会长时间关闭中断，
+			// 放大 0x101 风险；此时直接让调用方看到资源耗尽并失败，不在这里阻塞。
+			if (KeGetCurrentIrql() == PASSIVE_LEVEL)
 			{
 				(void)request_allocation(size, 1, intention);
 				(void)perform_allocation();

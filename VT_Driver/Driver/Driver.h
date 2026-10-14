@@ -47,10 +47,8 @@ bool InitOffset(PWINDOWS_STRUCT vmcallinfo, unsigned __int64 verifyKey);
 
 PCLIENT_ID GuestCurrentThreadCid();
 
-struct __vcpu;
-
-bool SetBreakpoint(__vcpu* vcpu, PVT_BREAK_POINT vmcallinfo, unsigned __int64 Type);
-bool RemoveBreakpoint(__vcpu* vcpu, PVT_BREAK_POINT vmcallinfo);
+bool SetBreakpoint(PVT_BREAK_POINT vmcallinfo, unsigned __int64 Type);
+bool RemoveBreakpoint(PVT_BREAK_POINT vmcallinfo);
 
 void MyKeBugCheck(
     _In_ ULONG BugCheckCode, // 蓝屏主错误码

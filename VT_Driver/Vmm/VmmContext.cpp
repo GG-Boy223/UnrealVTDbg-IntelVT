@@ -96,7 +96,7 @@ void free_vmm_context() // 释放VMM全局资源与每核VCPU相关内存，避�
 	// 旧逻辑：free_vmm_context直接释放VCPU，VMRESUME失败/Host异常快照会随内存释放丢失。
 	log_vmx_runtime_snapshots(); // 先输出运行期诊断快照；该日志不改变进入VT条件，也不在VM-exit路径执行。
 	VmExitTelemetryDump();
-	hv::cleanup_host_page_tables(); // 释放Host关键页补映射动态页表页；此时VMX已回滚/关闭，不影响VT功能链路。
+	hv::cleanup_host_page_tables(); // 清零 Host 页表状态；此时VMX已回滚/关闭，不影响VT功能链路。
 
 	//if (g_vmm_context != nullptr)
 	{
@@ -322,6 +322,30 @@ bool allocate_vmm_context() // 初始化全局VMM资源，包含每核VCPU与EPT
 	__cpuid((int*)&cpuid_reg.eax, 0); // 读取CPUID最高基础叶，便于后续能力判断
 	g_vmm_context.highest_basic_leaf = cpuid_reg.eax; // 缓存最高叶，避免反复执行CPUID
 	outFile("[信息][VMM上下文] CPUID最高基础叶：0x%X", g_vmm_context.highest_basic_leaf);
+
+	// 必须先扫描全平台 MAXPHYADDR，再构建 EPT：ept::initialize 用 platform_max_physical_end 决定覆盖范围，
+	// 否则高位 MMIO（>RAM 上界）不在 EPT 内，访问即 EPT violation。
+	if (!query_platform_physical_address_limit())
+	{
+		outFile("[失败][VMM上下文] 全平台物理地址上界扫描失败，停止VT加载");
+		return false;
+	}
+
+	// 时序要求：所有 host 模式分配（EPT 页表）必须在复制 Host PML4 内核半区之前完成，
+	// 否则这些分配新占用的内核 PML4 槽不会出现在 Host CR3 里，VMX root 访问即缺页。
+	// EPT 必须在各自逻辑处理器上构建（IA32_VMX_EPT_VPID_CAP 的 1GB 大页、MAXPHYADDR、MTRR 都是每核状态）。
+	for (unsigned int ept_iter = 0; ept_iter < g_vmm_context.processor_count; ept_iter++)
+	{
+		GROUP_AFFINITY ept_orig_affinity = {};
+		KeSetSystemGroupAffinityThread(&g_vmm_context.vcpu[ept_iter].processor_affinity, &ept_orig_affinity);
+		bool const ept_ok = init_vcpu_ept(&g_vmm_context.vcpu[ept_iter]);
+		KeRevertToUserGroupAffinityThread(&ept_orig_affinity);
+		if (!ept_ok)
+		{
+			outFile("[失败][VMM上下文] CPU[%u] EPT页表构建失败，停止VT加载", ept_iter);
+			return false;
+		}
+	}
 
 	//创建host页表,将所有物理内存映射到我们的地址空间
 	outFile("[进行中][VMM上下文] 开始创建Host页表");

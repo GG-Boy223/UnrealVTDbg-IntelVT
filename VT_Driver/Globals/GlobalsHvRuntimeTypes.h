@@ -156,18 +156,6 @@ namespace hv // Hypervisor 命名空间
         // PDs for mapping physical memory
         alignas(0x1000) pde_2mb_64 phys_pds[HOST_PHYSICAL_MEMORY_PD_COUNT][512]; // PDE 表
 
-        unsigned __int32 dynamic_pdpt_count; // Host关键虚拟页补映射：已克隆/新建的PDPT页数量
-        unsigned __int32 dynamic_pd_count; // Host关键虚拟页补映射：已克隆/新建的PD页数量
-        unsigned __int32 dynamic_pt_count; // Host关键虚拟页补映射：已克隆/新建的PT页数量
-        void* dynamic_pdpts[HOST_DYNAMIC_PAGE_TABLE_POOL_COUNT]; // 按PML4索引保存的动态PDPT页
-        unsigned __int16 dynamic_pdpt_pml4_index[HOST_DYNAMIC_PAGE_TABLE_POOL_COUNT]; // dynamic_pdpts对应的PML4索引
-        void* dynamic_pds[HOST_DYNAMIC_PAGE_TABLE_POOL_COUNT]; // 按PML4/PDPT索引保存的动态PD页
-        unsigned __int16 dynamic_pd_pml4_index[HOST_DYNAMIC_PAGE_TABLE_POOL_COUNT]; // dynamic_pds对应的PML4索引
-        unsigned __int16 dynamic_pd_pdpt_index[HOST_DYNAMIC_PAGE_TABLE_POOL_COUNT]; // dynamic_pds对应的PDPT索引
-        void* dynamic_pts[HOST_DYNAMIC_PAGE_TABLE_POOL_COUNT]; // 按PML4/PDPT/PD索引保存的动态PT页
-        unsigned __int16 dynamic_pt_pml4_index[HOST_DYNAMIC_PAGE_TABLE_POOL_COUNT]; // dynamic_pts对应的PML4索引
-        unsigned __int16 dynamic_pt_pdpt_index[HOST_DYNAMIC_PAGE_TABLE_POOL_COUNT]; // dynamic_pts对应的PDPT索引
-        unsigned __int16 dynamic_pt_pd_index[HOST_DYNAMIC_PAGE_TABLE_POOL_COUNT]; // dynamic_pts对应的PD索引
     };
 
     struct hypervisor // Hypervisor 全局对象

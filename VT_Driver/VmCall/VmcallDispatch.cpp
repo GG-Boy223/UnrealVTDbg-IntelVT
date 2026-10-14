@@ -9,6 +9,7 @@
 #include "VmcallDispatch.h"
 #include "../Cr3/Cr3Tracker.h"
 #include "../Ept/EptCommon.h"
+#include "../Interrupts/NmiBroadcast.h"
 
 namespace
 {
@@ -59,6 +60,9 @@ namespace
 				(request.parameter1 != 0 || request.parameter2 != 0);
 
 		case VMCALL_INVEPT_CONTEXT:
+			return IsCurrentEptStateValid(vcpu, true);
+
+		case VMCALL_NMI_BROADCAST_INVEPT:
 			return request.parameter1 != 0 || IsCurrentEptStateValid(vcpu, true);
 
 		case VMCALL_READ_SOFTWARE_BREAKPOINT:
@@ -175,31 +179,46 @@ namespace
 		}
 
 		unsigned char local_buffer[ept::kEptPageSize];
+		bool found = false;
 
 		cr3 guest_cr3;
 		guest_cr3.flags = request.parameter4;
 
-		// HvVmxCore 式：只读当前核自己的 EPT 状态，靠 guest 侧逐核广播覆盖所有核。
-		__ept_hooked_page_info* hooked_page_info =
-			ept::acquire_any_page_hot_reference(
-				*vcpu->ept_state,
-				GET_PFN(physical_address));
-		if (hooked_page_info == nullptr)
+		if (g_vmm_context.vcpu != nullptr && g_vmm_context.processor_count > 0)
 		{
-			return false;
+			for (unsigned __int32 i = 0; i < g_vmm_context.processor_count; ++i)
+			{
+				__ept_state* const ept_state = g_vmm_context.vcpu[i].ept_state;
+				if (ept_state == nullptr)
+				{
+					continue;
+				}
+
+				__ept_hooked_page_info* hooked_page_info =
+					ept::acquire_any_page_hot_reference(
+						*ept_state,
+						GET_PFN(physical_address));
+				if (hooked_page_info == nullptr)
+				{
+					continue;
+				}
+
+				RtlCopyMemory(
+					local_buffer,
+					&hooked_page_info->fake_page_contents[page_offset],
+					static_cast<SIZE_T>(request.parameter3));
+				ept::release_page_hot_reference(*ept_state, hooked_page_info);
+				found = true;
+				break;
+			}
 		}
 
-		RtlCopyMemory(
-			local_buffer,
-			&hooked_page_info->fake_page_contents[page_offset],
-			static_cast<SIZE_T>(request.parameter3));
-		ept::release_page_hot_reference(*vcpu->ept_state, hooked_page_info);
-
-		return request.parameter3 == hv::write_guest_virtual_memory(
-			guest_cr3,
-			(PVOID)request.parameter2,
-			local_buffer,
-			static_cast<SIZE_T>(request.parameter3));
+		return found &&
+			request.parameter3 == hv::write_guest_virtual_memory(
+				guest_cr3,
+				(PVOID)request.parameter2,
+				local_buffer,
+				static_cast<SIZE_T>(request.parameter3));
 	}
 
 	bool ExecuteSoftwareBreakpointBuffer(__vcpu* vcpu, VmcallDispatch::Request const& request)
@@ -215,26 +234,66 @@ namespace
 			return false;
 		}
 
-		// HvVmxCore 式：只改当前核自己的 fake page 内容，靠 guest 侧逐核广播覆盖所有核。
+		bool status = false;
 		if (request.reason == VMCALL_SET_SOFTWARE_BREAKPOINT_BUFFER)
 		{
-			return ept::set_software_breakpoint_buffer(
-				*vcpu->ept_state,
-				request.parameter1,
-				(PVOID)request.parameter2,
-				request.parameter3,
-				request.parameter4);
+			bool updated = false;
+			if (g_vmm_context.vcpu != nullptr && g_vmm_context.processor_count > 0)
+			{
+				for (unsigned __int32 i = 0; i < g_vmm_context.processor_count; ++i)
+				{
+					__ept_state* const ept_state = g_vmm_context.vcpu[i].ept_state;
+					if (ept_state == nullptr)
+					{
+						continue;
+					}
+
+					if (ept::set_software_breakpoint_buffer(
+							*ept_state,
+							request.parameter1,
+							(PVOID)request.parameter2,
+							request.parameter3,
+							request.parameter4))
+					{
+						updated = true;
+					}
+				}
+			}
+
+			// 只有至少一个 EPT 状态对应 fake page 更新成功才算成功。
+			// 跨核 TLB 刷新由 DbgkSysWin 的 broadcast_set_software_breakpoint_buffer
+			// 每核 DPC 发 VMCALL_INVEPT_CONTEXT（single-context）负责，这里不再自行广播。
+			status = updated;
 		}
 		else if (request.reason == VMCALL_GET_SOFTWARE_BREAKPOINT_BUFFER)
 		{
-			return ept::get_software_breakpoint_buffer(
-				*vcpu->ept_state,
-				request.parameter1,
-				(PVOID)request.parameter2,
-				request.parameter3,
-				request.parameter4);
+			bool found = false;
+			if (g_vmm_context.vcpu != nullptr && g_vmm_context.processor_count > 0)
+			{
+				for (unsigned __int32 i = 0; i < g_vmm_context.processor_count; ++i)
+				{
+					__ept_state* const ept_state = g_vmm_context.vcpu[i].ept_state;
+					if (ept_state == nullptr)
+					{
+						continue;
+					}
+
+					if (ept::get_software_breakpoint_buffer(
+							*ept_state,
+							request.parameter1,
+							(PVOID)request.parameter2,
+							request.parameter3,
+							request.parameter4))
+					{
+						found = true;
+						break;
+					}
+				}
+			}
+
+			status = found;
 		}
-		return false;
+		return status;
 	}
 
 	// 读取隐形软件断点：get_hide_software_breakpoint 通过页面热引用固定记录生命周期。
@@ -248,14 +307,27 @@ namespace
 
 	bool ExecuteInvept(__vcpu* vcpu, VmcallDispatch::Request const& request)
 	{
+		UNREFERENCED_PARAMETER(request);
+		_mm_mfence();
+		// 本项目每核只有一个 EPTP，统一 single-context（刷本核 EPTP），
+		// 不再使用 all-context。
+		invept_single_context_func(vcpu->ept_state->ept_pointer->all);
+		return true;
+	}
+
+	// 跨核 INVEPT 走 NMI 广播：当前核立即 INVEPT，其它核在 host NMI handler 里 INVEPT。
+	// 这是 HyperDbg 式跨核 TLB 刷新，能打断处于 vmx-root 态的核（DPC 广播做不到）。
+	bool ExecuteNmiBroadcastInvept(__vcpu* vcpu, VmcallDispatch::Request const& request)
+	{
+		UNREFERENCED_PARAMETER(vcpu);
 		_mm_mfence();
 		if (request.parameter1 != 0)
 		{
-			invept_all_contexts_func();
+			hv::broadcast_nmi_invept_all_contexts();
 		}
 		else
 		{
-			invept_single_context_func(vcpu->ept_state->ept_pointer->all);
+			hv::broadcast_nmi_invept_single_context(vcpu->ept_state->ept_pointer->all);
 		}
 
 		return true;
@@ -276,6 +348,21 @@ namespace VmcallDispatch
 		switch (request.reason)
 		{
 		case VMCALL_TEST:
+			// 返回 true 当且仅当“所有逻辑处理器都已 VMLAUNCH”，而不是“当前核 VMCALL 可达”。
+			// 用途：DbgkSysWin10 在发起 KeGenericCallDpc 跨核广播前，用单核 VMCALL_TEST 判断
+			// “VT 是否全核就绪”。若在逐核 EPT 构建/VMLAUNCH 过程中就广播，会出现部分核已进入
+			// vmx-root（IF=0）、部分核还在加载的状态，KeGenericCallDpc 等不到全部核 -> 0x101。
+			if (g_vmm_context.vcpu == nullptr || g_vmm_context.processor_count == 0)
+			{
+				return false;
+			}
+			for (unsigned int i = 0; i < g_vmm_context.processor_count; ++i)
+			{
+				if (g_vmm_context.vcpu[i].vcpu_status.vmm_launched == 0)
+				{
+					return false;
+				}
+			}
 			return true;
 
 		case VMCALL_VMXOFF:
@@ -303,6 +390,9 @@ namespace VmcallDispatch
 		case VMCALL_INVEPT_CONTEXT:
 			return ExecuteInvept(vcpu, request);
 
+		case VMCALL_NMI_BROADCAST_INVEPT:
+			return ExecuteNmiBroadcastInvept(vcpu, request);
+
 		case VMCALL_DUMP_POOL_MANAGER:
 			pool_manager::dump_pools_info();
 			return true;
@@ -320,22 +410,22 @@ namespace VmcallDispatch
 			return true;
 
 		case VMCALL_HIDE_SOFTWARE_BREAKPOINT:
-			return ept::set_hide_software_breakpoint(vcpu, (PVT_BREAK_POINT)request.parameter1);
+			return ept::set_hide_software_breakpoint((PVT_BREAK_POINT)request.parameter1);
 
 		case VMCALL_READ_SOFTWARE_BREAKPOINT:
 			return ExecuteReadSoftwareBreakpoint(vcpu, request);
 
 		case VMCALL_WATCH_WRITES:
-			return SetBreakpoint(vcpu, (PVT_BREAK_POINT)request.parameter1, EPTW_WRITE);
+			return SetBreakpoint((PVT_BREAK_POINT)request.parameter1, EPTW_WRITE);
 
 		case VMCALL_WATCH_READS:
-			return SetBreakpoint(vcpu, (PVT_BREAK_POINT)request.parameter1, EPTW_READWRITE);
+			return SetBreakpoint((PVT_BREAK_POINT)request.parameter1, EPTW_READWRITE);
 
 		case VMCALL_WATCH_EXECUTES:
-			return SetBreakpoint(vcpu, (PVT_BREAK_POINT)request.parameter1, EPTW_EXECUTE);
+			return SetBreakpoint((PVT_BREAK_POINT)request.parameter1, EPTW_EXECUTE);
 
 		case VMCALL_WATCH_DELETE:
-			return RemoveBreakpoint(vcpu, (PVT_BREAK_POINT)request.parameter1);
+			return RemoveBreakpoint((PVT_BREAK_POINT)request.parameter1);
 
 		case VMCALL_GET_BREAKPOINT:
 			return hv::get_breakpoint_detected(

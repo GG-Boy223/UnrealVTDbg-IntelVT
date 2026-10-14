@@ -6,6 +6,50 @@
 namespace
 {
 	constexpr unsigned __int64 kMaxUnhandledEptViolationRetries = 64;
+
+	// 孤儿权限自愈：页面不在 hooked_page_list，但 EPT 权限被限制（read/write/execute 任一为 0）
+	// 或 PFN 指向伪页，说明是 watch/hook 删除或回滚残留的孤儿权限。恢复为完全可访问的原页，
+	// 让 guest 重试成功后继续前进，避免「无法归因 -> 无限重试 -> 核困在 vmx-root -> 0x101」。
+	// 覆盖 4KB 已拆分页和 2MB 大页两种粒度；1GB 大页（PDPTE 直接映射）权限在构建期固定，不在此处理。
+	bool self_heal_orphaned_ept_page(__ept_state& ept_state, unsigned __int64 physical_address)
+	{
+		__ept_pte* const entry = ept::get_pml1_entry(ept_state, physical_address);
+		if (entry != nullptr)
+		{
+			const bool restricted = entry->read == 0 || entry->write == 0 || entry->execute == 0;
+			const bool pfn_mismatch = entry->page_frame_number != GET_PFN(physical_address);
+			if (!restricted && !pfn_mismatch)
+			{
+				return false; // 页面完全可访问且指向原页，本次 violation 不属于孤儿权限
+			}
+
+			entry->read = 1;
+			entry->write = 1;
+			entry->execute = 1;
+			entry->page_frame_number = GET_PFN(physical_address); // 归一回原页，丢弃残留伪页映射
+			return true;
+		}
+
+		// 未拆分（2MB 大页）：检查并恢复 2MB 大页权限。2MB 大页 PFN 在 watch/hook 中从不被改写，
+		// 只可能残留权限限制，因此只需恢复 read/write/execute。
+		__ept_pde* const pde = ept::get_pml2_entry(ept_state, physical_address);
+		if (pde != nullptr && pde->page_directory_entry.large_page == 1)
+		{
+			const bool restricted =
+				pde->large_page.read == 0 ||
+				pde->large_page.write == 0 ||
+				pde->large_page.execute == 0;
+			if (restricted)
+			{
+				pde->large_page.read = 1;
+				pde->large_page.write = 1;
+				pde->large_page.execute = 1;
+				return true;
+			}
+		}
+
+		return false;
+	}
 }
 
 void vmexit_ept_misconfiguration_handler(__vcpu* vcpu) // 处理 EPT 配置错误(misconfiguration)导致的 VM-exit
@@ -188,11 +232,10 @@ unhandled_after_release:
 	hooked_page_info = nullptr;
 
 unhandled:
-	// 非 RAM 区域（MMIO / 地址空洞）在 EPT 构建期刻意留空：首次访问在这里补映射。
-	// 补映射成功后刷新 EPT 缓存并直接返回 —— EPT violation 的语义就是“来宾重试该指令”，
-	// 不需要（也不能）在这里改写 GUEST_RIP。
-	if (vcpu != nullptr && vcpu->ept_state != nullptr && vcpu->ept_state->ept_pointer != nullptr &&
-		ept::ensure_mmio_mapping(*vcpu->ept_state, guest_physical_adddress))
+	// 孤儿权限自愈：删除/回滚残留导致页面不在 hooked_page_list、但 EPT 权限仍被限制。
+	// 恢复为完全可访问的原页后让 guest 重试成功，避免同一条指令无限 violation -> 0x101。
+	if (vcpu != nullptr && vcpu->ept_state != nullptr &&
+		self_heal_orphaned_ept_page(*vcpu->ept_state, guest_physical_adddress))
 	{
 		_mm_mfence();
 		invept_single_context_func(vcpu->ept_state->ept_pointer->all);
@@ -226,7 +269,15 @@ unhandled:
 
 		if (vcpu->ept_state->unhandled_ept_violation_count >= kMaxUnhandledEptViolationRetries)
 		{
-			vmx_fatal_error(vmx_fatal_unhandled_ept_violation, guest_physical_adddress, ept_violation.all);
+			// 孤儿自愈未命中、且同一页连续重试达到上限：注入 #GP 给 guest，
+			// 让 guest 异常处理接管，避免同一条指令无限 violation -> 核困在 vmx-root -> 0x101。
+			// 这是 HvVmxCore/Ophion 式「推进 guest」兜底，比 DbgBreakPoint 崩溃更温和。
+			hv::inject_interruption(
+				EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT,
+				INTERRUPT_TYPE_HARDWARE_EXCEPTION,
+				0,
+				true);
+			return;
 		}
 	}
 

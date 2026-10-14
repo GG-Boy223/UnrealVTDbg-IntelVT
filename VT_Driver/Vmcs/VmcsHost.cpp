@@ -56,10 +56,9 @@ void fill_vmcs_host_fields(__vcpu* vcpu) // 填充宿主字段
     host_cr4.flags |= fixed0.all; // 按VMX fixed0/fixed1收敛HOST_CR4，保持硬件必要条件不变。
     host_cr4.flags &= fixed1.all;
 
-    // FSGSBASE/OSXSAVE 必须完全继承当前 Windows 在该逻辑处理器上的 CR4 状态。
-    // 无条件置位会在旧 X 系列或系统未启用 XSAVE 的环境中构造非法 Host State。
-    host_cr4.smap_enable = 0; // 关闭 SMAP
-    host_cr4.smep_enable = 0; // 关闭 SMEP
+    // 对齐 HvVmxCore Core Ultra 修复：不要清零 SMEP/SMAP。
+    // 新平台（Core Ultra）CR4 fixed1 可能要求 SMEP=1，清零会直接 VM-entry failure；
+    // 且 host 模式只访问内核地址，保留 SMEP/SMAP 原值不影响 root 运行。
 
 
     hv::vmwrite<unsigned __int64>(HOST_CR4, host_cr4.flags); // 写入宿主 CR4
@@ -103,6 +102,7 @@ void fill_vmcs_host_fields(__vcpu* vcpu) // 填充宿主字段
     // VM-exit 已启用 load IA32_PAT，Host PAT 必须精确继承当前 Windows 状态，不能用假定的固定模板覆盖。
     hv::vmwrite<unsigned __int64>(HOST_PAT, __readmsr(IA32_PAT));
 
-    // 禁用所有 PMC（性能计数器）
-    hv::vmwrite<unsigned __int64>(HOST_PERF_GLOBAL_CTRL, 0); // 关闭 PMC
+    // 对齐 HvVmxCore Core Ultra 修复：HOST_PERF_GLOBAL_CTRL 不能写 0。
+    // VM-exit 后系统性能计数器全关，ETW/性能监控/显卡计时都依赖它，写 0 会加重 TDR。
+    hv::vmwrite<unsigned __int64>(HOST_PERF_GLOBAL_CTRL, __readmsr(IA32_PERF_GLOBAL_CTRL)); // 继承当前性能计数控制
 }

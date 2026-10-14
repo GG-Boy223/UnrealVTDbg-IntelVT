@@ -17,14 +17,6 @@ bool vmm_init() // 启动全局VMM，并在每个逻辑处理器上进入VMX，�
 	NT_ASSERT(KeGetCurrentIrql() <= APC_LEVEL);	// 绑定线程亲和力要求低IRQL，否则无法切换到指定CPU
 	outFile("[信息][VMM] 当前IRQL=%u", KeGetCurrentIrql());
 
-	// EPT 覆盖范围按全平台最大 MAXPHYADDR 计算，先把每个逻辑处理器的值扫出来，再逐核构建 EPT。
-	if (!query_platform_physical_address_limit())
-	{
-		outFile("[失败][VMM] 平台物理地址上界扫描失败，停止VT加载");
-		free_vmm_context();
-		return false;
-	}
-
 	// virtualize every cpu
 	for (unsigned int iter = 0; iter < g_vmm_context.processor_count; iter++)
 	{

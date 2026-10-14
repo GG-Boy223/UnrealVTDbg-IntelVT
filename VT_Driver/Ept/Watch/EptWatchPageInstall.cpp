@@ -155,13 +155,15 @@ namespace ept
         }
 
         __ept_dynamic_split* runtime_split = nullptr;
-        if (!prepare_pml2_for_address(ept_state, physical_address))
+        // HyperDbg 式 EPT：前 512GB 的 PD 页在构建期已全部常驻，这里只需确认 PDE 可用；
+        // ≥512GB 是 1GB EPT 大页条目、没有可拆分的 PD（与 HyperDbg 一致：该粒度不支持 watch）。
+        if (get_pml2_entry(ept_state, physical_address) == nullptr)
         {
             if (failure_detail != nullptr)
             {
                 *failure_detail = EPT_WATCH_DETAIL_PREPARE_PML2;
             }
-            LogError("Failed to prepare PML2 for watch page");
+            LogError("Failed to get PML2 for watch page");
             return false;
         }
 

@@ -100,7 +100,7 @@ namespace ept
 		return true;
 	}
 
-	int ept_watch_deactivate(__vcpu* vcpu, VT_BREAK_POINT vmcallinfo, int ID)
+	int ept_watch_deactivate(VT_BREAK_POINT vmcallinfo, int ID)
 	{
 		unsigned int cpu_count = normalize_vcpu_count(vmcallinfo.CPUCount);
 		if (cpu_count == 0)
@@ -152,22 +152,26 @@ namespace ept
 			EPTWatchEntry entry = eptWatchList[group_ids[entry_index]];
 			spinlock::unlock(&eptWatchList_lock);
 
-			if (vcpu == nullptr || vcpu->ept_state == nullptr)
+			for (unsigned int cpu = 0; cpu < cpu_count; cpu++)
 			{
-				return 3;
-			}
+				__vcpu* vcpu = &g_vmm_context.vcpu[cpu];
+				if (vcpu->ept_state == nullptr)
+				{
+					return 3;
+				}
 
-			__ept_hooked_page_info* hooked_page_info =
-				ept::acquire_page_hot_reference(
-					*vcpu->ept_state,
-					GET_PFN(entry.PhysicalAddress),
-					EPTO_VIRTUAL_BREAKPOINT);
-			const bool found = hooked_page_info != nullptr;
-			ept::release_page_hot_reference(*vcpu->ept_state, hooked_page_info);
+				__ept_hooked_page_info* hooked_page_info =
+					ept::acquire_page_hot_reference(
+						*vcpu->ept_state,
+						GET_PFN(entry.PhysicalAddress),
+						EPTO_VIRTUAL_BREAKPOINT);
+				const bool found = hooked_page_info != nullptr;
+				ept::release_page_hot_reference(*vcpu->ept_state, hooked_page_info);
 
-			if (!found)
-			{
-				return 3;
+				if (!found)
+				{
+					return 3;
+				}
 			}
 		}
 
@@ -233,22 +237,31 @@ namespace ept
 				continue;
 			}
 
-			if (!ept_watch_deactivate_internal(vcpu,
-				*vcpu->ept_state,
-				entry.VirtualAddress,
-				entry.PhysicalAddress,
-				entry.Type,
-				entry.bpType,
-				entry.OriginalByte,
-				has,
-				group_ids[entry_index]))
+			for (unsigned int cpu = 0; cpu < cpu_count; cpu++)
 			{
-				KeBugCheckEx(0x00020001, 0x45505457, 2, group_ids[entry_index], 0);
+				__vcpu* vcpu = &g_vmm_context.vcpu[cpu];
+				if (!ept_watch_deactivate_internal(vcpu,
+					*vcpu->ept_state,
+					entry.VirtualAddress,
+					entry.PhysicalAddress,
+					entry.Type,
+					entry.bpType,
+					entry.OriginalByte,
+					has,
+					group_ids[entry_index]))
+				{
+					KeBugCheckEx(
+						0x00020001,
+						0x45505457,
+						2,
+						group_ids[entry_index],
+						cpu);
+				}
 			}
 		}
 
 		_mm_mfence();
-		invept_all_contexts_func();
+		invept_current_context();
 
 		for (int entry_index = 0; entry_index < group_count; entry_index++)
 		{

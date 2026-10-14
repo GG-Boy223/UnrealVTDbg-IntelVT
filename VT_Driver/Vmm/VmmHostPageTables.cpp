@@ -25,7 +25,6 @@ bool create_host_page_tables() // 构建宿主页表并映射全部物理内存,
 		if (NT_SUCCESS(Status))
 		{
 			RtlInitUnicodeString(&ImageFileName, SubStr); // 初始化当前进程名字符串
-			// RtlInitUnicodeString(&targetImage, L"dwm.exe"); // 旧注释:目标进程dwm.exe(系统常驻,便于获取稳定地址空间)
 			RtlInitUnicodeString(&targetImage, L"dwm.exe"); // 目标进程:dwm.exe(用户要求保留该地址空间来源)
 			if (RtlEqualUnicodeString(&ImageFileName, &targetImage, TRUE)) // 找到dwm进程
 			{

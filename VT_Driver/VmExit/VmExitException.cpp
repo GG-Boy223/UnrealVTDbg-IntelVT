@@ -10,7 +10,7 @@ namespace
 		ctrl.nmi_window_exiting = 0;
 		hv::write_ctrl_proc_based(ctrl);
 
-		if (vcpu->queued_nmi)
+		if (InterlockedCompareExchange(&vcpu->queued_nmis, 0, 0) > 0)
 		{
 			ctrl.nmi_window_exiting = 1;
 			hv::write_ctrl_proc_based(ctrl);
@@ -24,12 +24,12 @@ void vmexit_unimplemented(__vcpu* vcpu) // 未实现 VM-exit 的兜底处理，�
 	hv::inject_interruption(EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT, INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, true); // 注入 #GP(0) 给来宾：按硬件规则告知"非法/不支持的操作"，防止继续执行
 }
 
-void vmexit_nmi_window_handler(__vcpu* vcpu) // 在 guest 解除 NMI blocking 后投递 queued_nmi。
+void vmexit_nmi_window_handler(__vcpu* vcpu) // 在 guest 解除 NMI blocking 后投递 queued_nmis。
 {
 	sLog("\n"); // NMI-window 是敏感路径，保留最小日志占位。
-	if (!vcpu->queued_nmi)
+	if (InterlockedCompareExchange(&vcpu->queued_nmis, 0, 0) == 0)
 	{
-		update_nmi_window_from_queue(vcpu); // NMI 可异步入队，先清窗口再按布尔标志决定是否重开。
+		update_nmi_window_from_queue(vcpu); // NMI 可异步入队，先清窗口再按原子计数决定是否重开。
 		return; // 队列为空，无需注入事件。
 	}
 
@@ -41,7 +41,7 @@ void vmexit_nmi_window_handler(__vcpu* vcpu) // 在 guest 解除 NMI blocking �
 		return; // 本轮不投递 NMI，避免丢失已有事件。
 	}
 
-	vcpu->queued_nmi = false; // 消费待投递的 NMI，后续通过 VM-entry 投递给 guest。
+	InterlockedDecrement(&vcpu->queued_nmis); // 消耗一个排队 NMI，后续通过 VM-entry 投递给 guest。
 
 	hv::inject_nmi(); // 安排 VM-entry 注入 NMI。
 

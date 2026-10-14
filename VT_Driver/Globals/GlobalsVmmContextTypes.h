@@ -34,10 +34,13 @@ struct __vcpu // 每逻辑 CPU 的 VMM 状态
 
     alignas(0x1000) vmx_msr_bitmap msr_bitmap; // MSR 位图
 
-    // Whether an NMI is pending delivery. NMI is edge-triggered and the CPU
-    // latches only a single pending NMI, so a boolean matches the hardware.
-    // 是否有一个待投递的 NMI；NMI 边沿触发，硬件只有单个 pending 锁存，布尔与硬件一致。
-    volatile bool queued_nmi; // host NMI 可异步打断 VM-exit 路径，volatile 保证跨上下文可见
+    // the number of NMIs that need to be delivered
+    // 需要交付的 NMI 数量
+    volatile LONG queued_nmis; // 待注入 NMI 数量；host NMI 可异步打断 VM-exit 路径，必须原子更新
+
+    // 跨核 NMI 广播动作（对齐 HyperDbg NMI_BROADCAST_ACTION_TYPE）。
+    // host NMI handler 先消费该字段决定是否执行 INVEPT，NONE 表示普通 NMI 转发。
+    volatile LONG nmi_broadcast_action; // NMI 广播动作，见 NMI_BROADCAST_ACTION 枚举
 
     struct __vm_entry_event_queue
     {
@@ -96,6 +99,9 @@ struct __vcpu // 每逻辑 CPU 的 VMM 状态
         unsigned __int64 instruction_information; // Exit Instruction Info
 
         unsigned __int64 instruction_error;  //记录VMfailValid失败原因
+
+        volatile unsigned __int64 vmx_root_active; // 1=正在 vmx-root 处理本次 VM-exit；0=已返回 guest。用于 dump 定位挂起核卡在哪个 exit。
+        unsigned __int64 vmx_root_enter_tsc; // 进入 vmx-root 时的 TSC，配合 vmx_root_active 判断卡住时长。
 
     }vmexit_info; // VM-Exit 信息
 

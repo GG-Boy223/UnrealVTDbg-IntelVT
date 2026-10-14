@@ -202,6 +202,8 @@ bool vmexit_handler(guest_context* guest_registers, PFXSAVE64 fxsave) // VM-exit
 	// ✅ P0-005 修复：完整读取 VM_EXIT_REASON，包括高位标志
 	unsigned __int64 exit_reason_raw = hv::vmread(VM_EXIT_REASON);
 	vcpu->vmexit_info.reason = exit_reason_raw & 0xffff; // 低 16 位是基础 exit reason，高位状态不参与 switch 分发。
+	vcpu->vmexit_info.vmx_root_enter_tsc = telemetryStartTsc; // 记录进入 vmx-root 的 TSC，dump 定位挂起核。
+	vcpu->vmexit_info.vmx_root_active = 1; // 标记正在 vmx-root 处理本次 VM-exit。
 
 	vcpu->vmexit_info.qualification = hv::vmread(EXIT_QUALIFICATION); // 保存 exit qualification，供 CR/DR/EPT 等 handler 解码。
 	vcpu->vmexit_info.guest_rflags.all = hv::vmread(GUEST_RFLAGS); // 保存 RFLAGS，后续单步、IF/TF 状态都依赖该快照。
@@ -241,10 +243,12 @@ bool vmexit_handler(guest_context* guest_registers, PFXSAVE64 fxsave) // VM-exit
 		vcpu->vmexit_info.guest_registers->rsp =
 			reinterpret_cast<unsigned __int64>(&vcpu->vmx_off_state); // 汇编复用guest_context的RSP占位槽取得受检恢复帧。
 		vcpu->vcpu_status.vmm_launched = false; // 标记当前 vCPU 不再处于已 launch 状态，防止后续误用 VMRESUME。
+		vcpu->vmexit_info.vmx_root_active = 0; // 已决定退出虚拟化，不再处于 vmx-root 处理中。
 		//如果要停止虚拟化，vmexit_handler 将返回 true，通知上层跳出 VMX 处理循环
 		return true; // 通知汇编入口走退出虚拟化路径，而不是继续 VMRESUME。
 	}
 
+	vcpu->vmexit_info.vmx_root_active = 0; // 常规 VM-exit 处理完成，即将 VMRESUME 返回 guest。
 	return false; // 常规 VM-exit 处理完成，继续 VMRESUME 返回 guest。
 }
 

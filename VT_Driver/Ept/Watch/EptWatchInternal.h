@@ -13,6 +13,7 @@
 #include "../../hypervisor_routines.h"
 #include "../../Vmcs/VmcsApi.h"
 #include "../../Cr3/Cr3Tracker.h"
+#include "../../Interrupts/NmiBroadcast.h"
 
 namespace ept
 {

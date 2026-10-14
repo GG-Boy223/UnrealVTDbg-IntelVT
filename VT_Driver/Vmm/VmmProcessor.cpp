@@ -89,14 +89,6 @@ bool init_logical_processor2(unsigned int iter) // 在指定CPU上完成VMXON/VM
 		display_model,
 		stepping);
 
-	// EPT 必须在目标核上构建：IA32_VMX_EPT_VPID_CAP（1GB 大页）、CPUID.80000008H（MAXPHYADDR）
-	// 与 MTRR 都是每逻辑处理器状态；这一步要在 VMXON 之前完成，后面的 Host 页表补映射与 VMCS 填充都依赖它。
-	if (!init_vcpu_ept(vcpu))
-	{
-		outFile("[失败][CPU%u] EPT构建失败，停止进入VT", iter);
-		return false;
-	}
-
 	//调节控制寄存器 cr4 cr0来启用vmx模式
 	outFile("[进行中][CPU%u] 调整CR0/CR4与IA32_FEATURE_CONTROL，准备满足VMXON硬件条件", iter);
 	const unsigned __int64 original_cr0 = __readcr0();
@@ -149,15 +141,6 @@ bool init_logical_processor2(unsigned int iter) // 在指定CPU上完成VMXON/VM
 	hv::prepare_external_structures(vcpu); // 构造宿主GDT/IDT/TSS等必需结构，确保VM-Exit能正确返回宿主
 	LogInfo("vcpu %llu is now in VMX operation.\n", processor_number); // 输出调试信息
 	outFile("[成功][CPU%u] Host GDT/IDT/TSS结构准备完成", iter);
-
-	// if (!hv::validate_host_page_tables_for_vcpu(vcpu)) // 旧逻辑：只靠自检发现缺页，无法主动补齐Host CR3下的VM-exit关键页。
-	if (!hv::ensure_host_page_tables_for_vcpu(vcpu))
-	{
-		outFile("[失败][CPU%u] Host关键页补映射不完整，回滚当前CPU的VMXON状态", iter);
-		vmxoff_after_failed_initialization(vcpu, 2);
-		restore_original_control_registers();
-		return false;
-	}
 
 	if (!hv::validate_host_page_tables_for_vcpu(vcpu))
 	{

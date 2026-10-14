@@ -40,9 +40,11 @@ namespace ept
 
 		if (mtrr_def_type.mtrr_enabled == false)
 		{
-			// 不可缓存
-			// MTRRs被禁用这意味着所有的物理内存都将被视为UC
-			g_vmm_context.mtrr_info.default_memory_type = MEMORY_TYPE_UNCACHEABLE;
+			// MTRR 被禁用（新 Intel 平台用 PAT，MTRR_ENABLE=0）：默认 WB。
+			// 对齐 HvVmxCore EptBuildMtrrMap：若按 UC 处理，整个 EPT 所有页都不可缓存，
+			// 内存访问性能灾难 -> 显卡驱动提交超时 TDR -> BUGCHECK 0x116。
+			// MMIO 的 UC 由 guest PAT 组合 + 高位 1GB UC identity map 单独保证。
+			g_vmm_context.mtrr_info.default_memory_type = MEMORY_TYPE_WRITE_BACK;
 			return;
 		}
 
@@ -57,7 +59,10 @@ namespace ept
 			// If range is enabled
 			// 如果启用范围
 			//
-			if (current_phys_mask.valid && current_phys_base.type != mtrr_def_type.memory_type)
+			// 对齐 HyperDbg/HvVmxCore/Ophion 的 EptBuildMtrrMap：variable range 只要 valid 就无条件加入，
+			// 不做 type != default 过滤。否则 is_valid_for_large_page 会漏掉 type==default 范围的边界，
+			// 与参考项目的 2MB 大页合法性判定不一致。
+			if (current_phys_mask.valid)
 			{
 				descriptor = &g_vmm_context.mtrr_info.memory_range[g_vmm_context.mtrr_info.enabled_memory_ranges++];
 				// Calculate base address, physbase is truncated by 12 bits so we have to left shift it by 12

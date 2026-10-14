@@ -157,21 +157,21 @@ struct __ept_dynamic_split // 将 2MB PDE 拆分为 512 个 PTE
     // false=初始化阶段为跨越 RAM/MMIO 边界的页面拆出的 split，不做自动合并回收
 };
 
-struct __ept_pdpte_page // 单个 PDPT 页，覆盖 512GB 的 GPA 空间
-{
-    DECLSPEC_ALIGN(PAGE_SIZE) __ept_pdpte entries[512];
-};
-
-struct __ept_pde_page // 单个 PD 页，覆盖 1GB 的 GPA 空间
-{
-    DECLSPEC_ALIGN(PAGE_SIZE) __ept_pde entries[512];
-};
-
-//数组最大为512即2^9次方
+// 数组最大为512即2^9次方
+// HyperDbg 式 EPT 页表（对齐 HyperDbg VMM_EPT_PAGE_TABLE 的布局）：
+//   pml4[512]            —— 4 级顶层，512 个条目覆盖 2^48 = 256TB
+//   pml3_rsvd[511][512]  —— 512GB ~ 256TB：每个 1GB 区域一个 1GB UC identity 条目（等价 PML3_RSVD）
+//   pml3[512]            —— 0 ~ 512GB：512 张 PD 的入口（等价 HyperDbg PML3）
+//   pml2[512][512]       —— 0 ~ 512GB：262144 个 2MB identity 条目（等价 HyperDbg PML2[512][512]）
+// 整块表一次连续分配（约 4.2MB/核），与 HyperDbg 的 PlatformMemAllocateContiguousZeroedMemory 一致：
+// 页表页之间是固定的内部偏移，不再逐页分配/释放。
 struct __vmm_ept_page_table // EPT 页表（PML4/PDPTE/PDE）
 {
     DECLSPEC_ALIGN(PAGE_SIZE) __ept_pml4e pml4[512]; // PML4 表
 
-    DECLSPEC_ALIGN(PAGE_SIZE) __ept_pdpte pml3[512]; // PDPTE 表
+    DECLSPEC_ALIGN(PAGE_SIZE) __ept_pdpte pml3_rsvd[511][512]; // 512GB 以上的 1GB PDPTE 表
 
+    DECLSPEC_ALIGN(PAGE_SIZE) __ept_pdpte pml3[512]; // 前 512GB 的 PDPTE 表（指向 PD）
+
+    DECLSPEC_ALIGN(PAGE_SIZE) __ept_pde pml2[512][512]; // 前 512GB 的 2MB PDE 表
 };

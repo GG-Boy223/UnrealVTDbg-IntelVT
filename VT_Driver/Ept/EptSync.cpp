@@ -20,6 +20,7 @@ namespace ept
 	/// <param name="invalidation_type"> Specifiy if we want to invalidate single context or all contexts  </param>
 	void swap_pml1_and_invalidate_tlb(__ept_state& ept_state, __ept_pte* entry_address, __ept_pte entry_value, invept_type invalidation_type)
 	{
+		UNREFERENCED_PARAMETER(invalidation_type); // 每核单 EPTP，统一 single-context
 		// 早期设计模式是所有cpu核共用一个ept，故而要上锁
 		// 目前的设计是每个cpu独享一份ept页表，故无需上锁
 		// Acquire the lock
@@ -29,16 +30,8 @@ namespace ept
 		entry_address->all = entry_value.all;
 
 		// Invalidate the cache
-		if (invalidation_type == invept_single_context)
-		{
-			_mm_mfence();
-			invept_single_context_func(ept_state.ept_pointer->all);
-		}
-		else
-		{
-			_mm_mfence();
-			invept_all_contexts_func();
-		}
+		_mm_mfence();
+		invept_single_context_func(ept_state.ept_pointer->all);
 
 		// Release the lock
 		//spinlock::unlock(&g_vmm_context.pml_lock);

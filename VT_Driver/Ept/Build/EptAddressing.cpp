@@ -14,19 +14,14 @@ namespace ept
 		unsigned __int64 pml2_index = MASK_EPT_PML2_INDEX(physical_address);
 		unsigned __int64 flat_pdpt_index = (pml4_index << 9) + pml3_index;
 
-		if (ept_state.pml2_pages == nullptr || flat_pdpt_index >= ept_state.mapped_pdpte_count)
+		if (ept_state.pml2_pages == nullptr || flat_pdpt_index >= ept_state.pml2_pages_count)
 		{
-			LogError("EPT address is outside identity map: pa=0x%llX flat_pdpt=%llu mapped=%u",
+			// 前 512GB 之外（≥512GB）是 1GB EPT 大页条目，没有 PD 可返回 —— 与 HyperDbg EptGetPml2Entry
+			// 的语义一致（该函数只对前 512GB 的内嵌 PML2 有效）。调用方按“拿不到 PDE”处理，不会误改页表。
+			LogError("EPT PML2 entry unavailable: pa=0x%llX flat_pdpt=%llu pmd_covered=%u",
 				physical_address,
 				flat_pdpt_index,
-				ept_state.mapped_pdpte_count);
-			return nullptr; // 失败返回空指针
-		}
-
-		// 该 1GB 区域由 PDPTE 大页直接映射，没有 PD：不能解引用空指针。
-		// 调用方（hook/watch 安装）会按“拿不到 PDE”处理，不会误改页表。
-		if (ept_state.pml2_pages[flat_pdpt_index] == nullptr)
-		{
+				ept_state.pml2_pages_count);
 			return nullptr; // 失败返回空指针
 		}
 
@@ -147,11 +142,12 @@ namespace ept
 
 		new_entry.large_page.page_frame_number = MmGetPhysicalAddress(&new_split->pml1[0]).QuadPart >> PAGE_SHIFT;
 
-		// 先发布到拆分链表，再改写 PDE：读取方看到 large_page==0 时，
-		// split 一定已经在链表里，能被 get_split_pml1_by_pde 命中。
+		// 先发布到本 EPT 的拆分链表，再改写 PDE：一旦 PDE 变成“指向 4KB PML1 表”，
+		// get_pml1_entry 就能靠 PDE 指针在 split_list 里反查到 PML1 VA，不留下
+		// “PDE 已改、链表未发布”的窗口，避免高位物理内存反查 NULL 导致死循环。
 		InsertHeadList(&ept_state.split_list, &new_split->dynamic_split_list);
 
-		// 用指向 4KB PML1 表的新条目覆盖原 2MB PDE。
+		// 用“指向 4KB PML1 表”的新条目覆盖原 2MB PDE。
 		RtlCopyMemory(pde, &new_entry, sizeof(new_entry));
 
 		return true;

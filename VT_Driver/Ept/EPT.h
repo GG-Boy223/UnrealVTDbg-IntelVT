@@ -90,7 +90,7 @@ namespace ept
 	bool get_hide_software_breakpoint(__ept_state& ept_state, PVT_BREAK_POINT vmcallinfo);
 
 	//设置隐形软件断点
-	bool set_hide_software_breakpoint(__vcpu* vcpu, PVT_BREAK_POINT vmcallinfo);
+	bool set_hide_software_breakpoint(PVT_BREAK_POINT vmcallinfo);
 
 	//写伪造页内存
 	bool write_fake_page_memory(__ept_hooked_function_info* hooked_function_info, void* target_address, void* buffer, unsigned __int64 buffer_size);
@@ -120,10 +120,10 @@ namespace ept
 	void apply_active_watch_permissions_locked(__ept_hooked_page_info* hooked_page_info, int ignoredID = -1);
 
 	//设置ept监视
-	bool ept_watch_activate(__vcpu* vcpu, VT_BREAK_POINT vmcallinfo, unsigned __int64 Type, PVT_BREAK_POINT guest_request, int& errorCode);
+	bool ept_watch_activate(VT_BREAK_POINT vmcallinfo, unsigned __int64 Type, PVT_BREAK_POINT guest_request, int& errorCode);
 
 	//取消监视断点
-	int ept_watch_deactivate(__vcpu* vcpu, VT_BREAK_POINT vmcallinfo, int ID);
+	int ept_watch_deactivate(VT_BREAK_POINT vmcallinfo, int ID);
 
 	//处理断点监视事件
 	bool ept_handleWatchEvent(__vcpu* vcpu,
