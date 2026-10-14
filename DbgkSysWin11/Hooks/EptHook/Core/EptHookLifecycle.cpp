@@ -103,7 +103,8 @@ VOID SetupEptHook()
         Hook_DbgkExitProcess();
         Hook_DbgkForwardException();
         Hook_DbgkpQueueMessage();
-        Hook_PspCallThreadNotifyRoutines();
+        // Hook_PspCallThreadNotifyRoutines 已延后到首次附加进程（NtCreateDebugObject）时安装，
+        // 减少驱动加载阶段的 hook 面；线程创建事件只在有调试目标后才有意义。
         Hook_PspExitThread();
         Hook_ObpReferenceObjectByHandleWithTag();
 

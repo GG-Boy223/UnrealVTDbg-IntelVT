@@ -9,7 +9,8 @@ VOID Hook_NtCreateDebugObject()
     }
     else
     {
-        outLog("Hook_NtCreateDebugObject 失败");
+        outFile("Hook_NtCreateDebugObject 失败");
+
     }
 }
 

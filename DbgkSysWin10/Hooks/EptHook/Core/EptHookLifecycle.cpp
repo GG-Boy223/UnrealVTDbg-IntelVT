@@ -22,7 +22,7 @@ VOID UnEptHook()
 
     if (!vtReady)
     {
-        outLog("跳过 EPT 取消 hook：VT 通道不可用.");
+        outFile("跳过 EPT 取消 hook：VT 通道不可用.");
         KeBugCheckEx(0x00020001, 0x4442474B, 1, 0, 0);
         return;
     }
@@ -39,7 +39,7 @@ VOID UnEptHook()
 
     if (unhooked)
     {
-        outLog("EPT 取消 hook 成功.");
+        outFile("EPT 取消 hook 成功.");
 
         Original_PspExitThread = NULL;
         Original_DbgkCreateThread = NULL;
@@ -80,7 +80,7 @@ VOID UnEptHook()
         return;
     }
 
-    outLog("EPT 取消 hook 失败或已跳过.");
+    outFile("EPT 取消 hook 失败或已跳过.");
     KeBugCheckEx(0x00020001, 0x4442474B, 2, 0, 0);
 }
 
@@ -91,11 +91,11 @@ VOID Hook_Test()
     {
         if (hvgt::hook_function(Sys_DbgkpQueueMessage, DbgkpQueueMessage, NULL))
         {
-            outLog("hook 系统函数成功.");
+            outFile("hook 系统函数成功.");
         }
         else
         {
-            outLog("hook 系统函数失败.");
+            outFile("hook 系统函数失败.");
         }
     }
 }
@@ -120,7 +120,8 @@ VOID SetupEptHook()
         Hook_DbgkExitProcess();
         Hook_DbgkForwardException();
         Hook_DbgkpQueueMessage();
-        Hook_PspCallThreadNotifyRoutines();
+        // Hook_PspCallThreadNotifyRoutines 已延后到首次附加进程（NtCreateDebugObject）时安装，EAAC(APEX冲突)
+        // 减少驱动加载阶段的 hook 面；线程创建事件只在有调试目标后才有意义。
         Hook_PspExitThread();
         Hook_ObpReferenceObjectByHandleWithTag();
 

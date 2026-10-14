@@ -288,7 +288,7 @@ VOID InitSymbolsTable(IN PUSER_DATA userData, IN PIRP pIrp)
     }
     else
     {
-        outLog("DbgkSys 已初始化，跳过重复 EPT hook.");
+        outFile("DbgkSys 已初始化，跳过重复 EPT hook.");
     }
     *output = INIT_SYMBOLS_STATUS_SUCCESS;
 }

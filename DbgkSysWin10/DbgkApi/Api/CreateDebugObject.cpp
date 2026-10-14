@@ -1,6 +1,7 @@
 ﻿#include "CreateDebugObject.h"
 #include "DebugObjectCommon.h"
 #include "DebugObjectCommonInternal.h"
+#include "../../Hooks/EptHook/EptHook.h"
 #include "../DbgkApi.h"
 #include "../../ntos/inc/ntosdef.h"
 #include "../../ntos/inc/ketypes.h"
@@ -136,6 +137,14 @@ NTSTATUS NtCreateDebugObject(
     NTSTATUS Status; // eax
     PAGED_CODE();
     DbgkRuntimeCallGuard stateGuard;
+
+    // 首次附加进程时才安装线程通知 hook（PspCallThreadNotifyRoutines），
+    // 减少驱动加载阶段的 hook 面；线程创建事件只在有调试目标后才有意义。
+    // Original_PspCallThreadNotifyRoutines 未安装时为 NULL，用它做「只装一次」保护。
+    //if (Original_PspCallThreadNotifyRoutines == NULL)
+    //{
+    //    Hook_PspCallThreadNotifyRoutines();
+    //}
 
     if (IsDbgkUnloadInProgress())
     {

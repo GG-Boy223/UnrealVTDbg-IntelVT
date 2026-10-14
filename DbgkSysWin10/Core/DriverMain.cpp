@@ -62,7 +62,7 @@ VOID Unload(PDRIVER_OBJECT DriverObject)
 
     // 旧项目保留代码：卸载保护模块，内部原设计对应 UnCallbacks/进程保护回调清理。
     //放开必须与 InitProtect/SetProcessCallbacks 同步。
-    UnloadProtect();
+    //UnloadProtect();
     RemoveHooks();
     const NTSTATUS dbgkStatus = DbgkUnInitialize();
     if (!NT_SUCCESS(dbgkStatus))
@@ -89,7 +89,7 @@ NTSTATUS DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING Registry
     //DbgPrint("血腥城堡驱动加载成功!!!\n");
 
     InitGlobalVariable(DriverObject);
-    InitProtect(DriverObject);
+    //InitProtect(DriverObject);
     NTSTATUS ntStatus = CreateDevice(DriverObject);
     if (!NT_SUCCESS(ntStatus))
     {

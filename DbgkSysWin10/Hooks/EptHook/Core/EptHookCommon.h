@@ -41,15 +41,15 @@ inline VOID HookEptRoutine(TSystemRoutine SystemRoutine,
     {
         if (hvgt::hook_function(SystemRoutine, HookRoutine, OriginalRoutine))
         {
-            outLog("hook %s成功.", HookName);
+            outFile("hook %s成功.", HookName);
         }
         else
         {
-            outLog("hook %s失败.", HookName);
+            outFile("hook %s失败.", HookName);
         }
     }
     else
     {
-        outLog("Sys_%s为空指针.", SymbolName);
+        outFile("Sys_%s为空指针.", SymbolName);
     }
 }
