@@ -2,19 +2,7 @@
 
 namespace
 {
-#ifdef _DEBUG_Key_Log
-    void StopInitOffsetLogThread()
-    {
-        InterlockedExchange(&g_StopInitOffsetLogThread, 1);
 
-        if (g_InitOffsetLogThreadHandle != nullptr)
-        {
-            ZwWaitForSingleObject(g_InitOffsetLogThreadHandle, FALSE, nullptr);
-            ZwClose(g_InitOffsetLogThreadHandle);
-            g_InitOffsetLogThreadHandle = nullptr;
-        }
-    }
-#endif
 
     NTSTATUS DriverEntryFailure(const NTSTATUS status)
     {
@@ -108,7 +96,7 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
     //InitializeSerialPort();
     outFile("========== VT加载开始：DriverEntry ==========");
 
-    g_vt_driver_image_base = DriverObject->DriverStart; // 记录驱动镜像范围，后续补映射Host关键代码页，不作为VT进入条件。
+    g_vt_driver_image_base = DriverObject->DriverStart; // 记录驱动镜像范围（诊断用），不作为VT进入条件。
     g_vt_driver_image_size = DriverObject->DriverSize;
     Cr3TrackerReset();
     outFile("[信息][DriverEntry] VT驱动镜像：Base=0x%p Size=0x%llX",
@@ -116,33 +104,8 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
         g_vt_driver_image_size);
 
     DriverObject->DriverUnload = Unload; // 注册卸载回调，驱动卸载时执行清理
-    //KdPrint(("DriverEntry!!!\n"));
     outDebug(("进入 DriverEntry!!!\n")); // 内核调试输出，提示入口被调用
 
-#ifdef _DEBUG_Key_Log
-    // 启动 InitOffset 延后打印线程。
-    // 这个线程只负责在安全上下文里输出由 InitOffset() 记录下来的结果，
-    // 本身不参与任何 VMX root 热路径逻辑。
-    //
-    NTSTATUS threadStatus = PsCreateSystemThread(
-        &g_InitOffsetLogThreadHandle,
-        THREAD_ALL_ACCESS,
-        nullptr,
-        nullptr,
-        nullptr,
-        InitOffsetLogThread,
-        nullptr);
-
-    if (!NT_SUCCESS(threadStatus))
-    {
-        g_InitOffsetLogThreadHandle = nullptr;
-        outDebug("InitOffset 日志线程创建失败：0x%X\n", threadStatus);
-    }
-    else
-    {
-        outDebug("InitOffset 日志线程创建成功\n");
-    }
-#endif
 
     NTSTATUS nStatus = STATUS_SUCCESS; // 默认返回成功状态
 
