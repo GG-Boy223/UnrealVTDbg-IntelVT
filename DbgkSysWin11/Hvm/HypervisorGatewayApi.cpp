@@ -101,6 +101,7 @@ namespace hvgt
 			buffer,
 			buffer_size,
 			__readcr3(),
+			0,
 			0
 		};
 		KeGenericCallDpc(broadcast_read_ept_fake_page_memory, &args);
@@ -116,6 +117,7 @@ namespace hvgt
 			buffer,
 			buffer_size,
 			__readcr3(),
+			0,
 			0
 		};
 		KeGenericCallDpc(broadcast_get_software_breakpoint_buffer, &args);
@@ -131,6 +133,7 @@ namespace hvgt
 			buffer,
 			buffer_size,
 			current_cr3,
+			0,
 			0
 		};
 		KeGenericCallDpc(broadcast_set_software_breakpoint_buffer, &args);
@@ -146,6 +149,7 @@ namespace hvgt
 			buffer,
 			buffer_size,
 			current_cr3,
+			0,
 			0
 		};
 		KeGenericCallDpc(broadcast_get_software_breakpoint_buffer, &args);
@@ -177,10 +181,17 @@ namespace hvgt
 	/// </summary>
 	bool hook_function(void* target_address, void* proxy_function, void** origin_function)
 	{
-		HookFunctionArgs args{ target_address, proxy_function, origin_function, __readcr3(), 0 };
+		HookFunctionArgs args{
+			target_address,
+			proxy_function,
+			origin_function,
+			__readcr3(),
+			0
+		};
 		KeGenericCallDpc(broadcast_hook_function, &args);
 
-		return static_cast<ULONG>(args.statuses) == KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS);
+		return static_cast<ULONG>(args.statuses) ==
+			KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS);
 	}
 
 	// 广播给所有逻辑处理器。

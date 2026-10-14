@@ -8,6 +8,7 @@
 #include "../List/MyList.h"
 #include "../Globals.h"
 #include "HypervisorGatewayInternal.h"
+#include "../../Common/Ring0/Hvm/VmcallDispatchPolicy.h"
 
 namespace hvgt
 {
@@ -52,13 +53,25 @@ namespace hvgt
 	{
 		const auto args = reinterpret_cast<SoftwareBreakpointBufferArgs*>(DeferredContext);
 
-		if (args != nullptr &&
-			SafeVmCallEx(VMCALL_READ_EPT_FAKE_PAGE_MEMORY,
+		const BOOLEAN transaction_owner = KeSignalCallDpcSynchronize(SystemArgument2);
+		if (transaction_owner && args != nullptr)
+		{
+			const bool transaction_succeeded = SafeVmCallEx(VMCALL_READ_EPT_FAKE_PAGE_MEMORY,
 				(unsigned __int64)args->target_address,
 				(unsigned __int64)args->buffer,
 				args->buffer_size,
 				args->current_cr3,
-				0, 0, 0, 0, 0))
+				0,
+				0,
+				0,
+				0,
+				0);
+			InterlockedExchange(&args->transaction_status, transaction_succeeded ? 1 : -1);
+		}
+
+		KeSignalCallDpcSynchronize(SystemArgument2);
+		if (args != nullptr &&
+			InterlockedCompareExchange(&args->transaction_status, 0, 0) == 1)
 		{
 			InterlockedIncrement16(&args->statuses);
 		}
@@ -70,13 +83,25 @@ namespace hvgt
 	{
 		const auto args = reinterpret_cast<SoftwareBreakpointBufferArgs*>(DeferredContext);
 
-		if (args != nullptr &&
-			SafeVmCallEx(VMCALL_GET_SOFTWARE_BREAKPOINT_BUFFER,
+		const BOOLEAN transaction_owner = KeSignalCallDpcSynchronize(SystemArgument2);
+		if (transaction_owner && args != nullptr)
+		{
+			const bool transaction_succeeded = SafeVmCallEx(VMCALL_GET_SOFTWARE_BREAKPOINT_BUFFER,
 				(unsigned __int64)args->target_address,
 				(unsigned __int64)args->buffer,
 				args->buffer_size,
 				args->current_cr3,
-				0, 0, 0, 0, 0))
+				0,
+				0,
+				0,
+				0,
+				0);
+			InterlockedExchange(&args->transaction_status, transaction_succeeded ? 1 : -1);
+		}
+
+		KeSignalCallDpcSynchronize(SystemArgument2);
+		if (args != nullptr &&
+			InterlockedCompareExchange(&args->transaction_status, 0, 0) == 1)
 		{
 			InterlockedIncrement16(&args->statuses);
 		}
@@ -88,13 +113,28 @@ namespace hvgt
 	{
 		const auto args = reinterpret_cast<SoftwareBreakpointBufferArgs*>(DeferredContext);
 
-		if (args != nullptr &&
-			SafeVmCallEx(VMCALL_SET_SOFTWARE_BREAKPOINT_BUFFER,
+		const BOOLEAN transaction_owner = KeSignalCallDpcSynchronize(SystemArgument2);
+		if (transaction_owner && args != nullptr)
+		{
+			const bool transaction_succeeded = SafeVmCallEx(VMCALL_SET_SOFTWARE_BREAKPOINT_BUFFER,
 				(unsigned __int64)args->target_address,
 				(unsigned __int64)args->buffer,
 				args->buffer_size,
 				args->current_cr3,
-				0, 0, 0, 0, 0))
+				0,
+				0,
+				0,
+				0,
+				0);
+			InterlockedExchange(&args->transaction_status, transaction_succeeded ? 1 : -1);
+		}
+
+		KeSignalCallDpcSynchronize(SystemArgument2);
+		// 跨核 INVEPT 走 DPC 广播：每核发一次 single-context INVEPT（刷本核唯一 EPTP）。
+		if (args != nullptr &&
+			InterlockedCompareExchange(&args->transaction_status, 0, 0) == 1 &&
+			SafeVmCall(VMCALL_INVEPT_CONTEXT, false, 0, 0) &&
+			SafeVmCall(VMCALL_SYNC_CR3_EXIT_POLICY, 0, 0, 0))
 		{
 			InterlockedIncrement16(&args->statuses);
 		}
@@ -106,13 +146,19 @@ namespace hvgt
 	{
 		const auto args = reinterpret_cast<HookFunctionArgs*>(DeferredContext);
 
+		// HyperDbg/原版式：每核直发 hook，改自己的 EPT，成功计数。失败不回滚，由上层按
+		// statuses == processor_count 判断整体结果。
 		if (args != nullptr &&
 			SafeVmCallEx(VMCALL_EPT_RIP_HOOK,
 				(unsigned __int64)args->target_address,
 				(unsigned __int64)args->proxy_function,
 				(unsigned __int64)args->origin_function,
 				args->current_cr3,
-				0, 0, 0, 0, 0))
+				0,
+				0,
+				0,
+				0,
+				0))
 		{
 			InterlockedIncrement16(&args->statuses);
 		}
@@ -147,12 +193,38 @@ namespace hvgt
 			return;
 		}
 
-		// EPT 改动命令同样按“每核各自执行一次 VMCALL”处理：每个核只改自己的 EPT。
-		// 不再用单核属主 + 全局 INVEPT/CR3 同步（属主只改自己，其它核改不到）。
-		if (SafeVmCall(command,
-			(unsigned __int64)args->vmcallinfo,
-			args->parameter2,
-			args->parameter3))
+		const bool serialized_ept_transaction =
+			hv::vmcall_dispatch_policy::IsEptMutation(command);
+
+		if (!serialized_ept_transaction)
+		{
+			if (SafeVmCall(command,
+				(unsigned __int64)args->vmcallinfo,
+				args->parameter2,
+				args->parameter3))
+			{
+				InterlockedIncrement16(&args->statuses);
+			}
+
+			SignalDpcDone(SystemArgument1, SystemArgument2);
+			return;
+		}
+
+		const BOOLEAN transaction_owner = KeSignalCallDpcSynchronize(SystemArgument2);
+		if (transaction_owner)
+		{
+			const bool transaction_succeeded = SafeVmCall(command,
+				(unsigned __int64)args->vmcallinfo,
+				args->parameter2,
+				args->parameter3);
+			InterlockedExchange(&args->transaction_status, transaction_succeeded ? 1 : -1);
+		}
+
+		KeSignalCallDpcSynchronize(SystemArgument2);
+		// 跨核 INVEPT 走 DPC 广播：每核发一次 single-context INVEPT（刷本核唯一 EPTP）。
+		if (InterlockedCompareExchange(&args->transaction_status, 0, 0) == 1 &&
+			SafeVmCall(VMCALL_INVEPT_CONTEXT, false, 0, 0) &&
+			SafeVmCall(VMCALL_SYNC_CR3_EXIT_POLICY, 0, 0, 0))
 		{
 			InterlockedIncrement16(&args->statuses);
 		}
