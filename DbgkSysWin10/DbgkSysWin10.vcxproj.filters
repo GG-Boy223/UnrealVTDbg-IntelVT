@@ -289,6 +289,9 @@
     <ClCompile Include="Hooks\EptHook\Core\EptHookNtosDebug.cpp">
       <Filter>Source Files\Hooks\EptHook\Core</Filter>
     </ClCompile>
+    <ClCompile Include="Hooks\EptHook\Core\EptHookAntiDebug.cpp">
+      <Filter>Source Files\Hooks\EptHook\Core</Filter>
+    </ClCompile>
     <ClCompile Include="Hooks\EptHook\Core\EptHookThreadProcess.cpp">
       <Filter>Source Files\Hooks\EptHook\Core</Filter>
     </ClCompile>
@@ -479,6 +482,9 @@
       <Filter>Source Files\DbgkApi\Api</Filter>
     </ClCompile>
     <ClCompile Include="DbgkApi\Api\DebugExitEvents.cpp">
+      <Filter>Source Files\DbgkApi\Api</Filter>
+    </ClCompile>
+    <ClCompile Include="DbgkApi\Api\OpenProcessDebugPort.cpp">
       <Filter>Source Files\DbgkApi\Api</Filter>
     </ClCompile>
     <ClCompile Include="Cr3\Cr3Candidate.cpp">
@@ -712,6 +718,9 @@
       <Filter>Header Files\DbgkApi\Api</Filter>
     </ClInclude>
     <ClInclude Include="DbgkApi\Api\DebugEventHandlersInternal.h">
+      <Filter>Header Files\DbgkApi\Api</Filter>
+    </ClInclude>
+    <ClInclude Include="DbgkApi\Api\OpenProcessDebugPort.h">
       <Filter>Header Files\DbgkApi\Api</Filter>
     </ClInclude>
     <ClInclude Include="Globals\Globals.h">

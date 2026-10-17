@@ -1,5 +1,6 @@
 ﻿#include "DebugActiveProcess.h"
 #include "DebugObjectCommonInternal.h"
+#include "../../Hooks/EptHook/EptHook.h"
 
 NTSTATUS DbgkpSetProcessDebugObject(
     IN _EPROCESS* Process,
@@ -275,6 +276,9 @@ NTSTATUS DbgkpSetProcessDebugObject(
     if (NT_SUCCESS(Status))
     {
         DbgkpMarkProcessPeb(Process); //清理进程的peb结构
+        // attach 路径统一处理：清除已运行线程的 ThreadHideFromDebugger，
+        // 并清掉 PEB.BeingDebugged / NtGlobalFlag / 堆调试标志。
+        PrepareVirtualDebugTargetProcess(Process);
     }
     // /* Return status */
     return Status;

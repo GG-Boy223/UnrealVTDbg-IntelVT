@@ -52,6 +52,24 @@ namespace
     }
 }
 
+// 反-反调试计数必须与对象生命周期严格配对：
+// 创建成功后 +1，最后一次句柄关闭（SystemHandleCount <= 1）时 -1。
+static VOID DecrementCounterSaturating(volatile LONG* Counter)
+{
+    for (;;)
+    {
+        LONG value = *Counter;
+        if (value <= 0)
+        {
+            return;
+        }
+        if (InterlockedCompareExchange(Counter, value - 1, value) == value)
+        {
+            return;
+        }
+    }
+}
+
 POBJECT_TYPE GetDebugObjectType(UNICODE_STRING Name)
 {
     if (ObTypeIndexTable == NULL)
@@ -236,6 +254,13 @@ NTSTATUS NtCreateDebugObject(
                 // /* Get the exception code */
                 Status = _SEH2_GetExceptionCode();
             } _SEH2_END;
+
+            if (NT_SUCCESS(Status))
+            {
+                // 只有成功返回句柄才计入活跃对象/句柄贡献。
+                InterlockedIncrement(&g_LiveVirtualDebugObjectCount);
+                InterlockedIncrement(&g_LiveVirtualDebugObjectHandleCount);
+            }
         }
     }
 
@@ -269,6 +294,13 @@ DbgkpCloseObject(
     DbgkRuntimeCallGuard stateGuard;
 
     UNREFERENCED_PARAMETER(GrantedAccess);
+
+    // 每次关闭句柄都减少句柄贡献；最后一个句柄关闭时对象即将销毁，再减少对象贡献。
+    DecrementCounterSaturating(&g_LiveVirtualDebugObjectHandleCount);
+    if (SystemHandleCount <= 1)
+    {
+        DecrementCounterSaturating(&g_LiveVirtualDebugObjectCount);
+    }
 
     // If this isn't the last handle then do nothing.
     if (SystemHandleCount > 1)

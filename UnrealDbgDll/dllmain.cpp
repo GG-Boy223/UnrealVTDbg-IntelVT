@@ -11,10 +11,14 @@
 #include "StartProcess.h"
 #include "NetVerHelp/Help_Tou/NetworkVerHelp.h"
 #include "Crypter/xorstr.hpp"
+#include "../Common/Shared/HookSelection.h"
+
+#include <atomic>
 
 #pragma comment(lib, "iphlpapi.lib")
 
 Logger logger("UnrealDbgDll.log");
+static std::atomic<ULONG64> g_hookSelectionMask{ HOOK_SELECTION_ALL };
 
 //--------------------------------------------
 
@@ -40,7 +44,7 @@ string signSalt = (const char*)_xor_("5cae28fc");
 Model::EncryptType encrypttypeid = Model::EncryptType::RC4;
 string goodscode = (const char*)_xor_("4cd990453596e1aa");
 string platformUserCode = (const char*)_xor_("86ffdabd03591bff4e958201c252fe75f0d1e74d");
-string versionname = (const char*)_xor_("v6066");
+string versionname = (const char*)_xor_("v6067");
 
 std::string FormatMacAddress(const BYTE* address, ULONG length)
 {
@@ -548,6 +552,17 @@ void DispatchSymbol()
 
 
 //Initialize
+extern "C" __declspec(dllexport) BOOL __stdcall ConfigureHooks_F3(ULONG64 mask)
+{
+    if ((mask & ~HOOK_SELECTION_ALL) != 0)
+    {
+        return FALSE;
+    }
+
+    g_hookSelectionMask.store(mask, std::memory_order_release);
+    return TRUE;
+}
+
 BOOL Initialize_F3(ULONG64 key)   //初始化驱动 key用户  驱动对比
 {
    // VMProtectBegin("Initialize_F3");
@@ -635,6 +650,19 @@ BOOL LoadSymbolsTable(ULONG64 key)
     BOOL bRet;
     // 将缓冲区地址传递给驱动程序
     DWORD BytesReturned = 0;
+    RING3_HOOK_CONFIGURATION hookConfiguration = { 0 };
+    hookConfiguration.version = HOOK_CONFIGURATION_VERSION;
+    hookConfiguration.size = sizeof(hookConfiguration);
+    hookConfiguration.mask = g_hookSelectionMask.load(std::memory_order_acquire);
+    bRet = SendUserDataToDriver(IOCTL_CONFIGURE_EPT_HOOKS,
+        &hookConfiguration, sizeof(hookConfiguration), NULL, 0, &BytesReturned);
+    if (!bRet)
+    {
+        logger.outDebug(_xor_(L"下发 EPT hook 选择失败"));
+        VMProtectEnd();
+        return FALSE;
+    }
+
     RING3_VERIFY info = { 0 };
     info.key = key;
     DWORD dwSuccess = 520;

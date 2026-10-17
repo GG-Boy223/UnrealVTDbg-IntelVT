@@ -19,6 +19,7 @@
 /bin/
 /obj/
 /ipch/
+/_artifacts/
 
 # ===== 工程内编译输出目录 =====
 DbgkSysWin10/x64/
@@ -30,6 +31,7 @@ Hook/Hook/Release/
 Loader/x64/
 UnrealDbgDll/x64/
 VT_Driver/x64/
+UnrealDbgWinUI/x64/
 
 # 大小写兼容版本（只针对根目录）
 /[Dd]ebug/

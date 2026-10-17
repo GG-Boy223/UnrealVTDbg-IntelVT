@@ -7,6 +7,7 @@
 #include "../../../vmx.h"
 #include "../../../hypervisor_routines.h"
 #include "../../../Vmcs/VmcsApi.h"
+#include "../../../../Common/Ring0/Hvm/DebuggerVisibilityPolicy.h"
 
 namespace ept
 {
@@ -55,6 +56,235 @@ namespace ept
 			}
 
 			return true;
+		}
+
+		// 只按当前 EPT 页记录查找函数；调用方必须保证当前 CPU 正在处理该 ept_state 对应的 VM-exit。
+		bool try_acquire_hooked_function_by_address(
+			__ept_state& ept_state,
+			unsigned __int64 virtual_address,
+			__ept_hooked_function_info** hooked_function_info,
+			__ept_hooked_page_info** hooked_page_info)
+		{
+			*hooked_function_info = nullptr;
+			*hooked_page_info = nullptr;
+
+			for (PLIST_ENTRY current_page = ept_state.hooked_page_list.Flink;
+				current_page != &ept_state.hooked_page_list;
+				current_page = current_page->Flink)
+			{
+				__ept_hooked_page_info* page =
+					CONTAINING_RECORD(current_page, __ept_hooked_page_info, hooked_page_list);
+
+				if (page->Options != EPTO_HOOK_FUNCTION || page->removing != 0)
+				{
+					continue;
+				}
+
+				for (PLIST_ENTRY current_function = page->hooked_functions_list.Flink;
+					current_function != &page->hooked_functions_list;
+					current_function = current_function->Flink)
+				{
+					__ept_hooked_function_info* function =
+						CONTAINING_RECORD(current_function, __ept_hooked_function_info, hooked_function_list);
+
+					if (function->removing != 0 ||
+						reinterpret_cast<unsigned __int64>(function->virtual_address) != virtual_address)
+					{
+						continue;
+					}
+
+					InterlockedIncrement(&page->hot_reference_count);
+					InterlockedIncrement(&function->hot_reference_count);
+					if (page->removing == 0 && function->removing == 0)
+					{
+						*hooked_function_info = function;
+						*hooked_page_info = page;
+						return true;
+					}
+
+					InterlockedDecrement(&function->hot_reference_count);
+					InterlockedDecrement(&page->hot_reference_count);
+					return false;
+				}
+			}
+
+			return false;
+		}
+
+		// VMCALL 指令地址的候选值：
+		//   1) GUEST_RIP 本身；
+		//   2) GUEST_RIP - VM_EXIT_INSTRUCTION_LENGTH。
+		// 不同 Intel 实现/退出类别对 VMCALL 的 RIP 语义可能表现为指令地址或下一条指令地址，
+		// 两个候选都按函数入口精确匹配。instruction_length 非法时不做减法，避免 underflow。
+		unsigned int build_vmcall_rip_candidates(
+			unsigned __int64 guest_rip,
+			unsigned __int64 instruction_length,
+			unsigned __int64 candidates[2])
+		{
+			return hvm_debug_visibility::BuildVmcallRipCandidates(
+				guest_rip,
+				instruction_length,
+				candidates);
+		}
+
+		// 在 VM-exit 内解析 VMCALL 对应的函数 hook。
+		// 关键：必须使用当前 GUEST_CR3 做 GVA→GPA；hv::ghv.system_cr3 是宿主 dwm 地址空间
+		// （见 Vmm/VmmHostPageTables.cpp），在 KVA shadow/进程地址空间切换后不能保证映射当前 guest 内核代码页。
+		bool resolve_vmcall_hook(
+			__ept_state& ept_state,
+			unsigned __int64 guest_rip,
+			unsigned __int64 instruction_length,
+			__ept_hooked_function_info** hooked_function_info,
+			__ept_hooked_page_info** hooked_page_info)
+		{
+			*hooked_function_info = nullptr;
+			*hooked_page_info = nullptr;
+
+			unsigned __int64 candidates[2] = {};
+			const unsigned int candidate_count =
+				build_vmcall_rip_candidates(guest_rip, instruction_length, candidates);
+
+			cr3 guest_cr3 = {};
+			guest_cr3.flags = hvm_debug_visibility::SelectVmcallTranslationCr3(
+				hv::vmread(GUEST_CR3),
+				hv::ghv.system_cr3.flags);
+			if (guest_cr3.flags != 0)
+			{
+				for (unsigned int index = 0; index < candidate_count; ++index)
+				{
+					const unsigned __int64 physical_address =
+						hv::get_physical_address(guest_cr3.flags, reinterpret_cast<PVOID>(candidates[index]));
+					if (physical_address == 0)
+					{
+						continue;
+					}
+
+					__ept_hooked_page_info* page = acquire_page_hot_reference(
+						ept_state,
+						GET_PFN(physical_address),
+						EPTO_HOOK_FUNCTION);
+					if (page == nullptr)
+					{
+						continue;
+					}
+
+					__ept_hooked_function_info* function =
+						acquire_function_hot_reference(page, candidates[index]);
+					if (function != nullptr)
+					{
+						*hooked_function_info = function;
+						*hooked_page_info = page;
+						return true;
+					}
+
+					release_page_hot_reference(ept_state, page);
+				}
+			}
+
+			// 当前 guest CR3 翻译失败或 PFN 不匹配时，按精确虚拟地址扫描本 CPU 的 hook 记录。
+			// 这只在异常路径执行，正常 VMCALL 仍走上面的页帧快路径。
+			for (unsigned int index = 0; index < candidate_count; ++index)
+			{
+				if (try_acquire_hooked_function_by_address(
+					ept_state,
+					candidates[index],
+					hooked_function_info,
+					hooked_page_info))
+				{
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		// 最后一道收敛路径：VMCALL 已经来自某个函数 hook 伪页，但函数记录查找失败。
+		// 通过伪页中的 0F 01 C1 定位页记录，并优先按页内偏移恢复对应 handler；
+		// 若记录确实不存在，则把原页恢复为可执行，避免把自定义 VMCALL 误报为 guest #UD 并蓝屏。
+		bool recover_unattributed_vmcall(
+			__ept_state& ept_state,
+			unsigned __int64 guest_rip,
+			unsigned __int64 instruction_length)
+		{
+			unsigned __int64 candidates[2] = {};
+			const unsigned int candidate_count =
+				build_vmcall_rip_candidates(guest_rip, instruction_length, candidates);
+
+			for (PLIST_ENTRY current_page = ept_state.hooked_page_list.Flink;
+				current_page != &ept_state.hooked_page_list;
+				current_page = current_page->Flink)
+			{
+				__ept_hooked_page_info* page =
+					CONTAINING_RECORD(current_page, __ept_hooked_page_info, hooked_page_list);
+				if (page->Options != EPTO_HOOK_FUNCTION ||
+					page->removing != 0 ||
+					page->fake_page_contents == nullptr ||
+					page->entry_address == nullptr)
+				{
+					continue;
+				}
+
+				for (unsigned int index = 0; index < candidate_count; ++index)
+				{
+					const unsigned __int64 page_offset = candidates[index] & 0xFFF;
+					if (page_offset + 3 > PAGE_SIZE)
+					{
+						continue;
+					}
+
+					unsigned __int8* instruction = &page->fake_page_contents[page_offset];
+					if (!hvm_debug_visibility::IsVmcallInstruction(instruction))
+					{
+						continue;
+					}
+
+					if (ept_state.page_to_change == page)
+					{
+						hv::clear_pending_mtf_metadata(&ept_state);
+						hv::set_mtf(false);
+					}
+
+					for (PLIST_ENTRY current_function = page->hooked_functions_list.Flink;
+						current_function != &page->hooked_functions_list;
+						current_function = current_function->Flink)
+					{
+						__ept_hooked_function_info* function =
+							CONTAINING_RECORD(current_function, __ept_hooked_function_info, hooked_function_list);
+						if (function->removing != 0 ||
+							function->handler_function == nullptr ||
+							(reinterpret_cast<unsigned __int64>(function->virtual_address) & 0xFFF) != page_offset)
+						{
+							continue;
+						}
+
+						InterlockedIncrement(&page->hot_reference_count);
+						InterlockedIncrement(&function->hot_reference_count);
+						if (page->removing == 0 && function->removing == 0)
+						{
+							hv::vmwrite(GUEST_RIP, function->handler_function);
+							release_function_hot_reference(function);
+							release_page_hot_reference(ept_state, page);
+							return true;
+						}
+
+						InterlockedDecrement(&function->hot_reference_count);
+						InterlockedDecrement(&page->hot_reference_count);
+					}
+
+					__ept_pte restored_entry = page->original_entry;
+					restored_entry.read = 1;
+					restored_entry.write = 1;
+					restored_entry.execute = 1;
+					swap_pml1_and_invalidate_tlb(
+						ept_state,
+						page->entry_address,
+						restored_entry,
+						invept_single_context);
+					return true;
+				}
+			}
+
+			return false;
 		}
 	}
 
@@ -355,27 +585,19 @@ namespace ept
 	//如果是我们vmcall hook的地址则转到代理函数
 	bool handler_vmcall_rip(__ept_state& ept_state)
 	{
-		unsigned __int64 guest_rip = hv::vmread(GUEST_RIP);
-		unsigned __int64 physical_address = hv::get_physical_address(hv::ghv.system_cr3.flags, (PVOID)guest_rip);
+		const unsigned __int64 guest_rip = hv::vmread(GUEST_RIP);
+		const unsigned __int64 instruction_length = hv::vmread(VM_EXIT_INSTRUCTION_LENGTH);
+		__ept_hooked_function_info* hooked_function_info = nullptr;
+		__ept_hooked_page_info* hooked_page_info = nullptr;
 
-		if (physical_address == 0)
+		if (!resolve_vmcall_hook(
+			ept_state,
+			guest_rip,
+			instruction_length,
+			&hooked_function_info,
+			&hooked_page_info))
 		{
-			return false;
-		}
-
-		__ept_hooked_page_info* hooked_page_info =
-			acquire_page_hot_reference(ept_state, GET_PFN(physical_address), EPTO_HOOK_FUNCTION);
-		if (hooked_page_info == nullptr)
-		{
-			return false;
-		}
-
-		__ept_hooked_function_info* hooked_function_info =
-			acquire_function_hot_reference(hooked_page_info, guest_rip);
-		if (hooked_function_info == nullptr)
-		{
-			release_page_hot_reference(ept_state, hooked_page_info);
-			return false;
+			return recover_unattributed_vmcall(ept_state, guest_rip, instruction_length);
 		}
 
 		hv::vmwrite(GUEST_RIP, hooked_function_info->handler_function);

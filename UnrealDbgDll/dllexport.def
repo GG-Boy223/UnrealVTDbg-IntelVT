@@ -4,3 +4,4 @@ Initialize_F3 @1
 StartProcess @2
 GetFileVersion @3
 TL_BlockGameResumeThread @4
+ConfigureHooks_F3 @5

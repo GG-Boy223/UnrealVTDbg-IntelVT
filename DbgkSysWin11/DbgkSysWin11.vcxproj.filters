@@ -307,6 +307,9 @@
     <ClCompile Include="Hooks\EptHook\Core\EptHookNtosDebug.cpp">
       <Filter>Source Files\Hooks\EptHook\Core</Filter>
     </ClCompile>
+    <ClCompile Include="Hooks\EptHook\Core\EptHookAntiDebug.cpp">
+      <Filter>Source Files\Hooks\EptHook\Core</Filter>
+    </ClCompile>
     <ClCompile Include="Hooks\EptHook\Core\EptHookThreadProcess.cpp">
       <Filter>Source Files\Hooks\EptHook\Core</Filter>
     </ClCompile>

@@ -2,6 +2,9 @@
 #include "../../Driver.h"
 #include "../../Globals.h"
 #include "../../DbgkApi/DbgkApi.h"
+#include "../../Hooks/EptHook/EptHook.h"
+#include "../../../Common/Ring0/Hvm/DebuggerVisibilityPolicy.h"
+#include "../../Hooks/EptHook/EptHook.h"
 
 EXTERN_C
 NTSTATUS NtCreateThreadEx(unsigned __int64 a1,
@@ -24,6 +27,19 @@ NTSTATUS NtCreateThreadEx(unsigned __int64 a1,
 
     NTSTATUS Status = STATUS_SUCCESS;
 
+    // TitanHide 对照：NtCreateThreadEx(THREAD_CREATE_FLAGS_HIDE_FROM_DEBUGGER)
+    // 由被调试目标发起时剥掉该标志，保证新线程仍能被调试子系统观察。
+    const ULONG kThreadCreateFlagsHideFromDebugger =
+        hvm_debug_visibility::kThreadCreateFlagsHideFromDebugger;
+    unsigned int createFlags = a7;
+    if (hvm_debug_visibility::ShouldStripThreadCreateHideFlag(
+        hvm_debug_visibility::ModeFromKernelFlag(KeGetPreviousMode() == KernelMode),
+        createFlags,
+        HvmIsCallerVirtualDebugTarget()))
+    {
+        createFlags &= ~kThreadCreateFlagsHideFromDebugger;
+    }
+
     ASSERT(Original_NtCreateThreadEx);
     Status = Original_NtCreateThreadEx(a1,
         a2,
@@ -31,7 +47,7 @@ NTSTATUS NtCreateThreadEx(unsigned __int64 a1,
         a4,
         _StartAddress,
         a6,
-        a7,
+        createFlags,
         a8,
         a9,
         a10,

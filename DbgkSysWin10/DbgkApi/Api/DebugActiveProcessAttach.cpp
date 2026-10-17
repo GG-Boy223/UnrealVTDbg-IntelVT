@@ -4,6 +4,7 @@
 #include "../DbgkApi.h"
 #include "../../ntos/inc/ntosdef.h"
 #include "../../ntos/inc/ketypes.h"
+#include "../../Hooks/EptHook/EptHook.h"
 #include "../../ntos/inc/amd64.h"
 #include "../../ntos/inc/extypes.h"
 #include "../../ntos/inc/mi.h"
@@ -332,7 +333,13 @@ NTSTATUS DbgkpSetProcessDebugObject(
 
     /* Check if we got here through success and mark the PEB, then return */
     // /* Check if we got here through success and mark the PEB, then return */
-    if (NT_SUCCESS(Status)) DbgkpMarkProcessPeb(Process);
+    if (NT_SUCCESS(Status))
+    {
+        DbgkpMarkProcessPeb(Process);
+        // attach 路径统一处理：清除已运行线程的 ThreadHideFromDebugger，
+        // 并清掉 PEB.BeingDebugged / NtGlobalFlag / 堆调试标志。
+        PrepareVirtualDebugTargetProcess(Process);
+    }
     // /* Return status */
     return Status;
 }

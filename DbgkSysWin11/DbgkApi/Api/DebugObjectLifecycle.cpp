@@ -51,6 +51,12 @@ namespace
             {
                 return STATUS_DATA_ERROR;
             }
+            if (DbgkDebugObjectType != NULL && *DbgkDebugObjectType != NULL)
+            {
+                outFile("[AntiDebug] debug object type indexes: virtual=%u standard=%u",
+                    (ULONG)Hvm_DbgkDebugObjectType->Index,
+                    (ULONG)(*DbgkDebugObjectType)->Index);
+            }
             return STATUS_SUCCESS;
         }
         __except (EXCEPTION_EXECUTE_HANDLER)

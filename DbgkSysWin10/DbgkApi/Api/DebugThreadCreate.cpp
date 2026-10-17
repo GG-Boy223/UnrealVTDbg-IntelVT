@@ -1,5 +1,8 @@
 ﻿#include "DebugEventHandlersInternal.h"
 
+extern BOOLEAN HvmIsVirtualDebugTargetProcess(_EPROCESS* Process, PVOID* DebugProcess);
+extern VOID PrepareVirtualDebugTargetProcess(_EPROCESS* Process);
+
 // 旧项目保留的禁用路径：轻量版 DbgkCreateThread 只解析 DebugPort，写入 Debugport_Struct 后调用 Original_DbgkCreateThread。
 // 为什么注释：重构后的 DbgkCreateThread 负责补发 create process/thread、image notify、system dll 等完整调试消息；
 // 旧实现没有构造 DBGKM_APIMSG，也没有处理 Hvm_DebugObject 事件队列。
@@ -200,6 +203,14 @@ EXTERN_C VOID DbgkCreateThread(IN PETHREAD Thread)
     {
         //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
+    }
+
+    // create 路径（NtCreateUserProcess 带调试对象）：目标不在 g_DebugProcessList 中，
+    // 由 DebugPort 指向 Hvm_DebugObject 判定。首个线程创建时统一清除 PEB/线程调试痕迹。
+    if (!(OldFlags.CreateReported) &&
+        HvmIsVirtualDebugTargetProcess((_EPROCESS*)Process, NULL))
+    {
+        PrepareVirtualDebugTargetProcess((_EPROCESS*)Process);
     }
 
     //检查报告是否已经创建

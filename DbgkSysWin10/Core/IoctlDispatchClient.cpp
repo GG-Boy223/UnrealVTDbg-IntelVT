@@ -1,5 +1,7 @@
 ﻿#include "../Driver.h"
 #include "IoctlDispatchInternal.h"
+#include "IoctlHandlers/IoctlHandlerCommon.h"
+#include "../Hooks/EptHook/EptHook.h"
 #include "../Init/Symbolic/InitSymbolic.h"
 
 NTSTATUS DispatchClientIoctl(ULONG Code, PIOCTL_DISPATCH_CONTEXT Context, BOOLEAN* Handled)
@@ -40,6 +42,46 @@ NTSTATUS DispatchClientIoctl(ULONG Code, PIOCTL_DISPATCH_CONTEXT Context, BOOLEA
 
         InitSymbolsTable(ResolvedUserData(Context), Context->Irp);
         Context->Information = sizeof(DWORD);
+        return STATUS_SUCCESS;
+    }
+    case IOCTL_CONFIGURE_EPT_HOOKS:
+    {
+        if (!HasInputUserData(*Context))
+        {
+            return STATUS_BUFFER_TOO_SMALL;
+        }
+
+        NTSTATUS status = ResolveInputUserData(Context);
+        if (!NT_SUCCESS(status))
+        {
+            return status;
+        }
+
+        USER_DATA user = GetUserData(ResolvedUserData(Context));
+        UCHAR* plainText = AllocateAndDecryptUserRecords(
+            user, sizeof(RING3_HOOK_CONFIGURATION), nullptr);
+        if (plainText == nullptr)
+        {
+            return STATUS_INVALID_PARAMETER;
+        }
+
+        const PRING3_HOOK_CONFIGURATION configuration =
+            reinterpret_cast<PRING3_HOOK_CONFIGURATION>(plainText);
+        if (configuration->version != HOOK_CONFIGURATION_VERSION ||
+            configuration->size != sizeof(RING3_HOOK_CONFIGURATION))
+        {
+            free_pool(plainText);
+            return STATUS_INVALID_PARAMETER;
+        }
+
+        status = ConfigureEptHookSelection(configuration->mask);
+        free_pool(plainText);
+        if (!NT_SUCCESS(status))
+        {
+            return status;
+        }
+
+        Context->Information = 0;
         return STATUS_SUCCESS;
     }
     case IOCTL_LOAD_DEBUGGER_STATE:

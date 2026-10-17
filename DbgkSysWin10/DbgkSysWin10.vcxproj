@@ -319,6 +319,7 @@
     <ClCompile Include="DbgkApi\Api\DebugThreadCreate.cpp" />
     <ClCompile Include="DbgkApi\Api\DebugImageEvents.cpp" />
     <ClCompile Include="DbgkApi\Api\DebugExitEvents.cpp" />
+    <ClCompile Include="DbgkApi\Api\OpenProcessDebugPort.cpp" />
     <ClCompile Include="Core\DebugEvents\DebugRuntimeEvents.cpp" />
     <ClCompile Include="Core\DebugEvents\MemoryAndAttachEvents.cpp" />
     <ClCompile Include="Core\DebugEvents\ObjectReferenceEvents.cpp" />
@@ -346,6 +347,7 @@
     <ClCompile Include="Hooks\EptHook\Core\EptHookLifecycle.cpp" />
     <ClCompile Include="Hooks\EptHook\Core\EptHookMemoryObject.cpp" />
     <ClCompile Include="Hooks\EptHook\Core\EptHookNtosDebug.cpp" />
+    <ClCompile Include="Hooks\EptHook\Core\EptHookAntiDebug.cpp" />
     <ClCompile Include="Hooks\EptHook\Core\EptHookThreadProcess.cpp" />
     <ClCompile Include="Hooks\EptHook\Core\EptHookWin32k.cpp" />
     <ClCompile Include="Hvm\HypervisorGatewayApi.cpp" />
@@ -397,6 +399,7 @@
     <ClInclude Include="DbgkApi\Api\DebugObjectCommonInternal.h" />
     <ClInclude Include="DbgkApi\Api\DebugEventHandlers.h" />
     <ClInclude Include="DbgkApi\Api\DebugEventHandlersInternal.h" />
+    <ClInclude Include="DbgkApi\Api\OpenProcessDebugPort.h" />
     <ClInclude Include="DebugBreak\DebugBreak.h" />
     <ClInclude Include="DebugBreak\Core\DebugBreakInternal.h" />
     <ClInclude Include="Driver.h" />

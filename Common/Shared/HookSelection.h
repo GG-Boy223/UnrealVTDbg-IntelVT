@@ -1,0 +1,46 @@
+#pragma once
+
+#ifndef _HOOK_SELECTION_SHARED_H
+#define _HOOK_SELECTION_SHARED_H
+
+// The mask is part of the user-to-driver contract. Keep existing bit values stable.
+#define HOOK_SELECTION_NT_CREATE_DEBUG_OBJECT              (1ULL << 0)
+#define HOOK_SELECTION_PSP_INSERT_PROCESS                  (1ULL << 1)
+#define HOOK_SELECTION_NT_SET_INFORMATION_DEBUG_OBJECT     (1ULL << 2)
+#define HOOK_SELECTION_NT_REMOVE_PROCESS_DEBUG             (1ULL << 3)
+#define HOOK_SELECTION_NT_DEBUG_ACTIVE_PROCESS             (1ULL << 4)
+#define HOOK_SELECTION_NT_WAIT_FOR_DEBUG_EVENT              (1ULL << 5)
+#define HOOK_SELECTION_NT_DEBUG_CONTINUE                   (1ULL << 6)
+#define HOOK_SELECTION_DBGK_MAP_VIEW_OF_SECTION            (1ULL << 7)
+#define HOOK_SELECTION_DBGK_UNMAP_VIEW_OF_SECTION          (1ULL << 8)
+#define HOOK_SELECTION_DBGK_CREATE_THREAD                  (1ULL << 9)
+#define HOOK_SELECTION_DBGK_EXIT_THREAD                    (1ULL << 10)
+#define HOOK_SELECTION_DBGK_EXIT_PROCESS                   (1ULL << 11)
+#define HOOK_SELECTION_DBGK_FORWARD_EXCEPTION              (1ULL << 12)
+#define HOOK_SELECTION_DBGKP_QUEUE_MESSAGE                 (1ULL << 13)
+#define HOOK_SELECTION_PSP_CALL_THREAD_NOTIFY_ROUTINES     (1ULL << 14)
+#define HOOK_SELECTION_PSP_EXIT_THREAD                     (1ULL << 15)
+#define HOOK_SELECTION_OBP_REFERENCE_OBJECT_BY_HANDLE_TAG  (1ULL << 16)
+#define HOOK_SELECTION_NT_CLOSE                            (1ULL << 17)
+#define HOOK_SELECTION_NT_DUPLICATE_OBJECT                 (1ULL << 18)
+#define HOOK_SELECTION_DBGK_OPEN_PROCESS_DEBUG_PORT        (1ULL << 19)
+#define HOOK_SELECTION_NT_QUERY_INFORMATION_PROCESS        (1ULL << 20)
+#define HOOK_SELECTION_NT_SET_INFORMATION_PROCESS          (1ULL << 21)
+#define HOOK_SELECTION_NT_QUERY_OBJECT                     (1ULL << 22)
+#define HOOK_SELECTION_NT_QUERY_SYSTEM_INFORMATION         (1ULL << 23)
+#define HOOK_SELECTION_NT_SYSTEM_DEBUG_CONTROL             (1ULL << 24)
+#define HOOK_SELECTION_NT_SET_INFORMATION_THREAD           (1ULL << 25)
+#define HOOK_SELECTION_NT_QUERY_INFORMATION_THREAD         (1ULL << 26)
+#define HOOK_SELECTION_NT_GET_CONTEXT_THREAD               (1ULL << 27)
+#define HOOK_SELECTION_NT_SET_CONTEXT_THREAD               (1ULL << 28)
+#define HOOK_SELECTION_NT_CREATE_THREAD_EX                 (1ULL << 29)
+#define HOOK_SELECTION_VALIDATE_HWND                       (1ULL << 30)
+#define HOOK_SELECTION_NT_USER_FIND_WINDOW_EX              (1ULL << 31)
+#define HOOK_SELECTION_NT_USER_WINDOW_FROM_POINT           (1ULL << 32)
+#define HOOK_SELECTION_NT_USER_SET_WINDOWS_HOOK_EX         (1ULL << 33)
+#define HOOK_SELECTION_NT_USER_BUILD_HWND_LIST             (1ULL << 34)
+#define HOOK_SELECTION_NT_USER_GET_CLASS_NAME              (1ULL << 35)
+
+#define HOOK_SELECTION_ALL                                 ((1ULL << 36) - 1ULL)
+
+#endif // !_HOOK_SELECTION_SHARED_H

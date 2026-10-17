@@ -183,6 +183,7 @@
     <ClCompile Include="Hooks\EptHook\Core\EptHookLifecycle.cpp" />
     <ClCompile Include="Hooks\EptHook\Core\EptHookMemoryObject.cpp" />
     <ClCompile Include="Hooks\EptHook\Core\EptHookNtosDebug.cpp" />
+    <ClCompile Include="Hooks\EptHook\Core\EptHookAntiDebug.cpp" />
     <ClCompile Include="Hooks\EptHook\Core\EptHookThreadProcess.cpp" />
     <ClCompile Include="Hooks\EptHook\Core\EptHookWin32k.cpp" />
     <ClCompile Include="Hvm\HypervisorGatewayApi.cpp" />

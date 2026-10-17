@@ -222,6 +222,15 @@ typedef struct _RING3_VERIFY
     unsigned __int64 key;
 }RING3_VERIFY, * PRING3_VERIFY;
 
+#define HOOK_CONFIGURATION_VERSION 1U
+
+typedef struct _RING3_HOOK_CONFIGURATION
+{
+    unsigned long version;
+    unsigned long size;
+    unsigned __int64 mask;
+}RING3_HOOK_CONFIGURATION, * PRING3_HOOK_CONFIGURATION;
+
 typedef struct _HOOK_DRIVER_HANDSHAKE_REPLY
 {
     unsigned __int64 magic;

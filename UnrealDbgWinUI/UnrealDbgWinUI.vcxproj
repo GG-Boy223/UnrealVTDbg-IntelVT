@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{9A2E30C2-4B4D-4B8E-8D40-8A54EDB64B6F}</ProjectGuid>
+    <RootNamespace>UnrealDbgWinUI</RootNamespace>
+    <ProjectName>UnrealDbgWinUI</ProjectName>
+    <WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion>
+    <TargetPlatformVersion>10.0.26100.0</TargetPlatformVersion>
+    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+    <WindowsAppSDKPackageDir>$(MSBuildThisFileDirectory)..\_artifacts\winui_251_packages\sdk\</WindowsAppSDKPackageDir>
+    <CppWinRTPackageDir>$(MSBuildThisFileDirectory)..\_artifacts\winui_251_packages\cppwinrt\</CppWinRTPackageDir>
+    <CppWinRTPackage>true</CppWinRTPackage>
+    <WindowsAppSDKVerifyTransitiveDependencies>false</WindowsAppSDKVerifyTransitiveDependencies>
+    <CppWinRTOverrideSDKReferences>true</CppWinRTOverrideSDKReferences>
+    <CppWinRTEnablePlatformProjection>false</CppWinRTEnablePlatformProjection>
+    <CppWinRTEnableReferenceProjection>true</CppWinRTEnableReferenceProjection>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Label="Shared" />
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <Target Name="ValidateWinUIPackages" BeforeTargets="PrepareForBuild">
+    <Error Condition="!Exists('$(WindowsAppSDKPackageDir)build\native\Microsoft.WindowsAppSDK.props')" Text="缺少 Windows App SDK 2.5.1 构建依赖：$(WindowsAppSDKPackageDir)" />
+    <Error Condition="!Exists('$(CppWinRTPackageDir)bin\cppwinrt.exe')" Text="缺少 C++/WinRT 3.0.260818.1 投影工具：$(CppWinRTPackageDir)" />
+  </Target>
+  <Import Project="$(WindowsAppSDKPackageDir)build\native\Microsoft.WindowsAppSDK.Base.props" Condition="Exists('$(WindowsAppSDKPackageDir)build\native\Microsoft.WindowsAppSDK.Base.props')" />
+  <Import Project="$(WindowsAppSDKPackageDir)build\native\Microsoft.WindowsAppSDK.Foundation.props" Condition="Exists('$(WindowsAppSDKPackageDir)build\native\Microsoft.WindowsAppSDK.Foundation.props')" />
+  <Import Project="$(WindowsAppSDKPackageDir)build\native\Microsoft.WindowsAppSDK.InteractiveExperiences.props" Condition="Exists('$(WindowsAppSDKPackageDir)build\native\Microsoft.WindowsAppSDK.InteractiveExperiences.props')" />
+  <Import Project="$(WindowsAppSDKPackageDir)build\native\Microsoft.WindowsAppSDK.WinUI.props" Condition="Exists('$(WindowsAppSDKPackageDir)build\native\Microsoft.WindowsAppSDK.WinUI.props')" />
+  <Import Project="$(WindowsAppSDKPackageDir)build\Microsoft.WindowsAppSDK.DWrite.props" Condition="Exists('$(WindowsAppSDKPackageDir)build\Microsoft.WindowsAppSDK.DWrite.props')" />
+  <Import Project="$(WindowsAppSDKPackageDir)build\native\Microsoft.WindowsAppSDK.Runtime.props" Condition="Exists('$(WindowsAppSDKPackageDir)build\native\Microsoft.WindowsAppSDK.Runtime.props')" />
+  <Import Project="$(WindowsAppSDKPackageDir)build\native\Microsoft.WindowsAppSDK.props" Condition="Exists('$(WindowsAppSDKPackageDir)build\native\Microsoft.WindowsAppSDK.props')" />
+  <Import Project="$(CppWinRTPackageDir)build\native\Microsoft.Windows.CppWinRT.props" Condition="Exists('$(CppWinRTPackageDir)build\native\Microsoft.Windows.CppWinRT.props')" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>$(MSBuildThisFileDirectory)..\x64\WinUI\Debug\</OutDir>
+    <IntDir>$(ProjectDir)x64\Debug\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>$(MSBuildThisFileDirectory)..\x64\WinUI\Release\</OutDir>
+    <IntDir>$(ProjectDir)x64\Release\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <PreprocessorDefinitions>UNICODE;_UNICODE;WIN32_LEAN_AND_MEAN;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(WindowsAppSDKPackageDir)include;$(WindowsAppSDKPackageDir)metadata;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <AdditionalDependencies>Microsoft.WindowsAppRuntime.Bootstrap.lib;Microsoft.WindowsAppRuntime.lib;windowsapp.lib;Comdlg32.lib;Ole32.lib;OleAut32.lib;Wbemuuid.lib;Psapi.lib;Version.lib;Advapi32.lib;Shell32.lib;Shlwapi.lib;Winhttp.lib;Windowscodecs.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(WindowsAppSDKPackageDir)lib\native\x64;$(WindowsAppSDKPackageDir)lib\native\win10-x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalManifestFiles>$(ProjectDir)UnrealDbgWinUI.manifest</AdditionalManifestFiles>
+      <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <LinkIncremental>true</LinkIncremental>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <DebugInformationFormat>None</DebugInformationFormat>
+    </ClCompile>
+    <Link>
+      <LinkIncremental>false</LinkIncremental>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <ProgramDatabaseFile />
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="LogStore.cpp" />
+    <ClCompile Include="Runtime.cpp" />
+    <ClCompile Include="SystemInspector.cpp" />
+    <ClCompile Include="SymbolPreparer.cpp" />
+    <ClCompile Include="UiComponents.cpp" />
+    <ClCompile Include="Main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Bridge.h" />
+    <ClInclude Include="SystemInspector.h" />
+    <ClInclude Include="SymbolPreparer.h" />
+    <ClInclude Include="UiTheme.h" />
+    <ClInclude Include="UiComponents.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Manifest Include="UnrealDbgWinUI.manifest" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="$(WindowsAppSDKPackageDir)metadata\**\*.winmd">
+      <WinMDFile>true</WinMDFile>
+      <CopyLocal>false</CopyLocal>
+    </Reference>
+    <Reference Include="$(WindowsSdkDir)UnionMetadata\10.0.26100.0\Windows.winmd">
+      <WinMDFile>true</WinMDFile>
+      <CopyLocal>false</CopyLocal>
+    </Reference>
+    <Reference Include="$(WindowsSdkDir)References\10.0.26100.0\**\*.winmd">
+      <WinMDFile>true</WinMDFile>
+      <CopyLocal>false</CopyLocal>
+    </Reference>
+  </ItemGroup>
+  <!--
+    Runtime binaries are copied by StageRuntime when they already exist.
+    They must not be ProjectReference entries: selecting UnrealDbgWinUI for
+    rebuild must rebuild only the GUI, while a solution-wide build still
+    builds every project independently.
+  -->
+  <Target Name="StageRuntime" AfterTargets="Build">
+    <MakeDir Directories="$(OutDir)bin;$(OutDir)Config;$(OutDir)Log;$(OutDir)Symbols;$(OutDir)Certificates" />
+    <ItemGroup>
+      <_Runtime Include="$(WindowsAppSDKPackageDir)runtimes\win-x64\native\Microsoft.WindowsAppRuntime.Bootstrap.dll" />
+      <_Runtime Include="$(MSBuildThisFileDirectory)..\x64\$(Configuration)\UnrealDbgDll.dll" Condition="Exists('$(MSBuildThisFileDirectory)..\x64\$(Configuration)\UnrealDbgDll.dll')" />
+      <_Runtime Include="$(MSBuildThisFileDirectory)..\UnrealDbgDll\x64\$(Configuration)\UnrealDbgDll.dll" Condition="Exists('$(MSBuildThisFileDirectory)..\UnrealDbgDll\x64\$(Configuration)\UnrealDbgDll.dll')" />
+      <_Runtime Include="$(MSBuildThisFileDirectory)..\x64\$(Configuration)\Hook64.dll" Condition="Exists('$(MSBuildThisFileDirectory)..\x64\$(Configuration)\Hook64.dll')" />
+      <_Runtime Include="$(MSBuildThisFileDirectory)..\Hook\x64\$(Configuration)\Hook64.dll" Condition="Exists('$(MSBuildThisFileDirectory)..\Hook\x64\$(Configuration)\Hook64.dll')" />
+      <_Runtime Include="$(MSBuildThisFileDirectory)..\x64\$(Configuration)\DbgkSysWin10.sys" Condition="Exists('$(MSBuildThisFileDirectory)..\x64\$(Configuration)\DbgkSysWin10.sys')" />
+      <_Runtime Include="$(MSBuildThisFileDirectory)..\DbgkSysWin10\x64\$(Configuration)\DbgkSysWin10.sys" Condition="Exists('$(MSBuildThisFileDirectory)..\DbgkSysWin10\x64\$(Configuration)\DbgkSysWin10.sys')" />
+      <_Runtime Include="$(MSBuildThisFileDirectory)..\x64\$(Configuration)\DbgkSysWin11.sys" Condition="Exists('$(MSBuildThisFileDirectory)..\x64\$(Configuration)\DbgkSysWin11.sys')" />
+      <_Runtime Include="$(MSBuildThisFileDirectory)..\DbgkSysWin11\x64\$(Configuration)\DbgkSysWin11.sys" Condition="Exists('$(MSBuildThisFileDirectory)..\DbgkSysWin11\x64\$(Configuration)\DbgkSysWin11.sys')" />
+      <_Runtime Include="$(MSBuildThisFileDirectory)..\x64\$(Configuration)\VT_Driver.sys" Condition="Exists('$(MSBuildThisFileDirectory)..\x64\$(Configuration)\VT_Driver.sys')" />
+      <_Runtime Include="$(MSBuildThisFileDirectory)..\VT_Driver\x64\$(Configuration)\VT_Driver.sys" Condition="Exists('$(MSBuildThisFileDirectory)..\VT_Driver\x64\$(Configuration)\VT_Driver.sys')" />
+      <_Runtime Include="$(MSBuildThisFileDirectory)..\x64\$(Configuration)\AIHelper.dll" Condition="Exists('$(MSBuildThisFileDirectory)..\x64\$(Configuration)\AIHelper.dll')" />
+      <_Runtime Include="$(MSBuildThisFileDirectory)..\x64\$(Configuration)\VMProtectSDK64.dll" Condition="Exists('$(MSBuildThisFileDirectory)..\x64\$(Configuration)\VMProtectSDK64.dll')" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_Runtime)" DestinationFolder="$(OutDir)bin" SkipUnchangedFiles="true" Condition="'@(_Runtime)'!=''" />
+    <ItemGroup>
+      <_BinRuntime Include="$(OutDir)bin\*.dll;$(OutDir)bin\*.sys;$(OutDir)bin\*.exe" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_BinRuntime)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" Condition="'@(_BinRuntime)'!=''" />
+    <MakeDir Directories="$(OutDir)Symbols" />
+    <Delete Files="$(OutDir)Symbols\DbgkSysWin10.pdb;$(OutDir)Symbols\DbgkSysWin11.pdb" />
+    <MakeDir Directories="$(OutDir)Metadata" />
+    <ItemGroup>
+      <_LateSymbols Include="$(OutDir)*.pdb;$(OutDir)*.lib;$(OutDir)*.exp" />
+      <_LateMetadata Include="$(OutDir)*.winmd;$(OutDir)*.xml" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_LateSymbols)" DestinationFolder="$(OutDir)Symbols" SkipUnchangedFiles="true" Condition="'@(_LateSymbols)'!=''" />
+    <Copy SourceFiles="@(_LateMetadata)" DestinationFolder="$(OutDir)Metadata" SkipUnchangedFiles="true" Condition="'@(_LateMetadata)'!=''" />
+    <Delete Files="@(_LateSymbols);@(_LateMetadata)" />
+    <Delete Files="$(OutDir)Loader.exe;$(OutDir)虚幻调试器.exe;$(OutDir)bin\Loader.exe;$(OutDir)bin\虚幻调试器.exe" />
+  </Target>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Import Project="$(CppWinRTPackageDir)build\native\Microsoft.Windows.CppWinRT.targets" Condition="Exists('$(CppWinRTPackageDir)build\native\Microsoft.Windows.CppWinRT.targets')" />
+  <Import Project="$(WindowsAppSDKPackageDir)build\native\Microsoft.WindowsAppSDK.Base.targets" Condition="Exists('$(WindowsAppSDKPackageDir)build\native\Microsoft.WindowsAppSDK.Base.targets')" />
+  <Import Project="$(WindowsAppSDKPackageDir)build\native\Microsoft.WindowsAppSDK.Foundation.targets" Condition="Exists('$(WindowsAppSDKPackageDir)build\native\Microsoft.WindowsAppSDK.Foundation.targets')" />
+  <Import Project="$(WindowsAppSDKPackageDir)build\native\Microsoft.Web.WebView2.targets" Condition="Exists('$(WindowsAppSDKPackageDir)build\native\Microsoft.Web.WebView2.targets')" />
+  <Import Project="$(WindowsAppSDKPackageDir)build\native\Microsoft.WindowsAppSDK.InteractiveExperiences.targets" Condition="Exists('$(WindowsAppSDKPackageDir)build\native\Microsoft.WindowsAppSDK.InteractiveExperiences.targets')" />
+  <Import Project="$(WindowsAppSDKPackageDir)build\native\Microsoft.WindowsAppSDK.WinUI.targets" Condition="Exists('$(WindowsAppSDKPackageDir)build\native\Microsoft.WindowsAppSDK.WinUI.targets')" />
+  <Import Project="$(WindowsAppSDKPackageDir)build\Microsoft.WindowsAppSDK.DWrite.targets" Condition="Exists('$(WindowsAppSDKPackageDir)build\Microsoft.WindowsAppSDK.DWrite.targets')" />
+  <Import Project="$(WindowsAppSDKPackageDir)build\native\Microsoft.WindowsAppSDK.Runtime.targets" Condition="Exists('$(WindowsAppSDKPackageDir)build\native\Microsoft.WindowsAppSDK.Runtime.targets')" />
+  <Import Project="$(WindowsAppSDKPackageDir)build\native\Microsoft.WindowsAppSDK.targets" Condition="Exists('$(WindowsAppSDKPackageDir)build\native\Microsoft.WindowsAppSDK.targets')" />
+</Project>

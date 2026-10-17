@@ -954,16 +954,6 @@ NewNtResumeThread(
 // __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
-NTSTATUS
-NewNtQueryInformationThread(
-    _In_ HANDLE ThreadHandle,
-    _In_ THREADINFOCLASS ThreadInformationClass,
-    _Out_ PVOID ThreadInformation,
-    _In_ ULONG ThreadInformationLength,
-    _Out_opt_ PULONG ReturnLength
-// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
-);
-
 USER_DATA GetUserData(PUSER_DATA userData);
 
 extern PWCHAR PassProcessList[12];

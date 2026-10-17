@@ -163,11 +163,26 @@ void vmexit_cpuid_handler(__vcpu* vcpu) // 模拟 CPUID，按 guest 输入 leaf/
 		static_cast<unsigned __int32>(vcpu->vmexit_info.guest_registers->eax);
 	__cpuidex(regs, cpuid_leaf, vcpu->vmexit_info.guest_registers->ecx); // 使用 guest EAX/ECX 作为 leaf/subleaf。
 
-	// hv_presence=false 时隐藏 VMX 能力位；否则 CPUID 会直接暴露本 VMM 的 VMX
-	// 能力，与 IA32_FEATURE_CONTROL / CR4.VMXE 的隐藏语义不一致。
-	if (!g_vmm_context.hv_presence && cpuid_leaf == 0x1)
+	// hv_presence=false 时隐藏 VMX 能力位与 hypervisor-present 位；否则 CPUID 会直接暴露
+	// 本 VMM 的 VMX 能力/存在性，与 IA32_FEATURE_CONTROL / CR4.VMXE 的隐藏语义不一致。
+	// Intel SDM Vol2A CPUID：01H:ECX[5]=VMX，01H:ECX[31]=Hypervisor present。
+	if (!g_vmm_context.hv_presence)
 	{
-		regs[2] &= ~(1 << 5); // CPUID.01H:ECX.VMX
+		if (cpuid_leaf == 0x1)
+		{
+			regs[2] &= ~(1 << 5);  // CPUID.01H:ECX.VMX
+			regs[2] &= ~(1u << 31); // CPUID.01H:ECX.Hypervisor present
+		}
+		else if (cpuid_leaf >= CPUID_HV_VENDOR_AND_MAX_FUNCTIONS &&
+			cpuid_leaf < CPUID_HV_VENDOR_AND_MAX_FUNCTIONS + 0x100)
+		{
+			// 非 hypervisor 环境下 40000000H..400000FFH 为未定义/不支持叶。
+			// Intel CPU 对不支持的叶返回全 0；这里按该语义抹掉 VMM vendor/feature 信息。
+			regs[0] = 0;
+			regs[1] = 0;
+			regs[2] = 0;
+			regs[3] = 0;
+		}
 	}
 
 	// CPUID 只写 32 位寄存器，64 位模式下高 32 位按架构清零。

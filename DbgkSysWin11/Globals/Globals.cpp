@@ -82,6 +82,8 @@ PROTECTOBJ            g_ProtectWndObjList;                    //保护的窗口�
 DEBUGGER_TABLE        g_DebuggerList;                         //调试器对象
 DEBUG_PROCESS_TABLE   g_DebugProcessList;                     //被调试的进程列表
 DEBUG_PROCESS_TABLE   g_DebugProcessUnloadList;               // Debug process entries waiting for unload drain
+volatile LONG         g_LiveVirtualDebugObjectCount;          //活跃的 Hvm_DebugObject 数
+volatile LONG         g_LiveVirtualDebugObjectHandleCount;    //活跃的 Hvm_DebugObject 句柄数
 _EPROCESS* g_SelfProcess;                          //我们自己的进程
 BREAKPOINT_TABLE      g_BreakpointList;                       //断点列表
 VIRTUAL_HANDLE_TABLE  g_VirtualHandleList;                    //虚拟句柄列表
@@ -131,6 +133,7 @@ PFN_ALPCINITIALIZEMESSAGEATTRIBUTE AlpcInitializeMessageAttribute;
 PFN_ALPCGETMESSAGEATTRIBUTE AlpcGetMessageAttribute;
 PFN_DBGKPREMOVEERRORPORT DbgkpRemoveErrorPort;
 PFN_DBGKOPENPROCESSDEBUGPORT Sys_DbgkOpenProcessDebugPort;
+PFN_DBGKOPENPROCESSDEBUGPORT Original_DbgkOpenProcessDebugPort;
 PFN_NTCREATEDEBUGOBJECT Sys_NtCreateDebugObject;
 PFN_NTDEBUGACTIVEPROCESS Sys_NtDebugActiveProcess;
 PFN_NTWAITFORDEBUGEVENT Sys_NtWaitForDebugEvent;
@@ -183,6 +186,23 @@ PFN_NTGETCONTEXTTHREAD Sys_NtGetContextThread;
 PFN_NTGETCONTEXTTHREAD Original_NtGetContextThread;
 PFN_NTSETCONTEXTTHREAD Sys_NtSetContextThread;
 PFN_NTSETCONTEXTTHREAD Original_NtSetContextThread;
+PFN_NTQUERYINFORMATIONPROCESS Sys_NtQueryInformationProcess;
+PFN_NTQUERYINFORMATIONPROCESS Original_NtQueryInformationProcess;
+PFN_NTSETINFORMATIONPROCESS Sys_NtSetInformationProcess;
+PFN_NTSETINFORMATIONPROCESS Original_NtSetInformationProcess;
+PFN_NTQUERYOBJECT Sys_NtQueryObject;
+PFN_NTQUERYOBJECT Original_NtQueryObject;
+PFN_NTQUERYSYSTEMINFORMATION Sys_NtQuerySystemInformation;
+PFN_NTQUERYSYSTEMINFORMATION Original_NtQuerySystemInformation;
+PFN_NTSYSTEMDEBUGCONTROL Sys_NtSystemDebugControl;
+PFN_NTSYSTEMDEBUGCONTROL Original_NtSystemDebugControl;
+PFN_NTCLOSE Sys_NtClose;
+PFN_NTCLOSE Original_NtClose;
+PFN_NTDUPLICATEOBJECT Sys_NtDuplicateObject;
+PFN_NTDUPLICATEOBJECT Original_NtDuplicateObject;
+PFN_NTSETINFORMATIONTHREAD Sys_NtSetInformationThread;
+PFN_NTSETINFORMATIONTHREAD Original_NtSetInformationThread;
+PFN_OBREFERENCEOBJECTBYPOINTER Sys_ObReferenceObjectByPointer;
 PFN_NTREADVIRTUALMEMORY Sys_NtReadVirtualMemory;
 PFN_NTREADVIRTUALMEMORY Original_NtReadVirtualMemory;
 PFN_NTWRITEVIRTUALMEMORY Sys_NtWriteVirtualMemory;
@@ -326,6 +346,7 @@ namespace eprocess_offset
 {
     size_t Pcb;
     size_t DebugPort;
+    size_t Peb;
     size_t ImageFileName;
     size_t WoW64Process;
     size_t RundownProtect;

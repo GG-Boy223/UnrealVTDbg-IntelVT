@@ -1,799 +1,969 @@
-# UnrealVTDbg - 基于 Intel VT-x 的内核级调试系统
+# UnrealVTDbg / F3 VT Debugger
 
-## 项目概述
+[![QQ 群](https://img.shields.io/badge/QQ-VT_Free-12B7F5?style=for-the-badge&logo=tencentqq&logoColor=white)](https://qm.qq.com/q/JR1i60Ii8C)
+[![Telegram](https://img.shields.io/badge/Telegram-F3_VT-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/F3_vt)
 
-UnrealVTDbg 是一个基于 Intel VT-x（Virtualization Technology）硬件虚拟化技术的内核级调试系统，通过构建 Type-1 Hypervisor 实现对 Windows 10/11 x64 操作系统的透明监控与调试能力。项目采用 Delphi + C++ 混合架构，在 VMX Root Mode 运行虚拟化监控层，利用 EPT（Extended Page Tables）实现隐蔽内存钩子与硬件断点虚拟化，并重建了完整的 Windows 调试对象（DebugObject）机制以绕过反调试检测。
+`UnrealVTDbg` 是一套面向 Windows 10/11 x64 的 Intel VT-x 内核调试系统。项目通过 VMX Root Mode、VMCS、EPT、VPID、VMCALL、Windows 调试子系统 Hook 和用户态 WinUI 3 前端，形成从界面、后端桥接、DbgkSys 内核驱动到 VT_Driver 虚拟化引擎的完整调试链路。
 
-### 核心特性
+> 本项目直接操作内核、调试对象、EPT 和 VMX 状态。只应在拥有明确授权的测试环境、虚拟机或专用实验设备中使用。错误加载驱动、Hook 选择不当或与安全软件冲突，可能导致蓝屏、数据损坏、目标进程崩溃或系统无法启动。
 
-- **硬件虚拟化隔离**：基于 Intel VMX 技术构建 Type-1 Hypervisor，运行在 VMX Root Mode（-1环），对 Guest OS（Windows）完全透明，通过 VMLAUNCH/VMRESUME 管理虚拟机生命周期
-- **EPT 内存虚拟化**：利用扩展页表（Extended Page Tables）实现二级地址转换（GVA→GPA→HPA），提供细粒度的页级内存访问控制（R/W/X权限独立管理）与隐蔽 Hook 能力
-- **自建调试子系统**：完整重建 Windows 调试对象（DebugObject）机制，实现 NtDebugActiveProcess、NtWaitForDebugEvent、NtDebugContinue 等调试 API，绕过内核反调试检测
-- **硬件断点虚拟化**：通过 EPT Violation 事件模拟硬件断点，突破 DR0-DR7 调试寄存器数量限制（最多支持 512 个监控点），支持读/写/执行三种访问类型监控
-- **多核同步架构**：支持多处理器并发调试，每个逻辑 CPU 独立维护 VCPU 上下文与 EPT 状态，通过 DPC 广播实现跨核同步操作，保障 EPT 页表一致性
-- **隐形断点机制**：基于 EPT 伪页（Fake Page）技术实现 INT3 软件断点隐藏，原始代码页与修改后的伪页通过 EPT 权限切换动态交换，对目标进程不可见
-- **VMCALL 通信接口**：提供 25 条 VMCALL 指令集，用户态/内核态通过 VMCALL 与 Hypervisor 通信，支持 Hook 管理、断点操作、EPT 控制、TLB 刷新等功能
+## 项目概览
 
-### 技术栈
+当前仓库已完成以下结构调整：
 
-| 层次 | 技术组件 | 说明 |
-|------|----------|------|
-| 用户界面 | Delphi 10.x | 调试器主界面、进程/线程管理、断点可视化、配置管理 |
-| 用户态桥接 | C++ DLL (UnrealDbgDll, Hook) | 符号表初始化、IOCTL 通信封装、网络验证、用户态钩子 |
-| 内核驱动 | C++ WDK 10.0.26100 | VT_Driver（VMX 虚拟化引擎）、DbgkSysWin10/Win11（调试子系统驱动） |
-| 虚拟化层 | Intel VT-x, EPT, VMCS | VMX Root Mode、扩展页表、VMCS 配置、VM-Exit 处理、INVEPT/INVVPID |
-| 辅助模块 | Loader, SymbolTool | 驱动加载器、PDB 符号解析工具 |
+- WinUI 3 前端 `UnrealDbgWinUI` 替代旧 Delphi/VCL 主界面。
+- 旧 Delphi 调试器、卡密工具、加密工具、SymbolTool 和旧 Loader 已迁入 `历史UI/`。
+- 原独立 `Loader.exe` 不再参与构建，PDB 定位、校验、下载和符号分析已合并到 WinUI。
+- `UnrealDbg.sln` 当前只包含 6 个 C++ 工程：`UnrealDbgWinUI`、`UnrealDbgDll`、`Hook`、`DbgkSysWin10`、`DbgkSysWin11`、`VT_Driver`。
+- DbgkSys 的 EPT Hook 已支持 36 位掩码选择，并可通过 WinUI 在执行 VT 初始化前逐项开关。
+- Hook 掩码通过 `ConfigureHooks_F3`、`IOCTL_CONFIGURE_EPT_HOOKS`、`RING3_HOOK_CONFIGURATION` 和 DbgkSys `SetupEptHook()` 形成完整下发链。
 
-### 项目规模
+## 阅读导航
 
-- **总代码量**：832 个 C/C++ 源文件 + 15 个汇编文件，超过 15 万行代码
-- **核心模块**：6 个 C++ 驱动项目（VT_Driver、DbgkSysWin10、DbgkSysWin11、Hook、UnrealDbgDll、Loader）+ 4 个 Delphi 项目（UnrealDbg、CardRegistration、D-encryption、SymbolTool）
-- **驱动组件**：VT_Driver（虚拟化引擎，约 5 万行）、DbgkSysWin10/Win11（调试子系统，各约 2 万行）
+- [核心能力](#核心能力)
+- [系统架构](#系统架构)
+- [解决方案组成](#解决方案组成)
+- [仓库结构](#仓库结构)
+- [启动与初始化](#启动与初始化)
+- [核心模块](#核心模块)
+- [EPT Hook 选择机制](#ept-hook-选择机制)
+- [全部 Hook 详细清单](#全部-hook-详细清单)
+- [Hook 安装顺序与平台差异](#hook-安装顺序与平台差异)
+- [构建](#构建)
+- [部署与运行](#部署与运行)
+- [配置与日志](#配置与日志)
+- [验证结果](#验证结果)
+- [兼容性与限制](#兼容性与限制)
+- [故障排查](#故障排查)
+- [开发约束](#开发约束)
 
----
+## 核心能力
 
-## 架构设计
+### Intel VT-x
 
-### 系统分层架构
+- 检查 CPUID、`IA32_FEATURE_CONTROL` 和 VMX capability MSR。
+- 执行 VMXON、VMCS 初始化、VMLAUNCH、VMRESUME 和 VMXOFF。
+- 按硬件能力调整 Pin-Based、Primary、Secondary、VM-entry 和 VM-exit 控制位。
+- 维护 Guest/Host 的 CR0、CR3、CR4、EFER、GDTR、IDTR、TR、段状态、调试状态和 MSR 区域。
+- 处理 VM-entry failure、VM-exit failure、VM-instruction error 和清理路径。
 
-```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                          Ring 3 - 用户态                                  │
-├──────────────────────────────────────────────────────────────────────────┤
-│  UnrealDbg (Delphi)              │  UnrealDbgDll / Hook (C++)            │
-│  - 调试器主界面与交互             │  - PDB 符号表初始化与解析             │
-│  - 进程/线程/模块管理             │  - IOCTL 通信封装与参数传递           │
-│  - 断点可视化与状态展示           │  - 网络卡密验证（Blowfish 加密）      │
-│  - 调试事件回调处理               │  - 用户态 Detours Hook 支持           │
-└──────────────────────────────────────────────────────────────────────────┘
-                    ↓ DeviceIoControl (IOCTL 通信)
-┌──────────────────────────────────────────────────────────────────────────┐
-│                          Ring 0 - 内核态                                  │
-├──────────────────────────────────────────────────────────────────────────┤
-│  DbgkSysWin10/Win11              │  VT_Driver (VMX 虚拟化引擎)           │
-│  - 调试对象管理（DebugObject）    │  - VMM 全局上下文分配与管理           │
-│  - NtDebugActiveProcess 实现      │  - VCPU 多核初始化（IO/MSR Bitmap）   │
-│  - NtWaitForDebugEvent 实现       │  - VMCS 配置（Pin/Primary/Secondary） │
-│  - NtDebugContinue 实现           │  - Host 页表构建（直接映射全物理内存）│
-│  - 调试事件队列（CREATE/EXIT/DLL）│  - MTRR 缓存类型映射构建              │
-│  - EPT Hook 内核函数              │  - Pool Manager 预分配内存池          │
-│  - VMCALL 广播接口（DPC）         │  - VM-Exit 分发与处理引擎             │
-│  - 隐形断点管理（伪页缓冲读写）   │  - EPT 页表动态构建与拆分（2MB→4KB）  │
-│                                   │  - VMCALL 指令分发与参数验证          │
-└──────────────────────────────────────────────────────────────────────────┘
-                    ↓ VMLAUNCH (首次进入) / VMRESUME (恢复执行)
-┌──────────────────────────────────────────────────────────────────────────┐
-│                    VMX Root Mode (Hypervisor Layer)                      │
-├──────────────────────────────────────────────────────────────────────────┤
-│  VM-Exit 处理                    │  EPT 管理                              │
-│  - EPT Violation 处理            │  - EPT PML4/PDPT/PD/PT 四级页表        │
-│  - CPUID/MSR/IO 拦截             │  - 2MB 大页动态拆分（Split）           │
-│  - VMCALL 指令处理               │  - 伪页内存管理（Fake Page）           │
-│  - MTF 单步执行控制              │  - 页表引用计数与合并回收              │
-│  - CR3 切换监控                  │  - INVEPT TLB 刷新（单上下文/全局）    │
-│  - 异常/中断注入                 │  - 页权限动态切换（原页/伪页）         │
-│                                   │                                        │
-│  Hook 引擎                       │  断点虚拟化                            │
-│  - CC Hook (INT3 断点)           │  - 读/写/执行监控（EPTW_*）           │
-│  - INT1 Hook (#DB 调试异常)      │  - EPT Watch 列表（512 槽位）          │
-│  - VMCALL Hook (RIP 重定向)      │  - 软件断点隐藏（原字节恢复）         │
-│  - 函数 Hook (Trampoline)        │  - 断点分组管理（GroupId）             │
-│  - 热引用机制（防并发卸载）      │  - MTF 配合权限恢复                    │
-└──────────────────────────────────────────────────────────────────────────┘
-                    ↓ EPT 地址转换 (GPA → HPA)
-┌──────────────────────────────────────────────────────────────────────────┐
-│                    VMX Non-Root Mode (Guest OS)                          │
-│                         Windows 10 / Windows 11                          │
-│  - 操作系统内核（ntoskrnl.exe）、驱动、用户进程正常执行                   │
-│  - 访问被监控内存/执行 VMCALL 指令时触发 VM-Exit 陷入 Hypervisor         │
-└──────────────────────────────────────────────────────────────────────────┘
-```
+### EPT
 
-### VMCALL 通信机制
+- 构建 PML4、PDPT、PD、PT 四级 EPT 页表。
+- 当前实现以 identity mapping 为主，并保留 MTRR 缓存类型映射。
+- 支持 2 MB 大页到 4 KB 小页拆分。
+- 支持页级读、写、执行权限控制。
+- 支持 EPT Hook、EPT Watch、执行监控、读写监控和 MTF 权限恢复。
+- 使用 INVEPT single-context 或 all-context 刷新地址转换缓存。
 
-用户态通过 IOCTL 发送调试请求 → 内核驱动解析参数 → 执行 VMCALL 指令（触发 VM-Exit） → VMX Root Mode 处理命令 → 返回结果到 RAX 寄存器 → 内核驱动返回用户态。
+### 调试子系统
 
-**VMCALL 指令识别**：
-- 32 位标识符：`VMCALL_IDENTIFIER2 = 0x66666666U`（EAX 寄存器）
-- 64 位标识符：`VMCALL_IDENTIFIER = 0xBF5587567C4C830FULL`（RAX 寄存器）
+- 重建 Windows 调试对象和调试事件路径。
+- 支持进程附加、事件等待、事件继续和进程分离。
+- 处理进程、线程、模块、异常等调试事件。
+- 通过 EPT Hook 接管 `ntoskrnl`、`win32k` 和对象管理相关函数。
+- 对进程调试端口、调试对象句柄、线程上下文和系统枚举进行可见性处理。
 
-**VMCALL 命令集**（共 25 条指令，定义在 `Common/Shared/VmcallReason.h`）：
+### 调试语义
 
-| 编号 | 指令名称 | 功能描述 |
-|------|----------|----------|
-| 0 | `VMCALL_TEST` | 测试 VMCALL 通信是否正常 |
-| 1 | `VMCALL_VMXOFF` | 退出 VMX 模式，恢复正常执行 |
-| 2 | `VMCALL_EPT_CC_HOOK` | 基于 INT3 (0xCC) 的 EPT Hook |
-| 3 | `VMCALL_EPT_INT1_HOOK` | 基于 INT1 (#DB) 的 EPT Hook |
-| 4 | `VMCALL_EPT_RIP_HOOK` | 基于 VMCALL 指令重定向的 RIP Hook |
-| 5 | `VMCALL_EPT_HOOK_FUNCTION` | 通用函数 EPT Hook（生成 Trampoline） |
-| 6 | `VMCALL_EPT_UNHOOK_FUNCTION` | 卸载指定函数 Hook 或全部 Hook |
-| 7 | `VMCALL_INVEPT_CONTEXT` | 刷新 EPT TLB（单上下文或全局） |
-| 8 | `VMCALL_DUMP_POOL_MANAGER` | 输出内存池管理器调试信息 |
-| 9 | `VMCALL_DUMP_VMCS_STATE` | 输出当前 VMCS 状态信息 |
-| 10 | `VMCALL_HIDE_HV_PRESENCE` | 隐藏 Hypervisor 存在（CPUID 隐藏） |
-| 11 | `VMCALL_UNHIDE_HV_PRESENCE` | 显示 Hypervisor 存在 |
-| 12 | `VMCALL_HIDE_SOFTWARE_BREAKPOINT` | 设置隐形 INT3 软件断点 |
-| 13 | `VMCALL_READ_SOFTWARE_BREAKPOINT` | 读取断点位置原始字节 |
-| 14 | `VMCALL_READ_EPT_FAKE_PAGE_MEMORY` | 读取 EPT 伪页内存内容 |
-| 15 | `VMCALL_WATCH_WRITES` | 监控内存写入操作（EPTW_WRITE） |
-| 16 | `VMCALL_WATCH_READS` | 监控内存读/写操作（EPTW_READWRITE） |
-| 17 | `VMCALL_WATCH_EXECUTES` | 监控内存执行操作（EPTW_EXECUTE） |
-| 18 | `VMCALL_WATCH_DELETE` | 删除指定内存监控点 |
-| 19 | `VMCALL_GET_BREAKPOINT` | 获取并消费断点触发信息 |
-| 20 | `VMCALL_INIT_OFFSET` | 初始化内核结构偏移（符号解析） |
-| 21 | `VMCALL_CLEAR_BREAKPOINT_STATE` | 清除断点状态信息 |
-| 22 | `VMCALL_SYNC_CR3_EXIT_POLICY` | 同步 CR3 监控策略（进程切换跟踪） |
-| 23 | `VMCALL_SET_SOFTWARE_BREAKPOINT_BUFFER` | 写入伪页缓冲（隐形断点原字节） |
-| 24 | `VMCALL_GET_SOFTWARE_BREAKPOINT_BUFFER` | 读取伪页缓冲（隐形断点原字节） |
-| 25 | `VMCALL_PEEK_BREAKPOINT` | 非破坏性读取断点触发信息 |
+- INT3、CC Hook、INT1 Hook、VMCALL/RIP Hook 和函数 Hook。
+- EPT Watch 与 MTF 配合处理执行、读、写断点。
+- 隐形软件断点使用伪页隔离原始代码与修改代码。
+- 处理 DR0-DR7 保存、恢复和异常注入。
+- 支持 Step Into、Step Over、Step Out 所需的断点、单步和异常组合路径。
 
-**跨核同步机制**（DPC 广播）：
-- 驱动通过 `KeGenericCallDpc` 向所有 CPU 广播 VMCALL 请求
-- 每个核心独立执行 VMCALL 并返回状态码
-- 驱动统计成功执行的核心数，与总核心数比较验证操作是否全局生效
+### WinUI 3
 
----
+- 总览、调试器、目标与防护、驱动 Hook、日志、系统详情、系统符号、诊断页面。
+- 明亮与暗黑主题。
+- 外部调试器登记、启动和路径管理。
+- PDB 缓存、GUID/Age 校验、符号下载和函数/类型/RVA 解析。
+- Hook 掩码在初始化前可编辑，初始化开始后自动锁定。
 
-## 核心模块详解
+## 系统架构
 
-### 一、VT_Driver - VMX 虚拟化引擎
-
-**功能定位**：项目的核心驱动，负责 Intel VT-x 虚拟化功能的初始化、VMCS 配置、VM-Exit 事件处理、EPT 页表管理、VMCALL 指令分发等。
-
-**目录结构**：
-```
-VT_Driver/
-├── Driver.cpp/h              # 驱动入口（DriverEntry/Unload）
-├── Vmm/                      # 虚拟机监控器管理
-│   ├── VmmContext.cpp        # VMM 全局上下文分配与释放
-│   ├── VmmVcpu.cpp           # VCPU 初始化（IO/MSR Bitmap、EPT State）
-│   └── VmmInit.cpp           # VMM 启动与多核初始化
-├── Vmcs/                     # VMCS 配置与管理
-│   ├── VmcsFill.cpp          # 填充 VMCS 控制字段（Pin/Primary/Secondary/Exit/Entry）
-│   ├── VmcsControls.cpp      # 控制位调整（根据硬件能力调整请求值）
-│   └── VmcsApi.cpp           # VMREAD/VMWRITE 封装接口
-├── VmExit/                   # VM-Exit 事件处理
-│   ├── VmExitDispatch.cpp    # VM-Exit 分发器（根据退出原因分发）
-│   ├── VmExitEpt.cpp         # EPT Violation/Misconfiguration 处理
-│   ├── VmExitInstruction.cpp # CPUID/VMCALL/XSETBV 等指令处理
-│   ├── VmExitMsr.cpp         # MSR 读写拦截处理
-│   └── VmExitTelemetry.cpp   # VM-Exit 统计遥测
-├── VmCall/                   # VMCALL 指令处理
-│   └── VmcallDispatch.cpp    # VMCALL 分发与参数验证
-├── Ept/                      # EPT 内存虚拟化
-│   ├── EptBuild.cpp          # EPT 页表初始化与构建
-│   ├── EptCommon.cpp         # EPT 通用函数（页引用、函数引用）
-│   ├── EptSync.cpp           # EPT 页表同步与 TLB 刷新
-│   ├── Hook/                 # EPT Hook 实现
-│   │   ├── Lifecycle/        # Hook 生命周期管理
-│   │   │   ├── EptHookDefault.cpp   # 通用函数 Hook
-│   │   │   ├── EptHookCc.cpp        # INT3 Hook
-│   │   │   ├── EptHookInt1.cpp      # INT1 Hook
-│   │   │   └── EptHookVmcall.cpp    # VMCALL Hook
-│   │   ├── Instruction/      # Hook 指令处理
-│   │   │   ├── EptHookInstruction.cpp       # Trampoline 生成
-│   │   │   └── EptHookFakePageMemory.cpp    # 伪页内存读写
-│   │   └── Cleanup/          # Hook 清理
-│   │       └── EptHookCleanup.cpp   # Unhook 与资源释放
-│   └── Watch/                # EPT 断点监控
-│       ├── EptWatchPageInstall.cpp  # 监控页安装
-│       ├── EptWatchBreakpoints.cpp  # 断点命中处理
-│       └── EptWatchDeactivate.cpp   # 监控点停用
-├── Cr3/                      # CR3 进程切换跟踪
-│   └── Cr3Tracker.cpp        # CR3 切换监控与策略同步
-├── ASM/                      # 汇编代码
-│   ├── vm-launch.asm         # VMLAUNCH 汇编实现
-│   ├── vm-exit.asm           # VM-Exit 入口汇编
-│   ├── AsmCallset.asm        # VMCALL/VMREAD/VMWRITE 汇编包装
-│   ├── exception-routines.asm # Host 异常处理程序
-│   └── interrupt-handlers.asm # Host 中断处理程序
-├── Globals/                  # 全局变量与数据结构
-│   ├── GlobalsVmm.h          # VMM 全局上下文结构（g_vmm_context）
-│   └── GlobalsEptHookTypes.h # EPT Hook 类型定义
-└── poolmanager.cpp/h         # 预分配内存池管理器
+```text
++-----------------------------------------------------------------------+
+|                              Ring 3                                   |
+|                                                                       |
+|  UnrealDbgWinUI.exe                                                   |
+|    - WinUI 3 / C++/WinRT                                              |
+|    - 配置、日志、目标捕获                                               |
+|    - PDB 准备与符号分析                                                |
+|    - Hook 选择与初始化控制                                             |
+|                              |                                        |
+|                              | LoadLibrary / GetProcAddress            |
+|                              v                                        |
+|  UnrealDbgDll.dll                                                     |
+|    - Initialize_F3                                                    |
+|    - ConfigureHooks_F3                                                |
+|    - StartProcess / GetFileVersion                                    |
+|    - TL_BlockGameResumeThread                                         |
+|    - IOCTL 封装、用户数据加密、卡密/网络验证                           |
+|                              |                                        |
+|                              | DeviceIoControl(\??\UnrealDbg)          |
++------------------------------|----------------------------------------+
+                               v
++-----------------------------------------------------------------------+
+|                              Ring 0                                   |
+|                                                                       |
+|  DbgkSysWin10.sys / DbgkSysWin11.sys                                  |
+|    - 调试对象与调试事件                                               |
+|    - 进程/线程/模块/异常事件                                          |
+|    - 36 位 EPT Hook 选择                                              |
+|    - 反调试查询与对象保护                                             |
+|    - HypervisorGateway DPC 广播                                       |
+|                              |                                        |
+|                              | VMCALL                                  |
+|                              v                                        |
+|  VT_Driver.sys                                                        |
+|    - VMXON / VMCS / VMLAUNCH / VMRESUME / VMXOFF                      |
+|    - VM-exit dispatcher                                               |
+|    - EPT / INVEPT / VPID / INVVPID                                    |
+|    - CR3 Tracker                                                      |
+|    - EPT Hook / EPT Watch / Fake Page / MTF                           |
+|    - Pool Manager / Host Page Tables / MTRR                           |
+|                              |                                        |
+|                              | VM-entry / VM-exit                      |
++------------------------------|----------------------------------------+
+                               v
++-----------------------------------------------------------------------+
+|                         Windows Guest                                 |
+|  Windows 10/11 x64、目标进程、外部调试器、被保护组件                  |
++-----------------------------------------------------------------------+
 ```
 
-**关键流程**：
+## 解决方案组成
 
-1. **驱动初始化流程（DriverEntry）**：
-   ```
-   DriverEntry
-   ├── InitNtoskrnlSymbolsTable()       # 初始化 ntoskrnl.exe 符号表
-   ├── hv::virtualization_support()     # 检测 CPU 是否支持 VT-x
-   ├── hv::InitGlobalVariables()        # 初始化全局变量
-   └── vmm_init()                       # 启动 VMM
-       ├── allocate_vmm_context()       # 分配 VMM 全局上下文
-       │   ├── 分配 VCPU 数组（每核一个）
-       │   ├── ept::build_mtrr_map()    # 构建 MTRR 缓存类型映射
-       │   ├── pool_manager::initialize() # 初始化预分配内存池
-       │   ├── init_vcpu() (每个核心)   # 初始化 VCPU 资源
-       │   │   ├── 分配 IO Bitmap A/B
-       │   │   ├── 分配 EPT State 结构
-       │   │   └── ept::initialize()    # 初始化 EPT 页表
-       │   └── create_host_page_tables() # 创建 Host 页表
-       └── 多核并行执行 VMLAUNCH          # 每个核心进入 VMX 模式
-   ```
+| 工程 | 类型 | 主要职责 |
+|---|---|---|
+| `UnrealDbgWinUI` | WinUI 3 应用 | 当前主界面、符号准备、配置、日志和初始化入口 |
+| `UnrealDbgDll` | x64 DLL | 前端与驱动桥接、驱动加载、IOCTL、符号握手、外部调试器启动 |
+| `Hook` | x64 DLL | 用户态 Hook、断点透明化、调试器和目标侧兼容逻辑 |
+| `DbgkSysWin10` | WDK 驱动 | Windows 10 调试子系统、EPT Hook、IOCTL 与 VMCALL 广播 |
+| `DbgkSysWin11` | WDK 驱动 | Windows 11 调试子系统，结构对应 Win10 工程 |
+| `VT_Driver` | WDK 驱动 | Intel VT-x VMM、VMCS、EPT、CR3、VM-exit 和内存池 |
 
-2. **EPT Hook 工作原理**：
-   - **初始状态**：目标页 EPT 权限为 R=1, W=1, X=1（可读写执行）
-   - **设置 Hook**：
-     1. 复制原始页内容到伪页（Fake Page）
-     2. 在伪页中修改目标函数（INT3/跳转指令/VMCALL）
-     3. 修改 EPT 条目：原页设为 R=1, W=1, X=0（不可执行）
-     4. 保存伪页条目：R=0, W=0, X=1（仅可执行）
-   - **触发 Hook**：
-     - Guest 执行目标地址 → EPT Violation (Execute) → 切换到伪页 → 执行修改后的代码
-     - Guest 读/写目标地址 → EPT Violation (Read/Write) → 切换到原页 → 读取原始数据
-   - **MTF 单步恢复**：访问后设置 MTF（Monitor Trap Flag），下一条指令执行完毕后恢复 EPT 权限
+`历史UI/` 不属于当前解决方案，只用于旧界面、旧工具、旧配置和旧行为参考。
 
-3. **VM-Exit 处理流程**：
-   ```
-   Guest 执行特权操作 → CPU 触发 VM-Exit → 保存 Guest 状态到 VMCS
-   → vm-exit.asm (汇编入口)
-   → vmexit_handler() (C++ 处理器)
-   → dispatch_vm_exit() (分发器)
-   ├── EPT Violation → vmexit_ept_violation_handler()
-   ├── CPUID → vmexit_cpuid_handler()
-   ├── VMCALL → vmexit_vmcall_handler() → VmcallDispatch::Execute()
-   ├── MSR 读写 → vmexit_msr_handler()
-   └── 其他原因 → 对应处理函数
-   → 恢复 Guest 状态 → VMRESUME 返回 Guest
-   ```
+## 仓库结构
 
-
-### 二、DbgkSysWin10 / DbgkSysWin11 - 调试子系统驱动
-
-**功能定位**：针对 Windows 10/11 分别实现的内核调试子系统，完整重建 Windows 调试对象（DebugObject）机制，提供自建的调试 API，绕过游戏驱动的反调试检测。
-
-**目录结构**：
-```
-DbgkSysWin10/ (DbgkSysWin11 结构相同)
-├── Driver.cpp/h              # 驱动入口
-├── DbgkApi/                  # 调试 API 实现
-│   └── Api/
-│       ├── DebugActiveProcess.cpp        # 附加调试进程
-│       ├── DebugActiveProcessAttach.cpp  # DbgkpSetProcessDebugObject 流程
-│       ├── DebugActiveProcessEntry.cpp   # NtDebugActiveProcess 入口
-│       ├── DebugObjectCommon.cpp         # 调试对象通用函数
-│       ├── DebugContinue.cpp             # NtDebugContinue 实现
-│       ├── WaitForDebugEvent.cpp         # NtWaitForDebugEvent 实现
-│       ├── DebugImageEvents.cpp          # DLL 加载/卸载事件
-│       ├── DebugObjectEvents.cpp         # 调试对象事件管理
-│       └── SetInformationDebugObject.cpp # 设置调试对象信息
-├── Core/                     # 核心功能
-│   ├── IoctlDispatch.cpp     # IOCTL 分发器
-│   ├── IoctlDispatchBreakpoints.cpp  # 断点相关 IOCTL
-│   ├── IoctlDispatchClient.cpp       # 客户端通信 IOCTL
-│   ├── IoctlHandlers/
-│   │   ├── IoctlUserData.cpp         # 用户数据传递
-│   │   └── ProtectListHandlers.cpp   # 保护列表管理
-│   └── DebugEvents/
-│       ├── ThreadCreationEvents.cpp  # 线程创建/退出事件
-│       └── MemoryAndAttachEvents.cpp # 内存/附加事件
-├── Hooks/                    # EPT Hook 管理
-│   └── EptHook/
-│       └── Core/
-│           ├── EptHookNtosDebug.cpp      # Hook ntoskrnl.exe 调试函数
-│           ├── EptHookThreadProcess.cpp  # Hook 进程/线程函数
-│           ├── EptHookWin32k.cpp         # Hook win32k.sys 函数
-│           └── EptHookMemoryObject.cpp   # Hook 内存对象函数
-├── Hvm/                      # Hypervisor 网关接口
-│   ├── HypervisorGatewayApi.cpp          # VMCALL 封装接口
-│   ├── HypervisorGatewayBroadcast.cpp    # DPC 广播实现
-│   └── HypervisorGatewayInternal.h       # 内部数据结构
-├── Globals/                  # 全局变量与配置
-│   └── Globals.cpp           # 全局状态管理
-├── Encrypt/                  # 加密模块
-│   └── Blowfish/             # Blowfish 加密算法
-│       └── BlowfishCore.cpp  # 核心加密函数
-├── Log/                      # 日志模块
-│   └── log.cpp               # 日志输出函数
-└── ntos/inc/                 # Windows 内核头文件
-    └── 10.0.19041.4291/
-        └── ntkrnlmp.h        # ntoskrnl.exe 符号表
+```text
+Intel-VT/
+|-- README.md
+|-- UnrealDbg.sln
+|-- Common/
+|   |-- Shared/
+|   |   |-- HookSelection.h
+|   |   |-- IOCTLs.h
+|   |   `-- SharedStruct.h
+|   |-- Ring0/
+|   |-- Detours/
+|   |-- Encrypt/
+|   |-- FileSystem/
+|   |-- Hash/
+|   |-- IPC/
+|   |-- Logger/
+|   |-- TinyXML/
+|   `-- VMProtect/
+|-- UnrealDbgWinUI/
+|   |-- Main.cpp
+|   |-- Runtime.cpp
+|   |-- Bridge.h
+|   |-- SymbolPreparer.cpp
+|   |-- SystemInspector.cpp
+|   |-- UiComponents.cpp
+|   `-- UiTheme.h
+|-- UnrealDbgDll/
+|   |-- Channels/
+|   |-- Init/
+|   |-- Interface/
+|   |-- NetVerHelp/
+|   |-- StartProcess.cpp
+|   |-- dllmain.cpp
+|   `-- dllexport.def
+|-- Hook/
+|   |-- Channels/
+|   |-- Core/
+|   |-- DebugBreak/
+|   |-- DebugEvent/
+|   |-- DllMain/
+|   |-- Hook/
+|   |-- HookCallSet/
+|   |-- Inject/
+|   |-- NativeApi/
+|   `-- vmx/
+|-- DbgkSysWin10/
+|-- DbgkSysWin11/
+|-- VT_Driver/
+|   |-- Vmm/
+|   |-- Vmcs/
+|   |-- VmExit/
+|   |-- VmCall/
+|   |-- Ept/
+|   |-- Cr3/
+|   |-- Invalidation/
+|   |-- PoolManager/
+|   |-- HypervisorGateway/
+|   |-- HypervisorRoutines/
+|   |-- Interrupts/
+|   |-- Processor/
+|   |-- Tables/
+|   `-- ASM/
+|-- 历史UI/
+|-- _artifacts/       本地构建依赖，默认忽略
+`-- x64/              本地构建产物，默认忽略
 ```
 
-**核心实现**：
+## 启动与初始化
 
-1. **调试对象结构**（Windows 内核原生结构重建）：
-   ```cpp
-   typedef struct _DEBUG_OBJECT {
-       KEVENT EventsPresent;           // 事件信号量
-       FAST_MUTEX Mutex;               // 快速互斥锁
-       LIST_ENTRY EventList;           // 调试事件链表
-       ULONG Flags;                    // 标志位
-   } DEBUG_OBJECT, *PDEBUG_OBJECT;
-   
-   typedef struct _DEBUG_EVENT {
-       LIST_ENTRY EventList;           // 事件链表节点
-       KEVENT ContinueEvent;           // 继续事件
-       CLIENT_ID ClientId;             // 客户端 ID（PID/TID）
-       PEPROCESS Process;              // 进程对象指针
-       PETHREAD Thread;                // 线程对象指针
-       NTSTATUS Status;                // 状态码
-       ULONG Flags;                    // 标志位
-       PETHREAD BackoutThread;         // 回退线程
-       DBGKM_APIMSG ApiMsg;            // 调试消息
-   } DEBUG_EVENT, *PDEBUG_EVENT;
-   ```
+### 前端启动
 
-2. **调试事件类型**：
-   - `DbgCreateThreadStateChange` (2)：线程创建事件
-   - `DbgCreateProcessStateChange` (3)：进程创建事件
-   - `DbgExitThreadStateChange` (4)：线程退出事件
-   - `DbgExitProcessStateChange` (5)：进程退出事件
-   - `DbgExceptionStateChange` (6)：异常事件（断点、单步等）
-   - `DbgLoadDllStateChange` (9)：DLL 加载事件
-   - `DbgUnloadDllStateChange` (10)：DLL 卸载事件
-
-3. **EPT Hook 内核函数**（绕过反调试检测）：
-   - `NtQueryInformationProcess`：拦截调试检测查询（ProcessDebugPort/ProcessDebugObjectHandle）
-   - `NtSetInformationThread`：拦截线程隐藏（HideFromDebugger）
-   - `DbgkpSendApiMessage`：拦截调试消息发送
-   - `PsGetNextProcessThread`：拦截线程遍历
-
-4. **VMCALL 网关接口**（通过 DPC 广播到所有核心）：
-   ```cpp
-   // 卸载全部 Hook
-   bool hvgt::ept_unhook();
-   
-   // 卸载指定函数 Hook
-   bool hvgt::ept_unhook(void* function_address);
-   
-   // 设置隐形软件断点
-   bool hvgt::set_hide_software_breakpoint(MDL_MAP* map_table, void* buffer, size_t size);
-   
-   // 读取隐形软件断点原字节
-   bool hvgt::get_hide_software_breakpoint(void* target_address, void* buffer, size_t size);
-   
-   // Hook 函数
-   bool hvgt::hook_function(void* target, void* proxy, void** origin);
-   
-   // 刷新 EPT TLB
-   void hvgt::invept(bool invept_all);
-   
-   // 同步 CR3 监控策略
-   bool hvgt::synchronize_cr3_exit_policy();
-   ```
-
-### 三、UnrealDbg - Delphi 调试器主界面
-
-**功能定位**：调试器的用户交互前端，提供可视化界面管理调试会话、进程/线程/模块、断点、内存查看等功能。
-
-**技术栈**：
-- **语言**：Delphi 10.x (Object Pascal)
-- **UI 框架**：VCL (Visual Component Library)
-- **通信方式**：通过 UnrealDbgDll.dll 与内核驱动交互
-
-**主要功能模块**：
-1. **进程管理**：
-   - 进程枚举与选择
-   - 附加调试（NtDebugActiveProcess）
-   - 分离调试
-   - 进程信息查看（PID、路径、模块列表）
-
-2. **线程管理**：
-   - 线程枚举与状态查看
-   - 线程挂起/恢复
-   - 线程上下文读取（寄存器、堆栈）
-   - 线程创建/退出事件监听
-
-3. **断点管理**：
-   - 软件断点（INT3）设置/删除
-   - 硬件断点（EPT Watch）设置
-   - 内存断点（读/写/执行监控）
-   - 断点列表可视化
-   - 条件断点支持
-
-4. **调试事件处理**：
-   - 等待调试事件（WaitForDebugEvent）
-   - 继续执行（DebugContinue）
-   - 异常处理（断点、单步、访问违例）
-   - DLL 加载/卸载事件
-
-5. **内存查看**：
-   - 内存转储（Hex 查看器）
-   - 内存搜索
-   - 内存修改
-   - 内存保护属性查看
-
-6. **反汇编器**：
-   - 指令反汇编显示
-   - 跳转目标跟踪
-   - 符号地址解析
-
-7. **网络验证**：
-   - 卡密验证（通过 CardRegistration 模块）
-   - Blowfish 加密通信
-
-### 四、UnrealDbgDll - 用户态桥接 DLL
-
-**功能定位**：连接 Delphi 前端与内核驱动的桥接层，封装 IOCTL 通信、符号表解析、网络验证等功能。
-
-**目录结构**：
-```
-UnrealDbgDll/
-├── dllmain.cpp               # DLL 入口
-├── Channels/
-│   └── DispatchData.cpp      # 数据分发
-├── Globals.cpp               # 全局状态
-└── NetVerHelp/               # 网络验证辅助
-    └── Help_Source/
-        └── CJsonObject.cpp   # JSON 解析
+```text
+UnrealDbgWinUI.exe
+  -> 读取 Config.ini
+  -> 读取 DebuggerList.ini
+  -> 加载 UnrealDbgDll.dll
+  -> 解析 5 个后端导出
+  -> 读取 [HookSelection] Mask
+  -> 后台准备系统 PDB
+  -> 展示主界面
 ```
 
-**核心功能**：
-1. **符号表初始化**：
-   - 解析 ntoskrnl.exe 的 PDB 符号文件
-   - 获取内核函数地址与结构偏移
-   - 通过 VMCALL_INIT_OFFSET 传递给驱动
+### 进入 VT 调试模式
 
-2. **IOCTL 通信封装**：
-   - 打开驱动设备句柄（CreateFile）
-   - 封装 DeviceIoControl 调用
-   - 参数序列化与反序列化
-
-3. **调试 API 封装**：
-   ```cpp
-   // 附加调试进程
-   BOOL DbgAttachProcess(DWORD ProcessId);
-   
-   // 等待调试事件
-   BOOL DbgWaitForDebugEvent(LPDEBUG_EVENT lpDebugEvent, DWORD dwMilliseconds);
-   
-   // 继续执行
-   BOOL DbgContinueDebugEvent(DWORD dwProcessId, DWORD dwThreadId, DWORD dwContinueStatus);
-   
-   // 设置断点
-   BOOL DbgSetBreakpoint(PVOID Address, DWORD Type);
-   
-   // 删除断点
-   BOOL DbgRemoveBreakpoint(PVOID Address);
-   ```
-
-### 五、Hook - 用户态钩子 DLL
-
-**功能定位**：用户态进程注入 DLL，配合内核驱动实现用户态函数钩子与调试事件上报。
-
-**目录结构**：
-```
-Hook/
-├── dllmain.cpp               # DLL 入口
-├── DllMain/
-│   └── Core/
-│       ├── DllMainDriverConnection.cpp  # 与驱动通信
-│       └── DllMainState.cpp             # DLL 状态管理
-├── HookCallSet/
-│   └── Hooks/
-│       └── HookManager/
-│           ├── HiddenInt3MemoryRead.cpp     # 隐藏 INT3 内存读取
-│           └── HiddenInt3WriteRemoval.cpp   # 隐藏 INT3 写入移除
-├── vmx/
-│   ├── VmxBreakpointState.cpp           # 断点状态管理
-│   └── Asm/
-│       ├── AsmCallset.asm               # VMCALL 汇编
-│       └── AsmCallsetX86.asm            # x86 兼容汇编
-└── Channels/
-    └── DispatchData.cpp      # 数据分发
+```text
+用户点击进入 VT
+  -> WinUI 锁定 Hook 开关
+  -> ConfigureHooks_F3(mask)
+  -> UnrealDbgDll 保存 mask
+  -> Initialize_F3(key)
+       -> 加载 AIHelper.dll
+       -> 安装并启动 VT_Driver.sys
+       -> 根据 Build 选择 DbgkSysWin10/11
+       -> 打开 \??\UnrealDbg
+       -> IOCTL_CONFIGURE_EPT_HOOKS
+       -> IOCTL_LOAD_SYMBOLS_TABLE
+       -> 登记宿主调试器
 ```
 
-**核心功能**：
-1. **隐藏 INT3 断点**：
-   - Hook ReadProcessMemory/NtReadVirtualMemory
-   - 拦截对断点地址的读取
-   - 返回原始字节而非 0xCC
+### DbgkSys 到 Hypervisor
 
-2. **断点透明化**：
-   - 与驱动同步断点列表
-   - 过滤调试器自身的断点检测
-   - 防止目标程序通过 CRC 校验检测断点
-
-3. **用户态 VMCALL**：
-   - 封装 VMCALL 指令调用
-   - 与内核驱动通信
-
-### 六、Loader - 驱动加载器
-
-**功能定位**：负责加载驱动、初始化符号表、启动调试器主程序。
-
-**目录结构**：
-```
-Loader/
-├── WinMain.cpp               # 主程序入口
-├── WinMain/
-│   └── WinMainState.cpp      # 主程序状态管理
-└── Symbols/                  # 符号解析
-    ├── Symbols.cpp           # 符号表初始化
-    ├── SymbolState.cpp       # 符号状态管理
-    ├── FileUtilities.cpp     # 文件工具
-    └── SymbolServerConfig.cpp # 符号服务器配置
+```text
+DbgkSys IOCTL / 内核 Hook
+  -> HypervisorGateway
+  -> KeGenericCallDpc
+  -> 当前逻辑处理器执行 VMCALL
+  -> VT_Driver VM-exit
+  -> VmcallDispatch
+  -> EPT / CR3 / 断点 / 可见性操作
+  -> 返回 Guest
 ```
 
-**启动流程**：
-```
-Loader.exe
-├── DisplayBrand()            # 显示品牌信息
-└── StartProcess()            # 启动进程
-    ├── 加载 VT_Driver.sys    # 加载虚拟化驱动
-    ├── 加载 DbgkSysWin10/Win11.sys  # 加载调试子系统
-    ├── 初始化符号表          # 解析 ntoskrnl.exe 符号
-    ├── 发送 VMCALL_INIT_OFFSET  # 传递符号偏移到驱动
-    └── 启动 UnrealDbg.exe    # 启动调试器主界面
-```
+### EPT 命中
 
-### 七、Common - 公共库
-
-**功能定位**：跨模块共享的代码、数据结构、工具函数库。
-
-**主要组件**：
-1. **Ring0 内核工具**：
-   - `Spinlock`：自旋锁实现
-   - `String`：内核字符串处理
-   - `Inject/ApcInject`：APC 注入框架
-   - `Comms/SerialPort`：串口通信（调试输出）
-   - `SymbolicAccess`：PDB 符号解析库
-
-2. **加密库**：
-   - `Encrypt/Blowfish`：Blowfish 加密算法
-   - `Hash/MD5`：MD5 哈希算法
-   - `Hash/Crc32`：CRC32 校验
-
-3. **文件系统**：
-   - `FileSystem`：文件读写封装
-   - `TinyXML`：XML 解析库
-
-4. **通用工具**：
-   - `Core/CommonCpuInfo`：CPU 信息获取
-   - `Core/CommonStringConversions`：字符串转换
-   - `Detours`：Detours Hook 兼容层
-
-5. **IPC 通信**：
-   - `IPC/SharedMemory`：共享内存通信
-
----
-
-## 技术实现细节
-
-### EPT 页表管理
-
-**EPT 结构**（四级页表）：
-```
-EPT PML4 (512 entries) → 每项覆盖 512GB
-  ↓
-EPT PDPT (512 entries) → 每项覆盖 1GB
-  ↓
-EPT PD (512 entries)   → 每项覆盖 2MB（大页）或指向 PT
-  ↓
-EPT PT (512 entries)   → 每项覆盖 4KB（小页）
+```text
+Guest 访问 Hook 页
+  -> EPT violation
+  -> VM-exit
+  -> EPT violation handler
+  -> 查找 Hook/Watch 状态
+  -> 切换原页或伪页
+  -> 记录 Guest 上下文
+  -> 设置 MTF
+  -> VMRESUME
+  -> MTF VM-exit
+  -> 恢复 EPT 权限
+  -> 返回调试事件
 ```
 
-**动态拆分机制**：
-- 初始状态：EPT PD 条目指向 2MB 大页（Large Page，减少 TLB Miss）
-- Hook/Watch 触发拆分：
-  1. 分配 EPT PT（512 个 4KB 小页条目）
-  2. 将 2MB 大页拆分为 512 个 4KB 小页
-  3. 修改 EPT PD 条目指向 EPT PT
-  4. 每个小页继承原大页的缓存类型（从 MTRR 读取）
-- 引用计数管理：
-  - 每个 Split 维护引用计数（`ref_count`）
-  - Hook/Watch 安装时 `ref_count++`
-  - Hook/Watch 卸载时 `ref_count--`
-  - `ref_count == 0` 时尝试合并回 2MB 大页
+## 核心模块
 
-**内存池预分配**（Pool Manager）：
-- 驱动启动时预分配大块内存池，避免 VM-Exit 路径中动态分配
-- 分配意图（Intention）分类：
-  - `INTENTION_TRACK_HOOKED_PAGES`：Hook 页信息结构
-  - `INTENTION_TRACK_HOOKED_FUNCTIONS`：Hook 函数信息结构
-  - `INTENTION_EXEC_TRAMPOLINE`：Trampoline 代码缓冲
-  - `INTENTION_SPLIT_PML2`：EPT PD 拆分缓冲
-- 失败处理：预分配耗尽时返回失败，不触发内存分配
+### UnrealDbgWinUI
 
-### 隐形断点实现
+`UnrealDbgWinUI` 是当前唯一主界面。
 
-**原理**：利用 EPT 权限分离读/写/执行访问，实现对目标进程透明的软件断点。
+| 页面 | 关键内容 |
+|---|---|
+| 总览 | VT 状态、后端状态、目标进程、系统环境 |
+| 调试器 | 外部调试器添加、删除、定位和启动 |
+| 目标与防护 | 前台目标捕获、TL 开关、线程恢复阻塞 |
+| 驱动 Hook | 36 个 Hook 的逐项开关、全开、全关 |
+| 日志中心 | 内部日志、VTLoad、Hook64、DbgkSys 日志 |
+| 系统详情 | Windows、CPU、内存、固件、安全启动、主板、GPU、磁盘 |
+| 系统符号 | PDB 解析、函数/变量/RVA/结构偏移、全局搜索 |
+| 诊断与文件 | 运行文件检查、后端路径、加载错误和日志入口 |
 
-**实现步骤**：
-1. **创建伪页**：
-   ```cpp
-   // 分配伪页内存（4KB，页对齐）
-   unsigned char fake_page_contents[PAGE_SIZE];
-   
-   // 复制原始页内容到伪页
-   RtlCopyMemory(fake_page_contents, PAGE_ALIGN(target_address), PAGE_SIZE);
-   
-   // 在伪页中写入 INT3 (0xCC)
-   fake_page_contents[offset] = 0xCC;
-   ```
+关键源码：
 
-2. **配置 EPT 权限**：
-   ```cpp
-   // 原页条目（读写访问）
-   original_entry.read = 1;
-   original_entry.write = 1;
-   original_entry.execute = 0;  // 不可执行
-   original_entry.page_frame_number = original_pfn;
-   
-   // 伪页条目（执行访问）
-   changed_entry.read = 0;      // 不可读
-   changed_entry.write = 0;     // 不可写
-   changed_entry.execute = 1;
-   changed_entry.page_frame_number = fake_pfn;
-   ```
+- `UnrealDbgWinUI/Main.cpp`：窗口、页面、Hook 描述表和交互。
+- `UnrealDbgWinUI/Runtime.cpp`：后端加载、Hook 掩码、配置、符号准备和状态。
+- `UnrealDbgWinUI/Bridge.h`：运行状态和函数指针。
+- `UnrealDbgWinUI/SymbolPreparer.cpp`：PE 签名、PDB 校验、下载和解析。
+- `UnrealDbgWinUI/SystemInspector.cpp`：系统详情采集。
 
-3. **动态切换**：
-   - Guest 执行目标地址 → EPT Violation (Execute) → 切换到伪页 → 触发 INT3 → 调试事件
-   - Guest 读/写目标地址 → EPT Violation (Read/Write) → 切换到原页 → 返回原始数据
-   - 访问完成后设置 MTF，下一条指令执行完恢复 EPT 权限
+### UnrealDbgDll
 
-4. **用户态透明化**：
-   - Hook 用户态 `ReadProcessMemory`/`NtReadVirtualMemory`
-   - 拦截对断点地址的读取
-   - 通过 `VMCALL_GET_SOFTWARE_BREAKPOINT_BUFFER` 读取原字节并返回
+当前稳定导出：
 
-### EPT Watch 断点虚拟化
+| 序号 | 导出 | 作用 |
+|---:|---|---|
+| 1 | `Initialize_F3` | 执行后端初始化与驱动加载 |
+| 2 | `StartProcess` | 启动外部调试器并处理 Hook64 相关流程 |
+| 3 | `GetFileVersion` | 读取文件版本 |
+| 4 | `TL_BlockGameResumeThread` | 下发阻塞线程恢复请求 |
+| 5 | `ConfigureHooks_F3` | 保存 DbgkSys Hook 选择掩码 |
 
-**监控类型**：
-- `EPTW_WRITE` (1)：仅监控写入（EPT Write = 0）
-- `EPTW_READWRITE` (2)：监控读写（EPT Read = 0, Write = 0）
-- `EPTW_EXECUTE` (3)：监控执行（EPT Execute = 0）
+关键行为：
 
-**断点槽位管理**：
+- `ConfigureHooks_F3` 拒绝 `HOOK_SELECTION_ALL` 之外的未知位。
+- Hook 掩码保存在用户态原子变量中。
+- `LoadSymbolsTable` 在加载符号和启动后端前发送 Hook 配置。
+- `Initialize_F3` 失败时调用后端清理路径。
+- `AIHelper.dll` 提供 `LoadNT`、`UnloadNT` 和 `outDebug`，不是当前解决方案的构建产物。
+
+### DbgkSysWin10 / DbgkSysWin11
+
+两个驱动结构基本对应，但分别支持不同的 Windows 内核版本。
+
+设备名称：
+
+```text
+\Device\DbgkSysDevice
+\??\UnrealDbg
+```
+
+系统选择：
+
+```text
+Windows Build >= 22000  -> DbgkSysWin11.sys
+Windows Build <  22000  -> DbgkSysWin10.sys
+```
+
+主要目录：
+
+```text
+DbgkSysWin10/
+|-- Core/
+|-- DbgkApi/
+|-- Hooks/EptHook/
+|-- Hvm/
+|-- Init/
+|-- Process/
+|-- Protect/
+|-- Globals/
+|-- Log/
+`-- ntos/
+```
+
+### VT_Driver
+
+| 目录 | 职责 |
+|---|---|
+| `Vmm/` | VMM 上下文、VCPU、处理器初始化、Host 页表 |
+| `Vmcs/` | VMCS 字段、Guest/Host 状态、控制位和访问封装 |
+| `VmExit/` | VM-exit 分发、EPT、MSR、IO、异常、调试寄存器 |
+| `VmCall/` | VMCALL 参数解析、前置检查、命令执行和策略 |
+| `Ept/` | EPT 构建、拆分、同步、Hook、Watch、伪页 |
+| `Cr3/` | CR3 目标、地址转换、工作线程和退出策略 |
+| `Invalidation/` | INVEPT、INVVPID、INVPCID |
+| `PoolManager/` | VM-exit 路径的预分配内存池 |
+| `HypervisorGateway/` | Guest 驱动到 Hypervisor 的网关 |
+| `HypervisorRoutines/` | VMX、上下文、中断、位图、VMCS dump |
+| `Interrupts/` | NMI 与其他中断广播 |
+| `Processor/` | CR、DR、MSR、CPUID、段和 MTRR |
+
+### Hook64.dll
+
+`Hook` 工程构建为 `Hook64.dll`，用于外部调试器和目标侧兼容：
+
+- 用户态 API Hook。
+- 隐藏 INT3 断点读取、写入和删除行为。
+- 同步断点状态。
+- 注入与调试事件辅助。
+
+外部调试器可以被加入列表并启动，但“启动成功”不等于“调试语义全部兼容”。实际行为需要在目标架构、调试器版本和 Windows Build 上逐项验证。
+
+## EPT Hook 选择机制
+
+### 新增能力概述
+
+这次调整不是单独散落几个开关，而是为 DbgkSys 当前使用的 36 个 Hook 入口建立了统一选择契约：
+
+```text
+WinUI 开关
+  -> 36 位 mask
+  -> 配置文件持久化
+  -> UnrealDbgDll 导出
+  -> 加密 USER_DATA
+  -> IOCTL_CONFIGURE_EPT_HOOKS
+  -> DbgkSys 校验 version/size/mask
+  -> SetupEptHook 按位安装
+```
+
+### 二进制接口
+
 ```cpp
-#define EPTWATCHLISTSIZE 512  // 最多支持 512 个监控点
+#define HOOK_CONFIGURATION_VERSION 1U
 
-typedef struct _EPT_WATCH_ENTRY {
-    PVOID VirtualAddress;      // 监控的虚拟地址
-    ULONG64 PhysicalAddress;   // 对应的物理地址
-    ULONG Type;                // 监控类型（EPTW_*）
-    ULONG bpType;              // 断点类型（0=普通, 3=INT3）
-    INT GroupId;               // 分组 ID（同组断点联动）
-    BOOLEAN Reserved;          // 预留标志
-} EPT_WATCH_ENTRY;
-
-EPT_WATCH_ENTRY eptWatchList[EPTWATCHLISTSIZE];
+typedef struct _RING3_HOOK_CONFIGURATION
+{
+    unsigned long version;
+    unsigned long size;
+    unsigned __int64 mask;
+} RING3_HOOK_CONFIGURATION;
 ```
 
-**触发流程**：
-```
-Guest 访问监控地址 → EPT Violation
-→ vmexit_ept_violation_handler()
-→ ept::ept_handleWatchEvent()
-   ├── 定位 EPT Watch 条目
-   ├── 填充断点信息（VirtualAddress、Type、CR3）
-   ├── 保存 Guest 上下文（RIP、寄存器）
-   └── 返回 true（断点命中）
-→ 设置 MTF 恢复权限
-→ VMRESUME 返回 Guest
-```
+在 Windows x64 下：
 
-### CR3 进程切换跟踪
+| 偏移 | 大小 | 字段 |
+|---:|---:|---|
+| 0 | 4 | `version` |
+| 4 | 4 | `size` |
+| 8 | 8 | `mask` |
+| 合计 | 16 | `RING3_HOOK_CONFIGURATION` |
 
-**功能**：监控 CR3 寄存器加载（进程切换），实现进程级别的调试隔离。
+### IOCTL
 
-**实现方式**：
-1. **启用 CR3 监控**：
-   ```cpp
-   // 设置 VMCS Primary Processor-Based Controls
-   primary_controls.cr3_load_exiting = 1;  // 拦截 MOV to CR3 指令
-   ```
-
-2. **CR3 切换策略**：
-   - `Cr3TrackerObserve(ULONG64 cr3)`：观察 CR3 值，记录活跃进程
-   - `Cr3TrackerSynchronizeExitPolicy()`：同步 CR3 监控策略到所有核心
-   - 只在目标进程的 CR3 下触发 EPT Violation，其他进程不受影响
-
-3. **应用场景**：
-   - 仅调试特定进程，避免全局性能损耗
-   - 进程隔离的断点管理
-
-### VMCS 配置
-
-**控制位调整**（根据硬件能力调整请求值）：
 ```cpp
-// 读取硬件能力 MSR
-ULONG64 capability_msr = __readmsr(IA32_VMX_PROCBASED_CTLS);
-ULONG32 allowed0 = (ULONG32)capability_msr;       // bit 为 0 表示必须为 0
-ULONG32 allowed1 = (ULONG32)(capability_msr >> 32);  // bit 为 1 表示可以为 1
-
-// 调整请求值
-ULONG32 adjusted = (requested | allowed0) & allowed1;
+#define IOCTL_CONFIGURE_EPT_HOOKS \
+    CTL_CODE(FILE_DEVICE_UNKNOWN, 0x80D, METHOD_BUFFERED, FILE_ANY_ACCESS)
 ```
 
-**关键控制位**：
-- **Pin-Based Controls**：
-  - `external_interrupt_exiting = 1`：拦截外部中断
-  - `nmi_exiting = 1`：拦截 NMI
+传输特点：
 
-- **Primary Processor-Based Controls**：
-  - `use_msr_bitmaps = 1`：启用 MSR 位图过滤
-  - `use_io_bitmaps = 1`：启用 IO 位图过滤
-  - `activate_secondary_controls = 1`：启用次级控制
+- 使用现有 `SendUserDataToDriver`。
+- 输入先封装为 `USER_DATA`。
+- `RING3_HOOK_CONFIGURATION` 被加密后放入用户数据区。
+- 驱动通过 `ResolveInputUserData` 和 `AllocateAndDecryptUserRecords` 解密。
+- IOCTL 与共享结构均定义在 `Common/Shared/`。
 
-- **Secondary Processor-Based Controls**：
-  - `enable_ept = 1`：启用 EPT
-  - `enable_vpid = 1`：启用 VPID（减少 TLB 刷新）
-  - `unrestricted_guest = 1`：启用非受限客户机（无需实模式模拟）
+### 校验规则
 
-- **VM-Exit Controls**：
-  - `host_address_space_size = 1`：Host 64 位模式
-  - `save_debug_controls = 1`：保存调试控制寄存器
-  - `ack_interrupt_on_exit = 1`：退出时确认中断
+| 校验点 | 规则 |
+|---|---|
+| WinUI | 拒绝 `HOOK_SELECTION_ALL` 之外的位 |
+| UnrealDbgDll | `ConfigureHooks_F3` 再次拒绝未知位 |
+| DbgkSys | `version == HOOK_CONFIGURATION_VERSION` |
+| DbgkSys | `size == sizeof(RING3_HOOK_CONFIGURATION)` |
+| DbgkSys | `(mask & ~HOOK_SELECTION_ALL) == 0` |
 
-- **VM-Entry Controls**：
-  - `ia32e_mode_guest = 1`：Guest 64 位模式
-  - `load_debug_controls = 1`：加载调试控制寄存器
+### 生命周期
 
----
+```text
+启动
+  -> 读取配置
+  -> 用户编辑 Hook
+  -> 进入 VT 前锁定
+  -> DLL 保存 mask
+  -> DbgkSys 保存 mask
+  -> SetupEptHook 按位安装
+  -> 当前会话保持
+  -> 卸载时 ept_unhook 整体回收
+```
 
-## 编译构建
+当前设计只允许在初始化前修改 Hook 选择。初始化开始后，WinUI 开关会锁定。运行中再次调用配置 IOCTL 可以改变驱动保存的 mask，但不会重新安装或卸载已经安装的当前会话 Hook。
+
+### 默认值
+
+```text
+HOOK_SELECTION_ALL = 0x0000000FFFFFFFFF
+```
+
+默认表示启用全部已定义位。
+
+- Win10 当前安装路径覆盖全部 36 位。
+- Win11 当前 WinUI 只显示 34 个可支持项，`PspCallThreadNotifyRoutines` 和 `NtUserBuildHwndList` 不安装。
+- Win11 配置中即使保留这两个位，也不会产生对应 Hook。
+- 掩码为 `0` 时不安装 Hook。
+
+## 全部 Hook 详细清单
+
+### 分组一：调试会话、进程、线程与事件
+
+| Bit | Mask | Hook 函数 | 作用 | Win11 |
+|---:|---|---|---|---|
+| 0 | `1ULL << 0` | `Hook_NtCreateDebugObject` | 创建虚拟调试对象，是调试会话入口；源码要求该 Hook 在组内最先安装 | 支持 |
+| 1 | `1ULL << 1` | `Hook_PspInsertProcess` | 接管进程插入路径，把进程生命周期与调试对象关联 | 支持 |
+| 2 | `1ULL << 2` | `Hook_NtSetInformationDebugObject` | 处理调试对象信息设置、附加参数和目标关联 | 支持 |
+| 3 | `1ULL << 3` | `Hook_NtRemoveProcessDebug` | 接管调试对象移除和进程分离 | 支持 |
+| 4 | `1ULL << 4` | `Hook_NtDebugActiveProcess` | 接管进程附加请求，建立虚拟调试关系 | 支持 |
+| 5 | `1ULL << 5` | `Hook_NtWaitForDebugEvent` | 接管调试事件等待和事件投递 | 支持 |
+| 6 | `1ULL << 6` | `Hook_NtDebugContinue` | 接管继续调试事件，恢复目标线程 | 支持 |
+| 7 | `1ULL << 7` | `Hook_DbgkMapViewOfSection` | 生成 DLL/模块加载调试事件 | 支持 |
+| 8 | `1ULL << 8` | `Hook_DbgkUnMapViewOfSection` | 生成 DLL/模块卸载调试事件 | 支持 |
+| 9 | `1ULL << 9` | `Hook_DbgkCreateThread` | 生成线程创建调试事件 | 支持 |
+| 10 | `1ULL << 10` | `Hook_DbgkExitThread` | 生成线程退出事件并完成相关清理 | 支持 |
+| 11 | `1ULL << 11` | `Hook_DbgkExitProcess` | 生成进程退出调试事件 | 支持 |
+| 12 | `1ULL << 12` | `Hook_DbgkForwardException` | 接管调试异常转发和事件注入 | 支持 |
+| 13 | `1ULL << 13` | `Hook_DbgkpQueueMessage` | 接管调试消息队列和事件投递路径 | 支持 |
+| 14 | `1ULL << 14` | `Hook_PspCallThreadNotifyRoutines` | 接管线程通知回调，补充 Windows 10 底层线程事件路径 | 不支持 |
+| 15 | `1ULL << 15` | `Hook_PspExitThread` | 处理线程退出、调试端口比较和挂起状态清理 | 支持 |
+
+### 分组二：调试对象句柄与对象引用保护
+
+| Bit | Mask | Hook 函数 | 作用 | Win11 |
+|---:|---|---|---|---|
+| 16 | `1ULL << 16` | `Hook_ObpReferenceObjectByHandleWithTag` | 保护带 Tag 的对象引用，减少虚拟调试对象关联暴露 | 支持 |
+| 17 | `1ULL << 17` | `Hook_NtClose` | 接管调试对象句柄关闭，避免会话提前失效 | 支持 |
+| 18 | `1ULL << 18` | `Hook_NtDuplicateObject` | 保护调试对象句柄复制和查询 | 支持 |
+
+### 分组三：调试端口、查询与上下文可见性
+
+| Bit | Mask | Hook 函数 | 作用 | Win11 |
+|---:|---|---|---|---|
+| 19 | `1ULL << 19` | `Hook_DbgkOpenProcessDebugPort` | 接管调试端口打开路径 | 支持 |
+| 20 | `1ULL << 20` | `Hook_NtQueryInformationProcess` | 处理 `DebugPort`、`DebugObjectHandle` 等进程调试信息 | 支持 |
+| 21 | `1ULL << 21` | `Hook_NtSetInformationProcess` | 接管进程调试信息设置 | 支持 |
+| 22 | `1ULL << 22` | `Hook_NtQueryObject` | 处理对象类型和调试对象查询 | 支持 |
+| 23 | `1ULL << 23` | `Hook_NtQuerySystemInformation` | 处理系统信息枚举中的调试状态暴露 | 支持 |
+| 24 | `1ULL << 24` | `Hook_NtSystemDebugControl` | 接管系统调试控制请求 | 支持 |
+| 25 | `1ULL << 25` | `Hook_NtSetInformationThread` | 处理 `HideFromDebugger` 等线程调试标志 | 支持 |
+| 26 | `1ULL << 26` | `Hook_NtQueryInformationThread` | 接管线程调试相关信息查询 | 支持 |
+| 27 | `1ULL << 27` | `Hook_NtGetContextThread` | 处理线程上下文读取 | 支持 |
+| 28 | `1ULL << 28` | `Hook_NtSetContextThread` | 接管线程上下文写入 | 支持 |
+| 29 | `1ULL << 29` | `Hook_NtCreateThreadEx` | 接管远程线程创建并关联调试事件 | 支持 |
+
+### 分组四：win32k 窗口查询与枚举
+
+| Bit | Mask | Hook 函数 | 作用 | Win11 |
+|---:|---|---|---|---|
+| 30 | `1ULL << 30` | `Hook_ValidateHwnd` | 窗口句柄验证入口；源码要求该 Hook 在 win32k 组内最先安装 | 支持 |
+| 31 | `1ULL << 31` | `Hook_NtUserFindWindowEx` | 接管按窗口类和标题查找 | 支持 |
+| 32 | `1ULL << 32` | `Hook_NtUserWindowFromPoint` | 接管坐标窗口查询 | 支持 |
+| 33 | `1ULL << 33` | `Hook_NtUserSetWindowsHookEx` | 接管全局窗口 Hook 注册 | 支持 |
+| 34 | `1ULL << 34` | `Hook_NtUserBuildHwndList` | 接管窗口列表枚举，可过滤受保护窗口 | 不支持 |
+| 35 | `1ULL << 35` | `Hook_NtUserGetClassName` | 接管窗口类名查询 | 支持 |
+
+## Hook 安装顺序与平台差异
+
+### 实际安装顺序
+
+`SetupEptHook()` 当前按以下顺序检查掩码并调用 Hook：
+
+```text
+0  NtCreateDebugObject
+1  PspInsertProcess
+2  NtSetInformationDebugObject
+3  NtRemoveProcessDebug
+4  NtDebugActiveProcess
+5  NtWaitForDebugEvent
+6  NtDebugContinue
+7  DbgkMapViewOfSection
+8  DbgkUnMapViewOfSection
+9  DbgkCreateThread
+10 DbgkExitThread
+11 DbgkExitProcess
+12 DbgkForwardException
+13 DbgkpQueueMessage
+14 PspCallThreadNotifyRoutines      Win10 only
+15 PspExitThread
+16 ObpReferenceObjectByHandleWithTag
+17 NtClose
+18 NtDuplicateObject
+19 DbgkOpenProcessDebugPort
+20 NtQueryInformationProcess
+21 NtSetInformationProcess
+22 NtQueryObject
+23 NtQuerySystemInformation
+24 NtSystemDebugControl
+25 NtSetInformationThread
+26 NtQueryInformationThread
+27 NtGetContextThread
+28 NtSetContextThread
+29 NtCreateThreadEx
+30 ValidateHwnd
+31 NtUserFindWindowEx
+32 NtUserWindowFromPoint
+33 NtUserSetWindowsHookEx
+34 NtUserBuildHwndList            Win10 only
+35 NtUserGetClassName
+```
+
+### 明确顺序约束
+
+- `NtCreateDebugObject`：源码注释要求它是调试对象 Hook 中第一个安装的入口。
+- `ValidateHwnd`：源码注释要求它是 win32k 窗口 Hook 中第一个安装的入口。
+- 其它 Hook 当前按源码固定顺序调用，但不额外声明相互依赖。
+
+### Windows 10 与 Windows 11 差异
+
+| Bit | 函数 | Win10 | Win11 | 处理方式 |
+|---:|---|---|---|---|
+| 14 | `PspCallThreadNotifyRoutines` | 安装 | 不安装 | Win11 WinUI 隐藏 |
+| 34 | `NtUserBuildHwndList` | 安装 | 不安装 | Win11 WinUI 隐藏 |
+
+Win11 页面的“已启用/支持数”以 34 个可支持 Hook 为基数。配置文件中残留 bit 14/34 不会触发安装。
+
+### 推荐选择
+
+以下组合用于明确调试目标，不是兼容性保证：
+
+| 场景 | 建议 |
+|---|---|
+| 最小调试事件链 | 核心组 0-13 和 15；Win10 可按需要加 14 |
+| 标准调试对象保护 | 核心组 + 16-18 |
+| 降低调试可见性 | 核心组 + 16-29 |
+| 窗口指纹处理 | 30-33、35；Win10 可加 34 |
+| 完整功能 | Win10 全 36 位；Win11 当前支持的 34 位 |
+| 只测试初始化 | 可先关闭全部 Hook，确认驱动和 VMX 链正常 |
+
+如果关闭 `NtCreateDebugObject`、`NtDebugActiveProcess`、`NtWaitForDebugEvent` 或 `NtDebugContinue`，调试会话建立和事件传递可能不完整。这是功能选择结果，不是 Hook 安装失败。
+
+## VT_Driver 与 EPT 细节
+
+### VMX 初始化
+
+- 通过 capability MSR 计算控制位的 allowed-0/allowed-1。
+- 检查 EPT、VPID、unrestricted guest 等真实能力。
+- 为每个逻辑处理器维护 VCPU 和 VMCS。
+- 检查 VMCS revision、对齐、VMCLEAR、VMPTRLD 和 ownership。
+- 处理 VM-entry/VM-exit 失败和 VMXOFF 清理。
+
+### EPT 页表
+
+```text
+EPTP
+  -> EPT PML4
+       -> EPT PDPT
+            -> EPT PD
+                 -> 2 MB large page
+                 or 4 KB EPT PT
+                      -> 512 x 4 KB entries
+```
+
+拆分 Hook 页时，未修改的相邻 4 KB 页应继续保留原始物理地址、权限、缓存类型和相关属性。
+
+### EPT Hook
+
+- 保存原始页内容。
+- 创建伪页并写入修改后的代码。
+- 原始页和伪页使用不同读写执行权限。
+- 执行目标地址时进入执行 Hook 路径。
+- 读写目标地址时切换到原始页视图。
+- MTF 用于在单条指令执行后恢复权限。
+- 卸载时恢复 EPT 映射并刷新相关 TLB。
+
+### EPT Watch
+
+- 写监控：关闭 EPT Write。
+- 读写监控：关闭 EPT Read 和 Write。
+- 执行监控：关闭 EPT Execute。
+- 命中后记录虚拟地址、物理地址、断点类型、组 ID 和 Guest 上下文。
+
+### CR3
+
+- CR3 来源包括 Guest 当前 CR3、VMCS Guest CR3 和 CR3 Tracker 记录。
+- CR3 改变会影响虚拟地址到 Guest 物理地址的翻译。
+- CR3 变化后必须检查翻译缓存、断点地址、EPT Hook 和 Address Monitor 是否仍属于目标地址空间。
+- CR3、VPID、EPTP、TLB 是不同概念，不能把 CR3 改变自动等同于 VPID 或 EPTP 改变。
+
+### 失效
+
+- EPT 映射变化后使用 INVEPT。
+- VPID 地址转换变化后按实际需要选择 INVVPID。
+- 跨核操作通过 DPC/广播保证每个处理器执行所需失效。
+- 不能机械地对所有情况使用同一种失效范围，也不能完全不刷新。
+
+## 构建
 
 ### 环境要求
 
-- **操作系统**：Windows 10/11 x64
-- **开发工具**：
-  - Visual Studio 2022（C++ 项目）
-  - Delphi 10.x（Delphi 项目）
-- **工具链**：
-  - MSVC v143 x64 平台工具集
-  - Windows SDK/WDK 10.0.26100.0
-- **汇编器**：MASM (ml64.exe)
+| 项目 | 要求 |
+|---|---|
+| 主机系统 | Windows 10/11 x64 |
+| IDE | Visual Studio 2022 |
+| C++ 工具集 | MSVC v143 |
+| Windows SDK | 10.0.26100.0 |
+| WDK | 10.0.26100.0 |
+| 汇编器 | MASM `ml64.exe` |
+| UI 构建依赖 | Windows App SDK 2.5.1 |
+| C++/WinRT | 3.0.260818.1 |
+| UI 运行库 | Windows App Runtime 2.5.1 x64 |
 
-### 源码编码规则
+WinUI 依赖目录：
 
-- C/C++ 源文件、头文件、资源脚本：**UTF-8 BOM**（中文注释/字符串必须带 BOM，纯 ASCII 可无 BOM）
-- MASM 汇编文件 (.asm)：**UTF-8 无 BOM**
-- Delphi 文件 (.pas/.dfm)：**CP936（GBK）**，保持原有编码
-- 根目录 `.editorconfig` 文件固化编码规则，VS2022 自动遵循
-- **不需要添加** `/utf-8`、`/source-charset`、`/execution-charset` 编译选项
-- 资源脚本中的 `#pragma code_page(65001)` 用于资源文本解析，不影响 C++ 编译
-
-### 构建步骤
-
-**命令行构建**（推荐）：
-```bat
-# 打开开发人员命令提示符（Developer Command Prompt for VS 2022）
-# 导航到项目根目录
-cd F:\001\VT\UnrealVTDbg-struc-clean
-
-# 构建所有 C++ 项目（Release x64）
-MSBuild.exe UnrealDbg.sln /m /t:Rebuild /p:Configuration=Release /p:Platform=x64
+```text
+_artifacts\winui_251_packages\sdk
+_artifacts\winui_251_packages\cppwinrt
 ```
 
-**IDE 构建**：
-1. 使用 Visual Studio 2022 打开 `UnrealDbg.sln`
-2. 配置管理器选择 `Release | x64`
-3. 右键解决方案 → "重新生成解决方案"
+依赖缺失时会在 `ValidateWinUIPackages` 阶段报错。
 
-**Delphi 项目构建**：
-- Delphi 项目不由 VS2022 编译，需单独使用 Delphi IDE 编译
-- 项目文件：
-  - `UnrealDbg\UnrealDbg.dproj`
-  - `CardRegistration\卡密注册.dproj`
-  - `D-encryption\D_encryption.dproj`
-  - `SymbolTool\SymbolTool.dproj`
+### 全解决方案
 
-**构建输出**：
-- `x64\Release\VT_Driver.sys`：VMX 虚拟化引擎驱动
-- `x64\Release\DbgkSysWin10.sys`：Windows 10 调试子系统驱动
-- `x64\Release\DbgkSysWin11.sys`：Windows 11 调试子系统驱动
-- `x64\Release\UnrealDbgDll.dll`：用户态桥接 DLL
-- `x64\Release\Hook.dll`：用户态钩子 DLL
-- `x64\Release\Loader.exe`：驱动加载器
+```powershell
+$msbuild = "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe"
 
-### 常见构建问题
+& $msbuild .\UnrealDbg.sln `
+  /m `
+  /t:Build `
+  /p:Configuration=Release `
+  /p:Platform=x64
+```
 
-1. **C1083 错误（找不到 WDK 头文件）**：
-   - 原因：未安装指定版本的 WDK
-   - 解决：安装 WDK 10.0.26100.0 或修改项目属性中的 SDK 版本
+### 单独构建 WinUI
 
-2. **编码相关错误（中文乱码）**：
-   - 原因：文件编码不是 UTF-8 BOM
-   - 解决：使用 VS2022 "文件 → 高级保存选项" 设置为 "UTF-8 with BOM"
+```powershell
+& $msbuild .\UnrealDbgWinUI\UnrealDbgWinUI.vcxproj `
+  /m `
+  /p:Configuration=Release `
+  /p:Platform=x64
+```
 
-3. **MASM 汇编错误**：
-   - 原因：汇编文件编码或语法问题
-   - 解决：确保 `.asm` 文件为 UTF-8 无 BOM，检查汇编语法
+WinUI 工程不包含其它工程的 `ProjectReference`。单独构建 UI 时只生成前端，后端驱动、DLL 和 Hook 需要单独构建或通过全解决方案构建。
 
----
+### 构建产物
+
+| 产物 | 默认路径 |
+|---|---|
+| `UnrealDbgWinUI.exe` | `x64\WinUI\Release\UnrealDbgWinUI.exe` |
+| `UnrealDbgDll.dll` | `x64\Release\UnrealDbgDll.dll` |
+| `Hook64.dll` | `x64\Release\Hook64.dll` |
+| `VT_Driver.sys` | `x64\Release\VT_Driver.sys` |
+| `DbgkSysWin10.sys` | `x64\Release\DbgkSysWin10.sys` |
+| `DbgkSysWin11.sys` | `x64\Release\DbgkSysWin11.sys` |
+
+WinUI 的 `StageRuntime` 会把已经存在的运行文件复制到：
+
+```text
+x64\WinUI\Release\
+x64\WinUI\Release\bin\
+```
+
+## 部署与运行
+
+建议发布目录：
+
+```text
+Release/
+|-- UnrealDbgWinUI.exe
+|-- UnrealDbgDll.dll
+|-- Hook64.dll
+|-- VT_Driver.sys
+|-- DbgkSysWin10.sys
+|-- DbgkSysWin11.sys
+|-- AIHelper.dll
+|-- VMProtectSDK64.dll
+|-- Microsoft.WindowsAppRuntime.Bootstrap.dll
+|-- Config.ini
+|-- DebuggerList.ini
+|-- Config/
+|-- Log/
+|-- Symbols/
+|-- SymbolTool/
+|   `-- Config.ini
+`-- bin/
+    |-- UnrealDbgDll.dll
+    |-- Hook64.dll
+    |-- VT_Driver.sys
+    |-- DbgkSysWin10.sys
+    `-- DbgkSysWin11.sys
+```
+
+运行要求：
+
+- 全部运行文件使用 x64。
+- `AIHelper.dll` 与当前 `UnrealDbgDll.dll` ABI 匹配。
+- 根目录与 `bin/` 下的文件版本一致。
+- 驱动已签名，或测试机已正确启用测试签名和内核调试配置。
+- 以管理员身份启动 UI，确保 `SeDebugPrivilege` 可用。
+- 测试机具备可回滚快照或恢复方式。
+
+快速启动：
+
+1. 构建 `Release|x64`。
+2. 准备 `AIHelper.dll`、Windows App Runtime 和运行文件。
+3. 以管理员身份启动 `UnrealDbgWinUI.exe`。
+4. 在“驱动 Hook”页面选择需要安装的入口。
+5. 等待系统 PDB 准备完成。
+6. 进入 VT 调试模式。
+7. 确认 VT_Driver 和匹配的 DbgkSys 驱动启动。
+8. 添加或启动外部调试器。
+9. 捕获目标进程并开始调试。
+
+Hook 选择在进入 VT 后锁定。需要变更 Hook 时，应结束当前会话、卸载驱动并重新初始化。
+
+## 配置与日志
+
+### Config.ini
+
+WinUI 优先读取发布目录根部的 `Config.ini`，再读取 `Config\Config.ini`。
+
+```ini
+[TL]
+enabled_tl_confrontation=0
+handler_gettickcount_check=1
+BlockResumeThread=0
+
+[HookSelection]
+Mask=0x0000000FFFFFFFFF
+
+[UI]
+Theme=light
+```
+
+| 节 | 键 | 说明 |
+|---|---|---|
+| `TL` | `enabled_tl_confrontation` | 启用 TL 防护 |
+| `TL` | `handler_gettickcount_check` | 启用 tick count 相关检查 |
+| `TL` | `BlockResumeThread` | 阻塞目标线程恢复 |
+| `HookSelection` | `Mask` | 36 位 DbgkSys EPT Hook 掩码 |
+| `UI` | `Theme` | `light` 或 `dark` |
+
+### DebuggerList.ini
+
+```ini
+[配置]
+Count=1
+Debugger0=x64dbg&F:\Tools\x64dbg\x64dbg.exe
+```
+
+名称和路径使用 `&` 分隔。也兼容 `[DebuggerList]` 节。
+
+### 符号
+
+- 默认缓存根目录为 `C:\Symbols`。
+- 优先读取 `SymbolTool\Config.ini`。
+- 未配置时默认使用 Microsoft Symbol Server。
+- PDB 按 PE RSDS 签名中的 GUID 和 Age 校验。
+- 下载完成后再次校验，校验失败的缓存不会视为有效。
+
+### 日志
+
+| 日志 | 来源 |
+|---|---|
+| `Log\WinUI.log` | WinUI 启动、符号、配置和异常 |
+| `UnrealDbgDll.log` | 后端加载、驱动、IOCTL 和初始化 |
+| `Hook64.log` / `Hook.log` | 用户态 Hook 和断点透明化 |
+| VTLoad 日志 | VT_Driver 加载和运行 |
+| DbgkSys 日志 | 调试对象、EPT Hook 和事件路径 |
+
+日志中心会联合识别 UTF-8、CP936/GBK、GB18030 和系统代码页，兼容新旧日志文件。
+
+## 验证结果
+
+本次 README 对应的源码结构在 2026-10-17 完成以下检查：
+
+| 项目 | 结果 | 说明 |
+|---|---|---|
+| `Release|x64` 全解决方案构建 | PASS | 6 个工程全部构建成功 |
+| WinUI 明亮主题冒烟测试 | PASS | `--ui-smoke-test --ui-theme=light` 返回 0 |
+| WinUI 暗黑主题冒烟测试 | PASS | `--ui-smoke-test --ui-theme=dark` 返回 0 |
+| UnrealDbgDll 导出 | PASS | `dumpbin /exports` 可见 5 个预期导出 |
+| README 编码 | PASS | UTF-8 No BOM，无乱码替换字符 |
+| VMX 硬件进入 | 未执行 | 未加载 VT_Driver 进入 VMX Root Mode |
+| EPT Hook 运行验证 | 未执行 | 需要实际 VT 会话 |
+| EPT 2 MB 拆分验证 | 未执行 | 需要目标物理页和 Hook 场景 |
+| INVEPT/INVVPID 运行验证 | 未执行 | 需要多核地址转换场景 |
+| CR3 Tracker 运行验证 | 未执行 | 需要进程切换与目标地址空间 |
+| MTF/TF/#DB 运行验证 | 未执行 | 需要单步、断点和异常组合 |
+| 蓝屏与恢复路径 | 未执行 | 需要可回滚测试环境 |
+| Win10/Win11 全版本矩阵 | 未执行 | 不同 Build 仍需逐项验证 |
+| P-core/E-core 迁移 | 未执行 | 需要混合架构实机 |
+| x64dbg/x32dbg/Cheat Engine | 未执行 | UI 支持登记和启动，不等于兼容性验证 |
+
+源码构建通过不代表硬件行为通过。真实硬件兼容性必须通过目标机器、目标 Windows Build 和实际调试流程确定。
+
+## 兼容性与限制
+
+### Intel
+
+- 需要真实 Intel VT-x、EPT 和项目实际请求的 VMX 能力。
+- 通过 CPUID、`IA32_FEATURE_CONTROL` 和 capability MSR 判断能力。
+- 不应使用 CPU 型号白名单代替 capability discovery。
+- 8 代至 14 代 Core、Core X、Core Ultra、Xeon E 和 Xeon Scalable 只是目标范围，不等于全部通过实际验证。
+- P-core/E-core 需要验证每核 VMCS、VPID、EPTP、CR3、DR、MTF 和迁移。
+
+### Windows
+
+- WinUI 最低目标版本为 Windows 10 2004 Build 19041。
+- DbgkSys 以 Build 22000 为 Win10/Win11 分界。
+- 未公开内核结构、调试对象布局和函数偏移会随 Build 改变。
+- Windows 10 22H2、Windows 11 21H2/22H2/23H2/24H2/25H2 和 26200 系列都需要独立验证。
+- HVCI、VBS、Secure Boot、测试签名策略、内核隔离和第三方安全软件可能阻止驱动加载。
+
+### 外部调试器
+
+- x64dbg、x32dbg 和 Cheat Engine 的版本必须与目标架构匹配。
+- UI 中的路径成功启动不代表断点、异常、上下文、模块和线程事件全部兼容。
+- 目标进程的加固、反调试和多线程行为可能改变实际结果。
+
+## 故障排查
+
+### 无法加载后端
+
+- 检查根目录和 `bin/` 中是否存在 `UnrealDbgDll.dll`。
+- 检查 DLL 架构是否为 x64。
+- 使用 `dumpbin /exports` 检查 5 个导出。
+- 检查依赖 DLL 是否缺失。
+
+### 驱动加载失败
+
+- 确认以管理员身份运行。
+- 确认驱动签名和测试签名策略。
+- 检查 `AIHelper.dll`。
+- 检查同名服务和旧驱动实例。
+- 查看事件查看器、VTLoad 和 DbgkSys 日志。
+
+### VT 初始化失败
+
+- 检查 BIOS/UEFI 是否开启 VT-x。
+- 检查 Hyper-V、VBS、内存完整性和其它 Hyper-V 类组件是否占用 VMX。
+- 检查 CPU、VMX capability 和 EPT 能力。
+- 检查驱动版本是否一致。
+- 检查是否在支持嵌套虚拟化的环境中运行。
+
+### 没有调试事件
+
+- 确认核心 Hook 没有被全部关闭。
+- 检查 `NtCreateDebugObject`、`NtDebugActiveProcess`、`NtWaitForDebugEvent` 和 `NtDebugContinue`。
+- 检查 DbgkSys 版本与 Windows Build。
+- 检查 Hook64 是否成功注入或加载。
+- 检查日志中的 VMCALL、EPT violation、MTF、CR3 和注入记录。
+
+### Hook 打开后崩溃
+
+- 记录完整 mask，确认是否启用了当前平台不支持的位。
+- 检查目标 Windows Build、驱动版本和 PDB/符号。
+- 检查对应 Hook 是否依赖 `NtCreateDebugObject` 或 `ValidateHwnd` 的安装顺序。
+- 保存 dump，重点检查 VMCS ownership、EPT 页表、MTF、DR、CR3 和跨核失效。
+
+### 符号准备失败
+
+- 检查 `C:\Symbols` 权限。
+- 检查代理、网络和符号服务器配置。
+- 检查 PDB 的 GUID/Age 是否与目标模块匹配。
+- 不要复用校验失败的旧缓存。
+
+## 开发约束
+
+- `HookSelection.h` 的位值属于跨模块二进制契约，不得重排已有位。
+- 新增 Hook 时，必须同步更新 `HOOK_SELECTION_ALL`、WinUI 描述、驱动安装逻辑和 README。
+- 修改 IOCTL 或共享结构时，必须检查 WinUI、UnrealDbgDll、DbgkSysWin10、DbgkSysWin11 和 VT_Driver。
+- 修改 EPT 时必须检查拆分、权限、缓存类型、INVEPT、MTF 和错误回滚。
+- 修改 CR3 时必须检查 Guest CR3、VMCS、进程地址空间、翻译缓存和断点地址。
+- 修改断点时必须检查 INT3、原始字节、RIP 语义、并发命中、恢复和重装。
+- 修改 DR 时必须检查 DR0-DR7、local/global enable、RW/LEN、VMCS 调试状态和 CPU 迁移。
+- 修改 MTF/TF 时必须检查 owner、pending state、冲突、清理和会话销毁。
+- 修改进程/线程 Hook 时必须检查进程退出、线程退出、模块卸载和驱动卸载。
+- 不得通过 CPU 白名单、Windows 版本白名单或强制单核来规避真实能力发现。
+- 不得用无意义 NULL 判断、全局禁用功能或简单加锁掩盖 ownership、lifetime 和状态机错误。
+
+## 源码编码
+
+- C/C++ 源文件默认遵循 `.editorconfig`，使用 UTF-8 BOM。
+- MASM 文件使用 UTF-8 No BOM。
+- 本 README 使用 UTF-8 No BOM。
+- 含中文的历史文件必须确认原代码页后再写回。
+- 禁止用系统默认编码无确认覆盖中文文件。
+
+## 安全与授权
+
+本项目涉及内核驱动、硬件虚拟化、调试对象、EPT 和进程保护。请仅在拥有明确授权的环境中使用。
+
+不得用于未授权访问、绕过第三方授权、规避安全产品、破坏生产系统或侵犯他人数据。README 中的“隐藏”“保护”“绕过”等词语仅描述源码技术路径，不构成对具体用途的授权。
+
+## License
+
+仓库根目录未提供项目级 `LICENSE` 文件。`Common/Ring0/SymbolicAccess/Phnt/LICENSE` 仅覆盖对应第三方代码。在获得明确授权前，不应默认复制、分发或用于闭源商业产品。

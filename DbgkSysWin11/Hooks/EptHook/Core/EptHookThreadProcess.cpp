@@ -5,7 +5,18 @@ VOID Hook_NtQueryInformationThread()
 {
     if (g_IsInitGlobalVariable)
     {
-        HookEptRoutine(Sys_NtQueryInformationThread, NewNtQueryInformationThread, (PVOID*)&Original_NtQueryInformationThread, "NtQueryInformationThread", "NtQueryInformationThread");
+        // 使用 ProtectDrxX64.cpp 中的 TitanHide 对照实现：
+        // ThreadHideFromDebugger 查询伪装 + ThreadWow64Context DRx 清零，其余原样转发。
+        HookEptRoutine(Sys_NtQueryInformationThread, NtQueryInformationThread, (PVOID*)&Original_NtQueryInformationThread, "NtQueryInformationThread", "NtQueryInformationThread");
+    }
+}
+
+EXTERN_C
+VOID Hook_NtSetInformationThread()
+{
+    if (g_IsInitGlobalVariable)
+    {
+        HookEptRoutine(Sys_NtSetInformationThread, HvmNtSetInformationThread, (PVOID*)&Original_NtSetInformationThread, "NtSetInformationThread", "NtSetInformationThread");
     }
 }
 

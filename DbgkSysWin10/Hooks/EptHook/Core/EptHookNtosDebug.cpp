@@ -1,6 +1,15 @@
 ﻿#include "EptHookCommon.h"
 
 EXTERN_C
+VOID Hook_DbgkOpenProcessDebugPort()
+{
+    if (g_IsInitGlobalVariable)
+    {
+        HookEptRoutine(Sys_DbgkOpenProcessDebugPort, DbgkOpenProcessDebugPort, (PVOID*)&Original_DbgkOpenProcessDebugPort, "DbgkOpenProcessDebugPort", "DbgkOpenProcessDebugPort");
+    }
+}
+
+EXTERN_C
 VOID Hook_NtCreateDebugObject()
 {
     if (g_IsInitGlobalVariable)

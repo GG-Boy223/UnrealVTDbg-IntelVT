@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include <Shared/HookSelection.h>
 #include "../../../Driver.h"
 #include "../../../ntos/inc/extypes.h"
 #include "../../../ntos/inc/ketypes.h"
@@ -42,14 +43,24 @@ inline VOID HookEptRoutine(TSystemRoutine SystemRoutine,
         if (hvgt::hook_function(SystemRoutine, HookRoutine, OriginalRoutine))
         {
             outLog("hook %s成功.", HookName);
+            outFile("hook %s ok target=0x%p handler=0x%p original=0x%p",
+                HookName,
+                (PVOID)SystemRoutine,
+                (PVOID)HookRoutine,
+                (PVOID)(OriginalRoutine != NULL ? *OriginalRoutine : NULL));
         }
         else
         {
             outLog("hook %s失败.", HookName);
+            outFile("hook %s FAILED target=0x%p handler=0x%p",
+                HookName,
+                (PVOID)SystemRoutine,
+                (PVOID)HookRoutine);
         }
     }
     else
     {
         outLog("Sys_%s为空指针.", SymbolName);
+        outFile("hook %s SKIPPED symbol=%s", HookName, SymbolName);
     }
 }

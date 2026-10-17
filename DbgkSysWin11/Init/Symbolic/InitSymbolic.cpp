@@ -391,6 +391,15 @@ void DumpOffsetAndFuncPtr()
     outLog("Sys_MmProtectVirtualMemory  0x%p", Sys_MmProtectVirtualMemory);
     outLog("Sys_NtGetContextThread  0x%p", Sys_NtGetContextThread);
     outLog("Sys_NtSetContextThread  0x%p", Sys_NtSetContextThread);
+    outLog("Sys_NtQueryInformationProcess  0x%p", Sys_NtQueryInformationProcess);
+    outLog("Sys_NtSetInformationProcess  0x%p", Sys_NtSetInformationProcess);
+    outLog("Sys_NtQueryObject  0x%p", Sys_NtQueryObject);
+    outLog("Sys_NtQuerySystemInformation  0x%p", Sys_NtQuerySystemInformation);
+    outLog("Sys_NtSystemDebugControl  0x%p", Sys_NtSystemDebugControl);
+    outLog("Sys_NtClose  0x%p", Sys_NtClose);
+    outLog("Sys_NtDuplicateObject  0x%p", Sys_NtDuplicateObject);
+    outLog("Sys_NtSetInformationThread  0x%p", Sys_NtSetInformationThread);
+    outLog("Sys_ObReferenceObjectByPointer  0x%p", Sys_ObReferenceObjectByPointer);
     outLog("ZwGetContextThread  0x%p", ZwGetContextThread);
     outLog("PspGetContextThreadInternal  0x%p", PspGetContextThreadInternal);
     outLog("Sys_KiDispatchException  0x%p", Sys_KiDispatchException);
@@ -407,6 +416,7 @@ void DumpOffsetAndFuncPtr()
     //对象偏移
     outLog("eprocess_offset::Pcb  0x%x", eprocess_offset::Pcb);
     outLog("eprocess_offset::DebugPort  0x%x", eprocess_offset::DebugPort);
+    outLog("eprocess_offset::Peb  0x%x", eprocess_offset::Peb);
     outLog("eprocess_offset::ImageFileName  0x%x", eprocess_offset::ImageFileName);
     outLog("eprocess_offset::WoW64Process  0x%x", eprocess_offset::WoW64Process);
     outLog("eprocess_offset::RundownProtect  0x%x", eprocess_offset::RundownProtect);
@@ -507,6 +517,15 @@ void CheckFunctionPointers()
     CHECK_FUNC_PTR(Sys_MmProtectVirtualMemory);
     CHECK_FUNC_PTR(Sys_NtGetContextThread);
     CHECK_FUNC_PTR(Sys_NtSetContextThread);
+    CHECK_FUNC_PTR(Sys_NtQueryInformationProcess);
+    CHECK_FUNC_PTR(Sys_NtSetInformationProcess);
+    CHECK_FUNC_PTR(Sys_NtQueryObject);
+    CHECK_FUNC_PTR(Sys_NtQuerySystemInformation);
+    CHECK_FUNC_PTR(Sys_NtSystemDebugControl);
+    CHECK_FUNC_PTR(Sys_NtClose);
+    CHECK_FUNC_PTR(Sys_NtDuplicateObject);
+    CHECK_FUNC_PTR(Sys_NtSetInformationThread);
+    CHECK_FUNC_PTR(Sys_ObReferenceObjectByPointer);
     CHECK_FUNC_PTR(ZwGetContextThread);
     CHECK_FUNC_PTR(PspGetContextThreadInternal);
     CHECK_FUNC_PTR(Sys_KiDispatchException);

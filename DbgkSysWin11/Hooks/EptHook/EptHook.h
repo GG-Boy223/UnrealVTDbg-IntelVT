@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #ifndef _EPT_HOOK_H
 #define _EPT_HOOK_H
@@ -8,6 +8,9 @@ VOID UnEptHook();
 
 EXTERN_C
 VOID SetupEptHook();
+
+EXTERN_C
+NTSTATUS ConfigureEptHookSelection(ULONG64 mask);
 
 EXTERN_C
 VOID Hook_DbgkOpenProcessDebugPort();
@@ -47,6 +50,30 @@ VOID Hook_DbgkUnMapViewOfSection();
 
 EXTERN_C
 VOID Hook_NtQueryInformationThread();
+
+EXTERN_C
+VOID Hook_NtSetInformationThread();
+
+EXTERN_C
+VOID Hook_NtQueryInformationProcess();
+
+EXTERN_C
+VOID Hook_NtSetInformationProcess();
+
+EXTERN_C
+VOID Hook_NtQueryObject();
+
+EXTERN_C
+VOID Hook_NtQuerySystemInformation();
+
+EXTERN_C
+VOID Hook_NtSystemDebugControl();
+
+EXTERN_C
+VOID Hook_NtClose();
+
+EXTERN_C
+VOID Hook_NtDuplicateObject();
 
 EXTERN_C
 VOID Hook_NtSuspendThread();
@@ -163,5 +190,15 @@ VOID Hook_NtUserSetWindowsHookEx();
 
 EXTERN_C
 VOID Hook_NtUserGetClassName();
+
+// 反-反调试共享判定：虚拟调试目标（attach 路径查 g_DebugProcessList，
+// create 路径查 EPROCESS->DebugPort 是否为 Hvm_DebugObject）。
+BOOLEAN HvmIsVirtualDebugTargetProcess(_EPROCESS* Process, PVOID* DebugProcess);
+BOOLEAN HvmIsCallerVirtualDebugTarget();
+BOOLEAN HvmIsProcessHandleVirtualDebugTarget(HANDLE ProcessHandle, KPROCESSOR_MODE PreviousMode);
+BOOLEAN HvmIsThreadHandleVirtualDebugTarget(HANDLE ThreadHandle, KPROCESSOR_MODE PreviousMode);
+
+// attach/create 两条路径统一清除 PEB/线程调试痕迹（TitanHide Olly 插件同款目标）。
+VOID PrepareVirtualDebugTargetProcess(_EPROCESS* Process);
 
 #endif // !_EPT_HOOK_H

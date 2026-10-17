@@ -567,6 +567,13 @@ ProxyDbgkOpenProcessDebugPort(
 // __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
+// Win10 反-反调试：DbgkOpenProcessDebugPort 的 EPT Hook 实现（OpenProcessDebugPort.cpp）。
+EXTERN_C
+NTSTATUS DbgkOpenProcessDebugPort(
+    IN PEPROCESS Process,
+    IN KPROCESSOR_MODE PreviousMode,
+    OUT HANDLE* DebugHandle);
+
 void CreateRemoteThread(IN PUSER_DATA userData);
 
 //初始化保护
@@ -710,16 +717,6 @@ NTSTATUS
 NewNtResumeThread(
     __in HANDLE ThreadHandle,
     __out_opt PULONG PreviousSuspendCount
-// __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
-);
-
-NTSTATUS
-NewNtQueryInformationThread(
-    _In_ HANDLE ThreadHandle,
-    _In_ THREADINFOCLASS ThreadInformationClass,
-    _Out_ PVOID ThreadInformation,
-    _In_ ULONG ThreadInformationLength,
-    _Out_opt_ PULONG ReturnLength
 // __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 

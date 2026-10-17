@@ -427,6 +427,9 @@ extern PROTECTOBJ            g_ProtectWndObjList;                    //保护的
 extern DEBUGGER_TABLE g_DebuggerList;                         //调试器列表
 extern DEBUG_PROCESS_TABLE g_DebugProcessList;                     //被调试的进程列表
 extern DEBUG_PROCESS_TABLE g_DebugProcessUnloadList;               // Debug process entries waiting for unload drain
+// 活跃的 Hvm_DebugObject 计数。反-反调试 hook 用它做“无调试会话”快速放行。
+extern volatile LONG g_LiveVirtualDebugObjectCount;
+extern volatile LONG g_LiveVirtualDebugObjectHandleCount;
 extern _EPROCESS* g_SelfProcess;                          //驱动自身关联的进程
 extern BREAKPOINT_TABLE      g_BreakpointList;                       //断点列表
 extern VIRTUAL_HANDLE_TABLE  g_VirtualHandleList;                    //虚拟句柄列表
@@ -728,6 +731,66 @@ typedef NTSTATUS(__fastcall* PFN_NTSETCONTEXTTHREAD)(
     __in PCONTEXT ThreadContext  /*此参数是用户提供的缓冲区*/
     // __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
     );
+
+// 反-反调试（TitanHide 对照）所需的系统调用入口。
+// 这些入口由 EPT Hook 在 ntoskrnl 函数首地址拦截，PreviousMode == KernelMode 时原样放行。
+typedef NTSTATUS(__fastcall* PFN_NTQUERYINFORMATIONPROCESS)(
+    IN HANDLE ProcessHandle,
+    IN PROCESSINFOCLASS ProcessInformationClass,
+    OUT PVOID ProcessInformation,
+    IN ULONG ProcessInformationLength,
+    OUT PULONG ReturnLength OPTIONAL);
+
+typedef NTSTATUS(__fastcall* PFN_NTSETINFORMATIONPROCESS)(
+    IN HANDLE ProcessHandle,
+    IN PROCESSINFOCLASS ProcessInformationClass,
+    IN PVOID ProcessInformation,
+    IN ULONG ProcessInformationLength);
+
+typedef NTSTATUS(__fastcall* PFN_NTQUERYOBJECT)(
+    IN HANDLE Handle OPTIONAL,
+    IN OBJECT_INFORMATION_CLASS ObjectInformationClass,
+    OUT PVOID ObjectInformation OPTIONAL,
+    IN ULONG ObjectInformationLength,
+    OUT PULONG ReturnLength OPTIONAL);
+
+typedef NTSTATUS(__fastcall* PFN_NTQUERYSYSTEMINFORMATION)(
+    IN SYSTEM_INFORMATION_CLASS SystemInformationClass,
+    OUT PVOID SystemInformation,
+    IN ULONG SystemInformationLength,
+    OUT PULONG ReturnLength OPTIONAL);
+
+typedef NTSTATUS(__fastcall* PFN_NTSYSTEMDEBUGCONTROL)(
+    IN ULONG Command,
+    IN PVOID InputBuffer OPTIONAL,
+    IN ULONG InputBufferLength,
+    OUT PVOID OutputBuffer OPTIONAL,
+    IN ULONG OutputBufferLength,
+    OUT PULONG ReturnLength OPTIONAL);
+
+typedef NTSTATUS(__fastcall* PFN_NTCLOSE)(
+    IN HANDLE Handle);
+
+typedef NTSTATUS(__fastcall* PFN_NTDUPLICATEOBJECT)(
+    IN HANDLE SourceProcessHandle,
+    IN HANDLE SourceHandle,
+    IN HANDLE TargetProcessHandle,
+    OUT PHANDLE TargetHandle OPTIONAL,
+    IN ACCESS_MASK DesiredAccess OPTIONAL,
+    IN ULONG HandleAttributes,
+    IN ULONG Options);
+
+typedef NTSTATUS(__fastcall* PFN_NTSETINFORMATIONTHREAD)(
+    IN HANDLE ThreadHandle,
+    IN THREADINFOCLASS ThreadInformationClass,
+    IN PVOID ThreadInformation,
+    IN ULONG ThreadInformationLength);
+
+typedef NTSTATUS(__fastcall* PFN_OBREFERENCEOBJECTBYPOINTER)(
+    IN PVOID Object,
+    IN ACCESS_MASK DesiredAccess,
+    IN POBJECT_TYPE ObjectType,
+    IN KPROCESSOR_MODE AccessMode);
 
 typedef NTSTATUS(__fastcall* PFN_NTREADVIRTUALMEMORY)(_In_ HANDLE ProcessHandle,
     _In_opt_ PVOID BaseAddress,
@@ -1134,6 +1197,8 @@ extern PFN_ALPCINITIALIZEMESSAGEATTRIBUTE AlpcInitializeMessageAttribute;
 extern PFN_ALPCGETMESSAGEATTRIBUTE AlpcGetMessageAttribute;
 extern PFN_DBGKPREMOVEERRORPORT DbgkpRemoveErrorPort;
 extern PFN_DBGKOPENPROCESSDEBUGPORT Sys_DbgkOpenProcessDebugPort;
+extern PFN_DBGKOPENPROCESSDEBUGPORT Original_DbgkOpenProcessDebugPort;
+extern PFN_DBGKOPENPROCESSDEBUGPORT Original_DbgkOpenProcessDebugPort;
 extern PFN_NTCREATEDEBUGOBJECT Sys_NtCreateDebugObject;
 extern PFN_NTDEBUGACTIVEPROCESS Sys_NtDebugActiveProcess;
 extern PFN_NTWAITFORDEBUGEVENT Sys_NtWaitForDebugEvent;
@@ -1186,6 +1251,23 @@ extern PFN_NTGETCONTEXTTHREAD Sys_NtGetContextThread;
 extern PFN_NTGETCONTEXTTHREAD Original_NtGetContextThread;
 extern PFN_NTSETCONTEXTTHREAD Sys_NtSetContextThread;
 extern PFN_NTSETCONTEXTTHREAD Original_NtSetContextThread;
+extern PFN_NTQUERYINFORMATIONPROCESS Sys_NtQueryInformationProcess;
+extern PFN_NTQUERYINFORMATIONPROCESS Original_NtQueryInformationProcess;
+extern PFN_NTSETINFORMATIONPROCESS Sys_NtSetInformationProcess;
+extern PFN_NTSETINFORMATIONPROCESS Original_NtSetInformationProcess;
+extern PFN_NTQUERYOBJECT Sys_NtQueryObject;
+extern PFN_NTQUERYOBJECT Original_NtQueryObject;
+extern PFN_NTQUERYSYSTEMINFORMATION Sys_NtQuerySystemInformation;
+extern PFN_NTQUERYSYSTEMINFORMATION Original_NtQuerySystemInformation;
+extern PFN_NTSYSTEMDEBUGCONTROL Sys_NtSystemDebugControl;
+extern PFN_NTSYSTEMDEBUGCONTROL Original_NtSystemDebugControl;
+extern PFN_NTCLOSE Sys_NtClose;
+extern PFN_NTCLOSE Original_NtClose;
+extern PFN_NTDUPLICATEOBJECT Sys_NtDuplicateObject;
+extern PFN_NTDUPLICATEOBJECT Original_NtDuplicateObject;
+extern PFN_NTSETINFORMATIONTHREAD Sys_NtSetInformationThread;
+extern PFN_NTSETINFORMATIONTHREAD Original_NtSetInformationThread;
+extern PFN_OBREFERENCEOBJECTBYPOINTER Sys_ObReferenceObjectByPointer;
 extern PFN_NTREADVIRTUALMEMORY Sys_NtReadVirtualMemory;
 extern PFN_NTREADVIRTUALMEMORY Original_NtReadVirtualMemory;
 extern PFN_NTWRITEVIRTUALMEMORY Sys_NtWriteVirtualMemory;
@@ -1331,6 +1413,7 @@ namespace eprocess_offset
 {
     extern size_t Pcb;
     extern size_t DebugPort;
+    extern size_t Peb;
     extern size_t ImageFileName;
     extern size_t WoW64Process;
     extern size_t RundownProtect;

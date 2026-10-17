@@ -9,6 +9,7 @@
 #include "../AsmCallset.h"
 #include "../msr.h"
 #include "VmExitCommon.h"
+#include "../../Common/Ring0/Hvm/DebuggerVisibilityPolicy.h"
 
 namespace
 {
@@ -215,6 +216,16 @@ void vmexit_msr_read_handler(__vcpu* vcpu) // vcpu=当前虚拟CPU状态
 {
 	__msr msr; // 原理：MSR 由高/低 32 位组成；作用：使用联合体承载读取结果；结果：msr 可拆分为 high/low
 	uint32_t msr_index = static_cast<uint32_t>(vcpu->vmexit_info.guest_registers->rcx); // 原理：RDMSR 使用 ECX 指定 MSR；作用：取低 32 位作为编号；结果：msr_index 得到目标 MSR
+
+	// CPUID.01H:ECX.VMX 已向 guest 显示为 0 时，VMX capability MSR 也必须按
+	// “处理器不支持 VMX” 的架构语义注入 #GP，不能把真实硬件能力暴露出去。
+	if (!g_vmm_context.hv_presence &&
+		hvm_debug_visibility::IsVmxCapabilityMsr(msr_index))
+	{
+		hv::inject_interruption(EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT,
+			INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, true);
+		return;
+	}
 
 	switch (msr_index) // 原理：对关键 MSR 做特殊伪装/过滤；作用：分发读取逻辑；结果：生成返回值
 	{

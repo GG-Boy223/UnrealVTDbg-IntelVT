@@ -1,4 +1,5 @@
 ﻿#include "DebugEventHandlersInternal.h"
+#include "../../Hooks/EptHook/EptHook.h"
 
 namespace
 {
@@ -342,6 +343,14 @@ VOID DbgkCreateThread(IN PETHREAD Thread)
     {
         //是我们自己的调试器要创建线程，则直接返回不走线程回调
         return;
+    }
+
+    // create 路径（NtCreateUserProcess 带调试对象）：目标不在 g_DebugProcessList 中，
+    // 由 DebugPort 指向 Hvm_DebugObject 判定。首个线程创建时统一清除 PEB/线程调试痕迹。
+    if (!(OldFlags.CreateReported) &&
+        HvmIsVirtualDebugTargetProcess((_EPROCESS*)Process, NULL))
+    {
+        PrepareVirtualDebugTargetProcess((_EPROCESS*)Process);
     }
 
     //检查报告是否已经创建

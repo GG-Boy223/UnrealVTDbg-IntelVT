@@ -315,35 +315,6 @@ NTSTATUS NewNtResumeThread(__in HANDLE ThreadHandle, __out_opt PULONG PreviousSu
     return ntStatus;
 }
 
-NTSTATUS NewNtQueryInformationThread(
-    _In_ HANDLE ThreadHandle,
-    _In_ THREADINFOCLASS ThreadInformationClass,
-    _Out_ PVOID ThreadInformation,
-    _In_ ULONG ThreadInformationLength,
-    _Out_opt_ PULONG ReturnLength)
-{
-    DbgkRuntimeCallGuard runtimeGuard;
-    if (DbgkIsDriverRuntimeUnloading())
-    {
-        return Original_NtQueryInformationThread(ThreadHandle,
-            ThreadInformationClass,
-            ThreadInformation,
-            ThreadInformationLength,
-            ReturnLength);
-    }
-
-    if (ThreadInformationClass == ThreadSuspendCount)
-    {
-        PrintProcessName((_EPROCESS*)PsGetCurrentProcess());
-        return STATUS_UNSUCCESSFUL;
-    }
-    return Original_NtQueryInformationThread(ThreadHandle,
-        ThreadInformationClass,
-        ThreadInformation,
-        ThreadInformationLength,
-        ReturnLength);
-}
-
 HANDLE NewNtUserQueryWindow(IN HWND hwnd, IN WINDOWINFOCLASS WindowInfo)
 {
     ////判断当前调用者是否是调试器进程

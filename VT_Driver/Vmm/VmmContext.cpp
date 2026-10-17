@@ -316,8 +316,25 @@ bool allocate_vmm_context() // 初始化全局VMM资源，包含每核VCPU与EPT
 			static_cast<unsigned __int64>(g_vmm_context.vcpu[iter].processor_affinity.Mask));
 	}
 
-	g_vmm_context.hv_presence = true; // 标记VMM已存在，便于其他逻辑快速判断
-	outFile("[成功][VMM上下文] VMM存在标记已设置");
+	// 可见性标记：默认隐藏。VMM 已运行由 lifecycle_state / vcpu 等状态表示；
+	// hv_presence 只决定 CPUID/CR4 是否向 guest 暴露 hypervisor。
+	g_vmm_context.hv_presence = false;
+
+	// Windows 的 IsProcessorFeaturePresent(PF_VIRT_FIRMWARE_ENABLED) 会读取
+	// KUSER_SHARED_DATA.ProcessorFeatures[21]，该位在系统启动时已由真实 CPUID 初始化，
+	// 不会因运行时 VM-exit 屏蔽 CPUID.01H:ECX.VMX 自动回退。WDM 在 x64 上通过
+	// KI_USER_SHARED_DATA 内核别名访问该页，因此这里清除缓存位，保持 CPUID/MSR/CR4
+	// 与共享用户数据对 hypervisor 的可见性一致。
+	constexpr ULONG kProcessorFeatureVirtualFirmwareEnabled = 21;
+	__try
+	{
+		SharedUserData->ProcessorFeatures[kProcessorFeatureVirtualFirmwareEnabled] = 0;
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER)
+	{
+		outFile("[警告][VMM上下文] 清除 PF_VIRT_FIRMWARE_ENABLED 共享缓存失败");
+	}
+	outFile("[信息][VMM上下文] Hypervisor 可见性：隐藏（CPUID/CR4 伪装生效）");
 
 	__cpuid((int*)&cpuid_reg.eax, 0); // 读取CPUID最高基础叶，便于后续能力判断
 	g_vmm_context.highest_basic_leaf = cpuid_reg.eax; // 缓存最高叶，避免反复执行CPUID

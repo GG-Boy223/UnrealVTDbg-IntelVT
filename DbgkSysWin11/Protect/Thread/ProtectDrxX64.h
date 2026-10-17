@@ -25,4 +25,10 @@ NTSTATUS NtSetContextThread(
 // __in PCONTEXT ThreadContext  /*此参数是用户层提供的缓冲区*/
 );
 
+NTSTATUS HvmNtSetInformationThread(
+    _In_ HANDLE ThreadHandle,
+    _In_ THREADINFOCLASS ThreadInformationClass,
+    _In_ PVOID ThreadInformation,
+    _In_ ULONG ThreadInformationLength);
+
 #endif
