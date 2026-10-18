@@ -328,4 +328,7 @@ struct __ept_state // EPT 状态（每 VCPU 一份）
     unsigned __int64 last_unhandled_ept_violation_guest_physical; // 最近一次未匹配 violation 的 GPA 页帧（低 12 位已清零，用于按页累计）
     unsigned __int64 last_unhandled_ept_violation_qualification; // 最近一次未匹配 violation 的 qualification（仅留作现场记录，不参与计数比较）
     unsigned __int64 last_unhandled_ept_violation_guest_rip; // 最近一次未匹配 violation 的 guest RIP（仅留作现场记录）
+    unsigned __int64 unimplemented_vmexit_count; // 连续未实现 VM-exit 次数；成功处理任一已实现退出后清零
+    unsigned __int64 last_unimplemented_vmexit_reason; // 最近一次未实现退出原因，用于诊断
+    unsigned __int64 last_unimplemented_vmexit_guest_rip; // 最近一次未实现退出的 guest RIP，用于诊断
 };

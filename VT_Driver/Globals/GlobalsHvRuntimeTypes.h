@@ -4,6 +4,7 @@
 
 namespace hv // Hypervisor 命名空间
 {
+    constexpr uint64_t kHostExceptionRecoveryMagic = 0x4856585245434F56ull; // 必须与 exception-routines.asm 保持一致
 
     struct trap_frame // 宿主中断 trap frame（汇编中构造）
     {
@@ -143,7 +144,14 @@ namespace hv // Hypervisor 命名空间
 
         // error code
         uint64_t error; // 异常错误码
+
+        // Safe wrappers set this marker immediately before the protected instruction.
+        // A host exception may only use r10/r11 as a recovery context when this marker
+        // matches and r11 points into the current vCPU host stack.
+        uint64_t recovery_magic; // 安全恢复点标记
     };
+    static_assert(FIELD_OFFSET(host_exception_info, recovery_magic) == 0x18,
+        "host exception recovery magic offset must match exception-routines.asm");
 
     struct host_page_tables // 宿主页表结构（直接映射物理内存）
     {

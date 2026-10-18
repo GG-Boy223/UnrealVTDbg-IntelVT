@@ -237,6 +237,7 @@ unhandled:
 	if (vcpu != nullptr && vcpu->ept_state != nullptr &&
 		self_heal_orphaned_ept_page(*vcpu->ept_state, guest_physical_adddress))
 	{
+		vcpu->ept_state->unhandled_ept_violation_count = 0;
 		_mm_mfence();
 		invept_single_context_func(vcpu->ept_state->ept_pointer->all);
 		return;
@@ -246,23 +247,12 @@ unhandled:
 	// 先刷新 EPT TLB,让硬件按当前页表状态重试,同时保留现场信息供后续诊断。
 	if (vcpu != nullptr && vcpu->ept_state != nullptr)
 	{
-		// 按 GPA 页帧累计（忽略页内偏移与 qualification）。
-		// 原实现要求「连续且完全相同」（GPA 与 qualification 都要逐位相等），因此只要来宾在两个
-		// GPA 之间交替触发未处理 violation，计数每次都被重置为 1，永远到不了上限。
-		// 此时没有任何一条指令会退休，来宾永远碰不到「可投递中断的指令边界」，
-		// 该处理器就在 root/guest 之间无限往返 —— 这是 0x101 CLOCK_WATCHDOG_TIMEOUT 的一条通路。
-		// 改为按页累计后，交替循环同样会被计入，最终收敛为一个带完整现场的可诊断致命错误，
-		// 而不是让处理器无解释地卡死。
+		// 连续未处理 violation 必须整体累计，不能因 GPA 变化而清零。
+		// 反例：来宾在 A/B 两个受限页之间交替访问时，按“最后 GPA 相同才累加”
+		// 仍会每次重置为 1，导致物理 CPU 在 root/guest 间永久零进展并触发 0x101。
+		// 这里只记录最后现场供诊断，限次计数由成功放行/自愈路径清零。
 		const unsigned __int64 guest_physical_page = guest_physical_adddress & ~0xFFFull;
-		if (vcpu->ept_state->last_unhandled_ept_violation_guest_physical == guest_physical_page)
-		{
-			++vcpu->ept_state->unhandled_ept_violation_count;
-		}
-		else
-		{
-			vcpu->ept_state->unhandled_ept_violation_count = 1;
-		}
-
+		++vcpu->ept_state->unhandled_ept_violation_count;
 		vcpu->ept_state->last_unhandled_ept_violation_guest_physical = guest_physical_page;
 		vcpu->ept_state->last_unhandled_ept_violation_qualification = ept_violation.all;
 		vcpu->ept_state->last_unhandled_ept_violation_guest_rip = vcpu->vmexit_info.guest_rip;
@@ -272,6 +262,7 @@ unhandled:
 			// 孤儿自愈未命中、且同一页连续重试达到上限：注入 #GP 给 guest，
 			// 让 guest 异常处理接管，避免同一条指令无限 violation -> 核困在 vmx-root -> 0x101。
 			// 这是 HvVmxCore/Ophion 式「推进 guest」兜底，比 DbgBreakPoint 崩溃更温和。
+			vcpu->ept_state->unhandled_ept_violation_count = 0;
 			hv::inject_interruption(
 				EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT,
 				INTERRUPT_TYPE_HARDWARE_EXCEPTION,
@@ -289,6 +280,10 @@ unhandled:
 	return;
 
 handled_return:
+	if (vcpu != nullptr && vcpu->ept_state != nullptr)
+	{
+		vcpu->ept_state->unhandled_ept_violation_count = 0;
+	}
 	if (hooked_function_info != nullptr)
 	{
 		ept::release_function_hot_reference(hooked_function_info);

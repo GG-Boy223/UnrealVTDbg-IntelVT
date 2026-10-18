@@ -22,7 +22,10 @@ namespace pool_manager
     {
         PLIST_ENTRY current = g_vmm_context.pool_manager->list_of_allocated_pools;
 
-        spinlock::lock(&g_vmm_context.pool_manager->lock_for_reading_pool);
+        KIRQL old_irql;
+        KeAcquireSpinLock(
+            &g_vmm_context.pool_manager->lock_for_reading_pool,
+            &old_irql);
 
         DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "-----------------------------------POOL MANAGER DUMP-----------------------------------\r\n");
 
@@ -40,6 +43,8 @@ namespace pool_manager
 
         DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "-----------------------------------POOL MANAGER DUMP-----------------------------------\r\n");
 
-        spinlock::unlock(&g_vmm_context.pool_manager->lock_for_reading_pool);
+        KeReleaseSpinLock(
+            &g_vmm_context.pool_manager->lock_for_reading_pool,
+            old_irql);
     }
 }

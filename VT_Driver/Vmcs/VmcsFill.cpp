@@ -43,14 +43,6 @@ void fill_vmcs(__vcpu* vcpu, void* guest_rsp) // 填充 VMCS
     {
         ept_vpid_cap = __readmsr(IA32_VMX_EPT_VPID_CAP);
     }
-
-    LogInfo("VMCS effective controls: pin=0x%llX primary=0x%llX secondary=0x%llX exit=0x%llX entry=0x%llX EPT_VPID_CAP=0x%llX",
-        vcpu->vmcs_effective_controls.pinbased,
-        vcpu->vmcs_effective_controls.primary,
-        vcpu->vmcs_effective_controls.secondary,
-        vcpu->vmcs_effective_controls.exit,
-        vcpu->vmcs_effective_controls.entry,
-        ept_vpid_cap);
     outFile("[信息][VMCS控制位] 硬件调整后的有效控制位：PIN=0x%llX PRIMARY=0x%llX SECONDARY=0x%llX EXIT=0x%llX ENTRY=0x%llX EPT_VPID_CAP=0x%llX",
         vcpu->vmcs_effective_controls.pinbased,
         vcpu->vmcs_effective_controls.primary,
@@ -131,7 +123,6 @@ void fill_vmcs(__vcpu* vcpu, void* guest_rsp) // 填充 VMCS
     if (effective_secondary.enable_ept == true)
     {
         hv::vmwrite(EPT_POINTER, vcpu->ept_state->ept_pointer->all); // 写入 EPTP
-        LogInfo("VMCS EPTP=0x%llX VPID=%s", vcpu->ept_state->ept_pointer->all, effective_secondary.enable_vpid ? "enabled" : "disabled");
         outFile("[成功][VMCS控制位] 已写入EPTP：EPTP=0x%llX VPID=%s",
             vcpu->ept_state->ept_pointer->all,
             effective_secondary.enable_vpid ? "已启用" : "未启用");

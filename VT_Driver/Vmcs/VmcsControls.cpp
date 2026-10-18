@@ -23,7 +23,7 @@ void set_entry_control(__vmx_entry_control& entry_control) // 设置 VM-entry �
     // 是否在 VM-entry 时加载 IA32_RTIT_CTL
     entry_control.load_ia32_rtit_ctl = false; // 未启用 PT 控制寄存器加载
     // 是否在 VM-entry 时加载 CET 相关 MSR/SSP
-    entry_control.load_cet_state = false; // 未启用 CET
+    entry_control.load_cet_state = false; // 不通过 VMCS 切换 CET 状态；Guest CET 由 GUEST_CR4 保留，root 不使用 shadow stack
     // 是否在 VM-entry 时加载 PKRS
     entry_control.load_pkrs = false; // 未启用 PKRS
 }
@@ -62,7 +62,7 @@ void set_exit_control(__vmx_exit_control& exit_control) // 设置 VM-exit 控制
     // VM-exit 时是否清除 IA32_RTIT_CTL
     exit_control.clear_ia32_rtit_ctl = false; // 不清除 PT 控制寄存器
     // VM-exit 时是否加载 CET 相关状态
-    exit_control.load_cet_state = false; // 未启用 CET
+    exit_control.load_cet_state = false; // 不加载宿主 CET；Host CR4 已清除 CET，避免继承 Guest shadow stack 状态
     // VM-exit 时是否加载 IA32_PKRS
     exit_control.load_pkrs = false; // 未启用 PKRS
 }

@@ -202,6 +202,12 @@ bool vmexit_handler(guest_context* guest_registers, PFXSAVE64 fxsave) // VM-exit
 	// ✅ P0-005 修复：完整读取 VM_EXIT_REASON，包括高位标志
 	unsigned __int64 exit_reason_raw = hv::vmread(VM_EXIT_REASON);
 	vcpu->vmexit_info.reason = exit_reason_raw & 0xffff; // 低 16 位是基础 exit reason，高位状态不参与 switch 分发。
+	if (vcpu->ept_state != nullptr &&
+		vcpu->vmexit_info.reason != VMX_EXIT_REASON_EPT_VIOLATION)
+	{
+		// 其他退出类型代表该 CPU 已离开 EPT violation 的近零进展循环。
+		vcpu->ept_state->unhandled_ept_violation_count = 0;
+	}
 	vcpu->vmexit_info.vmx_root_enter_tsc = telemetryStartTsc; // 记录进入 vmx-root 的 TSC，dump 定位挂起核。
 	vcpu->vmexit_info.vmx_root_active = 1; // 标记正在 vmx-root 处理本次 VM-exit。
 
@@ -262,6 +268,7 @@ void dispatch_vm_exit(__vcpu* vcpu) // 按 VM-exit 原因码分发，保持所�
 	hv::drain_pending_vm_entry_event(vcpu); // 队首事件优先恢复，确保同一 exit 内后续注入按 FIFO 排队。
 	reinject_idt_vectoring_event_if_needed(vcpu); // original-event 与 exiting-event 可同时有效，必须先恢复被打断的事件。
 
+	bool implemented_exit = true;
 	switch (vcpu->vmexit_info.reason) // 只按基础 reason 分发，具体访问方向/寄存器编号由 handler 解析 qualification。
 	{
 	case VMX_EXIT_REASON_EXCEPTION_OR_NMI:             vmexit_exception_or_nmi_handler(vcpu);     break; // 异常/NMI 退出：区分 NMI 队列和可重注入异常。
@@ -307,11 +314,34 @@ void dispatch_vm_exit(__vcpu* vcpu) // 按 VM-exit 原因码分发，保持所�
 
 	default:
 	{
+		implemented_exit = false;
+		if (vcpu->ept_state != nullptr)
+		{
+			++vcpu->ept_state->unimplemented_vmexit_count;
+			vcpu->ept_state->last_unimplemented_vmexit_reason =
+				vcpu->vmexit_info.reason;
+			vcpu->ept_state->last_unimplemented_vmexit_guest_rip =
+				vcpu->vmexit_info.guest_rip;
+			if (vcpu->ept_state->unimplemented_vmexit_count >= 64)
+			{
+				vmx_fatal_error(
+					vmx_fatal_unimplemented_vmexit_storm,
+					vcpu->vmexit_info.reason,
+					vcpu->vmexit_info.guest_rip);
+			}
+		}
 		//其他 vmexit：统一先注入 #GP，避免来宾继续执行未知指令/状态
 		sLog("reason: %d\n", vcpu->vmexit_info.reason); // 未实现 reason 必须记录，便于按硬件手册补齐新 exit。
 		hv::inject_interruption(EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT, INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, true); // 默认给 guest #GP(0)，避免静默继续导致状态错乱。
 		break; // 结束 default 分支，回到 VMRESUME 路径。
 	}
+	}
+
+	if (implemented_exit && vcpu->ept_state != nullptr)
+	{
+		vcpu->ept_state->unimplemented_vmexit_count = 0;
+		vcpu->ept_state->last_unimplemented_vmexit_reason = 0;
+		vcpu->ept_state->last_unimplemented_vmexit_guest_rip = 0;
 	}
 
 	if (!vcpu->vmx_off_state.vmx_off_executed)

@@ -2,6 +2,92 @@
 
 namespace pool_manager
 {
+    namespace
+    {
+        VOID PoolRefillWorker(_In_ PVOID StartContext)
+        {
+            __pool_manager* const manager =
+                static_cast<__pool_manager*>(StartContext);
+
+            for (;;)
+            {
+                LARGE_INTEGER timeout;
+                timeout.QuadPart = -100000; // 10 ms：发现 root 侧无事件提交的补池请求
+                KeWaitForSingleObject(
+                    &manager->refill_event,
+                    Executive,
+                    KernelMode,
+                    FALSE,
+                    &timeout);
+
+                if (InterlockedCompareExchange(
+                    &manager->refill_stop,
+                    1,
+                    1) != 0)
+                {
+                    break;
+                }
+
+                (void)perform_allocation();
+            }
+
+            PsTerminateSystemThread(STATUS_SUCCESS);
+        }
+
+        bool start_refill_worker(__pool_manager* manager)
+        {
+            HANDLE thread_handle = nullptr;
+            NTSTATUS status = PsCreateSystemThread(
+                &thread_handle,
+                THREAD_ALL_ACCESS,
+                nullptr,
+                nullptr,
+                nullptr,
+                PoolRefillWorker,
+                manager);
+            if (!NT_SUCCESS(status))
+            {
+                return false;
+            }
+
+            status = ObReferenceObjectByHandle(
+                thread_handle,
+                THREAD_ALL_ACCESS,
+                *PsThreadType,
+                KernelMode,
+                reinterpret_cast<PVOID*>(&manager->refill_thread),
+                nullptr);
+            if (!NT_SUCCESS(status))
+            {
+                InterlockedExchange(&manager->refill_stop, 1);
+                KeSetEvent(&manager->refill_event, IO_NO_INCREMENT, FALSE);
+                (void)ZwWaitForSingleObject(thread_handle, FALSE, nullptr);
+            }
+
+            ZwClose(thread_handle);
+            return NT_SUCCESS(status);
+        }
+
+        void stop_refill_worker(__pool_manager* manager)
+        {
+            if (manager->refill_thread == nullptr)
+            {
+                return;
+            }
+
+            InterlockedExchange(&manager->refill_stop, 1);
+            KeSetEvent(&manager->refill_event, IO_NO_INCREMENT, FALSE);
+            KeWaitForSingleObject(
+                manager->refill_thread,
+                Executive,
+                KernelMode,
+                FALSE,
+                nullptr);
+            ObDereferenceObject(manager->refill_thread);
+            manager->refill_thread = nullptr;
+        }
+    }
+
     /// Initalize pool manager struct and preallocate pools
     /// 初始化池管理器结构并预分配池
     /// </summary>
@@ -16,6 +102,12 @@ namespace pool_manager
             return false;
         }
         RtlSecureZeroMemory(g_vmm_context.pool_manager, sizeof(__pool_manager));
+        KeInitializeSpinLock(
+            &g_vmm_context.pool_manager->lock_for_reading_pool);
+        KeInitializeEvent(
+            &g_vmm_context.pool_manager->refill_event,
+            SynchronizationEvent,
+            FALSE);
 
         g_vmm_context.pool_manager->allocation_requests = ::allocate_pool<__request_new_allocation>();
         if (g_vmm_context.pool_manager->allocation_requests == nullptr)
@@ -62,12 +154,13 @@ namespace pool_manager
             goto failure;
         }
 
-        if (perform_allocation())
+        if (perform_allocation() &&
+            start_refill_worker(g_vmm_context.pool_manager))
         {
             return true;
         }
 
-        LogError("Pool manager perform allocation failed");
+        LogError("Pool manager allocation/refill worker initialization failed");
 
 failure:
         if (g_vmm_context.pool_manager != nullptr)
@@ -91,6 +184,8 @@ failure:
         {
             return;
         }
+
+        stop_refill_worker(g_vmm_context.pool_manager);
 
         if (g_vmm_context.pool_manager->list_of_allocated_pools != nullptr)
         {

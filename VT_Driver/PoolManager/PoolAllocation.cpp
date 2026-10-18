@@ -2,41 +2,17 @@
 
 namespace pool_manager
 {
-    bool requires_physical_page_alignment(allocation_intention intention)
-    {
-        return intention == INTENTION_SPLIT_PML2 ||
-            intention == INTENTION_TRACK_HOOKED_PAGES;
-    }
-
     namespace
     {
-        PLIST_ENTRY detach_pool_batch(PLIST_ENTRY list_head, PLIST_ENTRY first_inserted)
+        volatile LONG g_allocation_in_progress = 0;
+
+        void free_pool_batch(PLIST_ENTRY list_head)
         {
-            if (list_head == nullptr || first_inserted == nullptr)
+            while (!IsListEmpty(list_head))
             {
-                return nullptr;
-            }
-
-            // allocate_pool_entries() 每次把新节点追加在链表尾部,因此被隔离的一批
-            // 节点从 first_inserted 延续到链表尾。断开这段后再置空 Flink,后续释放
-            // 就能按普通单向链表遍历,不会又绕回链表头。
-            PLIST_ENTRY last_inserted = list_head->Blink;
-            PLIST_ENTRY previous = first_inserted->Blink;
-
-            previous->Flink = list_head;
-            list_head->Blink = previous;
-            last_inserted->Flink = nullptr;
-
-            return first_inserted;
-        }
-
-        void free_pool_batch(PLIST_ENTRY first)
-        {
-            while (first != nullptr)
-            {
+                PLIST_ENTRY entry = RemoveHeadList(list_head);
                 __pool_table* pool_table =
-                    CONTAINING_RECORD(first, __pool_table, pool_list);
-                PLIST_ENTRY next = first->Flink;
+                    CONTAINING_RECORD(entry, __pool_table, pool_list);
 
                 if (pool_table->physically_aligned)
                 {
@@ -47,10 +23,15 @@ namespace pool_manager
                     ::free_pool(pool_table->address);
                 }
                 ::free_pool(pool_table);
-
-                first = next;
             }
         }
+
+    }
+
+    bool requires_physical_page_alignment(allocation_intention intention)
+    {
+        return intention == INTENTION_SPLIT_PML2 ||
+            intention == INTENTION_TRACK_HOOKED_PAGES;
     }
 
     bool allocate_pool_entries(unsigned __int64 size, unsigned __int32 count, allocation_intention intention)
@@ -62,19 +43,16 @@ namespace pool_manager
             return false;
         }
 
-        PLIST_ENTRY list_head = g_vmm_context.pool_manager->list_of_allocated_pools;
-        PLIST_ENTRY first_inserted = nullptr;
+        LIST_ENTRY local_pools;
+        InitializeListHead(&local_pools);
 
-        spinlock::lock(&g_vmm_context.pool_manager->lock_for_reading_pool);
         for (unsigned int i = 0; i < count; i++)
         {
             __pool_table* single_pool = ::allocate_pool<__pool_table>();
             if (single_pool == nullptr)
             {
                 LogError("Memory allocation failed");
-                PLIST_ENTRY detached = detach_pool_batch(list_head, first_inserted);
-                spinlock::unlock(&g_vmm_context.pool_manager->lock_for_reading_pool);
-                free_pool_batch(detached);
+                free_pool_batch(&local_pools);
                 return false;
             }
             RtlSecureZeroMemory(single_pool, sizeof(__pool_table));
@@ -86,10 +64,8 @@ namespace pool_manager
             if (single_pool->address == nullptr)
             {
                 LogError("Memory allocation failed");
-                PLIST_ENTRY detached = detach_pool_batch(list_head, first_inserted);
-                spinlock::unlock(&g_vmm_context.pool_manager->lock_for_reading_pool);
-                free_pool_batch(detached);
                 ::free_pool(single_pool);
+                free_pool_batch(&local_pools);
                 return false;
             }
             RtlSecureZeroMemory(single_pool->address, size);
@@ -106,22 +82,32 @@ namespace pool_manager
                 if ((physical_address & (PAGE_SIZE - 1)) != 0)
                 {
                     LogError("Physically aligned pool allocation returned unaligned memory");
-                    PLIST_ENTRY detached = detach_pool_batch(list_head, first_inserted);
-                    spinlock::unlock(&g_vmm_context.pool_manager->lock_for_reading_pool);
-                    free_pool_batch(detached);
                     ::free_vmm_page_aligned(single_pool->address);
                     ::free_pool(single_pool);
+                    free_pool_batch(&local_pools);
                     return false;
                 }
             }
 
-            InsertTailList(g_vmm_context.pool_manager->list_of_allocated_pools, &(single_pool->pool_list));
-            if (first_inserted == nullptr)
-            {
-                first_inserted = &single_pool->pool_list;
-            }
+            InsertTailList(&local_pools, &(single_pool->pool_list));
         }
-        spinlock::unlock(&g_vmm_context.pool_manager->lock_for_reading_pool);
+
+        // ExAllocatePool / MmAllocateContiguousMemory 可能阻塞，绝不能持有全局池锁执行。
+        // 先在本地链构造完整批次，最后只在锁内发布节点；失败时本地批次整体释放。
+        KIRQL old_irql;
+        KeAcquireSpinLock(
+            &g_vmm_context.pool_manager->lock_for_reading_pool,
+            &old_irql);
+        while (!IsListEmpty(&local_pools))
+        {
+            PLIST_ENTRY entry = RemoveHeadList(&local_pools);
+            InsertTailList(
+                g_vmm_context.pool_manager->list_of_allocated_pools,
+                entry);
+        }
+        KeReleaseSpinLock(
+            &g_vmm_context.pool_manager->lock_for_reading_pool,
+            old_irql);
 
         return true;
     }
@@ -141,51 +127,90 @@ namespace pool_manager
             return false;
         }
 
-        spinlock::lock(&g_vmm_context.pool_manager->lock_for_request_allocation);
-        if (g_vmm_context.pool_manager->is_request_for_allocation_recived == false)
+        if (KeGetCurrentIrql() != PASSIVE_LEVEL ||
+            is_current_context_vmx_root())
         {
-            LogInfo("No pending allocations");
-            spinlock::unlock(&g_vmm_context.pool_manager->lock_for_request_allocation);
-            return status;
+            return false;
         }
 
-        for (unsigned __int64 i = 0; i < 10; i++)
+        if (InterlockedCompareExchange(
+            &g_allocation_in_progress,
+            1,
+            0) != 0)
         {
-            if (g_vmm_context.pool_manager->allocation_requests->size[i] != 0)
-            {
-                status = allocate_pool_entries
-                (
-                    g_vmm_context.pool_manager->allocation_requests->size[i],
-                    g_vmm_context.pool_manager->allocation_requests->count[i],
-                    g_vmm_context.pool_manager->allocation_requests->intention[i]
-                );
+            return false;
+        }
 
-                if (status == false)
+        for (;;)
+        {
+            __request_new_allocation request = {};
+            int request_index = -1;
+
+            for (unsigned __int64 i = 0; i < 10; ++i)
+            {
+                if (InterlockedCompareExchange(
+                    &g_vmm_context.pool_manager->allocation_requests->state[i],
+                    REQUEST_SLOT_ALLOCATING,
+                    REQUEST_SLOT_READY) == REQUEST_SLOT_READY)
                 {
-                    LogError("Pool manager allocate and add to pool table failed");
+                    request.size[0] =
+                        g_vmm_context.pool_manager->allocation_requests->size[i];
+                    request.count[0] =
+                        g_vmm_context.pool_manager->allocation_requests->count[i];
+                    request.intention[0] =
+                        g_vmm_context.pool_manager->allocation_requests->intention[i];
+                    request_index = static_cast<int>(i);
                     break;
                 }
-
-                g_vmm_context.pool_manager->allocation_requests->size[i] = 0;
-                g_vmm_context.pool_manager->allocation_requests->count[i] = 0;
-                g_vmm_context.pool_manager->allocation_requests->intention[i] = INTENTION_NONE;
-
-                LogInfo("Allocation successful");
             }
+
+            if (request_index < 0)
+            {
+                break;
+            }
+
+            if (!allocate_pool_entries(
+                request.size[0],
+                request.count[0],
+                request.intention[0]))
+            {
+                LogError("Pool manager allocate and add to pool table failed");
+                status = false;
+                g_vmm_context.pool_manager->allocation_requests->size[request_index] = 0;
+                g_vmm_context.pool_manager->allocation_requests->count[request_index] = 0;
+                g_vmm_context.pool_manager->allocation_requests->intention[request_index] =
+                    INTENTION_NONE;
+                InterlockedExchange(
+                    &g_vmm_context.pool_manager->allocation_requests->state[request_index],
+                    REQUEST_SLOT_FREE);
+                break;
+            }
+
+            g_vmm_context.pool_manager->allocation_requests->size[request_index] = 0;
+            g_vmm_context.pool_manager->allocation_requests->count[request_index] = 0;
+            g_vmm_context.pool_manager->allocation_requests->intention[request_index] =
+                INTENTION_NONE;
+            InterlockedExchange(
+                &g_vmm_context.pool_manager->allocation_requests->state[request_index],
+                REQUEST_SLOT_FREE);
+            LogInfo("Allocation successful");
         }
 
-        bool has_pending_allocation = false;
+        bool pending = false;
         for (unsigned __int64 i = 0; i < 10; ++i)
         {
-            if (g_vmm_context.pool_manager->allocation_requests->size[i] != 0)
+            if (g_vmm_context.pool_manager->allocation_requests->state[i] !=
+                REQUEST_SLOT_FREE)
             {
-                has_pending_allocation = true;
+                pending = true;
                 break;
             }
         }
-        g_vmm_context.pool_manager->is_request_for_allocation_recived = has_pending_allocation;
-        spinlock::unlock(&g_vmm_context.pool_manager->lock_for_request_allocation);
+        InterlockedExchange(
+            &g_vmm_context.pool_manager->is_request_for_allocation_recived,
+            pending ? 1 : 0);
 
+        InterlockedExchange(&g_allocation_in_progress, 0);
         return status;
     }
 }

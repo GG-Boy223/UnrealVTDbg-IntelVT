@@ -72,11 +72,16 @@ void fill_vmcs_guest_fields(__vcpu* vcpu, void* guest_rsp) // 填充来宾字段
     vcpu->cr3_target_cursor = 0;
     hv::vmwrite<unsigned __int64>(GUEST_CR4, __readcr4()); // 来宾 CR4
     hv::vmwrite<unsigned __int64>(CR4_READ_SHADOW, __readcr4() & ~0x2000); // CR4 影子值（屏蔽 VMXE）
-    // 监视 VMXE 与 LA57。当前来宾地址翻译和 Host 页表均为 4 级；
-    // 若来宾尝试开启 LA57，必须进入 mov_to_cr4_handler 按现有规则拒绝。
+    // 只拦截需要 VMM 主动维护的位：VMXE 必须对 guest 隐藏，LA57 当前 Host
+    // 页表不支持，PCIDE 切换需要同步 TLB 失效。CET/PKS 没有独立的 VMCS
+    // 状态切换，必须由硬件透传；在这里 Trap 后再拒绝 PKS，会把真实 CPU
+    // 支持的功能变成 guest #GP，与透明虚拟化语义冲突。
     constexpr unsigned __int64 cr4_vmxe_bit = 1ull << 13;
     constexpr unsigned __int64 cr4_la57_bit = 1ull << 12;
-    hv::vmwrite<unsigned __int64>(CR4_GUEST_HOST_MASK, cr4_vmxe_bit | cr4_la57_bit);
+    constexpr unsigned __int64 cr4_pcid_bit = 1ull << 17;
+    hv::vmwrite<unsigned __int64>(
+        CR4_GUEST_HOST_MASK,
+        cr4_vmxe_bit | cr4_la57_bit | cr4_pcid_bit);
 
     // 写入来宾调试寄存器
     // GUEST_DR7 必须剔除 GD 与保留位：VM-entry 会把它载入物理 DR7（load debug controls=1），

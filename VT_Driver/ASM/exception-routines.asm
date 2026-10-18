@@ -1,10 +1,14 @@
 .code
 
+HOST_EXCEPTION_RECOVERY_MAGIC equ 4856585245434F56h
+
 public memcpy_safe
 
 memcpy_safe proc
   mov r10, ehandler
   mov r11, rcx
+  mov rax, HOST_EXCEPTION_RECOVERY_MAGIC
+  mov qword ptr [r11 + 18h], rax
   mov byte ptr [rcx], 0
 
   ; store RSI and RDI
@@ -18,6 +22,7 @@ memcpy_safe proc
   rep movsb
 
 ehandler:
+  mov qword ptr [r11 + 18h], 0
   ; restore RDI and RSI
   pop rdi
   pop rsi
@@ -28,6 +33,8 @@ memcpy_safe endp
 xsetbv_safe proc
   mov r10, ehandler
   mov r11, rcx
+  mov rax, HOST_EXCEPTION_RECOVERY_MAGIC
+  mov qword ptr [r11 + 18h], rax
   mov byte ptr [rcx], 0
 
   ; idx
@@ -43,12 +50,15 @@ xsetbv_safe proc
   xsetbv
 
 ehandler:
+  mov qword ptr [r11 + 18h], 0
   ret
 xsetbv_safe endp
 
 wrmsr_safe proc
   mov r10, ehandler
   mov r11, rcx
+  mov rax, HOST_EXCEPTION_RECOVERY_MAGIC
+  mov qword ptr [r11 + 18h], rax
   mov byte ptr [rcx], 0
 
   ; msr
@@ -62,12 +72,15 @@ wrmsr_safe proc
   wrmsr
 
 ehandler:
+  mov qword ptr [r11 + 18h], 0
   ret
 wrmsr_safe endp
 
 rdmsr_safe proc
   mov r10, ehandler
   mov r11, rcx
+  mov rax, HOST_EXCEPTION_RECOVERY_MAGIC
+  mov qword ptr [r11 + 18h], rax
   mov byte ptr [rcx], 0
 
   ; msr
@@ -83,6 +96,7 @@ rdmsr_safe proc
   or rax, rdx
 
 ehandler:
+  mov qword ptr [r11 + 18h], 0
   ret
 rdmsr_safe endp
 

@@ -6,6 +6,7 @@
 #include "vmexit_handler.h"
 #include "idt.h"
 #include "Interrupts/NmiBroadcast.h"
+#include "../VmExit/VmxFatal.h"
 
 namespace hv
 {
@@ -57,6 +58,24 @@ namespace hv
 		idt[30] = create_interrupt_gate(interrupt_handler_30);
 	}
 
+	static bool is_valid_host_exception_recovery(trap_frame const* const frame, __vcpu* const cpu)
+	{
+		if (frame == nullptr || cpu == nullptr || frame->r10 == 0 || frame->r11 == 0) {
+			return false;
+		}
+
+		const auto stack_begin = reinterpret_cast<uintptr_t>(cpu->host_stack);
+		const auto stack_end = stack_begin + sizeof(cpu->host_stack);
+		const auto info_address = static_cast<uintptr_t>(frame->r11);
+		if (info_address < stack_begin ||
+			info_address > stack_end - sizeof(host_exception_info)) {
+			return false;
+		}
+
+		const auto info = reinterpret_cast<host_exception_info*>(info_address);
+		return info->recovery_magic == kHostExceptionRecoveryMagic;
+	}
+
 	// called for every host interrupt
 	EXTERN_C
 	void handle_host_interrupt(trap_frame* const frame) {
@@ -86,11 +105,12 @@ namespace hv
 		}				
 		default: {  // host exceptions
 			// no registered exception handler
-			if (!frame->r10 || !frame->r11) {
+			auto const cpu = reinterpret_cast<__vcpu*>(_readfsbase_u64());
+			if (!is_valid_host_exception_recovery(frame, cpu)) {
 				// 没有r10/r11安全恢复点时，说明异常发生在未受保护的VMX root路径。
 				// 这里不能随意跳过指令或伪造返回地址，否则会破坏VMCS/栈/寄存器状态并造成更隐蔽的数据损坏。
-				// 因此保留原来的强制失败策略，但先写入每CPU快照，下一次VTLoad.log/调试器可定位Host异常来源。
-				auto const cpu = reinterpret_cast<__vcpu*>(_readfsbase_u64());
+				// 因此先用每CPU快照记录来源，再走受控的 VMX fatal BugCheck；不使用伪造 IDT 的
+				// iretq 自旋，否则会把 guest r10/r11 当成恢复点并造成 #PF/#GP 风暴。
 				if (cpu != nullptr) {
 					++cpu->host_exception_snapshot.count;
 					cpu->host_exception_snapshot.vector = frame->vector;
@@ -102,17 +122,17 @@ namespace hv
 				//HV_LOG_ERROR("Unhandled exception. RIP=hv.sys+%p. Vector=%u.",
 				//	frame->rip - reinterpret_cast<UINT64>(&__ImageBase), frame->vector);
 
-				// ensure a triple-fault
-				segment_descriptor_register_64 idtr;
-				idtr.base_address = frame->rsp;
-				idtr.limit = 0xFFF;
-				__lidt(&idtr);
-
-				break;
+				vmx_fatal_error(
+					vmx_fatal_unhandled_host_exception,
+					frame->vector,
+					frame->rip);
 			}
 
 			//HV_LOG_HOST_EXCEPTION("Handling host exception. RIP=hv.sys+%p. Vector=%u",
 			//frame->rip - reinterpret_cast<UINT64>(&__ImageBase), frame->vector);
+
+			auto const fault_rip = frame->rip;
+			auto const fault_rsp = frame->rsp;
 
 			// jump to the exception handler
 			frame->rip = frame->r10;
@@ -122,21 +142,21 @@ namespace hv
 			e->exception_occurred = true;
 			e->vector = frame->vector;
 			e->error = frame->error;
+			e->recovery_magic = 0;
 
 			// 已注册恢复点的异常属于rdmsr/wrmsr/xsetbv/memcpy等可预期探测失败。
 			// 同步记录快照，便于区分“可恢复指令异常”和真正未处理Host异常。
-			auto const cpu = reinterpret_cast<__vcpu*>(_readfsbase_u64());
 			if (cpu != nullptr) {
 				++cpu->host_exception_snapshot.count;
 				cpu->host_exception_snapshot.vector = frame->vector;
 				cpu->host_exception_snapshot.error = frame->error;
-				cpu->host_exception_snapshot.rip = frame->rip;
-				cpu->host_exception_snapshot.rsp = frame->rsp;
+				cpu->host_exception_snapshot.rip = fault_rip;
+				cpu->host_exception_snapshot.rsp = fault_rsp;
 			}
 
-			// slightly helps prevent infinite exceptions
-			frame->r10 = 0;
-			frame->r11 = 0;
+			// The recovery label still owns R11 to clear the magic after IRET.
+			// The magic was cleared above, so a fault at the recovery label
+			// cannot re-enter this path indefinitely.
 		}
 		}
 	}

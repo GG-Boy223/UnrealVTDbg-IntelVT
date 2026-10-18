@@ -61,6 +61,7 @@ namespace
 		case vmx_fatal_unhandled_ept_violation:
 		case vmx_fatal_ept_misconfiguration:
 		case vmx_fatal_vm_entry_event_queue_overflow:
+		case vmx_fatal_unimplemented_vmexit_storm:
 			return true;
 		default:
 			return false;
@@ -168,6 +169,45 @@ void vmx_fatal_error(
 			(void)try_vmread(GUEST_RIP, &snapshot.guest_rip);
 			(void)try_vmread(GUEST_RSP, &snapshot.guest_rsp);
 			(void)try_vmread(GUEST_CR3, &snapshot.guest_cr3);
+			(void)try_vmread(GUEST_RFLAGS, &snapshot.guest_rflags);
+			(void)try_vmread(GUEST_ACTIVITY_STATE, &snapshot.guest_activity_state);
+			(void)try_vmread(GUEST_INTERRUPTIBILITY_STATE, &snapshot.guest_interruptibility_state);
+			(void)try_vmread(GUEST_PENDING_DEBUG_EXCEPTION, &snapshot.guest_pending_debug_exception);
+			(void)try_vmread(GUEST_CR0, &snapshot.guest_cr0);
+			(void)try_vmread(GUEST_CR4, &snapshot.guest_cr4);
+			(void)try_vmread(GUEST_CS_SELECTOR, &snapshot.guest_cs_selector);
+			(void)try_vmread(GUEST_SS_SELECTOR, &snapshot.guest_ss_selector);
+			(void)try_vmread(GUEST_TR_SELECTOR, &snapshot.guest_tr_selector);
+			(void)try_vmread(GUEST_LDTR_SELECTOR, &snapshot.guest_ldtr_selector);
+			(void)try_vmread(GUEST_CS_BASE, &snapshot.guest_cs_base);
+			(void)try_vmread(GUEST_SS_BASE, &snapshot.guest_ss_base);
+			(void)try_vmread(GUEST_TR_BASE, &snapshot.guest_tr_base);
+			(void)try_vmread(GUEST_LDTR_BASE, &snapshot.guest_ldtr_base);
+			(void)try_vmread(GUEST_GDTR_BASE, &snapshot.guest_gdtr_base);
+			(void)try_vmread(GUEST_GDTR_LIMIT, &snapshot.guest_gdtr_limit);
+			(void)try_vmread(GUEST_IDTR_BASE, &snapshot.guest_idtr_base);
+			(void)try_vmread(GUEST_IDTR_LIMIT, &snapshot.guest_idtr_limit);
+			(void)try_vmread(GUEST_CS_LIMIT, &snapshot.guest_cs_limit);
+			(void)try_vmread(GUEST_SS_LIMIT, &snapshot.guest_ss_limit);
+			(void)try_vmread(GUEST_TR_LIMIT, &snapshot.guest_tr_limit);
+			(void)try_vmread(GUEST_LDTR_LIMIT, &snapshot.guest_ldtr_limit);
+			(void)try_vmread(GUEST_CS_ACCESS_RIGHTS, &snapshot.guest_cs_access_rights);
+			(void)try_vmread(GUEST_SS_ACCESS_RIGHTS, &snapshot.guest_ss_access_rights);
+			(void)try_vmread(GUEST_TR_ACCESS_RIGHTS, &snapshot.guest_tr_access_rights);
+			(void)try_vmread(GUEST_LDTR_ACCESS_RIGHTS, &snapshot.guest_ldtr_access_rights);
+			(void)try_vmread(CR0_READ_SHADOW, &snapshot.cr0_read_shadow);
+			(void)try_vmread(CR4_READ_SHADOW, &snapshot.cr4_read_shadow);
+			(void)try_vmread(GUEST_EFER, &snapshot.guest_efer);
+			(void)try_vmread(GUEST_PAT, &snapshot.guest_pat);
+			(void)try_vmread(GUEST_DEBUG_CONTROL, &snapshot.guest_debug_control);
+			(void)try_vmread(GUEST_DR7, &snapshot.guest_dr7);
+			(void)try_vmread(GUEST_S_CET, &snapshot.guest_s_cet);
+			(void)try_vmread(GUEST_SSP, &snapshot.guest_ssp);
+			(void)try_vmread(GUEST_INTERRUPT_SSP_TABLE_ADDR, &snapshot.guest_interrupt_ssp_table);
+			(void)try_vmread(VM_ENTRY_CONTROLS, &snapshot.vm_entry_controls);
+			(void)try_vmread(VM_ENTRY_INTERRUPTION_INFO_FIELD, &snapshot.vm_entry_interruption_info);
+			(void)try_vmread(VM_ENTRY_EXCEPTION_ERROR_CODE, &snapshot.vm_entry_exception_error_code);
+			(void)try_vmread(VM_ENTRY_INSTRUCTION_LENGTH, &snapshot.vm_entry_instruction_length);
 		}
 	}
 

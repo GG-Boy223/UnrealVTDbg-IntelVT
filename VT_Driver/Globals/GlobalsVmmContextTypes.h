@@ -140,6 +140,45 @@ struct __vcpu // 每逻辑 CPU 的 VMM 状态
         unsigned __int64 guest_rip; // 尽力读取的Guest RIP
         unsigned __int64 guest_rsp; // 尽力读取的Guest RSP
         unsigned __int64 guest_cr3; // 尽力读取的Guest CR3
+        unsigned __int64 guest_rflags; // Guest RFLAGS
+        unsigned __int64 guest_activity_state; // Guest activity state
+        unsigned __int64 guest_interruptibility_state; // Guest interruptibility state
+        unsigned __int64 guest_pending_debug_exception; // Guest pending debug exception
+        unsigned __int64 guest_cr0; // Guest CR0
+        unsigned __int64 guest_cr4; // Guest CR4
+        unsigned __int64 guest_cs_selector; // Guest CS selector
+        unsigned __int64 guest_ss_selector; // Guest SS selector
+        unsigned __int64 guest_tr_selector; // Guest TR selector
+        unsigned __int64 guest_ldtr_selector; // Guest LDTR selector
+        unsigned __int64 guest_cs_base; // Guest CS base
+        unsigned __int64 guest_ss_base; // Guest SS base
+        unsigned __int64 guest_tr_base; // Guest TR base
+        unsigned __int64 guest_ldtr_base; // Guest LDTR base
+        unsigned __int64 guest_gdtr_base; // Guest GDTR base
+        unsigned __int64 guest_gdtr_limit; // Guest GDTR limit
+        unsigned __int64 guest_idtr_base; // Guest IDTR base
+        unsigned __int64 guest_idtr_limit; // Guest IDTR limit
+        unsigned __int64 guest_cs_limit; // Guest CS limit
+        unsigned __int64 guest_ss_limit; // Guest SS limit
+        unsigned __int64 guest_tr_limit; // Guest TR limit
+        unsigned __int64 guest_ldtr_limit; // Guest LDTR limit
+        unsigned __int64 guest_cs_access_rights; // Guest CS access rights
+        unsigned __int64 guest_ss_access_rights; // Guest SS access rights
+        unsigned __int64 guest_tr_access_rights; // Guest TR access rights
+        unsigned __int64 guest_ldtr_access_rights; // Guest LDTR access rights
+        unsigned __int64 cr0_read_shadow; // CR0 read shadow
+        unsigned __int64 cr4_read_shadow; // CR4 read shadow
+        unsigned __int64 guest_efer; // Guest EFER
+        unsigned __int64 guest_pat; // Guest PAT
+        unsigned __int64 guest_debug_control; // Guest debug control
+        unsigned __int64 guest_dr7; // Guest DR7
+        unsigned __int64 guest_s_cet; // Guest S_CET
+        unsigned __int64 guest_ssp; // Guest SSP
+        unsigned __int64 guest_interrupt_ssp_table; // Guest interrupt SSP table
+        unsigned __int64 vm_entry_controls; // VM-entry controls
+        unsigned __int64 vm_entry_interruption_info; // VM-entry interruption info
+        unsigned __int64 vm_entry_exception_error_code; // VM-entry exception error code
+        unsigned __int64 vm_entry_instruction_length; // VM-entry instruction length
     }fatal_vmx_snapshot;
 
     struct __vcpu_status

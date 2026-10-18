@@ -74,8 +74,6 @@ void emulate_lmsw(__vcpu* vcpu, uint16_t const value) // vcpu=当前虚拟CPU状
 //处理 MOV 到 CR0：严格校验组合合法性，必要时同步 EPT 内存类型，并更新真实 CR0 与读影子
 bool mov_to_cr0_handler(__vcpu* vcpu, unsigned __int64 guest_cr0) // vcpu=当前虚拟CPU状态；guest_cr0=来宾请求写入的 CR0 原始值
 {
-	sLog("\n"); // 原理：记录日志用于调试；作用：保持现有日志风格；结果：不改变来宾状态
-
 	// 原理：使用 union 复用同一段 64 位数据；作用：可按 CR0/CR3/CR4 不同视图解释；结果：便于按位解析
 	union
 	{
@@ -87,15 +85,16 @@ bool mov_to_cr0_handler(__vcpu* vcpu, unsigned __int64 guest_cr0) // vcpu=当前
 
 	cr_registers.cr0.all = guest_cr0; // 原理：把原始值解释为 CR0 位域；作用：拆分 guest_cr0；结果：cr_registers.cr0 可直接访问
 
-	auto const curr_cr0 = hv::read_effective_guest_cr0(); // 原理：读取当前有效 CR0；作用：用于比较变化与依赖；结果：curr_cr0 就绪
-	auto const curr_cr4 = hv::read_effective_guest_cr4(); // 原理：部分 CR0 位与 CR4 有依赖；作用：辅助校验；结果：curr_cr4 就绪
+	auto const curr_cr0 = hv::read_effective_guest_cr0(); 
 
-	// 原理：下列组合在硬件上非法或本实现不支持；作用：提前拦截；结果：非法则注入 #GP
-	if ((cr_registers.cr0.paging_enable == 0) || // 原理：此实现要求分页保持开启；作用：阻止关闭 PG；结果：PG=0 视为非法
-		(cr_registers.cr0.paging_enable && !cr_registers.cr0.protection_enable) || // 原理：PG=1 但 PE=0 违反硬件规则；作用：检测非法组合；结果：触发 #GP
-		(!cr_registers.cr0.cache_disable && cr_registers.cr0.not_write_through) || // 原理：NW=1 必须同时 CD=1；作用：检测缓存位冲突；结果：触发 #GP
-		(!cr_registers.cr0.write_protect && curr_cr4.control_flow_enforcement_enable) || // 原理：CET 需要 CR0.WP=1；作用：检测依赖关系；结果：违规则 #GP
-		(cr_registers.cr0.all & 0xFFFFFFFF00000000)) // 原理：高 32 位为保留位；作用：检测保留位是否被置 1；结果：非法则 #GP
+	// Intel CR4.CET 规则：CET=1 时必须保持 CR0.WP=1，清除 WP 前必须先清除 CET。
+	// 因此 MOV CR0 在 CET=1 时清除 WP 必须注入 #GP，不能把非法 guest state
+	auto const curr_cr4 = hv::read_effective_guest_cr4();
+	if ((cr_registers.cr0.paging_enable == 0) || 
+		(cr_registers.cr0.paging_enable && !cr_registers.cr0.protection_enable) || 
+		(!cr_registers.cr0.cache_disable && cr_registers.cr0.not_write_through) || 
+		(!cr_registers.cr0.write_protect && curr_cr4.control_flow_enforcement_enable) || 
+		(cr_registers.cr0.all & 0xFFFFFFFF00000000))
 	{
 		hv::inject_interruption(EXCEPTION_VECTOR_GENERAL_PROTECTION_FAULT,
 			INTERRUPT_TYPE_HARDWARE_EXCEPTION, 0, true);

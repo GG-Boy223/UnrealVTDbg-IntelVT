@@ -19,15 +19,26 @@ namespace pool_manager
         unsigned __int64 size[10];
         unsigned __int32 count[10];
         allocation_intention intention[10];
+        volatile LONG state[10]; // 0=free, 1=publishing, 2=ready, 3=allocating
+    };
+
+    enum request_slot_state : LONG
+    {
+        REQUEST_SLOT_FREE = 0,
+        REQUEST_SLOT_PUBLISHING = 1,
+        REQUEST_SLOT_READY = 2,
+        REQUEST_SLOT_ALLOCATING = 3
     };
 
     struct __pool_manager
     {
         __request_new_allocation* allocation_requests;
         PLIST_ENTRY list_of_allocated_pools;  //已分配池列表
-        volatile long lock_for_request_allocation;
-        volatile long lock_for_reading_pool;
-        bool is_request_for_allocation_recived;
+        KSPIN_LOCK lock_for_reading_pool;
+        volatile long is_request_for_allocation_recived;
+        KEVENT refill_event; // 非 root 系统线程的补池唤醒事件
+        PETHREAD refill_thread; // 持有对象引用，卸载时可等待线程退出
+        volatile long refill_stop;
     };
 
     struct __pool_table
@@ -78,6 +89,9 @@ namespace pool_manager
     /// <returns></returns>
     bool perform_allocation();
 
+    // 当前执行上下文是否处于 VMX root；root 内不得调用阻塞型内存分配。
+    bool is_current_context_vmx_root();
+
     /// <summary>
     /// Returns pre allocated pool and request new one for allocation
     /// </summary>
@@ -97,7 +111,8 @@ namespace pool_manager
 		{
 			current = g_vmm_context.pool_manager->list_of_allocated_pools;
 
-			spinlock::lock(&g_vmm_context.pool_manager->lock_for_reading_pool);
+			KIRQL old_irql;
+			KeAcquireSpinLock(&g_vmm_context.pool_manager->lock_for_reading_pool, &old_irql);
 
 			while (g_vmm_context.pool_manager->list_of_allocated_pools != current->Flink)
 			{
@@ -117,7 +132,7 @@ namespace pool_manager
 				}
 			}
 
-			spinlock::unlock(&g_vmm_context.pool_manager->lock_for_reading_pool);
+			KeReleaseSpinLock(&g_vmm_context.pool_manager->lock_for_reading_pool, old_irql);
 		};
 
 		scan_for_pool();
@@ -130,14 +145,19 @@ namespace pool_manager
 		if (new_pool == true &&
 			address == nullptr)
 		{
-			// 只在 PASSIVE_LEVEL（初始化/IOCTL 等非 VM-exit 上下文）同步补充池。
-			// VM-exit/VMCALL 热路径处于 vmx-root 且 IF=0，DISPATCH_LEVEL 下同步执行
-			// ExAllocatePoolWithTag/MmAllocateContiguousMemory 会长时间关闭中断，
-			// 放大 0x101 风险；此时直接让调用方看到资源耗尽并失败，不在这里阻塞。
-			if (KeGetCurrentIrql() == PASSIVE_LEVEL)
+			// 仅 PASSIVE 且不在 VMX root 时允许同步补池。VMCALL 在来宾 PASSIVE
+			// 发起时，IRQL 仍然是 PASSIVE，但 CPU 已处于 IF=0 的 VMX root；
+			// 此时同步分配会让整个物理处理器无法响应时钟中断。
+			if (KeGetCurrentIrql() == PASSIVE_LEVEL &&
+				!is_current_context_vmx_root())
 			{
 				(void)request_allocation(size, 1, intention);
 				(void)perform_allocation();
+			}
+			else
+			{
+				// root 只登记请求，由 PASSIVE 系统线程在非 root 上下文补池。
+				(void)request_allocation(size, 1, intention);
 			}
 			scan_for_pool();
 		}
