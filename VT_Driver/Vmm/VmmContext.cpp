@@ -321,20 +321,13 @@ bool allocate_vmm_context() // 初始化全局VMM资源，包含每核VCPU与EPT
 	g_vmm_context.hv_presence = false;
 
 	// Windows 的 IsProcessorFeaturePresent(PF_VIRT_FIRMWARE_ENABLED) 会读取
-	// KUSER_SHARED_DATA.ProcessorFeatures[21]，该位在系统启动时已由真实 CPUID 初始化，
-	// 不会因运行时 VM-exit 屏蔽 CPUID.01H:ECX.VMX 自动回退。WDM 在 x64 上通过
-	// KI_USER_SHARED_DATA 内核别名访问该页，因此这里清除缓存位，保持 CPUID/MSR/CR4
-	// 与共享用户数据对 hypervisor 的可见性一致。
-	constexpr ULONG kProcessorFeatureVirtualFirmwareEnabled = 21;
-	__try
-	{
-		SharedUserData->ProcessorFeatures[kProcessorFeatureVirtualFirmwareEnabled] = 0;
-	}
-	__except (EXCEPTION_EXECUTE_HANDLER)
-	{
-		outFile("[警告][VMM上下文] 清除 PF_VIRT_FIRMWARE_ENABLED 共享缓存失败");
-	}
-	outFile("[信息][VMM上下文] Hypervisor 可见性：隐藏（CPUID/CR4 伪装生效）");
+	// KUSER_SHARED_DATA.ProcessorFeatures[21]。这里绝不能直接写该共享页：
+	// 在 Windows 11 26100 上，该页内核别名（0xFFFFF780`00000000）的系统 PTE
+	// 为 not-present/只读，写入会触发 PAGE_FAULT_IN_NONPAGED_AREA(0x50)。
+	// 系统地址空间的缺页由 MiSystemFault 直接 KeBugCheckEx，__try/__except 无法拦截
+	// （与 docs/18 的结论一致），所以连"先探测再写"都不成立。
+	// 改为只依赖 CPUID/MSR/CR4 层伪装，不再触碰共享用户数据。
+	outFile("[信息][VMM上下文] Hypervisor 可见性：隐藏（CPUID/CR4 伪装生效，共享页写入已禁用）");
 
 	__cpuid((int*)&cpuid_reg.eax, 0); // 读取CPUID最高基础叶，便于后续能力判断
 	g_vmm_context.highest_basic_leaf = cpuid_reg.eax; // 缓存最高叶，避免反复执行CPUID
